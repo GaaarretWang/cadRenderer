@@ -127,37 +127,30 @@ private:
     std::vector<uint32_t> mMatIndex{};
     std::unordered_map<std::string, uint32_t> uniqueMaterials; //pos,normal,uv...
 
-    std::unordered_map<std::string, uint32_t> protoIndex;
-    std::unordered_map<std::string, uint32_t> protoTriangleNum;
-    std::unordered_map<int, uint32_t> materialIndex;
-    std::unordered_map<std::string, int> instanceIndex;                                 //flatbuffer instanceID, i
-    std::unordered_map<std::string, treeNode> nodePtr;        //��¼ID��Ӧ�Ľڵ�
-    std::unordered_set<std::string> added;                                              //��¼���ӵ����еĽڵ�
-    flatbuffers::FlatBufferBuilder builder_out;
 public:
     int Nodenumber;
     int Triangnumber;
+
+    flatbuffers::FlatBufferBuilder builder_out;
+    std::unordered_map<std::string, uint32_t> protoIndex;
+    std::unordered_map<std::string, uint32_t> protoTriangleNum;
+    std::unordered_map<int, uint32_t> materialIndex;
+    // std::unordered_map<std::string, int> instanceIndex;     
+    // std::unordered_map<std::string, treeNode> nodePtr;        //
 
     std::vector<vsg::ref_ptr<vsg::vec3Array>> verticesVector;
     std::vector<vsg::ref_ptr<vsg::vec3Array>> normalsVector;
     std::vector<vsg::ref_ptr<vsg::vec2Array>> coordinatesVector;
     std::vector<vsg::ref_ptr<vsg::uintArray>> indicesVector;
-    
-
-    vsg::ref_ptr<vsg::StateGroup> stateGroup_total = vsg::StateGroup::create();
-    
+        
     //����ģ��
-    void buildnode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
+    // void buildnode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, vsg::ref_ptr<vsg::ImageInfo>* imageInfos, vsg::ref_ptr<vsg::Data> real_color, vsg::ref_ptr<vsg::Data> real_depth);
     void buildPlaneNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void buildObjNode(const char* path, const char* material_path, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void transferModel(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
-    void buildInstance(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
+    // void buildInstance(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
 
-    void explode();
-    void recover();
-
-    //������ɫ��
-    vsg::ref_ptr<vsg::ShaderSet> buildShader(std::string vert, std::string frag);
-    vsg::ref_ptr<vsg::ShaderSet> buildIntgShader(std::string vert, std::string frag);
+    // void explode();
+    // void recover();
 };

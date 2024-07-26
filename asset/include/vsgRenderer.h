@@ -1,9 +1,10 @@
-#include <CADMesh.h>
+// #include <CADMesh.h>
 #include <iostream>
 #include <screenshot.h>
 #include <vsg/all.h>
 #include "convertPng.h"
-
+#include "ConfigShader.h"
+#include "ModelInstance.h"
 simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
 #ifdef vsgXchange_FOUND
@@ -139,13 +140,13 @@ public:
         double nearFarRatio = 0.0001;       //近平面和远平面之间的比例
         auto numShadowMapsPerLight = 10; //每个光源的阴影贴图数量
         auto numLights = 2;                //光源数量
-        std::cout << project_path + "asset/data/shaders/standard.vert" << std::endl;
+
         //-----------------------------------------设置shader------------------------------------//
-        CADMesh cad;
-        vsg::ref_ptr<vsg::ShaderSet> phongShader = cad.buildShader(project_path + "asset/data/shaders/standard.vert", project_path + "asset/data/shaders/standard_phong.frag");
-        vsg::ref_ptr<vsg::ShaderSet> planeShader = cad.buildShader(project_path + "asset/data/shaders/plane.vert", project_path + "asset/data/shaders/plane.frag");
-        CADMesh shadow;
-        vsg::ref_ptr<vsg::ShaderSet> shadowShader = cad.buildShader(project_path + "asset/data/shaders/shadow.vert", project_path + "asset/data/shaders/shadow.frag");
+        ConfigShader config_shader;
+        vsg::ref_ptr<vsg::ShaderSet> phongShader = config_shader.buildShader(project_path + "asset/data/shaders/standard.vert", project_path + "asset/data/shaders/standard_phong.frag");
+        vsg::ref_ptr<vsg::ShaderSet> planeShader = config_shader.buildShader(project_path + "asset/data/shaders/plane.vert", project_path + "asset/data/shaders/plane.frag");
+        vsg::ref_ptr<vsg::ShaderSet> shadowShader = config_shader.buildShader(project_path + "asset/data/shaders/shadow.vert", project_path + "asset/data/shaders/shadow.frag");
+        vsg::ref_ptr<vsg::ShaderSet> mergeShader = config_shader.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
 
         //是否使用线框表示
         bool wireFrame = 0;
@@ -162,27 +163,40 @@ public:
         auto intgScenegraph = vsg::Group::create();
 
         //---------------------------------------读取CAD模型------------------------------------------//
+        CADMesh cad;
+
         //读取.fb格式的模型参数信息
         bool fullNormal = 0;
         // const std::string& path1 = project_path + "asset/data/FBDataOut/运输车.fb";
         // const std::string& path1 = project_path + "asset/data/geos/3ED_827.fb";
+
+        std::unordered_map<std::string, CADMesh*> transfered_meshes; //path, mesh*
         for(int i = 0; i < model_paths.size(); i ++){
-            CADMesh cad_tmp, shadow_tmp;
             std::string &path_i = model_paths[i];
             size_t pos = path_i.find_last_of('.');
             std::string format = path_i.substr(pos + 1);
+            CADMesh* transfer_model;
+            if (transfered_meshes.find(path_i) != transfered_meshes.end()){
+                transfer_model = transfered_meshes[path_i];
+            }else{
+                transfer_model = new CADMesh();
+                if(format == "obj")
+                    transfer_model->buildObjNode(path_i.c_str(), "", cadScenegraph, phongShader, model_transforms[i]); //读取obj文件
+                else if(format == "fb")
+                    transfer_model->transferModel(model_paths[i], fullNormal, cadScenegraph, phongShader, model_transforms[i]);
+                transfered_meshes[path_i] = transfer_model;
+            }            
             if(format == "obj"){
-                cad.buildObjNode(model_paths[i].c_str(), "", cadScenegraph, phongShader, model_transforms[i]); //读取obj文件
-                shadow_tmp.buildObjNode(model_paths[i].c_str(), "", shadowScenegraph, shadowShader, model_transforms[i]); //读取几何信息1
+                ModelInstance instance_phong;
+                instance_phong.buildObjInstance(transfer_model, cadScenegraph, phongShader, model_transforms[i]);
+                ModelInstance instance_shadow;
+                instance_shadow.buildObjInstance(transfer_model, shadowScenegraph, shadowShader, model_transforms[i]);
             }
             else if(format == "fb"){
-                // cad_tmp.buildnode(model_paths[i], fullNormal, cadScenegraph, phongShader, model_transforms[i]);        //读取几何信息1
-                // shadow_tmp.buildnode(model_paths[i], fullNormal, shadowScenegraph, shadowShader, model_transforms[i]); //读取几何信息1
-                cad_tmp.transferModel(model_paths[i], fullNormal, cadScenegraph, phongShader, model_transforms[i]);
-                cad_tmp.buildInstance(model_paths[i], fullNormal, cadScenegraph, phongShader, model_transforms[i]);
-
-                shadow_tmp.transferModel(model_paths[i], fullNormal, cadScenegraph, phongShader, model_transforms[i]);
-                shadow_tmp.buildInstance(model_paths[i], fullNormal, shadowScenegraph, shadowShader, model_transforms[i]);
+                ModelInstance instance_phong;
+                instance_phong.buildInstance(transfer_model, cadScenegraph, phongShader, model_transforms[i]);
+                ModelInstance instance_shadow;
+                instance_shadow.buildInstance(transfer_model, shadowScenegraph, shadowShader, model_transforms[i]);
             }
         }
         vsg::dmat4 plane_transform = vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -0.08, 1);
@@ -396,7 +410,7 @@ public:
         // auto context = vsg::Context::create(window->getOrCreateDevice());
         // convertDepthImageInfo = vsg::ImageInfo::create(vsg::Sampler::create(), vsg::createImageView(*context, storageImages[i], VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         
-        vsg::ref_ptr<vsg::ShaderSet> mergeShader = cad.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
+        // vsg::ref_ptr<vsg::ShaderSet> mergeShader = cad.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
         cad.buildIntgNode(intgScenegraph, mergeShader, imageInfos, vsgColorImage, vsgDepthImage); //读取几何信息1
 
         double mergeradius = 2000.0; // 固定观察距离
