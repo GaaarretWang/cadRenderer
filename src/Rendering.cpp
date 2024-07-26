@@ -12,19 +12,29 @@ int Rendering::Init(){
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.991005, 1) * init_model_transforms[1]);
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.791005, 1) * init_model_transforms[1]);
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.991005, 1) * init_model_transforms[1]);
+    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.691005, 1) * init_model_transforms[1]);
     model_paths.push_back(renderingDir + "asset/data/geos/3ED_827.fb");
     model_paths.push_back(renderingDir + "asset/data/geos/3ED_827.fb");
+    // model_paths.push_back(renderingDir + "asset/data/obj/小舱壁-ASM-修改焊接后.obj");
     model_paths.push_back(renderingDir + "asset/data/obj/小舱壁-ASM-修改焊接后.obj");
-    model_paths.push_back(renderingDir + "asset/data/obj/小舱壁-ASM-修改焊接后.obj");
+    instance_names.push_back("3ED_827_0");
+    instance_names.push_back("3ED_827_1");
+    // instance_names.push_back("小舱壁-ASM-修改焊接后0");
+    instance_names.push_back("小舱壁-ASM-修改焊接后1");
 
-    renderer.initRenderer(renderingDir, model_transforms, model_paths);
+    renderer.initRenderer(renderingDir, model_transforms, model_paths, instance_names);
 
     return 0;
 }
 
 int Rendering::Update(){
+    model_transforms[2][3][2] += 0.005;
+    if(model_transforms[2][3][2] > -0.45)
+        model_transforms[2][3][2] = -0.679909;
+
+    renderer.updateObjectPose("小舱壁-ASM-修改焊接后1", model_transforms[2]);
+
     if(trackingViewMatrix){
         // auto vobj = sceneData.getObject("virtualObj1");
         // cv::Matx44f initPose = vobj->transform.GetMatrix();

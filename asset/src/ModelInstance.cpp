@@ -134,10 +134,6 @@ void ModelInstance::buildInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene,
         }
     }
 
-    for(int i = 0; i < nodePtr[""].kids.size(); i ++){
-        std::cout << nodePtr[""].kids[i] << std::endl;
-    }
-
     std::cout << "totalTriangleNum = " << totalTriangleNum << std::endl;
     scene->addChild(nodePtr[""].transform);
 }
@@ -199,9 +195,14 @@ void ModelInstance::buildObjInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> sce
     auto stateGroup = vsg::StateGroup::create();
     graphicsPipelineConfig->copyTo(stateGroup);
     
-    auto transform = vsg::MatrixTransform::create();
-    transform->matrix = modelMatrix;
+
+    treeNode top;
+    top.transform = vsg::MatrixTransform::create();
     stateGroup->addChild(drawCommands);
-    transform->addChild(stateGroup);
-    scene->addChild(transform);
+    top.transform->addChild(stateGroup);
+    top.transform->matrix = modelMatrix;
+    top.originalMatrix = modelMatrix;
+    nodePtr[""] = top;
+
+    scene->addChild(top.transform);
 }

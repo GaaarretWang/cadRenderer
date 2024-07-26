@@ -25,6 +25,11 @@ class vsgRenderer
     vsg::ref_ptr<vsg::Viewer> Shadow_viewer = vsg::Viewer::create();
     vsg::ref_ptr<vsg::Viewer> Final_viewer = vsg::Viewer::create();
 
+    std::unordered_map<std::string, CADMesh*> transfered_meshes; //path, mesh*
+    std::unordered_map<std::string, ModelInstance*> instance_phongs; //path, mesh*
+    std::unordered_map<std::string, ModelInstance*> instance_shadows; //path, mesh*
+
+
     vsg::ref_ptr<ScreenshotHandler> Final_screenshotHandler;
     vsg::ref_ptr<ScreenshotHandler> Shadow_screenshotHandler;
     vsg::ref_ptr<ScreenshotHandler> Env_screenshotHandler;
@@ -122,7 +127,7 @@ public:
         this->cy = cy;
     }
 
-    void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths)
+    void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names)
     {
         // project_path = engine_path.append("Rendering/");
         project_path = engine_path;
@@ -170,7 +175,7 @@ public:
         // const std::string& path1 = project_path + "asset/data/FBDataOut/运输车.fb";
         // const std::string& path1 = project_path + "asset/data/geos/3ED_827.fb";
 
-        std::unordered_map<std::string, CADMesh*> transfered_meshes; //path, mesh*
+
         for(int i = 0; i < model_paths.size(); i ++){
             std::string &path_i = model_paths[i];
             size_t pos = path_i.find_last_of('.');
@@ -187,16 +192,20 @@ public:
                 transfered_meshes[path_i] = transfer_model;
             }            
             if(format == "obj"){
-                ModelInstance instance_phong;
-                instance_phong.buildObjInstance(transfer_model, cadScenegraph, phongShader, model_transforms[i]);
-                ModelInstance instance_shadow;
-                instance_shadow.buildObjInstance(transfer_model, shadowScenegraph, shadowShader, model_transforms[i]);
+                ModelInstance* instance_phong = new ModelInstance();
+                instance_phong->buildObjInstance(transfer_model, cadScenegraph, phongShader, model_transforms[i]);
+                instance_phongs[instance_names[i]] = instance_phong;
+                ModelInstance* instance_shadow = new ModelInstance();
+                instance_shadow->buildObjInstance(transfer_model, shadowScenegraph, shadowShader, model_transforms[i]);
+                instance_shadows[instance_names[i]] = instance_shadow;
             }
             else if(format == "fb"){
-                ModelInstance instance_phong;
-                instance_phong.buildInstance(transfer_model, cadScenegraph, phongShader, model_transforms[i]);
-                ModelInstance instance_shadow;
-                instance_shadow.buildInstance(transfer_model, shadowScenegraph, shadowShader, model_transforms[i]);
+                ModelInstance* instance_phong = new ModelInstance();
+                instance_phong->buildInstance(transfer_model, cadScenegraph, phongShader, model_transforms[i]);
+                instance_phongs[instance_names[i]] = instance_phong;
+                ModelInstance* instance_shadow = new ModelInstance();
+                instance_shadow->buildInstance(transfer_model, shadowScenegraph, shadowShader, model_transforms[i]);
+                instance_shadows[instance_names[i]] = instance_shadow;
             }
         }
         vsg::dmat4 plane_transform = vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -0.08, 1);
@@ -467,6 +476,11 @@ public:
 
     void updateCamera(vsg::dmat4 view_matrix){
         camera->viewMatrix = vsg::LookAt::create(view_matrix);
+    }
+    
+    void updateObjectPose(std::string instance_name, vsg::dmat4 model_matrix){
+        instance_phongs[instance_name]->nodePtr[""].transform->matrix = model_matrix;
+        instance_shadows[instance_name]->nodePtr[""].transform->matrix = model_matrix;
     }
 
 
