@@ -217,6 +217,64 @@ void CADMesh::buildPlaneNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::S
     scene->addChild(plane_transform); //*******************************************
 }
 
+void CADMesh::buildEnvPlaneNode(vsg::ref_ptr<vsg::Group> scene, SimpleMesh importMesh, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix)
+{
+    //2. 设置材质参数
+#if (1) //金属
+    auto plane_colors = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0f});
+    vsg::ref_ptr<vsg::PbrMaterialValue> plane_mat;
+    plane_mat = vsg::PbrMaterialValue::create();
+    plane_mat->value().roughnessFactor = 0.8f;
+    plane_mat->value().metallicFactor = 0.0f;
+
+#elif (0) //塑料
+    auto plane_colors = vsg::vec4Value::create(vsg::vec4{0, 0, 0, 1.0f});
+    auto plane_mat = vsg::PhongMaterialValue::create();
+    plane_mat->value().ambient.set(0, 0, 0, 1.0f);
+    plane_mat->value().diffuse.set(0.55, 0.55, 0.55, 1.0f);
+    plane_mat->value().specular.set(0.7, 0.7, 0.7, 1.0f);
+    plane_mat->value().shininess = 25;
+
+#elif (0) //纯色
+    auto plane_colors = vsg::vec4Value::create(vsg::vec4{1, 1, 1, 1.0f});
+    auto plane_mat = vsg::PhongMaterialValue::create();
+    plane_mat->value().ambient.set(1, 0, 0, 1.0f);
+    plane_mat->value().diffuse.set(1, 0, 0, 1.0f);
+    plane_mat->value().specular.set(1, 0, 0, 1.0f);
+    plane_mat->value().shininess = 0.25;
+#endif
+    //重建模型读取
+    vsg::DataList plane_vertexArrays;
+    auto plane_graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(shader); //渲染管线创建
+    plane_graphicsPipelineConfig->assignArray(plane_vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, importMesh.vertices);
+    plane_graphicsPipelineConfig->assignArray(plane_vertexArrays, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, importMesh.normals);
+    //plane_graphicsPipelineConfig->assignArray(plane_vertexArrays, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, importMesh.texcoords);
+    plane_graphicsPipelineConfig->assignArray(plane_vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, plane_colors);
+    plane_graphicsPipelineConfig->assignDescriptor("material", plane_mat);
+
+    auto plane_drawCommands = vsg::Commands::create();
+    plane_drawCommands->addChild(vsg::BindVertexBuffers::create(plane_graphicsPipelineConfig->baseAttributeBinding, plane_vertexArrays));
+    plane_drawCommands->addChild(vsg::BindIndexBuffer::create(importMesh.indices));
+    //cout << mesh.indexes->size() << endl;
+    plane_drawCommands->addChild(vsg::DrawIndexed::create(importMesh.numIndices, 1, 0, 0, 0));
+
+    plane_graphicsPipelineConfig->init();
+
+    // create StateGroup as the root of the scene/command graph to hold the GraphicsPipeline, and binding of Descriptors to decorate the whole graph
+    auto plane_stateGroup = vsg::StateGroup::create();
+    plane_graphicsPipelineConfig->copyTo(plane_stateGroup);
+    // set up model transformation node
+    auto plane_transform = vsg::MatrixTransform::create(); //用于位置变换
+    plane_transform->matrix = modelMatrix;
+    //transform->subgraphRequiresLocalFrustum = false;
+    // add drawCommands to StateGroup
+    plane_stateGroup->addChild(plane_drawCommands);
+    plane_transform->addChild(plane_stateGroup);
+    scene->addChild(plane_transform); //*******************************************
+
+    
+}
+
 vsg::ref_ptr<vsg::PbrMaterialValue> CADMesh::buildPlaneNodePbr(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader)
 {
     //2. 设置材质参数

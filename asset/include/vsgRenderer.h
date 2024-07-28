@@ -1,3 +1,7 @@
+#include <vsgImGui/RenderImGui.h>
+#include <vsgImGui/SendEventsToImGui.h>
+#include <vsgImGui/imgui.h>
+
 // #include <CADMesh.h>
 #include <iostream>
 #include <screenshot.h>
@@ -8,7 +12,6 @@
 simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
 #include <CADMesh.h>
-#include <CADMeshIBL.h>
 #include <iostream>
 #include <screenshot.h>
 #include <vsg/all.h>
@@ -19,6 +22,7 @@ simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger(
 
 #include "IBL.h"
 #include "ImGui.hpp"
+#include "refactor/CADMeshIBL.h"
 
 #ifdef vsgXchange_FOUND
 #    include <vsgXchange/all.h>
@@ -439,6 +443,8 @@ public:
                 rootSwitch->addChild(MASK_FAKE_BACKGROUND | MASK_SHADOW_CASTER, pbrStateGroup);
                 rootSwitch->addChild(MASK_DRAW_SHADOW, shadowStateGroup);
                 reconstructRoot = stateSwtich;
+
+                cad.buildEnvPlaneNode(projectionScenegraph, importMesh, planeShader, model_transforms[0]);
             }
             else
             {
@@ -493,6 +499,7 @@ public:
             }
             
         }
+
         vsg::ref_ptr<vsg::Node> cadMeshRoot;
 
         auto cadMeshDrawCmd = cadV2.createDrawCmd(gpc_ibl);
@@ -572,7 +579,8 @@ public:
         vsg::dvec3 up = {0.0, 0.0, 1.0};                        // 固定观察方向
         auto lookAt = vsg::LookAt::create(eye, centre, up);
         camera = vsg::Camera::create(perspective, lookAt, viewport);
-
+        
+        auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(guiParams, options));
         //----------------------------------------------------------------几何窗口----------------------------------------------------------//
         try
         {
@@ -580,14 +588,21 @@ public:
             window = vsg::Window::create(cadWindowTraits);
             viewer->addWindow(window);
             auto view = vsg::View::create(camera, scenegraph);
+            view->features = vsg::RECORD_LIGHTS;
+            view->mask = MASK_PBR_FULL;
+            view->viewDependentState = CustomViewDependentState::create(view.get());
             auto renderGraph = vsg::RenderGraph::create(window, view);
             renderGraph->clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
             auto commandGraph = vsg::CommandGraph::create(window);
             commandGraph->addChild(renderGraph);
+
             viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
             viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
             viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
             viewer->addEventHandler(vsg::Trackball::create(camera));
+            auto event = vsg::Event::create_if(true, window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
+            auto screenshotHandler = ScreenshotHandler::create(event);
+            viewer->addEventHandler(screenshotHandler);
         }
         catch (const vsg::Exception& ve)
         {
@@ -606,13 +621,22 @@ public:
         Env_window = vsg::Window::create(envWindowTraits);
         Env_viewer->addWindow(Env_window);
         auto Env_view = vsg::View::create(camera, scenegraph);              //共用一个camera，改变一个window的视角，另一个window视角也会改变
+        Env_view->mask = MASK_PBR_FULL | MASK_SHADOW_CASTER | MASK_FAKE_BACKGROUND;
+        Env_view->features = vsg::RECORD_LIGHTS;
         auto Env_renderGraph = vsg::RenderGraph::create(Env_window, Env_view); //如果用Env_window会报错
         Env_renderGraph->clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
+        Env_renderGraph->addChild(renderImGui);
+
         auto Env_commandGraph = vsg::CommandGraph::create(Env_window); //如果用Env_window会报错
         Env_commandGraph->addChild(Env_renderGraph);
         Env_viewer->assignRecordAndSubmitTaskAndPresentation({Env_commandGraph});
         Env_viewer->compile();
+        Env_viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
         Env_viewer->addEventHandlers({vsg::CloseHandler::create(Env_viewer)});
+        auto Env_event = vsg::Event::create_if(true, Env_window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled 
+        Env_viewer->addEventHandler(vsg::Trackball::create(camera));
+        auto Env_screenshotHandler = ScreenshotHandler::create(Env_event);
+        Env_viewer->addEventHandler(Env_screenshotHandler);
 
         //----------------------------------------------------------------阴影窗口----------------------------------------------------------//
         shadowWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
@@ -633,6 +657,9 @@ public:
         Shadow_viewer->assignRecordAndSubmitTaskAndPresentation({Shadow_commandGraph});
         Shadow_viewer->compile();
         Shadow_viewer->addEventHandlers({vsg::CloseHandler::create(Shadow_viewer)});
+        auto Shadow_event = vsg::Event::create_if(true, Shadow_window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
+        auto Shadow_screenshotHandler = ScreenshotHandler::create(Shadow_event);
+        Shadow_viewer->addEventHandler(Shadow_screenshotHandler);
 
         //----------------------------------------------------------------投影窗口----------------------------------------------------------//
         projectionWindowTraits->device = window->getOrCreateDevice(); //共享设备 
@@ -640,13 +667,16 @@ public:
         auto Projection_device = Projection_window->getOrCreateDevice();
         Projection_viewer->addWindow(Projection_window);
         auto Projection_view = vsg::View::create(camera, projectionScenegraph);                 //共用一个camera，改变一个window的视角，另一个window视角也会改变
-        auto Shadow_renderGraph = vsg::RenderGraph::create(Shadow_window, Shadow_view); //如果用Env_window会报错
-        Shadow_renderGraph->clearValues[0].color = {{1.f, 1.f, 1.f, 1.f}};
-        auto Shadow_commandGraph = vsg::CommandGraph::create(Shadow_window); //如果用Env_window会报错
-        Shadow_commandGraph->addChild(Shadow_renderGraph);
-        Shadow_viewer->assignRecordAndSubmitTaskAndPresentation({Shadow_commandGraph});
-        Shadow_viewer->compile();
-        Shadow_viewer->addEventHandlers({vsg::CloseHandler::create(Shadow_viewer)});
+        auto Projection_renderGraph = vsg::RenderGraph::create(Projection_window, Projection_view); //如果用Env_window会报错
+        Projection_renderGraph->clearValues[0].color = {{1.f, 1.f, 1.f, 1.f}};
+        auto Projection_commandGraph = vsg::CommandGraph::create(Projection_window); //如果用Env_window会报错
+        Projection_commandGraph->addChild(Projection_renderGraph);
+        Projection_viewer->assignRecordAndSubmitTaskAndPresentation({Projection_commandGraph});
+        Projection_viewer->compile();
+        Projection_viewer->addEventHandlers({vsg::CloseHandler::create(Projection_viewer)});
+        auto Projection_event = vsg::Event::create_if(true, Shadow_window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
+        auto Projection_screenshotHandler = ScreenshotHandler::create(Projection_event);
+        Projection_viewer->addEventHandler(Projection_screenshotHandler);
 
         //----------------------------------------------------------------融合窗口----------------------------------------------------------//
         convertimage = new ConvertImage(width, height);
