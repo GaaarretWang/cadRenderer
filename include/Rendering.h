@@ -1,4 +1,5 @@
 #include <vsgRenderer.h>
+#include <unordered_map>
 
 class Rendering {
 public:
@@ -18,17 +19,15 @@ public:
     std::vector<vsg::dmat4> init_model_transforms;
     std::vector<std::string> model_paths;
     std::vector<std::string> instance_names;
-    std::string renderingDir = "/home/lab/workspace/wgy/cadvsg_intg/";
-    std::string colorPath = "/home/lab/workspace/wgy/cadvsg_intg/asset/data/slamData/color/1711699313.948925.png";
-    std::string depthPath = "/home/lab/workspace/wgy/cadvsg_intg/asset/data/slamData/depth/1711699313.948925.png";
-
-public:
+    std::string renderingDir = "../";
+    std::string colorPath = "../asset/data/slamData/color/1711699313.948925.png";
+    std::string depthPath = "../asset/data/slamData/depth/1711699313.948925.png";
 
     Rendering();
 
     ~Rendering();
 
-    int Init();
+    int Init(std::vector<unordered_map<std::string,std::string>> models);
 
     int Update();
 };

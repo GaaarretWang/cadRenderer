@@ -4,7 +4,7 @@ Rendering::Rendering() = default;
 
 Rendering::~Rendering() = default;
 
-int Rendering::Init(){
+int Rendering::Init(std::vector<unordered_map<std::string,std::string>> models){
     renderer.setWidthAndHeight(width, height);
     renderer.setKParameters(fx, fy, cx, cy);
 
@@ -12,16 +12,15 @@ int Rendering::Init(){
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.991005, 1) * init_model_transforms[1]);
     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.691005, 1) * init_model_transforms[1]);
-    model_paths.push_back(renderingDir + "asset/data/geos/3ED_827.fb");
-    model_paths.push_back(renderingDir + "asset/data/geos/3ED_827.fb");
-    // model_paths.push_back(renderingDir + "asset/data/obj/小舱壁-ASM-修改焊接后.obj");
-    model_paths.push_back(renderingDir + "asset/data/obj/小舱壁-ASM-修改焊接后.obj");
-    instance_names.push_back("3ED_827_0");
-    instance_names.push_back("3ED_827_1");
-    // instance_names.push_back("小舱壁-ASM-修改焊接后0");
-    instance_names.push_back("小舱壁-ASM-修改焊接后1");
+
+    //使用map，将模型名字和模型路径传入
+    for (const auto& model : models) {
+        for (auto const& [key, value] : model) {
+            model_paths.push_back(value);
+            instance_names.push_back(key);
+        }
+    }
 
     renderer.initRenderer(renderingDir, model_transforms, model_paths, instance_names);
 
@@ -80,6 +79,7 @@ int Rendering::Update(){
 int main(){
     std::vector<std::vector<double>> camera_pos;
     std::vector<std::string> camera_pos_timestamp;
+    std::vector<unordered_map<std::string,std::string>> models;
     int frame =  0;
     
     std::ifstream inf;//文件读操作
@@ -115,8 +115,15 @@ int main(){
     }
     inf.close();
 
+    unordered_map<string, string> model1;
+    model1["3ED_827"] = "../asset/data/geos/3ED_827.fb";
+    unordered_map<string, string> model2;
+    model2["小舱壁-ASM-修改焊接后"] = "../asset/data/obj/小舱壁-ASM-修改焊接后.obj";
+    models.push_back(model1);
+    models.push_back(model2);
+
     Rendering rendering;
-    rendering.Init();
+    rendering.Init(models);
     while(true){
         rendering.colorPath = "../asset/data/dataset3/color/" + camera_pos_timestamp[frame] + ".png";
         rendering.depthPath = "../asset/data/dataset3/depth/" + camera_pos_timestamp[frame] + ".png";

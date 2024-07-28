@@ -1,0 +1,9 @@
+libdir=D:/Program Files (x86)/FlatBuffers/lib
+includedir=D:/Program Files (x86)/FlatBuffers/include
+
+Name: FlatBuffers
+Description: Memory Efficient Serialization Library
+Version: 23.5.26
+
+Libs: -L${libdir} -lflatbuffers
+Cflags: -I${includedir}

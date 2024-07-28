@@ -127,10 +127,20 @@ private:
     std::vector<uint32_t> mMatIndex{};
     std::unordered_map<std::string, uint32_t> uniqueMaterials; //pos,normal,uv...
 
+    //环境光照
+    std::unordered_map<int, uint32_t> materialIndex;
+    std::unordered_map<std::string, int> instanceIndex;                                 //flatbuffer instanceID, i
+    std::unordered_map<std::string, treeNode> nodePtr;        //记录ID对应的节点
+    std::unordered_set<std::string> added;                                              //记录添加到树中的节点
+
+
 public:
     int Nodenumber;
     int Triangnumber;
 
+    flatbuffers::FlatBufferBuilder builder_out;
+    std::unordered_map<std::string, uint32_t> protoIndex;
+    std::unordered_map<std::string, uint32_t> protoTriangleNum;
     flatbuffers::FlatBufferBuilder builder_out;
     std::unordered_map<std::string, uint32_t> protoIndex;
     std::unordered_map<std::string, uint32_t> protoTriangleNum;
@@ -143,14 +153,23 @@ public:
     std::vector<vsg::ref_ptr<vsg::vec2Array>> coordinatesVector;
     std::vector<vsg::ref_ptr<vsg::uintArray>> indicesVector;
         
-    //����ģ��
+    //虚实融合加载模型
     // void buildnode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, vsg::ref_ptr<vsg::ImageInfo>* imageInfos, vsg::ref_ptr<vsg::Data> real_color, vsg::ref_ptr<vsg::Data> real_depth);
     void buildPlaneNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
-    void buildObjNode(const char* path, const char* material_path, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
-    void transferModel(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
+    void buildObjNode(const char* path, const char* material_path, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
+    void transferModel(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     // void buildInstance(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
 
-    // void explode();
-    // void recover();
+    //环境光加载模型
+    vsg::ref_ptr<vsg::Data> buildnodePbr(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader);
+    vsg::ref_ptr<vsg::PbrMaterialValue> buildPlaneNodePbr(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader);
+
+    void explode();
+    void recover();
+
+    //加载着色器
+    vsg::ref_ptr<vsg::ShaderSet> buildShader(std::string vert, std::string frag);
+    vsg::ref_ptr<vsg::ShaderSet> buildIntgShader(std::string vert, std::string frag);
+    void CADMesh::loadFile(const std::string& path, bool fullNormal);
 };
