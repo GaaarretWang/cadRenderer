@@ -51,6 +51,7 @@ class vsgRenderer
     vsg::ref_ptr<ScreenshotHandler> Final_screenshotHandler;
     vsg::ref_ptr<ScreenshotHandler> Shadow_screenshotHandler;
     vsg::ref_ptr<ScreenshotHandler> Env_screenshotHandler;
+    vsg::ref_ptr<ScreenshotHandler> Projection_screenshotHandler;
     vsg::ref_ptr<ScreenshotHandler> screenshotHandler;
 
     vsg::ref_ptr<vsg::Window> window;
@@ -679,6 +680,48 @@ public:
         Projection_viewer->addEventHandler(Projection_screenshotHandler);
 
         //----------------------------------------------------------------融合窗口----------------------------------------------------------//
+        vsg::ref_ptr<vsg::Image> storageImagesIBL[6];
+        vsg::ref_ptr<vsg::CopyImage> copyImagesIBL[6];
+        vsg::ref_ptr<vsg::ImageInfo> imageInfosIBL[7];
+        for (int i = 0; i < 6; i++)
+        {
+            vsg::ref_ptr<vsg::Image> storageImage = vsg::Image::create();
+            storageImage->imageType = VK_IMAGE_TYPE_2D;
+            if (i % 2 == 0)
+                storageImage->format = VK_FORMAT_B8G8R8A8_UNORM; //VK_FORMAT_R8G8B8A8_UNORM;
+            else
+                storageImage->format = VK_FORMAT_D32_SFLOAT; //VK_FORMAT_R8G8B8A8_UNORM;
+            storageImage->extent.width = window->extent2D().width;
+            storageImage->extent.height = window->extent2D().height;
+            storageImage->extent.depth = 1;
+            storageImage->mipLevels = 1;
+            storageImage->arrayLayers = 1;
+            storageImage->samples = VK_SAMPLE_COUNT_1_BIT;
+            storageImage->tiling = VK_IMAGE_TILING_OPTIMAL;
+            storageImage->usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // sample和storage一定要标
+            storageImage->initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            storageImage->flags = 0;
+            storageImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            storageImagesIBL[i] = storageImage;
+            auto context = vsg::Context::create(window->getOrCreateDevice());
+            imageInfosIBL[i] = vsg::ImageInfo::create(vsg::Sampler::create(), vsg::createImageView(*context, storageImage, VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+            copyImagesIBL[i] = vsg::CopyImage::create();
+            copyImagesIBL[i]->dstImage = storageImage;
+            copyImagesIBL[i]->dstImageLayout = imageInfosIBL[i]->imageLayout;
+            VkImageCopy copyRegion = {};
+            copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            copyRegion.srcSubresource.layerCount = 1;
+            copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            copyRegion.dstSubresource.layerCount = 1;
+            copyRegion.extent.width = window->extent2D().width;
+            copyRegion.extent.height = window->extent2D().height;
+            copyRegion.extent.depth = 1;
+            copyImagesIBL[i]->regions.push_back(copyRegion);
+        }
+
+        vsg::ref_ptr<vsg::Node> mergeScenegraph;
+
         convertimage = new ConvertImage(width, height);
         vsgColorImage = vsg::ubvec3Array2D::create(width, height);
         vsgDepthImage = vsg::ushortArray2D::create(width, height);
@@ -730,12 +773,14 @@ public:
             copyImages[i]->regions.push_back(copyRegion);
         }
 
+        imageInfosIBL[7] = imageInfos[4];
+
         // convertDepthImage = createStorageImage(i % 2);
         // auto context = vsg::Context::create(window->getOrCreateDevice());
         // convertDepthImageInfo = vsg::ImageInfo::create(vsg::Sampler::create(), vsg::createImageView(*context, storageImages[i], VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         
         // vsg::ref_ptr<vsg::ShaderSet> mergeShader = cad.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
-        cad.buildIntgNode(intgScenegraph, mergeShader, imageInfos, vsgColorImage, vsgDepthImage); //读取几何信息1
+        cad.buildIntgNode(mergeScenegraph, mergeShader, imageInfosIBL, vsgColorImage, vsgDepthImage); //读取几何信息1
 
         double mergeradius = 2000.0; // 固定观察距离
         auto mergeviewport = vsg::ViewportState::create(0, 0, intgWindowTraits->width, intgWindowTraits->height);
@@ -749,7 +794,7 @@ public:
         intgWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
         Final_window = vsg::Window::create(intgWindowTraits);
         Final_viewer->addWindow(Final_window);
-        auto Final_view = vsg::View::create(mergecamera, intgScenegraph);            //共用一个camera，改变一个window的视角，另一个window视角也会改变
+        auto Final_view = vsg::View::create(mergecamera, mergeScenegraph);            //共用一个camera，改变一个window的视角，另一个window视角也会改变
         auto Final_renderGraph = vsg::RenderGraph::create(Final_window, Final_view); //如果用Env_window会报错
         Final_renderGraph->clearValues[0].color = {{0.8f, 0.8f, 0.8f, 1.f}};
         auto Final_commandGraph = vsg::CommandGraph::create(Final_window); //如果用Env_window会报错
@@ -770,6 +815,7 @@ public:
         Final_screenshotHandler = ScreenshotHandler::create();
         Shadow_screenshotHandler = ScreenshotHandler::create();
         Env_screenshotHandler = ScreenshotHandler::create();
+        Projection_screenshotHandler = ScreenshotHandler::create();
         screenshotHandler = ScreenshotHandler::create();
 
     }
@@ -810,7 +856,7 @@ public:
         // float a;
         // std::cin >> a;
         //--------------------------------------------------------------渲染循环----------------------------------------------------------//
-        if (viewer->advanceToNextFrame() && Env_viewer->advanceToNextFrame() && Shadow_viewer->advanceToNextFrame() && Final_viewer->advanceToNextFrame())
+        if (viewer->advanceToNextFrame() && Env_viewer->advanceToNextFrame() && Shadow_viewer->advanceToNextFrame() && Projection_viewer->advanceToNextFrame() && Final_viewer->advanceToNextFrame())
         {
             // vsg::dvec3 centre = {lookAtVector[0], lookAtVector[1], lookAtVector[2]};                    // 固定观察点
             // vsg::dvec3 eye = {lookAtVector[3], lookAtVector[4], lookAtVector[5]};// 固定相机位置
@@ -894,6 +940,16 @@ public:
             Shadow_viewer->present(); //计算完之后一起呈现在窗口
 
             //------------------------------------------------------窗口4-----------------------------------------------------//
+            Projection_viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
+            Projection_viewer->update();
+            Projection_viewer->recordAndSubmit(); //于记录和提交命令图。窗口2提交会冲突报错
+            copyImages[4]->srcImage = Projection_screenshotHandler->screenshot_image(Projection_window);
+            copyImages[4]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+            copyImages[5]->srcImage = Projection_screenshotHandler->screenshot_depth(Shadow_window);
+            copyImages[5]->srcImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            Shadow_viewer->present(); //计算完之后一起呈现在窗口
+
+            //------------------------------------------------------窗口5-----------------------------------------------------//
             Final_viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
             Final_viewer->update();
             Final_viewer->recordAndSubmit(); //于记录和提交命令图。窗口2提交会冲突报错

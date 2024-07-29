@@ -369,72 +369,20 @@ vsg::ref_ptr<vsg::PbrMaterialValue> CADMesh::buildPlaneNodePbr(vsg::ref_ptr<vsg:
     return plane_mat;
 }
 
-void CADMesh::buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, vsg::ref_ptr<vsg::ImageInfo>* imageInfos, vsg::ref_ptr<vsg::Data> real_color, vsg::ref_ptr<vsg::Data> real_depth)
+void CADMesh::buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, vsg::ref_ptr<vsg::ImageInfo>* imageInfosIBL, vsg::ref_ptr<vsg::Data> real_color, vsg::ref_ptr<vsg::Data> real_depth)
 {
-#if (1) //金属
-    auto colors = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0f});
-    auto mat = vsg::PhongMaterialValue::create();
-    mat->value().ambient.set(0.24725, 0.1995, 0.0745, 1.0f);
-    mat->value().diffuse.set(0.75164, 0.60648, 0.22648, 1.0f);
-    mat->value().specular.set(0.628281, 0.555802, 0.366065, 1.0f);
-    //std::cout << mat->value().shininess;//Ĭ��ֵΪ100
-    mat->value().shininess = 100;
 
-#elif (0) //塑料
-    auto colors = vsg::vec4Value::create(vsg::vec4{0, 0, 0, 1.0f});
-    auto mat = vsg::PhongMaterialValue::create();
-    mat->value().ambient.set(0, 0, 0, 1.0f);
-    mat->value().diffuse.set(0.55, 0.55, 0.55, 1.0f);
-    mat->value().specular.set(0.7, 0.7, 0.7, 1.0f);
-    mat->value().shininess = 25;
-
-#elif (0) //纯色
-    auto colors = vsg::vec4Value::create(vsg::vec4{1, 1, 1, 1.0f});
-    auto mat = vsg::PhongMaterialValue::create();
-    mat->value().ambient.set(1, 0, 0, 1.0f);
-    mat->value().diffuse.set(1, 0, 0, 1.0f);
-    mat->value().specular.set(1, 0, 0, 1.0f);
-    mat->value().shininess = 0.25;
-#endif
-
-    //    //3. （手动）设置顶点、法向、材质坐标等信息，传入着色器
-    float length = 5000.0f;
-    auto vertices = vsg::vec3Array::create(
-        {{-length, -length, -length / 10},
-         {length, -length, -length / 10},
-         {length, length, -length / 10},
-         {-length, length, -length / 10}});
-
-    auto normals = vsg::vec3Array::create(
-        {{0.0f, 0.0f, 1.0f},
-         {0.0f, 0.0f, 1.0f},
-         {0.0f, 0.0f, 1.0f},
-         {0.0f, 0.0f, 1.0f}});
-
-    auto texcoords = vsg::vec2Array::create(
-        {{0.0f, 0.0f},
-         {1.0f, 0.0f},
-         {1.0f, 1.0f},
-         {0.0f, 1.0f}});
-
-    auto indices = vsg::ushortArray::create(
-        {
-            0,
-            1,
-            2,
-            2,
-            3,
-            0,
-        });
 
     vsg::DataList Env_vertexArrays;
     auto Env_graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(shader); //��Ⱦ���ߴ���
-    vsg::ImageInfoList cadColor = {imageInfos[0]};
-    vsg::ImageInfoList cadDepth = {imageInfos[1]};
-    vsg::ImageInfoList planeColor = {imageInfos[2]};
-    vsg::ImageInfoList planeDepth = {imageInfos[3]};
-    vsg::ImageInfoList shadowColor = {imageInfos[4]};
-    vsg::ImageInfoList shadowDepth = {imageInfos[5]};
+    vsg::ImageInfoList cadColor = {imageInfosIBL[0]};
+    vsg::ImageInfoList cadDepth = {imageInfosIBL[1]};
+    vsg::ImageInfoList planeColor = {imageInfosIBL[2]};
+    vsg::ImageInfoList planeDepth = {imageInfosIBL[3]};
+    vsg::ImageInfoList shadowColor = {imageInfosIBL[4]};
+    vsg::ImageInfoList shadowDepth = {imageInfosIBL[5]};
+
+    vsg::ImageInfoList projectionColor = {imageInfosIBL[7]};
 
     //vsg::Data and imageinfos should be consistent
     Env_graphicsPipelineConfig->assignTexture("cadColor", cadColor);
@@ -442,30 +390,25 @@ void CADMesh::buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Sh
     Env_graphicsPipelineConfig->assignTexture("shadowColor", shadowColor);
     Env_graphicsPipelineConfig->assignTexture("shadowDepth", planeDepth);
     Env_graphicsPipelineConfig->assignTexture("planeColor", real_color);
-    Env_graphicsPipelineConfig->assignTexture("planeDepth", real_depth);
+    Env_graphicsPipelineConfig->assignTexture("planeDepth",  real_depth);
+
     // Env_graphicsPipelineConfig->assignTexture("planeColor", planeColor);
     // Env_graphicsPipelineConfig->assignTexture("planeDepth", planeDepth);
-
-    Env_graphicsPipelineConfig->assignArray(Env_vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vertices);
-    Env_graphicsPipelineConfig->assignArray(Env_vertexArrays, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, normals);
-    Env_graphicsPipelineConfig->assignArray(Env_vertexArrays, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, texcoords);
-    Env_graphicsPipelineConfig->assignArray(Env_vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, colors);
-    Env_graphicsPipelineConfig->assignDescriptor("material", mat);
-
     //Env_graphicsPipelineConfig->assignTexture("", images[1]->data);
     //Env_graphicsPipelineConfig->assignTexture("", images[2]->data);
     //Env_graphicsPipelineConfig->assignTexture("", images[3]->data);
     //Env_graphicsPipelineConfig->assignTexture("", images[4]->data);
+
     // 绑定索引
     auto Env_drawCommands = vsg::Commands::create();
-    Env_drawCommands->addChild(vsg::BindVertexBuffers::create(Env_graphicsPipelineConfig->baseAttributeBinding, Env_vertexArrays));
-    Env_drawCommands->addChild(vsg::BindIndexBuffer::create(indices));
-    //cout << mesh.indexes->size() << endl;
-    Env_drawCommands->addChild(vsg::DrawIndexed::create(6, 1, 0, 0, 0));
+    Env_drawCommands->addChild(vsg::Draw::create(3, 1, 0, 0));
 
     //双面显示
+    auto ds_state = vsg::DepthStencilState::create();
+    ds_state->depthTestEnable = VK_FALSE;
     auto Env_rs = vsg::RasterizationState::create();
     Env_rs->cullMode = VK_CULL_MODE_NONE;
+    Env_graphicsPipelineConfig->pipelineStates.push_back(ds_state);
     Env_graphicsPipelineConfig->pipelineStates.push_back(Env_rs);
 
     Env_graphicsPipelineConfig->init();
