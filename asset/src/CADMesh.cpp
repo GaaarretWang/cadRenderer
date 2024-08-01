@@ -369,7 +369,7 @@ vsg::ref_ptr<vsg::PbrMaterialValue> CADMesh::buildPlaneNodePbr(vsg::ref_ptr<vsg:
     return plane_mat;
 }
 
-void CADMesh::buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, vsg::ref_ptr<vsg::ImageInfo>* imageInfosIBL, vsg::ref_ptr<vsg::Data> real_color, vsg::ref_ptr<vsg::Data> real_depth)
+void CADMesh::buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, vsg::ref_ptr<vsg::ImageInfo>* imageInfosIBL, vsg::ref_ptr<vsg::ImageInfo>* imageInfos, vsg::ref_ptr<vsg::Data> real_color, vsg::ref_ptr<vsg::Data> real_depth)
 {
 
 
@@ -382,7 +382,7 @@ void CADMesh::buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Sh
     vsg::ImageInfoList shadowColor = {imageInfosIBL[4]};
     vsg::ImageInfoList shadowDepth = {imageInfosIBL[5]};
 
-    vsg::ImageInfoList projectionColor = {imageInfosIBL[7]};
+    vsg::ImageInfoList projectionColor = {imageInfos[4]};
 
     //vsg::Data and imageinfos should be consistent
     Env_graphicsPipelineConfig->assignTexture("cadColor", cadColor);
@@ -391,6 +391,7 @@ void CADMesh::buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Sh
     Env_graphicsPipelineConfig->assignTexture("shadowDepth", planeDepth);
     Env_graphicsPipelineConfig->assignTexture("planeColor", real_color);
     Env_graphicsPipelineConfig->assignTexture("planeDepth",  real_depth);
+    Env_graphicsPipelineConfig->assignTexture("projectionColor", projectionColor);
 
     // Env_graphicsPipelineConfig->assignTexture("planeColor", planeColor);
     // Env_graphicsPipelineConfig->assignTexture("planeDepth", planeDepth);
@@ -417,12 +418,11 @@ void CADMesh::buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Sh
     auto Env_stateGroup = vsg::StateGroup::create();
     Env_graphicsPipelineConfig->copyTo(Env_stateGroup);
     // set up model transformation node
-    auto Env_transform = vsg::MatrixTransform::create(); //用于位置变换
+    //auto Env_transform = vsg::MatrixTransform::create(); //用于位置变换
     //transform->subgraphRequiresLocalFrustum = false;
     // add drawCommands to StateGroup
     Env_stateGroup->addChild(Env_drawCommands);
-    Env_transform->addChild(Env_stateGroup);
-    scene->addChild(Env_transform);
+    scene = Env_stateGroup; 
 }
 
 void CADMesh::transferModel(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix){

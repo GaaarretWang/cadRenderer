@@ -35,6 +35,9 @@ class vsgRenderer
     vsg::ref_ptr<vsg::Image> storageImages[6];
     vsg::ref_ptr<vsg::CopyImage> copyImages[6];
     vsg::ref_ptr<vsg::ImageInfo> imageInfos[6];
+    vsg::ref_ptr<vsg::Image> storageImagesIBL[6];
+    vsg::ref_ptr<vsg::CopyImage> copyImagesIBL[6];
+    vsg::ref_ptr<vsg::ImageInfo> imageInfosIBL[7];
     vsg::ref_ptr<vsg::Image> convertDepthImage;
     vsg::ref_ptr<vsg::ImageInfo> convertDepthImageInfo;
     vsg::ref_ptr<vsg::Viewer> viewer = vsg::Viewer::create();
@@ -46,6 +49,11 @@ class vsgRenderer
     std::unordered_map<std::string, CADMesh*> transfered_meshes; //path, mesh*
     std::unordered_map<std::string, ModelInstance*> instance_phongs; //path, mesh*
     std::unordered_map<std::string, ModelInstance*> instance_shadows; //path, mesh*
+
+    vsg::ref_ptr<vsg::DirectionalLight> directionalLight[4];
+    vsg::ref_ptr<vsg::Switch> directionalLightSwitch = vsg::Switch::create();
+
+    gui::Params* guiParams = gui::Params::create();
 
 
     vsg::ref_ptr<ScreenshotHandler> Final_screenshotHandler;
@@ -120,7 +128,7 @@ class vsgRenderer
         }
         else if(format == 1)
         {
-            storageImage->format = VK_FORMAT_D16_UNORM;                                                                                       //VK_FORMAT_R8G8B8A8_UNORM;
+            storageImage->format = VK_FORMAT_D16_UNORM;//VK_FORMAT_D32_SFLOAT                                                                                   //VK_FORMAT_R8G8B8A8_UNORM;
             storageImage->usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT; // sample和storage一定要标
         }
         storageImage->extent.width = window->extent2D().width;
@@ -292,7 +300,6 @@ public:
             phongShader->defaultGraphicsPipelineStates.push_back(rasterizationState);
         }
 
-        auto guiParams = gui::Params::create();
         guiParams->metallic = 0.5f;
         guiParams->roughness = 0.3f;
         
@@ -542,8 +549,6 @@ public:
 
         //-----------------------------------设置光源----------------------------------//
         //vsg::ref_ptr<vsg::DirectionalLight> directionalLight; //定向光源 ref_ptr智能指针
-        vsg::ref_ptr<vsg::DirectionalLight> directionalLight[4];
-        vsg::ref_ptr<vsg::Switch> directionalLightSwitch = vsg::Switch::create();
         projectionGroup->addChild(projectionScenegraph);
         for (int i = 0; i < 4; i++)
         {
@@ -680,9 +685,6 @@ public:
         Projection_viewer->addEventHandler(Projection_screenshotHandler);
 
         //----------------------------------------------------------------融合窗口----------------------------------------------------------//
-        vsg::ref_ptr<vsg::Image> storageImagesIBL[6];
-        vsg::ref_ptr<vsg::CopyImage> copyImagesIBL[6];
-        vsg::ref_ptr<vsg::ImageInfo> imageInfosIBL[7];
         for (int i = 0; i < 6; i++)
         {
             vsg::ref_ptr<vsg::Image> storageImage = vsg::Image::create();
@@ -773,14 +775,12 @@ public:
             copyImages[i]->regions.push_back(copyRegion);
         }
 
-        imageInfosIBL[7] = imageInfos[4];
-
         // convertDepthImage = createStorageImage(i % 2);
         // auto context = vsg::Context::create(window->getOrCreateDevice());
         // convertDepthImageInfo = vsg::ImageInfo::create(vsg::Sampler::create(), vsg::createImageView(*context, storageImages[i], VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         
         // vsg::ref_ptr<vsg::ShaderSet> mergeShader = cad.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
-        cad.buildIntgNode(mergeScenegraph, mergeShader, imageInfosIBL, vsgColorImage, vsgDepthImage); //读取几何信息1
+        cad.buildIntgNode(mergeScenegraph, mergeShader, imageInfosIBL, imageInfos, vsgColorImage, vsgDepthImage); //读取几何信息1
 
         double mergeradius = 2000.0; // 固定观察距离
         auto mergeviewport = vsg::ViewportState::create(0, 0, intgWindowTraits->width, intgWindowTraits->height);
@@ -911,20 +911,42 @@ public:
             viewer->update();
             viewer->recordAndSubmit(); //于记录和提交命令图。它会遍历`RecordAndSubmitTasks`列表中的任务，并对每个任务执行记录和提交操作。
             //viewer->present(); //呈现渲染结果。遍历`Presentations`列表中的呈现器，并对每个呈现器执行呈现操作，将渲染结果显示在窗口中。
-            copyImages[0]->srcImage = screenshotHandler->screenshot_image(window);
-            copyImages[0]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            copyImages[1]->srcImage = screenshotHandler->screenshot_depth(window);
-            copyImages[1]->srcImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            copyImagesIBL[0]->srcImage = screenshotHandler->screenshot_image(window);
+            copyImagesIBL[0]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+            copyImagesIBL[1]->srcImage = screenshotHandler->screenshot_depth(window);
+            copyImagesIBL[1]->srcImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             viewer->present();
 
             //------------------------------------------------------窗口2-----------------------------------------------------//
             Env_viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
+            auto& lightParams = guiParams->lightParams;
+            for (int i = 0; i < lightParams.directionalLightCount; i++)
+            {
+                directionalLightSwitch->children[i].mask = vsg::boolToMask(true);
+                directionalLight[i]->color = vsg::vec3(lightParams.lightColor[i][0], lightParams.lightColor[i][1], lightParams.lightColor[i][2]);
+                directionalLight[i]->intensity = lightParams.lightColor[i][3];
+                float theta = lightParams.lightDirectionsThetaPhi[i][0] * 3.14159265f;
+                float phi = lightParams.lightDirectionsThetaPhi[i][1] * 3.14159265f * 2.0f;
+                float sinTheta = sinf(theta);
+                directionalLight[i]->direction = vsg::vec3(sinTheta * cosf(phi), sinTheta * sinf(phi), cosf(theta));
+            }
+            for(int i=lightParams.directionalLightCount; i<4; i++)
+                directionalLightSwitch->children[i].mask = vsg::boolToMask(false);
+
+            if (lightParams.envmapEnabled)
+            {
+                IBL::textures.params->at(0).set(0, 0, 0, lightParams.envmapStrength);
+            }else{
+                IBL::textures.params->at(0).set(0, 0, 0, 0.0f);
+            }
+            IBL::textures.params->dirty();
+
             Env_viewer->update();
             Env_viewer->recordAndSubmit(); //于记录和提交命令图。窗口2提交会冲突报错
-            copyImages[2]->srcImage = Env_screenshotHandler->screenshot_image(Env_window);
-            copyImages[2]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            copyImages[3]->srcImage = Env_screenshotHandler->screenshot_depth(Env_window);
-            copyImages[3]->srcImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            copyImagesIBL[2]->srcImage = Env_screenshotHandler->screenshot_image(Env_window);
+            copyImagesIBL[2]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+            copyImagesIBL[3]->srcImage = Env_screenshotHandler->screenshot_depth(Env_window);
+            copyImagesIBL[3]->srcImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             Env_viewer->present();
             // Env_screenshotHandler->screenshot_cpudepth(Env_window);
             // Env_screenshotHandler->screenshot_encodeimage(Final_window, color);
@@ -933,10 +955,10 @@ public:
             Shadow_viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
             Shadow_viewer->update();
             Shadow_viewer->recordAndSubmit(); //于记录和提交命令图。窗口2提交会冲突报错
-            copyImages[4]->srcImage = Shadow_screenshotHandler->screenshot_image(Shadow_window);
-            copyImages[4]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            copyImages[5]->srcImage = Shadow_screenshotHandler->screenshot_depth(Shadow_window);
-            copyImages[5]->srcImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            copyImagesIBL[4]->srcImage = Shadow_screenshotHandler->screenshot_image(Shadow_window);
+            copyImagesIBL[4]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+            copyImagesIBL[5]->srcImage = Shadow_screenshotHandler->screenshot_depth(Shadow_window);
+            copyImagesIBL[5]->srcImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             Shadow_viewer->present(); //计算完之后一起呈现在窗口
 
             //------------------------------------------------------窗口4-----------------------------------------------------//

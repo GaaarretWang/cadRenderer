@@ -17,6 +17,17 @@ aux_source_directory(src SRCS)
 
 add_executable(Rendering ${SRCS})
 add_subdirectory(asset)
+add_subdirectory(thirdParty/vsg)
+add_subdirectory(thirdParty/vsgImGui)
+
+set(ASSIMP_INSTALL FALSE)
+set(ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT FALSE)
+set(ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT FALSE)
+set(ASSIMP_BUILD_PLY_IMPORTER TRUE)
+set(ASSIMP_BUILD_OBJ_IMPORTER TRUE)
+set(ASSIMP_BUILD_PLY_EXPORTER TRUE)
+set(ASSIMP_BUILD_TESTS FALSE)
+add_subdirectory(thirdParty/assimp)
 
 target_include_directories(Rendering PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -24,6 +35,14 @@ target_include_directories(Rendering PUBLIC
 
 target_link_directories(Rendering PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Lib/linux/stubs/x86_64
+)
+
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/FlatBuffers/include
+    ${CMAKE_SOURCE_DIR}/thirdParty/vsg/include
+    ${CMAKE_SOURCE_DIR}/thirdParty/stb_image/include
+    ${CMAKE_SOURCE_DIR}/thirdParty/vsgImGui/include
+    ${CMAKE_SOURCE_DIR}/thirdParty/assimp/include
 )
 
 target_link_libraries(Rendering 
