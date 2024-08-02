@@ -47,6 +47,8 @@ namespace vsg
         VkSharingMode sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         std::vector<uint32_t> queueFamilyIndices;
         VkImageLayout initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        void* pNext = nullptr;
+        void* pNextAllocInfo = nullptr;
 
         int compare(const Object& rhs_object) const override;
 

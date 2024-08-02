@@ -1,3 +1,3 @@
 cd build
-make -j 100
+make
 ./Rendering

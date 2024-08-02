@@ -24,6 +24,8 @@ simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger(
 #include "ImGui.hpp"
 #include "refactor/CADMeshIBL.h"
 
+#include "screenshotIBL.h"
+
 #ifdef vsgXchange_FOUND
 #    include <vsgXchange/all.h>
 #endif
@@ -53,7 +55,7 @@ class vsgRenderer
     vsg::ref_ptr<vsg::DirectionalLight> directionalLight[4];
     vsg::ref_ptr<vsg::Switch> directionalLightSwitch = vsg::Switch::create();
 
-    gui::Params* guiParams = gui::Params::create();
+    vsg::ref_ptr<gui::Params> guiParams = gui::Params::create();
 
 
     vsg::ref_ptr<ScreenshotHandler> Final_screenshotHandler;
@@ -71,12 +73,12 @@ class vsgRenderer
 
     std::string project_path;
 
-    float fx = 386.52199190267083;//焦距(x轴上)
-    float fy = 387.32300428823663;//焦距(y轴上)
-    float cx = 326.5103569741365;//图像中心点(x轴)
-    float cy = 237.40293732598795;//图像中心点(y轴)
-    float near = 0.1f;
-    float far = 65.535f;
+    double fx = 386.52199190267083;//焦距(x轴上)
+    double fy = 387.32300428823663;//焦距(y轴上)
+    double cx = 326.5103569741365;//图像中心点(x轴)
+    double cy = 237.40293732598795;//图像中心点(y轴)
+    double near = 0.1f;
+    double far = 65.535f;
     int width;
     int height;
     ConvertImage *convertimage;
@@ -150,7 +152,7 @@ public:
         this->height = height;
     }
 
-    void setKParameters(float fx, float fy, float cx, float cy){
+    void setKParameters(double fx, double fy, double cx, double cy){
         this->fx = fx;
         this->fy = fy;
         this->cx = cx;
@@ -461,7 +463,6 @@ public:
         }
 
         //---------------------------------------读取CAD模型------------------------------------------//
-        CADMesh cad;
 
         //读取.fb格式的模型参数信息
         bool fullNormal = 0;
@@ -607,8 +608,8 @@ public:
             viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
             viewer->addEventHandler(vsg::Trackball::create(camera));
             auto event = vsg::Event::create_if(true, window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
-            auto screenshotHandler = ScreenshotHandler::create(event);
-            viewer->addEventHandler(screenshotHandler);
+            auto screenshotHandlerIBL = IBLScreenshot::ScreenshotHandler::create(event);
+            viewer->addEventHandler(screenshotHandlerIBL);
         }
         catch (const vsg::Exception& ve)
         {
@@ -641,8 +642,8 @@ public:
         Env_viewer->addEventHandlers({vsg::CloseHandler::create(Env_viewer)});
         auto Env_event = vsg::Event::create_if(true, Env_window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled 
         Env_viewer->addEventHandler(vsg::Trackball::create(camera));
-        auto Env_screenshotHandler = ScreenshotHandler::create(Env_event);
-        Env_viewer->addEventHandler(Env_screenshotHandler);
+        auto Env_screenshotHandlerIBL = IBLScreenshot::ScreenshotHandler::create(Env_event);
+        Env_viewer->addEventHandler(Env_screenshotHandlerIBL);
 
         //----------------------------------------------------------------阴影窗口----------------------------------------------------------//
         shadowWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
@@ -664,8 +665,8 @@ public:
         Shadow_viewer->compile();
         Shadow_viewer->addEventHandlers({vsg::CloseHandler::create(Shadow_viewer)});
         auto Shadow_event = vsg::Event::create_if(true, Shadow_window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
-        auto Shadow_screenshotHandler = ScreenshotHandler::create(Shadow_event);
-        Shadow_viewer->addEventHandler(Shadow_screenshotHandler);
+        auto Shadow_screenshotHandlerIBL = IBLScreenshot::ScreenshotHandler::create(Shadow_event);
+        Shadow_viewer->addEventHandler(Shadow_screenshotHandlerIBL);
 
         //----------------------------------------------------------------投影窗口----------------------------------------------------------//
         projectionWindowTraits->device = window->getOrCreateDevice(); //共享设备 
@@ -680,9 +681,6 @@ public:
         Projection_viewer->assignRecordAndSubmitTaskAndPresentation({Projection_commandGraph});
         Projection_viewer->compile();
         Projection_viewer->addEventHandlers({vsg::CloseHandler::create(Projection_viewer)});
-        auto Projection_event = vsg::Event::create_if(true, Shadow_window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
-        auto Projection_screenshotHandler = ScreenshotHandler::create(Projection_event);
-        Projection_viewer->addEventHandler(Projection_screenshotHandler);
 
         //----------------------------------------------------------------融合窗口----------------------------------------------------------//
         for (int i = 0; i < 6; i++)

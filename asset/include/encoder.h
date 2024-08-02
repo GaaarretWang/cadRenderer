@@ -15,6 +15,9 @@
 #include <vulkan/vulkan.h>
 #include <cuda_runtime.h>
 
+
+#ifndef ENCODER_H
+#define ENCODER_H
 class Cudactx
 {
     CUcontext m_context;
@@ -209,3 +212,5 @@ public:
     }
     //MFW::Wrapper::Buffer::Ptr readBackVulkanBuffer(CUdeviceptr dpFrame);
 };
+
+#endif //ENCODER_H

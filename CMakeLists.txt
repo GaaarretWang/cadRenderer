@@ -9,7 +9,12 @@ project(Rendering
 find_package(CUDA REQUIRED)
 # set(CMAKE_CUDA_ARCHITECTURES 61)
 
-find_package(vsg 1.1.0)
+# find the vsg
+if (VULKAN_SDK)
+    set(ENV{VULKAN_SDK} ${VULKAN_SDK})
+    set(ENV{VK_SDK_PATH} ${VULKAN_SDK})
+endif()
+
 
 # set the use of C++17 globally as all examples require it
 set(CMAKE_CXX_STANDARD 17)
@@ -39,7 +44,6 @@ target_link_directories(Rendering PUBLIC
 
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/FlatBuffers/include
-    ${CMAKE_SOURCE_DIR}/thirdParty/vsg/include
     ${CMAKE_SOURCE_DIR}/thirdParty/stb_image/include
     ${CMAKE_SOURCE_DIR}/thirdParty/vsgImGui/include
     ${CMAKE_SOURCE_DIR}/thirdParty/assimp/include

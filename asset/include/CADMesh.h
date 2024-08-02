@@ -6,6 +6,8 @@
 #include "importer/assimp.h"
 #define EXPLODE
 
+#ifndef CADMESH_H
+#define CADMESH_H
 struct MaterialObj
 {
     // Structure holding the material
@@ -114,6 +116,7 @@ namespace std
     };
 } // namespace std
 
+
 class CADMesh
 {
 private:
@@ -129,7 +132,6 @@ private:
     std::unordered_map<std::string, uint32_t> uniqueMaterials; //pos,normal,uv...
 
     //环境光照
-    std::unordered_map<int, uint32_t> materialIndex;
     std::unordered_map<std::string, int> instanceIndex;                                 //flatbuffer instanceID, i
     std::unordered_map<std::string, treeNode> nodePtr;        //记录ID对应的节点
     std::unordered_set<std::string> added;                                              //记录添加到树中的节点
@@ -139,9 +141,6 @@ public:
     int Nodenumber;
     int Triangnumber;
 
-    flatbuffers::FlatBufferBuilder builder_out;
-    std::unordered_map<std::string, uint32_t> protoIndex;
-    std::unordered_map<std::string, uint32_t> protoTriangleNum;
     flatbuffers::FlatBufferBuilder builder_out;
     std::unordered_map<std::string, uint32_t> protoIndex;
     std::unordered_map<std::string, uint32_t> protoTriangleNum;
@@ -173,5 +172,7 @@ public:
     //加载着色器
     vsg::ref_ptr<vsg::ShaderSet> buildShader(std::string vert, std::string frag);
     vsg::ref_ptr<vsg::ShaderSet> buildIntgShader(std::string vert, std::string frag);
-    void CADMesh::loadFile(const std::string& path, bool fullNormal);
+    void loadFile(const std::string& path, bool fullNormal);
 };
+
+#endif
