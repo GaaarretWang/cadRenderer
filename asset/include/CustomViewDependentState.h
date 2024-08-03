@@ -1,7 +1,6 @@
 #pragma once
 
 #include <vsg/all.h>
-#include <vsg/state/ViewDependentState.h>
 #include "MyMask.h"
 
 #ifndef CUSTOMVIEWDEPENDENTSTATE_H

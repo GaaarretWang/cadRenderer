@@ -433,6 +433,7 @@ void Viewer::assignRecordAndSubmitTaskAndPresentation(CommandGraphs in_commandGr
         }
     };
 
+
     // find all the windows
     struct FindWindows : public Visitor
     {
@@ -445,17 +446,23 @@ void Viewer::assignRecordAndSubmitTaskAndPresentation(CommandGraphs in_commandGr
             cg.traverse(*this);
         }
     } findWindows;
-
     // place the input CommandGraphs into separate groups associated with each device and queue family combination
     std::map<DeviceQueueFamily, CommandGraphs> deviceCommandGraphsMap;
+
     for (auto& commandGraph : in_commandGraphs)
-    {
-        commandGraph->accept(findWindows);
-        deviceCommandGraphsMap[DeviceQueueFamily{commandGraph->device.get(), commandGraph->queueFamily, commandGraph->presentFamily}].emplace_back(commandGraph);
+    {   
+        try{
+            commandGraph->accept(findWindows);
+            deviceCommandGraphsMap[DeviceQueueFamily{commandGraph->device.get(), commandGraph->queueFamily, commandGraph->presentFamily}].emplace_back(commandGraph);
+        }catch(const std::exception& e){
+            std::cerr << e.what() << '\n';
+        }
+        
     }
 
     // assign the windows found in the CommandGraphs so that the Viewer can track them.
     _windows.assign(findWindows.windows.begin(), findWindows.windows.end());
+
 
     // create the required RecordAndSubmitTask and any Presentation objects that are required for each set of CommandGraphs
     for (auto& [deviceQueueFamily, commandGraphs] : deviceCommandGraphsMap)

@@ -1,0 +1,50 @@
+table Model {
+    Type: string;
+    MaterialID: int;
+    ModelGeo: Geo;
+}
+
+table Geo {
+    position: [float];
+    normal: [float];
+    uv: [float];
+    index: [int];
+}
+
+table Material {
+    MaterialID: int;
+    Diffuse: string;
+    Specular: string;
+    Shininess: float;
+    DiffuseTextureName: string;
+    Emissive: string;
+    EmissiveIntensity: float;
+    Opacity: float;
+    metalness: float;
+    roughness: float;
+    transmission:float;
+}
+
+table Proto {
+    ProtoID: string;
+    Name: string;
+    Type: string;
+    Models: [Model];
+}
+
+table Instance {
+    InstanceID: string;
+    MaterialID: int;
+    ProtoID: string;
+    ParentID: string;
+    Matrix: [double];
+    Name: string;
+}
+
+table RenderFlatBuffer {
+    Bom: [Instance];
+    MaterialData: [Material];
+    ProtoData: [Proto];
+}
+
+root_type RenderFlatBuffer;

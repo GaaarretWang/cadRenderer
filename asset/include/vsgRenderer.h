@@ -165,7 +165,7 @@ public:
         auto options = vsg::Options::create();
         options->fileCache = vsg::getEnv("VSG_FILE_CACHE"); //2
         options->paths = vsg::getEnvPaths("VSG_FILE_PATH");
-        options->paths.push_back("./data");
+        options->paths.push_back("../asset/data");
         options->sharedObjects = vsg::SharedObjects::create();
 
         // zsz：手动初始化vulkan设备
@@ -342,7 +342,7 @@ public:
         envSceneGroup->addChild(drawSkyboxNode);
         // Shader资源
         vsg::ref_ptr<vsg::PbrMaterialValue> objectMaterial;
-        auto pbriblShaderSet = IBL::customPbrShaderSet(options);
+        auto pbriblShaderSet = IBL::customPbrShaderSet(options);//
         //材质
         auto plane_mat = vsg::PbrMaterialValue::create();
         plane_mat->value().roughnessFactor = 0.5f;
@@ -508,6 +508,8 @@ public:
             
         }
 
+        std::cout << "读取CAD模型完成" << std::endl;
+
         vsg::ref_ptr<vsg::Node> cadMeshRoot;
 
         auto cadMeshDrawCmd = cadV2.createDrawCmd(gpc_ibl);
@@ -546,6 +548,7 @@ public:
             cubeTransform = cubeTrans;
             scenegraph->addChild(cubeTrans);
         }
+
 
         //-----------------------------------设置光源----------------------------------//
         //vsg::ref_ptr<vsg::DirectionalLight> directionalLight; //定向光源 ref_ptr智能指针
@@ -586,10 +589,12 @@ public:
         auto lookAt = vsg::LookAt::create(eye, centre, up);
         camera = vsg::Camera::create(perspective, lookAt, viewport);
         
-        auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(guiParams, options));
+        std::cout << "设置相机参数完成" << std::endl;
+
+        //auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(guiParams, options));
+        
+        std::cout<<"设置GUI完成"<<std::endl;
         //----------------------------------------------------------------几何窗口----------------------------------------------------------//
-        try
-        {
         // create the viewer and assign window(s) to it
             window = vsg::Window::create(cadWindowTraits);
             viewer->addWindow(window);
@@ -601,26 +606,17 @@ public:
             renderGraph->clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
             auto commandGraph = vsg::CommandGraph::create(window);
             commandGraph->addChild(renderGraph);
-
+            //
             viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
+            //
             viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
             viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
             viewer->addEventHandler(vsg::Trackball::create(camera));
+
             auto event = vsg::Event::create_if(true, window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
             auto screenshotHandlerIBL = IBLScreenshot::ScreenshotHandler::create(event);
             viewer->addEventHandler(screenshotHandlerIBL);
-        }
-        catch (const vsg::Exception& ve)
-        {
-            vsg::debug("CompileManager::compile() exception caught : ", ve.message);
-            std::cout << ve.message;
-            std::cout << "done!1" << std::endl;
-        }
-        catch (...)
-        {
-            vsg::debug("CompileManager::compile() exception caught");
-            std::cout << "done!2" << std::endl;
-        }
+        std::cout << "几何窗口" << std::endl;
         //----------------------------------------------------------------环境窗口----------------------------------------------------------//
         //   // create the viewer and assign window(s) to it
         envWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
@@ -631,7 +627,7 @@ public:
         Env_view->features = vsg::RECORD_LIGHTS;
         auto Env_renderGraph = vsg::RenderGraph::create(Env_window, Env_view); //如果用Env_window会报错
         Env_renderGraph->clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
-        Env_renderGraph->addChild(renderImGui);
+        //Env_renderGraph->addChild(renderImGui);
 
         auto Env_commandGraph = vsg::CommandGraph::create(Env_window); //如果用Env_window会报错
         Env_commandGraph->addChild(Env_renderGraph);
@@ -643,6 +639,8 @@ public:
         Env_viewer->addEventHandler(vsg::Trackball::create(camera));
         auto Env_screenshotHandlerIBL = IBLScreenshot::ScreenshotHandler::create(Env_event);
         Env_viewer->addEventHandler(Env_screenshotHandlerIBL);
+
+        std::cout << "环境窗口" << std::endl;
 
         //----------------------------------------------------------------阴影窗口----------------------------------------------------------//
         shadowWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
@@ -667,6 +665,8 @@ public:
         auto Shadow_screenshotHandlerIBL = IBLScreenshot::ScreenshotHandler::create(Shadow_event);
         Shadow_viewer->addEventHandler(Shadow_screenshotHandlerIBL);
 
+        std::cout << "阴影窗口" << std::endl;
+
         //----------------------------------------------------------------投影窗口----------------------------------------------------------//
         projectionWindowTraits->device = window->getOrCreateDevice(); //共享设备 
         Projection_window = vsg::Window::create(projectionWindowTraits);
@@ -681,6 +681,7 @@ public:
         Projection_viewer->compile();
         Projection_viewer->addEventHandlers({vsg::CloseHandler::create(Projection_viewer)});
 
+        std::cout << "投影窗口" << std::endl;
         //----------------------------------------------------------------融合窗口----------------------------------------------------------//
         for (int i = 0; i < 6; i++)
         {
@@ -777,6 +778,7 @@ public:
         // convertDepthImageInfo = vsg::ImageInfo::create(vsg::Sampler::create(), vsg::createImageView(*context, storageImages[i], VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         
         // vsg::ref_ptr<vsg::ShaderSet> mergeShader = cad.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
+        std::cout << "融合窗口" << std::endl;
         cad.buildIntgNode(mergeScenegraph, mergeShader, imageInfosIBL, imageInfos, vsgColorImage, vsgDepthImage); //读取几何信息1
 
         double mergeradius = 2000.0; // 固定观察距离
