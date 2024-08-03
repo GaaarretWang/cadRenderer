@@ -3,7 +3,7 @@
 #include <unordered_set>
 #include <vsg/all.h>
 #include "OBJLoader.h"
-#include "importer/assimp.h"
+#include "assimp.h"
 #define EXPLODE
 
 #ifndef CADMESH_H

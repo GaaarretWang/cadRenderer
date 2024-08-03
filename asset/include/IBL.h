@@ -2,7 +2,7 @@
 #define ZSZ_IBL
 
 #include <vsg/all.h>
-#include "vsgExt/CustomViewDependentState.h"
+#include "CustomViewDependentState.h"
 
 namespace IBL
 {

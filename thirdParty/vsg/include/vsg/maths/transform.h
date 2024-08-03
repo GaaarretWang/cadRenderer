@@ -139,6 +139,32 @@ namespace vsg
                          0, 0, (zFar * zNear) * r, 0);
     }
 
+    //object tracking perspective matrix
+    template<typename T>
+    constexpr t_mat4<T> perspective(T fx, T fy, T cx, T cy, T w, T h, T near, T far)
+    {
+        // T f = static_cast<T>(1.0 / std::tan(fovy_radians * 0.5));
+        // T r = static_cast<T>(1.0 / (zFar - zNear));
+        // return t_mat4<T>(f / aspectRatio, 0, 0, 0,
+        //                  0, -f, 0, 0,
+        //                  0, 0, zNear * r, -1,
+        //                  0, 0, (zFar * zNear) * r, 0);
+
+        // double fx = 386.52199190267083;//焦距(x轴上)
+		// double fy = 387.32300428823663;//焦距(y轴上)
+		// double cx = 326.5103569741365;//图像中心点(x轴)
+		// double cy = 237.40293732598795;//图像中心点(y轴)
+		// double w=640;
+		// double h=480;
+		// double near = 0.1f;
+		// double far = 100.0f;
+		return t_mat4<T>(2.0f * fx / w,	 	    0.0f, 					0.0f, 								0.0f,
+                        0.0f,					-2.0f * fy / h, 		0.0f, 								0.0f,
+                        1 - 2.0f * cx / w, 	    1 - 2.0f * cy / h,		near / (far - near), 		        -1.0f,
+                        0.0f, 					0.0f, 					far * near / (far - near), 	        0.0f);
+
+    }
+
     /// create a 4x4 matrix for a Reverse depth perspective matrix, convention: 1 to 0 depth range. Y NDC coordinates are inverted in Vulkan.
     template<typename T>
     constexpr t_mat4<T> perspective(T left, T right, T bottom, T top, T zNear, T zFar)

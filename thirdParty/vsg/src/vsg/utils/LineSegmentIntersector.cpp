@@ -264,7 +264,7 @@ bool LineSegmentIntersector::intersects(const dbox& db){
     //t_enter = t_enter > t_min_z ? t_enter : t_min_z;
     //t_exit = t_max_x > t_max_y ? t_max_y : t_max_x;
     //t_exit = t_exit > t_max_z ? t_max_z : t_exit;
-    //if (t_enter < t_exit && t_exit >= 0) //æœ‰äº¤ç‚¹
+    //if (t_enter < t_exit && t_exit >= 0) //ÓĞ½»µã
     //{
     //    return true;
     //}
@@ -281,19 +281,19 @@ bool LineSegmentIntersector::intersects(const dbox& db){
     double tx_min, ty_min, tz_min;
     double tx_max, ty_max, tz_max;
 
-    //x0,y0,z0ä¸ºåŒ…å›´ä½“çš„æœ€å°é¡¶ç‚¹
+    //x0,y0,z0Îª°üÎ§ÌåµÄ×îĞ¡¶¥µã
     double x0 = db.min.x;
     double y0 = db.min.y;
     double z0 = db.min.z;
 
-    //x1,y1,z1ä¸ºåŒ…å›´ä½“çš„æœ€å¤§é¡¶ç‚¹
+    //x1,y1,z1Îª°üÎ§ÌåµÄ×î´ó¶¥µã
     double x1 = db.max.x;
     double y1 = db.max.y;
     double z1 = db.max.z;
 
     if (abs(dx) < 0.000001f)
     {
-        //è‹¥å°„çº¿æ–¹å‘çŸ¢é‡çš„xè½´åˆ†é‡ä¸º0ä¸”åŸç‚¹ä¸åœ¨ç›’ä½“å†…
+        //ÈôÉäÏß·½ÏòÊ¸Á¿µÄxÖá·ÖÁ¿Îª0ÇÒÔ­µã²»ÔÚºĞÌåÄÚ
         if (ox < x1 || ox > x0)
             return false;
     }
@@ -314,7 +314,7 @@ bool LineSegmentIntersector::intersects(const dbox& db){
 
     if (abs(dy) < 0.000001f)
     {
-        //è‹¥å°„çº¿æ–¹å‘çŸ¢é‡çš„xè½´åˆ†é‡ä¸º0ä¸”åŸç‚¹ä¸åœ¨ç›’ä½“å†…
+        //ÈôÉäÏß·½ÏòÊ¸Á¿µÄxÖá·ÖÁ¿Îª0ÇÒÔ­µã²»ÔÚºĞÌåÄÚ
         if (oy < y1 || oy > y0)
             return false;
     }
@@ -334,7 +334,7 @@ bool LineSegmentIntersector::intersects(const dbox& db){
 
     if (abs(dz) < 0.000001f)
     {
-        //è‹¥å°„çº¿æ–¹å‘çŸ¢é‡çš„xè½´åˆ†é‡ä¸º0ä¸”åŸç‚¹ä¸åœ¨ç›’ä½“å†…
+        //ÈôÉäÏß·½ÏòÊ¸Á¿µÄxÖá·ÖÁ¿Îª0ÇÒÔ­µã²»ÔÚºĞÌåÄÚ
         if (oz < z1 || oz > z0)
             return false;
     }
@@ -353,12 +353,12 @@ bool LineSegmentIntersector::intersects(const dbox& db){
     }
 
     double t0, t1;
-    //å…‰çº¿è¿›å…¥å¹³é¢å¤„ï¼ˆæœ€é è¿‘çš„å¹³é¢ï¼‰çš„æœ€å¤§tå€¼
+    //¹âÏß½øÈëÆ½Ãæ´¦£¨×î¿¿½üµÄÆ½Ãæ£©µÄ×î´ótÖµ
     t0 = tx_min > ty_min ? tx_min : ty_min;
     t0 = t0 > tz_min ? t0 : tz_min;
     //t0 = max(tz_min, max(tx_min, ty_min));
 
-    //å…‰çº¿ç¦»å¼€å¹³é¢å¤„ï¼ˆæœ€è¿œç¦»çš„å¹³é¢ï¼‰çš„æœ€å°tå€¼
+    //¹âÏßÀë¿ªÆ½Ãæ´¦£¨×îÔ¶ÀëµÄÆ½Ãæ£©µÄ×îĞ¡tÖµ
     t1 = tx_max < ty_max ? tx_max : ty_max;
     t1 = t1 < tz_max ? t1 : tz_max;
     //t1 = min(tz_max, min(tx_max, ty_max));

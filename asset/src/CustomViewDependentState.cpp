@@ -2,6 +2,7 @@
 
 using namespace vsg;
 
+const uint32_t CustomViewDependentState::MAX_MATRIX_COUNT;
 //////////////////////////////////////
 //
 // TraverseChildrenOfNode
@@ -47,7 +48,7 @@ void CustomViewDependentState::init(ResourceRequirements& requirements)
     descriptorSetLayout = nullptr;
     descriptorSet = nullptr;
 
-    viewMatrixData = mat4Array::create(CustomViewDependentState::MAX_MATRIX_COUNT);
+    viewMatrixData = mat4Array::create(MAX_MATRIX_COUNT);
     viewMatrixData->properties.dataVariance = DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
     viewMatrixDataBufferInfo = BufferInfo::create(viewMatrixData.get());
 

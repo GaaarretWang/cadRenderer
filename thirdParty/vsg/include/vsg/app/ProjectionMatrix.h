@@ -56,7 +56,26 @@ namespace vsg
         {
         }
 
-        dmat4 transform() const override { return perspective(radians(fieldOfViewY), aspectRatio, nearDistance, farDistance); }
+        Perspective(double fx, double fy, double cx, double cy, double w, double h, double near, double far) :
+            opencv_fx(fx),
+            opencv_fy(fy),
+            opencv_cx(cx),
+            opencv_cy(cy),
+            opencv_w(w),
+            opencv_h(h),
+            opencv_near(near),
+            opencv_far(far)
+        {
+            opencvFormat = true;
+        }
+
+        dmat4 transform() const override 
+        { 
+            if (opencvFormat)
+                return perspective(opencv_fx, opencv_fy, opencv_cx, opencv_cy, opencv_w, opencv_h, opencv_near, opencv_far); 
+            else
+                return perspective(radians(fieldOfViewY), aspectRatio, nearDistance, farDistance); 
+        }
 
         void changeExtent(const VkExtent2D&, const VkExtent2D& newExtent) override
         {
@@ -70,6 +89,16 @@ namespace vsg
         double aspectRatio;
         double nearDistance;
         double farDistance;
+        bool opencvFormat = false;
+        double opencv_fx;
+        double opencv_fy;
+        double opencv_cx;
+        double opencv_cy;
+        double opencv_w;
+        double opencv_h;
+        double opencv_near;
+        double opencv_far;
+
     };
     VSG_type_name(vsg::Perspective);
 

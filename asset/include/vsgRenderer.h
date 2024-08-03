@@ -18,11 +18,10 @@ simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger(
 #include <vsg/utils/GraphicsPipelineConfigurator.h>
 #include <vsg/core/Data.h>
 
-#include "importer/assimp.h"
-
+#include "assimp.h"
 #include "IBL.h"
 #include "ImGui.hpp"
-#include "refactor/CADMeshIBL.h"
+#include "CADMeshIBL.h"
 
 #include "screenshotIBL.h"
 
@@ -720,7 +719,7 @@ public:
             copyImagesIBL[i]->regions.push_back(copyRegion);
         }
 
-        vsg::ref_ptr<vsg::Node> mergeScenegraph;
+        vsg::ref_ptr<vsg::Group> mergeScenegraph = vsg::Group::create();
 
         convertimage = new ConvertImage(width, height);
         vsgColorImage = vsg::ubvec3Array2D::create(width, height);

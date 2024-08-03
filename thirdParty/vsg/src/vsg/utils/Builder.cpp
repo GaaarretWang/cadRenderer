@@ -1247,10 +1247,8 @@ ref_ptr<Node> Builder::createSphere(const GeometryInfo& info, const StateInfo& s
     auto dz = info.dz * 0.5f;
     auto origin = info.position;
 
-    //unsigned int num_columns = 20;
-    //unsigned int num_rows = 10;
-    unsigned int num_columns = 40;
-    unsigned int num_rows = 20;
+    unsigned int num_columns = 20;
+    unsigned int num_rows = 10;
     unsigned int num_vertices = num_columns * num_rows;
     unsigned int num_indices = (num_columns - 1) * (num_rows - 1) * 6;
 

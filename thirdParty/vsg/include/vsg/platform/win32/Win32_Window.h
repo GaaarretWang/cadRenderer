@@ -22,6 +22,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/ui/KeyEvent.h>
 #include <vsg/ui/PointerEvent.h>
 
+// #define WIN32_LEAN_AND_MEAN
+// #include <WinSock2.h>
 #include <windows.h>
 #include <windowsx.h>
 

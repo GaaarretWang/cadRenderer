@@ -59,7 +59,7 @@ namespace vsg
 
         VkMemoryRequirements getMemoryRequirements(uint32_t deviceID) const;
 
-        VkResult allocateAndBindMemory(Device* device, VkMemoryPropertyFlags memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, void* pNextAllocInfo = nullptr);
+        VkResult allocateAndBindMemory(Device* device, VkMemoryPropertyFlags memoryProperties = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
         VkResult bind(DeviceMemory* deviceMemory, VkDeviceSize memoryOffset);
 

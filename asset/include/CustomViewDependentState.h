@@ -4,6 +4,9 @@
 #include <vsg/state/ViewDependentState.h>
 #include "MyMask.h"
 
+#ifndef CUSTOMVIEWDEPENDENTSTATE_H
+#define CUSTOMVIEWDEPENDENTSTATE_H
+
 class CustomViewDependentState : public vsg::Inherit<vsg::ViewDependentState, CustomViewDependentState>
 {
 public:
@@ -25,3 +28,5 @@ public:
     // to actually bind the descriptor set
     //virtual void bindDescriptorSets(vsg::CommandBuffer& commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t firstSet) override;
 };
+
+#endif // CUSTOMVIEWDEPENDENTSTATE_H

@@ -16,7 +16,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/vk/Extensions.h>
 #include <vsg/vk/Instance.h>
 #include <vsg/vk/PhysicalDevice.h>
-#include <iostream>
 
 #include <set>
 
@@ -86,7 +85,7 @@ Names vsg::validateInstancelayerNames(const Names& names)
 
 Instance::Instance(Names instanceExtensions, Names layers, uint32_t vulkanApiVersion, AllocationCallbacks* allocator) :
     apiVersion(vulkanApiVersion)
-{   
+{
     // application info
     VkApplicationInfo appInfo = {};
     appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -113,10 +112,8 @@ Instance::Instance(Names instanceExtensions, Names layers, uint32_t vulkanApiVer
 
     createInfo.pNext = nullptr;
 
-
     VkInstance instance;
     VkResult result = vkCreateInstance(&createInfo, allocator, &instance);
-
     if (result == VK_SUCCESS)
     {
         _instance = instance;

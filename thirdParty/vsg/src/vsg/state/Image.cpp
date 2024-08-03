@@ -156,7 +156,7 @@ VkResult Image::bind(DeviceMemory* deviceMemory, VkDeviceSize memoryOffset)
     return result;
 }
 
-VkResult Image::allocateAndBindMemory(Device* device, VkMemoryPropertyFlags memoryProperties, void* pNextAllocInfo)
+VkResult Image::allocateAndBindMemory(Device* device, VkMemoryPropertyFlags memoryProperties)
 {
     auto memRequirements = getMemoryRequirements(device->deviceID);
     auto memory = DeviceMemory::create(device, memRequirements, memoryProperties, pNextAllocInfo);
@@ -184,7 +184,7 @@ void Image::compile(Device* device)
 
     VkImageCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-    info.pNext = nullptr;
+    info.pNext = pNext;
     info.flags = flags;
     info.imageType = imageType;
     info.format = format;

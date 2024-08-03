@@ -17,6 +17,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/state/GraphicsPipeline.h>
 #include <vsg/state/Sampler.h>
 #include <vsg/state/ShaderStage.h>
+#include <vsg/state/ImageInfo.h>
 
 namespace vsg
 {
@@ -45,7 +46,6 @@ namespace vsg
         uint32_t descriptorCount = 0;
         VkShaderStageFlags stageFlags = 0;
         ref_ptr<Data> data;
-
         int compare(const DescriptorBinding& rhs) const;
 
         explicit operator bool() const noexcept { return !name.empty(); }

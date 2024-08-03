@@ -274,11 +274,11 @@ bool DescriptorConfigurator::assignDefaults(const std::set<uint32_t>& inheritedS
                     default:
                         break;
                     }
-
+        
                     if (isTexture)
                     {
                         assignDescriptor(descriptorBinding.set, descriptorBinding.binding, descriptorBinding.descriptorType, descriptorBinding.descriptorCount, descriptorBinding.stageFlags,
-                                         DescriptorImage::create(Sampler::create(), descriptorBinding.data, descriptorBinding.binding, 0, descriptorBinding.descriptorType));
+                                            DescriptorImage::create(Sampler::create(), descriptorBinding.data, descriptorBinding.binding, 0, descriptorBinding.descriptorType));
                     }
                     else
                     {

@@ -14,6 +14,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 #include <vsg/core/Inherit.h>
 #include <vsg/maths/transform.h>
+#include <iostream>
 
 namespace vsg
 {
@@ -60,6 +61,11 @@ namespace vsg
             up = normalize(cross(side, look));
         }
 
+        LookAt(const dmat4& matrix)
+        {
+            set(matrix);
+        }
+
         LookAt& operator=(const LookAt& lookAt)
         {
             eye = lookAt.eye;
@@ -77,9 +83,17 @@ namespace vsg
 
         void set(const dmat4& matrix)
         {
-            up = normalize(matrix * (dvec3(0.0, 0.0, 0.0) + dvec3(0.0, 1.0, 0.0)) - matrix * dvec3(0.0, 0.0, 0.0));
-            center = matrix * dvec3(0.0, 0.0, -1.0);
-            eye = matrix * dvec3(0.0, 0.0, 0.0);
+            // up = normalize(matrix * (dvec3(0.0, 0.0, 0.0) + dvec3(0.0, 1.0, 0.0)) - matrix * dvec3(0.0, 0.0, 0.0));
+            // center = matrix * dvec3(0.0, 0.0, -1.0);
+            // eye = matrix * dvec3(0.0, 0.0, 0.0);
+            dmat4 inverse_rotate_matrix = vsg::inverse(matrix);
+            inverse_rotate_matrix[3][0] = 0;
+            inverse_rotate_matrix[3][1] = 0;
+            inverse_rotate_matrix[3][2] = 0;
+            dmat4 do_inverse_rotate_matrix = inverse_rotate_matrix * matrix;
+            eye = dvec3(-do_inverse_rotate_matrix[3][0], -do_inverse_rotate_matrix[3][1], -do_inverse_rotate_matrix[3][2]);
+            up = dvec3(matrix[0][1], matrix[1][1], matrix[2][1]);
+            center = eye + dvec3(-matrix[0][2], -matrix[1][2], -matrix[2][2]);
         }
 
         dmat4 transform() const override { return lookAt(eye, center, up); }
