@@ -189,6 +189,9 @@ void ModelInstance::buildObjInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> sce
     drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, OBJ_vertexArrays));
     drawCommands->addChild(vsg::BindIndexBuffer::create(mesh->indicesVector[0]));
     drawCommands->addChild(vsg::DrawIndexed::create(mesh->indicesVector[0]->size(), 1, 0, 0, 0));
+    auto rs = vsg::RasterizationState::create();
+    rs->cullMode = VK_CULL_MODE_BACK_BIT;
+    graphicsPipelineConfig->pipelineStates.push_back(rs);
 
     graphicsPipelineConfig->init();
 

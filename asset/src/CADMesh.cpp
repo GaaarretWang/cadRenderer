@@ -37,9 +37,9 @@ void CADMesh::buildPlaneNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::S
 #if (1) //����
     auto plane_colors = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0f});
     auto plane_mat = vsg::PhongMaterialValue::create();
-    plane_mat->value().ambient.set(0.24725, 0.1995, 0.0745, 1.0f);
-    plane_mat->value().diffuse.set(0.75164, 0.60648, 0.22648, 1.0f);
-    plane_mat->value().specular.set(0.628281, 0.555802, 0.366065, 1.0f);
+    plane_mat->value().ambient.set(1, 1, 1, 1.0f);
+    plane_mat->value().diffuse.set(1, 1, 1, 1.0f);
+    plane_mat->value().specular.set(1, 1, 1, 1.0f);
     //std::cout << mat->value().shininess;//Ĭ��ֵΪ100
     plane_mat->value().shininess = 100;
 
@@ -61,12 +61,12 @@ void CADMesh::buildPlaneNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::S
 #endif
 
     //    //3. ���ֶ������ö��㡢���򡢲����������Ϣ��������ɫ��
-    float plane_length = 5000.0f;
+    float plane_length = 100.0f;
     auto plane_vertices = vsg::vec3Array::create(
-        {{-plane_length, -plane_length, -plane_length / 10},
-         {plane_length, -plane_length, -plane_length / 10},
-         {plane_length, plane_length, -plane_length / 10},
-         {-plane_length, plane_length, -plane_length / 10}});
+        {{-plane_length, -plane_length, 0},
+         {plane_length, -plane_length, 0},
+         {plane_length, plane_length, 0},
+         {-plane_length, plane_length, 0}});
 
     auto plane_normals = vsg::vec3Array::create(
         {{0.0f, 0.0f, 1.0f},

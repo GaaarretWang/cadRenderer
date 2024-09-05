@@ -5,7 +5,7 @@ Rendering::Rendering() = default;
 Rendering::~Rendering() = default;
 
 int Rendering::Init(){
-    renderer.setWidthAndHeight(width, height);
+    renderer.setWidthAndHeight(width, height, upsample_scale);
     renderer.setKParameters(fx, fy, cx, cy);
 
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
@@ -23,7 +23,12 @@ int Rendering::Init(){
     // instance_names.push_back("小舱壁-ASM-修改焊接后0");
     instance_names.push_back("小舱壁-ASM-修改焊接后1");
 
-    renderer.initRenderer(renderingDir, model_transforms, model_paths, instance_names);
+    renderer.setUpShader(renderingDir, trackingShader);
+    // vsg::dmat4 plane_transform = vsg::translate(0.0, 1.5, 0.0) * vsg::rotate(90.0, 1.0, 0.0, 0.0) * vsg::translate(0.0, 0.0, 1.0);
+    vsg::dmat4 plane_transform = vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -0.78, 1);
+    // vsg::vec3 light_direction = vsg::normalize(vsg::vec3(0, 1, 0));
+    vsg::vec3 light_direction = vsg::normalize(vsg::vec3(-1.0, 0.2, -1.0));
+    renderer.initRenderer(renderingDir, model_transforms, model_paths, instance_names, plane_transform, light_direction);
 
     return 0;
 }
@@ -53,7 +58,6 @@ int Rendering::Update(){
         renderer.updateCamera(centre, eye, up);
     }
 
-
     std::ifstream color_file(colorPath, std::ios::binary | std::ios::app);
     std::vector<uint8_t> color_buffer((std::istreambuf_iterator<char>(color_file)), std::istreambuf_iterator<char>());
     std::ifstream depth_file(depthPath, std::ios::binary | std::ios::app);
@@ -64,7 +68,7 @@ int Rendering::Update(){
 
     const std::string& real_color = real_color1;
     const std::string& real_depth = real_depth1;
-    std::vector<std::vector<uint8_t>> color_image;
+    uint8_t* color_image;
     if(use_png){
         renderer.setRealColorAndImage(real_color, real_depth);
     }

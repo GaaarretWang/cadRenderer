@@ -29,6 +29,11 @@ class vsgRenderer
     std::unordered_map<std::string, ModelInstance*> instance_phongs; //path, mesh*
     std::unordered_map<std::string, ModelInstance*> instance_shadows; //path, mesh*
 
+    vsg::ref_ptr<vsg::ShaderSet> phongShader;
+    vsg::ref_ptr<vsg::ShaderSet> planeShader;
+    vsg::ref_ptr<vsg::ShaderSet> shadowShader;
+    vsg::ref_ptr<vsg::ShaderSet> mergeShader;
+
 
     vsg::ref_ptr<ScreenshotHandler> Final_screenshotHandler;
     vsg::ref_ptr<ScreenshotHandler> Shadow_screenshotHandler;
@@ -51,6 +56,8 @@ class vsgRenderer
     float far = 65.535f;
     int width;
     int height;
+    int render_width;
+    int render_height;
     ConvertImage *convertimage;
     vsg::ref_ptr<vsg::Data> vsgColorImage;
     vsg::ref_ptr<vsg::Data> vsgDepthImage;
@@ -63,10 +70,10 @@ class vsgRenderer
     {
         auto windowTraits = vsg::WindowTraits::create();
         windowTraits->windowTitle = windowTitle;
-        windowTraits->width = width;
-        windowTraits->height = height;
-        windowTraits->x = width * (num % 2);
-        windowTraits->y = height * (num / 2);
+        windowTraits->width = render_width;
+        windowTraits->height = render_height;
+        windowTraits->x = render_width * (num % 2);
+        windowTraits->y = render_height * (num / 2);
         // enable transfer from the colour and depth buffer images
         windowTraits->swapchainPreferences.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         windowTraits->depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -115,9 +122,12 @@ class vsgRenderer
     }
 
 public:
-    void setWidthAndHeight(int width, int height){
+    void setWidthAndHeight(int width, int height, double scale){
+        this->render_width = width * scale;
+        this->render_height = height * scale;
         this->width = width;
         this->height = height;
+
     }
 
     void setKParameters(float fx, float fy, float cx, float cy){
@@ -127,7 +137,19 @@ public:
         this->cy = cy;
     }
 
-    void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names)
+    void setUpShader(std::string project_path, bool objtracking_shader){
+        //-----------------------------------------设置shader------------------------------------//
+        ConfigShader config_shader;
+        phongShader = config_shader.buildShader(project_path + "asset/data/shaders/standard.vert", project_path + "asset/data/shaders/standard_phong.frag");
+        planeShader = config_shader.buildShader(project_path + "asset/data/shaders/plane.vert", project_path + "asset/data/shaders/plane.frag");
+        shadowShader = config_shader.buildShader(project_path + "asset/data/shaders/shadow.vert", project_path + "asset/data/shaders/shadow.frag");
+        if(objtracking_shader)
+            mergeShader = config_shader.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge_objtracking.frag");
+        else
+            mergeShader = config_shader.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
+    }
+
+    void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform, vsg::vec3 light_direction)
     {
         // project_path = engine_path.append("Rendering/");
         project_path = engine_path;
@@ -145,13 +167,6 @@ public:
         double nearFarRatio = 0.0001;       //近平面和远平面之间的比例
         auto numShadowMapsPerLight = 10; //每个光源的阴影贴图数量
         auto numLights = 2;                //光源数量
-
-        //-----------------------------------------设置shader------------------------------------//
-        ConfigShader config_shader;
-        vsg::ref_ptr<vsg::ShaderSet> phongShader = config_shader.buildShader(project_path + "asset/data/shaders/standard.vert", project_path + "asset/data/shaders/standard_phong.frag");
-        vsg::ref_ptr<vsg::ShaderSet> planeShader = config_shader.buildShader(project_path + "asset/data/shaders/plane.vert", project_path + "asset/data/shaders/plane.frag");
-        vsg::ref_ptr<vsg::ShaderSet> shadowShader = config_shader.buildShader(project_path + "asset/data/shaders/shadow.vert", project_path + "asset/data/shaders/shadow.frag");
-        vsg::ref_ptr<vsg::ShaderSet> mergeShader = config_shader.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
 
         //是否使用线框表示
         bool wireFrame = 0;
@@ -208,9 +223,8 @@ public:
                 instance_shadows[instance_names[i]] = instance_shadow;
             }
         }
-        vsg::dmat4 plane_transform = vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -0.08, 1);
-        cad.buildPlaneNode(shadowScenegraph, planeShader, plane_transform * model_transforms[0]);
-        cad.buildPlaneNode(envScenegraph, phongShader, plane_transform * model_transforms[0]);
+        cad.buildPlaneNode(shadowScenegraph, planeShader, plane_transform);
+        cad.buildPlaneNode(envScenegraph, phongShader, plane_transform);
         // auto bounds = vsg::visit<vsg::ComputeBounds>(cadScenegraph).bounds;
         // vsg::dvec3 model_centre = (bounds.min + bounds.max) * 0.5;
         // vsg::dvec3 model_size = (bounds.max - bounds.min);
@@ -255,7 +269,7 @@ public:
             directionalLight->name = "directional";
             directionalLight->color.set(1.0, 1.0, 1.0);
             directionalLight->intensity = 1.3;
-            directionalLight->direction = vsg::normalize(vsg::vec3(-1.0, 0.2, -1.0));
+            directionalLight->direction = light_direction;
             directionalLight->shadowMaps = numShadowMapsPerLight;
             group->addChild(directionalLight);
             Env_group->addChild(directionalLight);
@@ -299,12 +313,11 @@ public:
         double radius = 2000.0; // 固定观察距离
         auto viewport = vsg::ViewportState::create(0, 0, cadWindowTraits->width, cadWindowTraits->height);
         // auto perspective = vsg::Perspective::create(60.0, static_cast<double>(640) / static_cast<double>(480), nearFarRatio * radius, radius * 10.0);
-
         auto perspective = vsg::Perspective::create(fx, fy, cx, cy, width, height, near, far);
 
-        vsg::dvec3 centre = {0.0, 0.0, 0.0};                    // 固定观察点
-        vsg::dvec3 eye = centre + vsg::dvec3(0.0, radius, 0.0); // 固定相机位置
-        vsg::dvec3 up = {0.0, 0.0, 1.0};                        // 固定观察方向
+        vsg::dvec3 centre = {0.0, 0.0, 1.0};                    // 固定观察点
+        vsg::dvec3 eye = vsg::dvec3(0.0, 0.0, 0.0); // 固定相机位置
+        vsg::dvec3 up = {0.0, -1.0, 0.0};                        // 固定观察方向
         auto lookAt = vsg::LookAt::create(eye, centre, up);
         camera = vsg::Camera::create(perspective, lookAt, viewport);
 
@@ -348,11 +361,11 @@ public:
         Env_viewer->assignRecordAndSubmitTaskAndPresentation({Env_commandGraph});
         Env_viewer->compile();
         Env_viewer->addEventHandlers({vsg::CloseHandler::create(Env_viewer)});
+        Env_viewer->addEventHandler(vsg::Trackball::create(camera));
 
         //----------------------------------------------------------------窗口3----------------------------------------------------------//
         shadowWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
         Shadow_window = vsg::Window::create(shadowWindowTraits);
-        auto Shadow_device = Shadow_window->getOrCreateDevice();
         Shadow_viewer->addWindow(Shadow_window);
         auto Shadow_view = vsg::View::create(camera, shadowScenegraph);                 //共用一个camera，改变一个window的视角，另一个window视角也会改变
         auto Shadow_renderGraph = vsg::RenderGraph::create(Shadow_window, Shadow_view); //如果用Env_window会报错
@@ -362,6 +375,7 @@ public:
         Shadow_viewer->assignRecordAndSubmitTaskAndPresentation({Shadow_commandGraph});
         Shadow_viewer->compile();
         Shadow_viewer->addEventHandlers({vsg::CloseHandler::create(Shadow_viewer)});
+        Shadow_viewer->addEventHandler(vsg::Trackball::create(camera));
 
         //----------------------------------------------------------------窗口4----------------------------------------------------------//
         convertimage = new ConvertImage(width, height);
@@ -434,9 +448,11 @@ public:
         intgWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
         Final_window = vsg::Window::create(intgWindowTraits);
         Final_viewer->addWindow(Final_window);
+
         auto Final_view = vsg::View::create(mergecamera, intgScenegraph);            //共用一个camera，改变一个window的视角，另一个window视角也会改变
         auto Final_renderGraph = vsg::RenderGraph::create(Final_window, Final_view); //如果用Env_window会报错
         Final_renderGraph->clearValues[0].color = {{0.8f, 0.8f, 0.8f, 1.f}};
+
         auto Final_commandGraph = vsg::CommandGraph::create(Final_window); //如果用Env_window会报错
         for (int i = 0; i < 5; i++)
             Final_commandGraph->addChild(copyImages[i]);
@@ -449,14 +465,13 @@ public:
         Final_viewer->addEventHandler(vsg::Trackball::create(camera));
         
         VkExtent2D extent = {};
-        extent.width = width;
-        extent.height = height;
+        extent.width = render_width;
+        extent.height = render_height;
         // Final_screenshotHandler = ScreenshotHandler::create(window, extent);
         Final_screenshotHandler = ScreenshotHandler::create();
         Shadow_screenshotHandler = ScreenshotHandler::create();
         Env_screenshotHandler = ScreenshotHandler::create();
         screenshotHandler = ScreenshotHandler::create();
-
     }
 
     void setRealColorAndImage(const std::string& real_color, const std::string& real_depth){
@@ -470,12 +485,17 @@ public:
     }
 
     void updateCamera(vsg::dvec3 centre, vsg::dvec3 eye, vsg::dvec3 up){
-        camera->viewMatrix = vsg::LookAt::create(eye, centre, up);
-        auto out_transform = camera->viewMatrix->transform();
+        auto lookat = vsg::LookAt::create(eye, centre, up);
+        auto cameralookat = camera->viewMatrix.cast<vsg::LookAt>();
+        cameralookat->set(lookat->transform());
+
+        // auto out_transform = camera->viewMatrix->transform();
     }
 
     void updateCamera(vsg::dmat4 view_matrix){
-        camera->viewMatrix = vsg::LookAt::create(view_matrix);
+        // camera->viewMatrix = vsg::LookAt::create(view_matrix);
+        auto lookat = camera->viewMatrix.cast<vsg::LookAt>();
+        lookat->set(view_matrix);
     }
     
     void updateObjectPose(std::string instance_name, vsg::dmat4 model_matrix){
@@ -484,7 +504,7 @@ public:
     }
 
 
-    bool render(std::vector<std::vector<uint8_t>> &color){
+    bool render(uint8_t* color){
         // std::cout << "new frame: " << std::endl;
         // for (int i = 0; i < 9; ++i) {
         //     std::cout << lookAtVector[i] << " ";
@@ -513,25 +533,27 @@ public:
                 color_pixel->z = color_pixels[i * 3 + 2];
                 *depth_pixel = depth_pixels[i];
             }
-            for(int iterate_num = 0; iterate_num < 30; iterate_num++){
-                for(int i = 0; i < height; i++){
-                    for(int j = 0; j < width; j++){
-                        uint16_t* depth_pixel = static_cast<uint16_t*>(vsgDepthImage->dataPointer(width * i + j));
-                        if(*depth_pixel < 100){
-                            for(int m = -1; m <= 1; m ++){ //height
-                                for(int n = -1; n <= 1; n ++){ //width
-                                    if((i + m) >= 0 && (i + m) < height && (j + n) >= 0 && (j + n) < width){
-                                        uint16_t* neighbor_pixel = static_cast<uint16_t*>(vsgDepthImage->dataPointer(width * (i + m) + (j + n)));
+
+            // depth fit 
+            // for(int iterate_num = 0; iterate_num < 30; iterate_num++){
+            //     for(int i = 0; i < height; i++){
+            //         for(int j = 0; j < width; j++){
+            //             uint16_t* depth_pixel = static_cast<uint16_t*>(vsgDepthImage->dataPointer(width * i + j));
+            //             if(*depth_pixel < 100){
+            //                 for(int m = -1; m <= 1; m ++){ //height
+            //                     for(int n = -1; n <= 1; n ++){ //width
+            //                         if((i + m) >= 0 && (i + m) < height && (j + n) >= 0 && (j + n) < width){
+            //                             uint16_t* neighbor_pixel = static_cast<uint16_t*>(vsgDepthImage->dataPointer(width * (i + m) + (j + n)));
                                         
-                                        if(*neighbor_pixel > 100)
-                                            *depth_pixel = *neighbor_pixel;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            //                             if(*neighbor_pixel > 100)
+            //                                 *depth_pixel = *neighbor_pixel;
+            //                         }
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
 
             // uint16_t* depth_pixel = static_cast<uint16_t*>(vsgDepthImage->Data());
             // depth_pixel = depth_pixels;
@@ -586,6 +608,9 @@ public:
             // screenshotHandler->screenshot_encodeimage(window, color);
             // Final_screenshotHandler->screenshot_encodeimage(Final_window, color);
             // Final_screenshotHandler->screenshot_cpudepth(Final_window);
+            Final_screenshotHandler->screenshot_cpuimage(Final_window, color);
+
+            
             // for(int i = 0; i < size; i ++){
             //     std::cout << (int) color[i] << " ";
             // }

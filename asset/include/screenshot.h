@@ -47,7 +47,7 @@ public:
         return sourceImage;
     }
 
-    void screenshot_cpuimage(vsg::ref_ptr<vsg::Window> window, uint8_t* &color, size_t &size)
+    void screenshot_cpuimage(vsg::ref_ptr<vsg::Window> window, uint8_t* &color)
     {
         auto width = window->extent2D().width;
         auto height = window->extent2D().height; //获取窗口的宽度和高度
@@ -299,16 +299,17 @@ public:
             }
         }
 
-        std::vector<uint8_t> color_image(3 * width * height);
-        for (int i = 0; i < width * height; i++)
-        {
-            auto color = static_cast<vsg::ubvec4*>(imageData->dataPointer(i));
-            color_image[i * 3] = color->x;
-            color_image[i * 3 + 1] = color->y;
-            color_image[i * 3 + 2] = color->z;
-        }
-        color = color_image.data();
-        size = 3 * width * height;
+        // std::vector<uint8_t> color_image(3 * width * height);
+        // for (int i = 0; i < width * height; i++)
+        // {
+        //     auto color = static_cast<vsg::ubvec4*>(imageData->dataPointer(i));
+        //     color_image[i * 3] = color->x;
+        //     color_image[i * 3 + 1] = color->y;
+        //     color_image[i * 3 + 2] = color->z;
+        // }
+        // color = color_image.data();
+        
+        // size = 3 * width * height;
         // std::ofstream outputFile("imageData.txt");
         // for (int i = 0; i < width * height; i++)
         // {

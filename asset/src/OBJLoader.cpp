@@ -18,7 +18,8 @@ std::unordered_map<std::string, int> OBJLoader::vertex_count(const char* filenam
     int num_vertices = attrib.vertices.size()/3;
     int num_normals = attrib.normals.size()/3;
     int num_uvs = attrib.texcoords.size()/2;
-
+    std::cout << "num_vertices" << num_vertices << std::endl;
+    std::cout << "num_normals" << num_normals << std::endl;
     int count = 0;
     for(auto shape = shapes.begin(); shape < shapes.end(); shape++) {
         for(auto index = shape->mesh.indices.begin(); index < shape->mesh.indices.end(); index++) {
@@ -95,15 +96,15 @@ void OBJLoader::load_obj(const char* filename, const char* materials_path,vsg::r
 
     if(attrib.vertices.size() != 0) {
         components_to_vec3s(attrib.vertices, vertices);
-    }else if(attrib.normals.size() != 0) {
-
+    }
+    if(attrib.normals.size() != 0) {
+        components_to_vec3s(attrib.normals, vertnormals);//不单独拿出来就不执行,不加上述if else会超限segmentation fault (core dumped)
     }else if(attrib.texcoords.size() != 0) {
         components_to_vec2s(attrib.texcoords, vertuvs);
     }else if(attrib.colors.size() != 0) {
         components_to_vec3s(attrib.colors, colors);
     }
 
-    components_to_vec3s(attrib.normals, vertnormals);//不单独拿出来就不执行,不加上述if else会超限segmentation fault (core dumped)
 
     std::cout << "Loaded vertices." << std::endl;
 
