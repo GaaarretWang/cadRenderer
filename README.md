@@ -1,7 +1,7 @@
 # 虚实融合
 #### 配置环境
 1.  安装ubuntu系统
-2.  在nvidia官网下载版本较新的驱动，参考https://blog.csdn.net/wr1997/article/details/106909423安装
+2.  在nvidia官网下载版本较新的驱动，参考https://blog.csdn.net/wr1997/article/details/106909423 安装
 3.  安装vulkansdk
 #### 依赖库和数据
 1.  解压flatbuffers-23.5.26和VulkanSceneGraph
