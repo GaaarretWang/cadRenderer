@@ -19,7 +19,7 @@ public:
     std::vector<vsg::dmat4> init_model_transforms;
     std::vector<std::string> model_paths;
     std::vector<std::string> instance_names;
-    std::string renderingDir = "/home/lab/workspace/wgy/cadvsg_intg/";
+    std::string renderingDir = "../";
     std::string colorPath = "/home/lab/workspace/wgy/cadvsg_intg/asset/data/slamData/color/1711699313.948925.png";
     std::string depthPath = "/home/lab/workspace/wgy/cadvsg_intg/asset/data/slamData/depth/1711699313.948925.png";
     double upsample_scale = 2;
