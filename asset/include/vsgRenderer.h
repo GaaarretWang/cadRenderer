@@ -41,7 +41,9 @@ class vsgRenderer
     vsg::ref_ptr<vsg::ImageInfo> imageInfosIBL[7];
     vsg::ref_ptr<vsg::Image> convertDepthImage;
     vsg::ref_ptr<vsg::ImageInfo> convertDepthImageInfo;
-    vsg::ref_ptr<vsg::Viewer> viewer = vsg::Viewer::create();
+
+    vsg::ref_ptr<vsg::Viewer> viewer_cad = vsg::Viewer::create();
+    vsg::ref_ptr<vsg::Viewer> viewer_IBL = vsg::Viewer::create();
     vsg::ref_ptr<vsg::Viewer> Env_viewer = vsg::Viewer::create();
     vsg::ref_ptr<vsg::Viewer> Shadow_viewer = vsg::Viewer::create();
     vsg::ref_ptr<vsg::Viewer> Projection_viewer = vsg::Viewer::create();
@@ -54,16 +56,17 @@ class vsgRenderer
     vsg::ref_ptr<vsg::DirectionalLight> directionalLight[4];
     vsg::ref_ptr<vsg::Switch> directionalLightSwitch = vsg::Switch::create();
 
+    vsg::ref_ptr<vsg::Node> drawCube;
+    vsg::ref_ptr<vsg::MatrixTransform> cubeTransform;
     vsg::ref_ptr<gui::Params> guiParams = gui::Params::create();
 
+    vsg::ref_ptr<IBLScreenshot::ScreenshotHandler> Final_screenshotHandler;
+    vsg::ref_ptr<IBLScreenshot::ScreenshotHandler> Shadow_screenshotHandler;
+    vsg::ref_ptr<IBLScreenshot::ScreenshotHandler> Env_screenshotHandler;
+    vsg::ref_ptr<IBLScreenshot::ScreenshotHandler> Projection_screenshotHandler;
+    vsg::ref_ptr<IBLScreenshot::ScreenshotHandler> screenshotHandler;
 
-    vsg::ref_ptr<ScreenshotHandler> Final_screenshotHandler;
-    vsg::ref_ptr<ScreenshotHandler> Shadow_screenshotHandler;
-    vsg::ref_ptr<ScreenshotHandler> Env_screenshotHandler;
-    vsg::ref_ptr<ScreenshotHandler> Projection_screenshotHandler;
-    vsg::ref_ptr<ScreenshotHandler> screenshotHandler;
-
-    vsg::ref_ptr<vsg::Window> window;
+    vsg::ref_ptr<vsg::Window> window_IBL;
     vsg::ref_ptr<vsg::Window> Env_window;
     vsg::ref_ptr<vsg::Window> Shadow_window;
     vsg::ref_ptr<vsg::Window> Projection_window;
@@ -80,6 +83,8 @@ class vsgRenderer
     double far = 65.535f;
     int width;
     int height;
+    int render_width;
+    int render_height;
     ConvertImage *convertimage;
     vsg::ref_ptr<vsg::Data> vsgColorImage;
     vsg::ref_ptr<vsg::Data> vsgDepthImage;
@@ -94,10 +99,10 @@ class vsgRenderer
     {
         auto windowTraits = vsg::WindowTraits::create();
         windowTraits->windowTitle = windowTitle;
-        windowTraits->width = width;
-        windowTraits->height = height;
-        windowTraits->x = width * (num % 2);
-        windowTraits->y = height * (num / 2);
+        windowTraits->width = render_width;
+        windowTraits->height = render_height;
+        windowTraits->x = render_width * (num % 2);
+        windowTraits->y = render_height * (num / 2);
         // enable transfer from the colour and depth buffer images
         windowTraits->swapchainPreferences.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         windowTraits->depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -118,6 +123,57 @@ class vsgRenderer
         return windowTraits;
     }
 
+    vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(string windowTitle, int num, vsg::CommandLine& arguments, vsg::ref_ptr<vsg::Options> options)
+    {
+        auto windowTraits = vsg::WindowTraits::create();
+        windowTraits->windowTitle = windowTitle;
+        windowTraits->width = render_width;
+        windowTraits->height = render_height;
+        windowTraits->x = render_width * (num % 2);
+        windowTraits->y = render_height * (num / 2);
+        // enable transfer from the colour and depth buffer images
+        windowTraits->swapchainPreferences.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        windowTraits->depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+        // ------------------------命令行参数的解析和窗口配置的设置--------------------------//
+        arguments.read(options);
+        windowTraits->debugLayer = arguments.read({"--debug", "-d"});
+        windowTraits->apiDumpLayer = arguments.read({"--api", "-a"});
+        arguments.read({"--window", "-w"}, windowTraits->width, windowTraits->height);
+        arguments.read("--screen", windowTraits->screenNum); //设置屏幕编号
+        arguments.read("--display", windowTraits->display);  //设置显示器名称
+        arguments.read("--samples", windowTraits->samples);
+        auto numFrames = arguments.value(-1, "-f"); //获取一个整数值作为帧数
+        if (arguments.read("--msaa")) windowTraits->samples = VK_SAMPLE_COUNT_8_BIT;
+        if (arguments.read("--FIFO")) windowTraits->swapchainPreferences.presentMode = VK_PRESENT_MODE_FIFO_KHR;
+        if (arguments.read("--FIFO_RELAXED")) windowTraits->swapchainPreferences.presentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+        if (arguments.read("--MAILBOX")) windowTraits->swapchainPreferences.presentMode = VK_PRESENT_MODE_MAILBOX_KHR;
+        windowTraits->depthFormat = VK_FORMAT_D32_SFLOAT;
+        if (arguments.read({"--fullscreen", "--fs"})) windowTraits->fullscreen = true;                                           //将窗口配置设置为全屏模式
+        if (arguments.read({"--window", "-w"}, windowTraits->width, windowTraits->height)) { windowTraits->fullscreen = false; } //将窗口配置设置为窗口模式，并设置宽度和高度
+        if (arguments.read("--IMMEDIATE")) windowTraits->swapchainPreferences.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;       //设置不同的交换链偏好和窗口属性
+        if (arguments.read({"-t", "--test"}))
+        {
+            windowTraits->swapchainPreferences.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+            windowTraits->fullscreen = true;
+        }
+        if (arguments.read("--st"))
+        {
+            windowTraits->swapchainPreferences.presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+            windowTraits->width = 96, windowTraits->height = 54;
+            windowTraits->decoration = false;
+        }
+
+        // if we are multisampling then to enable copying of the depth buffer we have to enable a depth buffer resolve extension for vsg::RenderPass or require a minimum vulkan version of 1.2
+        if (windowTraits->samples != VK_SAMPLE_COUNT_1_BIT) windowTraits->vulkanVersion = VK_API_VERSION_1_2;
+        windowTraits->deviceExtensionNames = {
+            VK_KHR_MULTIVIEW_EXTENSION_NAME,
+            VK_KHR_MAINTENANCE2_EXTENSION_NAME,
+            VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
+            VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME};
+        return windowTraits;
+    }
+
     //format = 0是color， 1是depth
     vsg::ref_ptr<vsg::Image> createStorageImage(int format)
     {
@@ -132,8 +188,8 @@ class vsgRenderer
             storageImage->format = VK_FORMAT_D16_UNORM;//VK_FORMAT_D32_SFLOAT                                                                                   //VK_FORMAT_R8G8B8A8_UNORM;
             storageImage->usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT; // sample和storage一定要标
         }
-        storageImage->extent.width = window->extent2D().width;
-        storageImage->extent.height = window->extent2D().height;
+        storageImage->extent.width = window_IBL->extent2D().width;
+        storageImage->extent.height = window_IBL->extent2D().height;
         storageImage->extent.depth = 1;
         storageImage->mipLevels = 1;
         storageImage->arrayLayers = 1;
@@ -146,7 +202,9 @@ class vsgRenderer
     }
 
 public:
-    void setWidthAndHeight(int width, int height){
+    void setWidthAndHeight(int width, int height,int scale){
+        this->render_width = width * scale;
+        this->render_height = height * scale;
         this->width = width;
         this->height = height;
     }
@@ -158,14 +216,14 @@ public:
         this->cy = cy;
     }
 
-    void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names)
+    void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::CommandLine& arguments)
     {
         // project_path = engine_path.append("Rendering/");
         project_path = engine_path;
         auto options = vsg::Options::create();
         options->fileCache = vsg::getEnv("VSG_FILE_CACHE"); //2
         options->paths = vsg::getEnvPaths("VSG_FILE_PATH");
-        options->paths.push_back("../asset/data");
+        options->paths.push_back("../asset/data/");
         options->sharedObjects = vsg::SharedObjects::create();
 
         // zsz：手动初始化vulkan设备
@@ -203,12 +261,14 @@ public:
             instance = vsg::Instance::create(instanceExtensions, validatedNames, vulkanVersion);//问题语
         } catch (const vsg::Exception& ex) {
             std::cout << "-----Error creating Vulkan Instance: " << ex.message << "----result code: "<< ex.result <<std::endl;
+            return;
         }
 
         auto [physicalDevice, queueFamily] = instance->getPhysicalDeviceAndQueueFamily(VK_QUEUE_GRAPHICS_BIT);
         if (!physicalDevice || queueFamily < 0)
         {
             std::cout << "Could not create PhysicalDevice" << std::endl;
+            return;
         }
 
         vsg::Names deviceExtensions;
@@ -226,11 +286,10 @@ public:
 
         auto device = vsg::Device::create(physicalDevice, queueSettings, validatedNames, deviceExtensions, deviceFeatures);
 
-        auto viewer = vsg::Viewer::create();
         auto context = vsg::Context::create(device);
 
         IBL::VsgContext vsgContext = {};
-        vsgContext.viewer = viewer;
+        vsgContext.viewer = viewer_IBL;
         vsgContext.context = context;
         vsgContext.device = device;
         vsgContext.queueFamily = queueFamily;
@@ -246,16 +305,16 @@ public:
 
         uint32_t frame = 0;
 
-        viewer->compile();
-        while (viewer->advanceToNextFrame())
+        viewer_IBL->compile();
+        while (viewer_IBL->advanceToNextFrame())
         {
-            viewer->handleEvents();
-            viewer->update();
-            viewer->recordAndSubmit();
-            viewer->present();
+            viewer_IBL->handleEvents();
+            viewer_IBL->update();
+            viewer_IBL->recordAndSubmit();
+            viewer_IBL->present();
             break;
         }
-        viewer->recordAndSubmitTasks.clear();
+        viewer_IBL->recordAndSubmitTasks.clear();
 
         auto drawSkyboxNode = IBL::drawSkyboxVSGNode(vsgContext);
 
@@ -263,18 +322,22 @@ public:
 
         // 创建窗口数据
         // 只包含虚拟物体
-        auto cadWindowTraits = createWindowTraits("CADModel", 0, options);
-        cadWindowTraits->device = device;
+        auto cadwindowTraits = createWindowTraits("Model", 0, arguments, options);
+        cadwindowTraits->device = device;
+        // 包含IBL的窗口
+        auto IBLWindowTraits = createWindowTraits("model_IBL", 1, arguments, options);
+        IBLWindowTraits->device = device;
         // 背景图像（目前包含所有Shadow Receiver用于Debug）
-        auto envWindowTraits = createWindowTraits("Background", 1, options);
+        auto envWindowTraits = createWindowTraits("Background", 2, arguments, options);
         envWindowTraits->device = device;
         // 输出的Shadow Value
-        auto shadowWindowTraits = createWindowTraits("shadowShader", 2, options);
+        auto shadowWindowTraits = createWindowTraits("shadowShader", 3, arguments, options);
         shadowWindowTraits->device = device;
         //投影窗口
-        auto projectionWindowTraits = createWindowTraits("Projection", 3, options);
+        auto projectionWindowTraits = createWindowTraits("Projection", 4, options);
+        projectionWindowTraits->device = device;
         // 合成的窗口
-        auto intgWindowTraits = createWindowTraits("Integration", 4, options);
+        auto intgWindowTraits = createWindowTraits("Integration", 5, arguments, options);
         intgWindowTraits->device = device;
 
         double nearFarRatio = 0.0001;       //近平面和远平面之间的比例
@@ -288,9 +351,9 @@ public:
         //建立shader的函数有所不同,检查点
         vsg::ref_ptr<vsg::ShaderSet> phongShader = config_shader.buildShader(project_path + "asset/data/shaders/standard.vert", project_path + "asset/data/shaders/standard_phong.frag");
         vsg::ref_ptr<vsg::ShaderSet> planeShader = config_shader.buildShader(project_path + "asset/data/shaders/plane.vert", project_path + "asset/data/shaders/plane.frag");
-        vsg::ref_ptr<vsg::ShaderSet> projectionShader = cad.buildShader(project_path + "asset/data/shaders/shadow.vert", project_path + "asset/data/shaders/shadow.frag");
+        vsg::ref_ptr<vsg::ShaderSet> projectionShader = cad.buildShader(project_path + "asset/data/shaders/plane.vert", project_path + "asset/data/shaders/plane.frag");
         vsg::ref_ptr<vsg::ShaderSet> shadowShader = cad.buildShader(project_path + "asset/data/shaders/shadow.vert", project_path + "asset/data/shaders/shadow.frag");
-        vsg::ref_ptr<vsg::ShaderSet> mergeShader = config_shader.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
+        //vsg::ref_ptr<vsg::ShaderSet> mergeShader = config_shader.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
 
         //是否使用线框表示
         bool wireFrame = 0;
@@ -320,7 +383,7 @@ public:
         //modelGroupSwitch->addChild(MASK_MODEL, modelGroup);
         auto envSceneGroup = vsg::Group::create();
         //auto otherGroupSwitch = vsg::Switch::create();
-        //otherGroupSwitch->addChild(MASK_FAKE_BACKGROUND, otherGroup;
+        //otherGroupSwitch->addChild(MASK_FAKE_BACKGROUND, otherGroup);
         auto projectionGroup = vsg::Group::create();
         auto shadowGroup = vsg::Group::create();
         //shadowGroupSwitch->addChild(MASK_DRAW_SHADOW, shadowGroup);
@@ -336,6 +399,7 @@ public:
         vsg::ref_ptr<vsg::Group> scenegraph = vsg::Group::create();
         scenegraph->addChild(rootSwitch);
 
+        auto cadScenegraph = vsg::Group::create();
         auto projectionScenegraph = vsg::Group::create();
 
         // skybox
@@ -415,6 +479,60 @@ public:
         gpc_shadow->assignDescriptor("material", plane_mat);
         gpc_shadow->init();
 
+        //---------------------------------------读取CAD模型------------------------------------------//
+
+        //读取.fb格式的模型参数信息
+        bool fullNormal = 0;
+        // const std::string& path1 = project_path + "asset/data/FBDataOut/运输车.fb";
+        // const std::string& path1 = project_path + "asset/data/geos/3ED_827.fb";
+        
+
+        for(int i = 0; i < model_paths.size(); i ++){
+            std::string &path_i = model_paths[i];
+            size_t pos = path_i.find_last_of('.');
+            std::string format = path_i.substr(pos + 1);
+            CADMesh* transfer_model;
+            if (transfered_meshes.find(path_i) != transfered_meshes.end()){
+                transfer_model = transfered_meshes[path_i];
+            }else{
+                transfer_model = new CADMesh();
+                if(format == "obj")
+                {
+                    transfer_model->buildObjNode(path_i.c_str(), "", phongShader, model_transforms[i]); //读取obj文件
+                    std::cout << "114514" << std::endl;
+                }
+                else if(format == "fb")
+                {
+                    transfer_model->transferModel(model_paths[i], fullNormal, phongShader, model_transforms[i]);
+                    cadV2.loadFile(model_paths[i], fullNormal);
+                }
+                transfered_meshes[path_i] = transfer_model;
+            }
+   
+            if(format == "obj"){
+                
+                ModelInstance* instance_phong = new ModelInstance();
+                instance_phong->buildObjInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
+                instance_phongs[instance_names[i]] = instance_phong;
+                
+                ModelInstance* instance_shadow = new ModelInstance();
+                instance_shadow->buildObjInstance(transfer_model, scenegraph, projectionShader, model_transforms[i]);
+                instance_shadows[instance_names[i]] = instance_shadow;
+            }
+            else if(format == "fb"){
+                
+                ModelInstance* instance_phong = new ModelInstance();
+                instance_phong->buildInstance(transfer_model, cadScenegraph, phongShader, model_transforms[i]);
+                instance_phongs[instance_names[i]] = instance_phong;
+                
+
+                ModelInstance* instance_shadow = new ModelInstance();
+                instance_shadow->buildInstance(transfer_model, projectionScenegraph, projectionShader, model_transforms[i]);
+                instance_shadows[instance_names[i]] = instance_shadow;
+            }
+            
+        }
+
         // ---------------------------------读取重建模型------------------------------------//
         vsg::ref_ptr<vsg::Node> reconstructRoot;
         vsg::ref_ptr<vsg::Geometry> reconstructDrawCmd;
@@ -453,7 +571,7 @@ public:
                 rootSwitch->addChild(MASK_DRAW_SHADOW, shadowStateGroup);
                 reconstructRoot = stateSwtich;
 
-                cad.buildEnvPlaneNode(projectionScenegraph, importMesh, planeShader, model_transforms[0]);
+                cad.buildEnvPlaneNode(projectionScenegraph, importMesh, projectionShader, model_transforms[0]);
             }
             else
             {
@@ -461,52 +579,6 @@ public:
             }
         }
 
-        //---------------------------------------读取CAD模型------------------------------------------//
-
-        //读取.fb格式的模型参数信息
-        bool fullNormal = 0;
-        // const std::string& path1 = project_path + "asset/data/FBDataOut/运输车.fb";
-        // const std::string& path1 = project_path + "asset/data/geos/3ED_827.fb";
-        
-
-        for(int i = 0; i < model_paths.size(); i ++){
-            std::string &path_i = model_paths[i];
-            size_t pos = path_i.find_last_of('.');
-            std::string format = path_i.substr(pos + 1);
-            CADMesh* transfer_model;
-            if (transfered_meshes.find(path_i) != transfered_meshes.end()){
-                transfer_model = transfered_meshes[path_i];
-            }else{
-                transfer_model = new CADMesh();
-                if(format == "obj")
-                    transfer_model->buildObjNode(path_i.c_str(), "", phongShader, model_transforms[i]); //读取obj文件
-                else if(format == "fb")
-                    transfer_model->transferModel(model_paths[i], fullNormal, phongShader, model_transforms[i]);
-                transfered_meshes[path_i] = transfer_model;
-            }
-   
-            if(format == "obj"){
-                /*
-                ModelInstance* instance_phong = new ModelInstance();
-                instance_phong->buildObjInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
-                instance_phongs[instance_names[i]] = instance_phong;
-                */
-                ModelInstance* instance_shadow = new ModelInstance();
-                instance_shadow->buildObjInstance(transfer_model, projectionScenegraph, projectionShader, model_transforms[i]);
-                instance_shadows[instance_names[i]] = instance_shadow;
-            }
-            else if(format == "fb"){
-                /*
-                ModelInstance* instance_phong = new ModelInstance();
-                instance_phong->buildInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
-                instance_phongs[instance_names[i]] = instance_phong;
-                */
-                ModelInstance* instance_shadow = new ModelInstance();
-                instance_shadow->buildInstance(transfer_model, projectionScenegraph, projectionShader, model_transforms[i]);
-                instance_shadows[instance_names[i]] = instance_shadow;
-            }
-            
-        }
 
         std::cout << "读取CAD模型完成" << std::endl;
 
@@ -534,8 +606,6 @@ public:
         cadMeshRoot = meshTransform;
         scenegraph->addChild(meshTransform);
 
-        vsg::ref_ptr<vsg::Node> drawCube;
-        vsg::ref_ptr<vsg::MatrixTransform> cubeTransform;
         {
             drawCube = cadV2.testCube(gpc_ibl);
             auto cubeTrans = vsg::MatrixTransform::create(vsg::translate(1.0, 0.0, 0.0) * vsg::scale(1.0));
@@ -578,8 +648,8 @@ public:
 
         // -----------------------设置相机参数------------------------------//
         double radius = 2000.0; // 固定观察距离
-        auto viewport = vsg::ViewportState::create(0, 0, cadWindowTraits->width, cadWindowTraits->height);
-        // auto perspective = vsg::Perspective::create(60.0, static_cast<double>(640) / static_cast<double>(480), nearFarRatio * radius, radius * 10.0);
+        auto viewport = vsg::ViewportState::create(0, 0, IBLWindowTraits->width, IBLWindowTraits->height);
+        //auto perspective = vsg::Perspective::create(60.0, static_cast<double>(640) / static_cast<double>(480), nearFarRatio * radius, radius * 10.0);
 
         auto perspective = vsg::Perspective::create(fx, fy, cx, cy, width, height, near, far);
 
@@ -596,30 +666,31 @@ public:
         std::cout<<"设置GUI完成"<<std::endl;
         //----------------------------------------------------------------几何窗口----------------------------------------------------------//
         // create the viewer and assign window(s) to it
-            window = vsg::Window::create(cadWindowTraits);
-            viewer->addWindow(window);
+            window_IBL = vsg::Window::create(IBLWindowTraits);
+            viewer_IBL->addWindow(window_IBL);
             auto view = vsg::View::create(camera, scenegraph);
             view->features = vsg::RECORD_LIGHTS;
             view->mask = MASK_PBR_FULL;
             view->viewDependentState = CustomViewDependentState::create(view.get());
-            auto renderGraph = vsg::RenderGraph::create(window, view);
+            auto renderGraph = vsg::RenderGraph::create(window_IBL, view);
             renderGraph->clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
-            auto commandGraph = vsg::CommandGraph::create(window);
+            auto renderImGui = vsgImGui::RenderImGui::create(window_IBL, gui::MyGui::create(guiParams, options));
+            auto commandGraph = vsg::CommandGraph::create(window_IBL);
             commandGraph->addChild(renderGraph);
             //
-            viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
+            viewer_IBL->assignRecordAndSubmitTaskAndPresentation({commandGraph});
             //
-            viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
-            viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
-            viewer->addEventHandler(vsg::Trackball::create(camera));
+            viewer_IBL->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
+            viewer_IBL->addEventHandlers({vsg::CloseHandler::create(viewer_IBL)});
+            viewer_IBL->addEventHandler(vsg::Trackball::create(camera));
 
-            auto event = vsg::Event::create_if(true, window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
-            auto screenshotHandlerIBL = IBLScreenshot::ScreenshotHandler::create(event);
-            viewer->addEventHandler(screenshotHandlerIBL);
+            auto event = vsg::Event::create_if(true, window_IBL->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
+            screenshotHandler = IBLScreenshot::ScreenshotHandler::create(event);
+            viewer_IBL->addEventHandler(screenshotHandler);
         std::cout << "几何窗口" << std::endl;
         //----------------------------------------------------------------环境窗口----------------------------------------------------------//
         //   // create the viewer and assign window(s) to it
-        envWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
+        //envWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
         Env_window = vsg::Window::create(envWindowTraits);
         Env_viewer->addWindow(Env_window);
         auto Env_view = vsg::View::create(camera, scenegraph);              //共用一个camera，改变一个window的视角，另一个window视角也会改变
@@ -627,7 +698,7 @@ public:
         Env_view->features = vsg::RECORD_LIGHTS;
         auto Env_renderGraph = vsg::RenderGraph::create(Env_window, Env_view); //如果用Env_window会报错
         Env_renderGraph->clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
-        //Env_renderGraph->addChild(renderImGui);
+        Env_renderGraph->addChild(renderImGui);
 
         auto Env_commandGraph = vsg::CommandGraph::create(Env_window); //如果用Env_window会报错
         Env_commandGraph->addChild(Env_renderGraph);
@@ -637,13 +708,13 @@ public:
         Env_viewer->addEventHandlers({vsg::CloseHandler::create(Env_viewer)});
         auto Env_event = vsg::Event::create_if(true, Env_window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled 
         Env_viewer->addEventHandler(vsg::Trackball::create(camera));
-        auto Env_screenshotHandlerIBL = IBLScreenshot::ScreenshotHandler::create(Env_event);
-        Env_viewer->addEventHandler(Env_screenshotHandlerIBL);
+        Env_screenshotHandler = IBLScreenshot::ScreenshotHandler::create(Env_event);
+        Env_viewer->addEventHandler(Env_screenshotHandler);
 
         std::cout << "环境窗口" << std::endl;
 
         //----------------------------------------------------------------阴影窗口----------------------------------------------------------//
-        shadowWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
+        //shadowWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
         Shadow_window = vsg::Window::create(shadowWindowTraits);
         auto Shadow_device = Shadow_window->getOrCreateDevice();
         Shadow_viewer->addWindow(Shadow_window);
@@ -662,15 +733,14 @@ public:
         Shadow_viewer->compile();
         Shadow_viewer->addEventHandlers({vsg::CloseHandler::create(Shadow_viewer)});
         auto Shadow_event = vsg::Event::create_if(true, Shadow_window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
-        auto Shadow_screenshotHandlerIBL = IBLScreenshot::ScreenshotHandler::create(Shadow_event);
-        Shadow_viewer->addEventHandler(Shadow_screenshotHandlerIBL);
+        Shadow_screenshotHandler = IBLScreenshot::ScreenshotHandler::create(Shadow_event);
+        Shadow_viewer->addEventHandler(Shadow_screenshotHandler);
 
         std::cout << "阴影窗口" << std::endl;
 
         //----------------------------------------------------------------投影窗口----------------------------------------------------------//
-        projectionWindowTraits->device = window->getOrCreateDevice(); //共享设备 
+        //projectionWindowTraits->device = window->getOrCreateDevice(); //共享设备 
         Projection_window = vsg::Window::create(projectionWindowTraits);
-        auto Projection_device = Projection_window->getOrCreateDevice();
         Projection_viewer->addWindow(Projection_window);
         auto Projection_view = vsg::View::create(camera, projectionScenegraph);                 //共用一个camera，改变一个window的视角，另一个window视角也会改变
         auto Projection_renderGraph = vsg::RenderGraph::create(Projection_window, Projection_view); //如果用Env_window会报错
@@ -679,7 +749,9 @@ public:
         Projection_commandGraph->addChild(Projection_renderGraph);
         Projection_viewer->assignRecordAndSubmitTaskAndPresentation({Projection_commandGraph});
         Projection_viewer->compile();
-        Projection_viewer->addEventHandlers({vsg::CloseHandler::create(Projection_viewer)});
+        auto Projection_event = vsg::Event::create_if(true, Projection_window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
+        Projection_screenshotHandler = IBLScreenshot::ScreenshotHandler::create(Projection_event);
+        Projection_viewer->addEventHandler(Projection_screenshotHandler);
 
         std::cout << "投影窗口" << std::endl;
         //----------------------------------------------------------------融合窗口----------------------------------------------------------//
@@ -691,8 +763,8 @@ public:
                 storageImage->format = VK_FORMAT_B8G8R8A8_UNORM; //VK_FORMAT_R8G8B8A8_UNORM;
             else
                 storageImage->format = VK_FORMAT_D32_SFLOAT; //VK_FORMAT_R8G8B8A8_UNORM;
-            storageImage->extent.width = window->extent2D().width;
-            storageImage->extent.height = window->extent2D().height;
+            storageImage->extent.width = window_IBL->extent2D().width;
+            storageImage->extent.height = window_IBL->extent2D().height;
             storageImage->extent.depth = 1;
             storageImage->mipLevels = 1;
             storageImage->arrayLayers = 1;
@@ -703,7 +775,7 @@ public:
             storageImage->flags = 0;
             storageImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
             storageImagesIBL[i] = storageImage;
-            auto context = vsg::Context::create(window->getOrCreateDevice());
+            auto context = vsg::Context::create(window_IBL->getOrCreateDevice());
             imageInfosIBL[i] = vsg::ImageInfo::create(vsg::Sampler::create(), vsg::createImageView(*context, storageImage, VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
             copyImagesIBL[i] = vsg::CopyImage::create();
@@ -714,14 +786,12 @@ public:
             copyRegion.srcSubresource.layerCount = 1;
             copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
             copyRegion.dstSubresource.layerCount = 1;
-            copyRegion.extent.width = window->extent2D().width;
-            copyRegion.extent.height = window->extent2D().height;
+            copyRegion.extent.width = window_IBL->extent2D().width;
+            copyRegion.extent.height = window_IBL->extent2D().height;
             copyRegion.extent.depth = 1;
             copyImagesIBL[i]->regions.push_back(copyRegion);
         }
-
-        vsg::ref_ptr<vsg::Group> mergeScenegraph = vsg::Group::create();
-
+        
         convertimage = new ConvertImage(width, height);
         vsgColorImage = vsg::ubvec3Array2D::create(width, height);
         vsgDepthImage = vsg::ushortArray2D::create(width, height);
@@ -745,7 +815,7 @@ public:
         for (int i = 0; i < 6; i++)
         {
             storageImages[i] = createStorageImage(i % 2);
-            auto context = vsg::Context::create(window->getOrCreateDevice());
+            auto context = vsg::Context::create(window_IBL->getOrCreateDevice());
             imageInfos[i] = vsg::ImageInfo::create(vsg::Sampler::create(), vsg::createImageView(*context, storageImages[i], VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
             copyImages[i] = vsg::CopyImage::create();
@@ -767,11 +837,82 @@ public:
                 copyRegion.dstSubresource.layerCount = 1;
             }
 
-            copyRegion.extent.width = window->extent2D().width;
-            copyRegion.extent.height = window->extent2D().height;
+            copyRegion.extent.width = window_IBL->extent2D().width;
+            copyRegion.extent.height = window_IBL->extent2D().height;
             copyRegion.extent.depth = 1;
             copyImages[i]->regions.push_back(copyRegion);
         }
+
+        
+        vsg::ref_ptr<vsg::Group> mergeScenegraph = vsg::Group::create();
+        
+        {
+            auto buildMergeShaderSet = [](vsg::ref_ptr<vsg::Options> options) -> vsg::ref_ptr<vsg::ShaderSet> {
+                auto vertexShader = vsg::read_cast<vsg::ShaderStage>("shaders/IBL/fullscreenquad.vert", options);
+                auto fragShader = vsg::read_cast<vsg::ShaderStage>("shaders/new_merge.frag", options);
+                auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragShader});
+
+                const uint32_t TEXTURE_DESCRIPTOR_SET = 0;
+                const uint32_t MATERIAL_DESCRIPTOR_SET = 1;
+                shaderSet->addDescriptorBinding("cadColor", "", TEXTURE_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
+                shaderSet->addDescriptorBinding("cadDepth", "", TEXTURE_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
+                shaderSet->addDescriptorBinding("planeColor", "", TEXTURE_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec3Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
+                shaderSet->addDescriptorBinding("planeDepth", "", TEXTURE_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
+                shaderSet->addDescriptorBinding("shadowColor", "", TEXTURE_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
+                shaderSet->addDescriptorBinding("shadowDepth", "", TEXTURE_DESCRIPTOR_SET, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
+                shaderSet->addDescriptorBinding("projectionColor", "", TEXTURE_DESCRIPTOR_SET, 6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
+                shaderSet->addDescriptorBinding("projectionDepth", "", TEXTURE_DESCRIPTOR_SET, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
+
+                //shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(TEXTURE_DESCRIPTOR_SET));
+                return shaderSet;
+            };
+            auto mergeShaderSet = buildMergeShaderSet(options);
+
+            vsg::DataList Env_vertexArrays;
+            auto Env_graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(mergeShaderSet); //渲染管线创建
+            vsg::ImageInfoList cadColor = {imageInfosIBL[0]};
+            vsg::ImageInfoList cadDepth = {imageInfosIBL[1]};
+            vsg::ImageInfoList planeColor = {imageInfosIBL[2]};
+            vsg::ImageInfoList planeDepth = {imageInfosIBL[3]};
+            vsg::ImageInfoList shadowColor = {imageInfosIBL[4]};
+            vsg::ImageInfoList shadowDepth = {imageInfosIBL[5]};
+
+            vsg::ImageInfoList projectionColor = {imageInfos[4]};
+            vsg::ImageInfoList projectionDepth = {imageInfos[5]};
+
+            Env_graphicsPipelineConfig->assignTexture("cadColor", cadColor);
+            Env_graphicsPipelineConfig->assignTexture("cadDepth", cadDepth);
+            Env_graphicsPipelineConfig->assignTexture("planeColor", planeColor);
+            Env_graphicsPipelineConfig->assignTexture("planeDepth", planeDepth);
+            Env_graphicsPipelineConfig->assignTexture("shadowColor", shadowColor);
+            Env_graphicsPipelineConfig->assignTexture("shadowDepth", shadowDepth);
+            Env_graphicsPipelineConfig->assignTexture("projectionColor", projectionColor);
+            Env_graphicsPipelineConfig->assignTexture("projectionDepth", projectionDepth);
+
+            // 绑定索引
+            auto Env_drawCommands = vsg::Commands::create();
+            //cout << mesh.indexes->size() << endl;
+            Env_drawCommands->addChild(vsg::Draw::create(3, 1, 0, 0));
+
+            //双面显示
+            auto ds_state = vsg::DepthStencilState::create();
+            ds_state->depthTestEnable = VK_FALSE;
+            auto Env_rs = vsg::RasterizationState::create();
+            Env_rs->cullMode = VK_CULL_MODE_NONE;
+            Env_graphicsPipelineConfig->pipelineStates.push_back(ds_state);
+            Env_graphicsPipelineConfig->pipelineStates.push_back(Env_rs);
+
+            Env_graphicsPipelineConfig->init();
+
+            // create StateGroup as the root of the scene/command graph to hold the GraphicsPipeline, and binding of Descriptors to decorate the whole graph
+            auto Env_stateGroup = vsg::StateGroup::create();
+            Env_graphicsPipelineConfig->copyTo(Env_stateGroup);
+            Env_stateGroup->addChild(Env_drawCommands);
+            mergeScenegraph = Env_stateGroup;
+        }
+        
+        
+       
 
         // convertDepthImage = createStorageImage(i % 2);
         // auto context = vsg::Context::create(window->getOrCreateDevice());
@@ -779,8 +920,8 @@ public:
         
         // vsg::ref_ptr<vsg::ShaderSet> mergeShader = cad.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
         std::cout << "融合窗口" << std::endl;
-        cad.buildIntgNode(mergeScenegraph, mergeShader, imageInfosIBL, imageInfos, vsgColorImage, vsgDepthImage); //读取几何信息1
-
+        //cad.buildIntgNode(mergeScenegraph, mergeShader, imageInfosIBL, imageInfos, vsgColorImage, vsgDepthImage); //读取几何信息1
+        
         double mergeradius = 2000.0; // 固定观察距离
         auto mergeviewport = vsg::ViewportState::create(0, 0, intgWindowTraits->width, intgWindowTraits->height);
         auto mergeperspective = vsg::Perspective::create(60.0, static_cast<double>(intgWindowTraits->width) / static_cast<double>(intgWindowTraits->height), nearFarRatio * mergeradius, mergeradius * 10.0);
@@ -790,15 +931,18 @@ public:
         auto mergelookAt = vsg::LookAt::create(mergeeye, mergecentre, mergeup);
         auto mergecamera = vsg::Camera::create(mergeperspective, mergelookAt, mergeviewport);
 
-        intgWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
+        //intgWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
         Final_window = vsg::Window::create(intgWindowTraits);
         Final_viewer->addWindow(Final_window);
         auto Final_view = vsg::View::create(mergecamera, mergeScenegraph);            //共用一个camera，改变一个window的视角，另一个window视角也会改变
         auto Final_renderGraph = vsg::RenderGraph::create(Final_window, Final_view); //如果用Env_window会报错
         Final_renderGraph->clearValues[0].color = {{0.8f, 0.8f, 0.8f, 1.f}};
         auto Final_commandGraph = vsg::CommandGraph::create(Final_window); //如果用Env_window会报错
-        for (int i = 0; i < 5; i++)
-            Final_commandGraph->addChild(copyImages[i]);
+        for (int i = 0; i <= 5; i++){
+            Final_commandGraph->addChild(copyImagesIBL[i]);
+        }
+        Final_commandGraph->addChild(copyImages[4]);
+        Final_commandGraph->addChild(copyImages[5]);
         Final_commandGraph->addChild(Final_renderGraph);
         Final_viewer->assignRecordAndSubmitTaskAndPresentation({Final_commandGraph});
         //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(imageInfos[4]->imageView, Final_window);
@@ -811,12 +955,13 @@ public:
         extent.width = width;
         extent.height = height;
         // Final_screenshotHandler = ScreenshotHandler::create(window, extent);
+        /*
         Final_screenshotHandler = ScreenshotHandler::create();
         Shadow_screenshotHandler = ScreenshotHandler::create();
         Env_screenshotHandler = ScreenshotHandler::create();
         Projection_screenshotHandler = ScreenshotHandler::create();
         screenshotHandler = ScreenshotHandler::create();
-
+        */
     }
 
     void setRealColorAndImage(const std::string& real_color, const std::string& real_depth){
@@ -855,7 +1000,7 @@ public:
         // float a;
         // std::cin >> a;
         //--------------------------------------------------------------渲染循环----------------------------------------------------------//
-        if (viewer->advanceToNextFrame() && Env_viewer->advanceToNextFrame() && Shadow_viewer->advanceToNextFrame() && Projection_viewer->advanceToNextFrame() && Final_viewer->advanceToNextFrame())
+        if (viewer_IBL->advanceToNextFrame() && Env_viewer->advanceToNextFrame() && Shadow_viewer->advanceToNextFrame() && Projection_viewer->advanceToNextFrame() && Final_viewer->advanceToNextFrame())
         {
             // vsg::dvec3 centre = {lookAtVector[0], lookAtVector[1], lookAtVector[2]};                    // 固定观察点
             // vsg::dvec3 eye = {lookAtVector[3], lookAtVector[4], lookAtVector[5]};// 固定相机位置
@@ -899,22 +1044,23 @@ public:
             vsgColorImage->dirty();
             vsgDepthImage->dirty();
 
-
             // for(int i = 0; i < 9; i ++)
             //     std::cout << lookAtVector[i] << " ";
             // std::cout << std::endl;
 
             //------------------------------------------------------窗口1-----------------------------------------------------//
             // pass any events into EventHandlers assigned to the Viewer
-            viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
-            viewer->update();
-            viewer->recordAndSubmit(); //于记录和提交命令图。它会遍历`RecordAndSubmitTasks`列表中的任务，并对每个任务执行记录和提交操作。
+            viewer_IBL->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
+            
+            cubeTransform->matrix = vsg::translate(guiParams->cubeTransform[0], guiParams->cubeTransform[1], guiParams->cubeTransform[2]) * vsg::scale(guiParams->cubeTransform[3]);
+            
+            viewer_IBL->update();
+            viewer_IBL->recordAndSubmit(); //于记录和提交命令图。它会遍历`RecordAndSubmitTasks`列表中的任务，并对每个任务执行记录和提交操作。
             //viewer->present(); //呈现渲染结果。遍历`Presentations`列表中的呈现器，并对每个呈现器执行呈现操作，将渲染结果显示在窗口中。
-            copyImagesIBL[0]->srcImage = screenshotHandler->screenshot_image(window);
+            copyImagesIBL[0]->srcImage = screenshotHandler->screenshot_image(window_IBL);
             copyImagesIBL[0]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            copyImagesIBL[1]->srcImage = screenshotHandler->screenshot_depth(window);
+            copyImagesIBL[1]->srcImage = screenshotHandler->screenshot_depth(window_IBL);
             copyImagesIBL[1]->srcImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            viewer->present();
 
             //------------------------------------------------------窗口2-----------------------------------------------------//
             Env_viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
@@ -946,7 +1092,7 @@ public:
             copyImagesIBL[2]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
             copyImagesIBL[3]->srcImage = Env_screenshotHandler->screenshot_depth(Env_window);
             copyImagesIBL[3]->srcImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            Env_viewer->present();
+            //Env_viewer->present();
             // Env_screenshotHandler->screenshot_cpudepth(Env_window);
             // Env_screenshotHandler->screenshot_encodeimage(Final_window, color);
 
@@ -958,17 +1104,19 @@ public:
             copyImagesIBL[4]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
             copyImagesIBL[5]->srcImage = Shadow_screenshotHandler->screenshot_depth(Shadow_window);
             copyImagesIBL[5]->srcImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            Shadow_viewer->present(); //计算完之后一起呈现在窗口
+            //Shadow_viewer->present(); //计算完之后一起呈现在窗口
 
             //------------------------------------------------------窗口4-----------------------------------------------------//
             Projection_viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
             Projection_viewer->update();
             Projection_viewer->recordAndSubmit(); //于记录和提交命令图。窗口2提交会冲突报错
+            //copyImages[3]->srcImage = Projection_screenshotHandler->screenshot_image(Projection_window);
+            //copyImages[3]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
             copyImages[4]->srcImage = Projection_screenshotHandler->screenshot_image(Projection_window);
             copyImages[4]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            copyImages[5]->srcImage = Projection_screenshotHandler->screenshot_depth(Shadow_window);
+            copyImages[5]->srcImage = Projection_screenshotHandler->screenshot_depth(Projection_window);
             copyImages[5]->srcImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            Shadow_viewer->present(); //计算完之后一起呈现在窗口
+            //Shadow_viewer->present(); //计算完之后一起呈现在窗口
 
             //------------------------------------------------------窗口5-----------------------------------------------------//
             Final_viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
@@ -983,6 +1131,10 @@ public:
             // }
             // std::cout << std::endl;
 
+            viewer_IBL->present();
+            Env_viewer->present();
+            Shadow_viewer->present(); //计算完之后一起呈现在窗口
+            Projection_viewer->present();
             Final_viewer->present();
             return true;
         }

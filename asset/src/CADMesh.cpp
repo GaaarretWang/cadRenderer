@@ -383,6 +383,7 @@ void CADMesh::buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Sh
     vsg::ImageInfoList shadowDepth = {imageInfosIBL[5]};
 
     vsg::ImageInfoList projectionColor = {imageInfos[4]};
+    vsg::ImageInfoList projectionDepth = {imageInfos[5]};
 
     //vsg::Data and imageinfos should be consistent
     Env_graphicsPipelineConfig->assignTexture("cadColor", cadColor);
@@ -391,7 +392,7 @@ void CADMesh::buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Sh
     Env_graphicsPipelineConfig->assignTexture("shadowDepth", planeDepth);
     Env_graphicsPipelineConfig->assignTexture("planeColor", real_color);
     Env_graphicsPipelineConfig->assignTexture("planeDepth",  real_depth);
-    Env_graphicsPipelineConfig->assignTexture("projectionColor", projectionColor);
+
 
     // Env_graphicsPipelineConfig->assignTexture("planeColor", planeColor);
     // Env_graphicsPipelineConfig->assignTexture("planeDepth", planeDepth);
@@ -441,7 +442,7 @@ void CADMesh::transferModel(const std::string& path, bool fullNormal, vsg::ref_p
     file.close();
     buffer_data = buffer.data();
     buffer_size = fileSize;
-
+    
     builder_out.PushFlatBuffer(buffer_data, buffer_size);
     auto renderFlatBuffer = RenderFlatBuffer::GetRenderFlatBufferDoc(builder_out.GetBufferPointer());
     int emptyProtoNum = 0;

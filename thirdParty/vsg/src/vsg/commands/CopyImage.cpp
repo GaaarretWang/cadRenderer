@@ -13,6 +13,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <vsg/commands/CopyImage.h>
 #include <vsg/io/Options.h>
 #include <vsg/vk/CommandBuffer.h>
+#include <iostream>
 
 using namespace vsg;
 
@@ -21,7 +22,7 @@ CopyImage::CopyImage()
 }
 
 void CopyImage::record(CommandBuffer& commandBuffer) const
-{
+{   
     vkCmdCopyImage(
         commandBuffer,
         srcImage->vk(commandBuffer.deviceID),

@@ -4,8 +4,8 @@ Rendering::Rendering() = default;
 
 Rendering::~Rendering() = default;
 
-int Rendering::Init(std::vector<unordered_map<std::string,std::string>> models){
-    renderer.setWidthAndHeight(width, height);
+int Rendering::Init(std::vector<unordered_map<std::string,std::string>> models, vsg::CommandLine& arguments){
+    renderer.setWidthAndHeight(width, height,upsample_scale);
     renderer.setKParameters(fx, fy, cx, cy);
 
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
@@ -22,7 +22,7 @@ int Rendering::Init(std::vector<unordered_map<std::string,std::string>> models){
         }
     }
 
-    renderer.initRenderer(renderingDir, model_transforms, model_paths, instance_names);
+    renderer.initRenderer(renderingDir, model_transforms, model_paths, instance_names, arguments);
 
     return 0;
 }
@@ -32,7 +32,7 @@ int Rendering::Update(){
     if(model_transforms[2][3][2] > -0.45)
         model_transforms[2][3][2] = -0.679909;
 
-    renderer.updateObjectPose("小舱壁-ASM-修改焊接后1", model_transforms[2]);
+    renderer.updateObjectPose("小舱壁-ASM-修改焊接后", model_transforms[2]);
 
     if(trackingViewMatrix){
         // auto vobj = sceneData.getObject("virtualObj1");
@@ -76,7 +76,7 @@ int Rendering::Update(){
     return 0;
 }
 
-int main(){
+int main(int argc, char** argv){
     std::vector<std::vector<double>> camera_pos;
     std::vector<std::string> camera_pos_timestamp;
     std::vector<unordered_map<std::string,std::string>> models;
@@ -121,9 +121,10 @@ int main(){
     model2["小舱壁-ASM-修改焊接后"] = "../asset/data/obj/小舱壁-ASM-修改焊接后.obj";
     models.push_back(model1);
     models.push_back(model2);
+    vsg::CommandLine arguments(&argc, argv); //用于解析命令行参数
 
     Rendering rendering;
-    rendering.Init(models);
+    rendering.Init(models,arguments);
     while(true){
         rendering.colorPath = "../asset/data/dataset3/color/" + camera_pos_timestamp[frame] + ".png";
         rendering.depthPath = "../asset/data/dataset3/depth/" + camera_pos_timestamp[frame] + ".png";
@@ -133,4 +134,7 @@ int main(){
         if(frame > 698)
             frame = 0;
     }
+
+    IBL::clearResources();
+    return 0;
 }

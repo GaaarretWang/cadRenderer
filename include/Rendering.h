@@ -22,12 +22,13 @@ public:
     std::string renderingDir = "../";
     std::string colorPath = "../asset/data/slamData/color/1711699313.948925.png";
     std::string depthPath = "../asset/data/slamData/depth/1711699313.948925.png";
+    double upsample_scale = 2;
 
     Rendering();
 
     ~Rendering();
 
-    int Init(std::vector<unordered_map<std::string,std::string>> models);
+    int Init(std::vector<unordered_map<std::string,std::string>> models, vsg::CommandLine& arguments);
 
     int Update();
 };
