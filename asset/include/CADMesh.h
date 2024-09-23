@@ -158,8 +158,8 @@ public:
     void buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, vsg::ref_ptr<vsg::ImageInfo>* imageInfosIBL, vsg::ref_ptr<vsg::ImageInfo>* imageInfos, vsg::ref_ptr<vsg::Data> real_color, vsg::ref_ptr<vsg::Data> real_depth);
     void buildPlaneNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void buildEnvPlaneNode(vsg::ref_ptr<vsg::Group> scene,SimpleMesh importMesh ,vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
-    void buildObjNode(const char* path, const char* material_path, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
-    void transferModel(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
+    void buildObjNode(const char* path, const char* material_path, const vsg::dmat4& modelMatrix);
+    void transferModel(const std::string& path, bool fullNormal, const vsg::dmat4& modelMatrix);
 
     // void buildInstance(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
 

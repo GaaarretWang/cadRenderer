@@ -57,7 +57,6 @@ class vsgRenderer
     vsg::ref_ptr<vsg::Switch> directionalLightSwitch = vsg::Switch::create();
 
     vsg::ref_ptr<vsg::Node> drawCube;
-    vsg::ref_ptr<vsg::MatrixTransform> cubeTransform;
     vsg::ref_ptr<gui::Params> guiParams = gui::Params::create();
 
     vsg::ref_ptr<IBLScreenshot::ScreenshotHandler> Final_screenshotHandler;
@@ -73,7 +72,12 @@ class vsgRenderer
     vsg::ref_ptr<vsg::Window> Final_window;
     vsg::ref_ptr<vsg::Camera> camera;
 
+    vsg::dmat4 model_matrix;
+
     std::string project_path;
+
+    ConfigShader config_shader;
+    CADMesh cad;
 
     double fx = 386.52199190267083;//焦距(x轴上)
     double fy = 387.32300428823663;//焦距(y轴上)
@@ -345,9 +349,6 @@ public:
         auto numLights = 2;                //光源数量
 
         //-----------------------------------------设置shader------------------------------------//
-        ConfigShader config_shader;
-        CADMesh cad;
-        v2::CADMesh cadV2;
         //建立shader的函数有所不同,检查点
         vsg::ref_ptr<vsg::ShaderSet> phongShader = config_shader.buildShader(project_path + "asset/data/shaders/standard.vert", project_path + "asset/data/shaders/standard_phong.frag");
         vsg::ref_ptr<vsg::ShaderSet> planeShader = config_shader.buildShader(project_path + "asset/data/shaders/plane.vert", project_path + "asset/data/shaders/plane.frag");
@@ -479,60 +480,6 @@ public:
         gpc_shadow->assignDescriptor("material", plane_mat);
         gpc_shadow->init();
 
-        //---------------------------------------读取CAD模型------------------------------------------//
-
-        //读取.fb格式的模型参数信息
-        bool fullNormal = 0;
-        // const std::string& path1 = project_path + "asset/data/FBDataOut/运输车.fb";
-        // const std::string& path1 = project_path + "asset/data/geos/3ED_827.fb";
-        
-
-        for(int i = 0; i < model_paths.size(); i ++){
-            std::string &path_i = model_paths[i];
-            size_t pos = path_i.find_last_of('.');
-            std::string format = path_i.substr(pos + 1);
-            CADMesh* transfer_model;
-            if (transfered_meshes.find(path_i) != transfered_meshes.end()){
-                transfer_model = transfered_meshes[path_i];
-            }else{
-                transfer_model = new CADMesh();
-                if(format == "obj")
-                {
-                    transfer_model->buildObjNode(path_i.c_str(), "", phongShader, model_transforms[i]); //读取obj文件
-                    std::cout << "114514" << std::endl;
-                }
-                else if(format == "fb")
-                {
-                    transfer_model->transferModel(model_paths[i], fullNormal, phongShader, model_transforms[i]);
-                    cadV2.loadFile(model_paths[i], fullNormal);
-                }
-                transfered_meshes[path_i] = transfer_model;
-            }
-   
-            if(format == "obj"){
-                
-                ModelInstance* instance_phong = new ModelInstance();
-                instance_phong->buildObjInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
-                instance_phongs[instance_names[i]] = instance_phong;
-                
-                ModelInstance* instance_shadow = new ModelInstance();
-                instance_shadow->buildObjInstance(transfer_model, scenegraph, projectionShader, model_transforms[i]);
-                instance_shadows[instance_names[i]] = instance_shadow;
-            }
-            else if(format == "fb"){
-                
-                ModelInstance* instance_phong = new ModelInstance();
-                instance_phong->buildInstance(transfer_model, cadScenegraph, phongShader, model_transforms[i]);
-                instance_phongs[instance_names[i]] = instance_phong;
-                
-
-                ModelInstance* instance_shadow = new ModelInstance();
-                instance_shadow->buildInstance(transfer_model, projectionScenegraph, projectionShader, model_transforms[i]);
-                instance_shadows[instance_names[i]] = instance_shadow;
-            }
-            
-        }
-
         // ---------------------------------读取重建模型------------------------------------//
         vsg::ref_ptr<vsg::Node> reconstructRoot;
         vsg::ref_ptr<vsg::Geometry> reconstructDrawCmd;
@@ -571,19 +518,51 @@ public:
                 rootSwitch->addChild(MASK_DRAW_SHADOW, shadowStateGroup);
                 reconstructRoot = stateSwtich;
 
-                cad.buildEnvPlaneNode(projectionScenegraph, importMesh, projectionShader, model_transforms[0]);
+                //cad.buildEnvPlaneNode(projectionScenegraph, importMesh, projectionShader, model_transforms[0]);
             }
             else
             {
                 std::cerr << "Error loading ply mesh" << std::endl;
             }
         }
+        std::cout << "读取重建模型完成" << std::endl;
 
+        //---------------------------------------读取CAD模型------------------------------------------//
 
-        std::cout << "读取CAD模型完成" << std::endl;
+        //读取.fb格式的模型参数信息
+        bool fullNormal = 0;
+        // const std::string& path1 = project_path + "asset/data/FBDataOut/运输车.fb";
+        // const std::string& path1 = project_path + "asset/data/geos/3ED_827.fb";
+        
 
-        vsg::ref_ptr<vsg::Node> cadMeshRoot;
-
+        for(int i = 0; i < model_paths.size(); i ++){
+            std::string &path_i = model_paths[i];
+            size_t pos = path_i.find_last_of('.');
+            std::string format = path_i.substr(pos + 1);
+            CADMesh* transfer_model;
+            if (transfered_meshes.find(path_i) != transfered_meshes.end()){
+                transfer_model = transfered_meshes[path_i];
+            }else{
+                transfer_model = new CADMesh();
+                if(format == "obj")
+                    transfer_model->buildObjNode(path_i.c_str(), "", model_transforms[i]); //读取obj文件
+                else if(format == "fb")
+                    transfer_model->transferModel(model_paths[i], fullNormal, model_transforms[i]);
+                transfered_meshes[path_i] = transfer_model;
+            }            
+            if(format == "obj"){
+                ModelInstance* instance_phong = new ModelInstance();
+                instance_phong->buildObjInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
+                instance_phongs[instance_names[i]] = instance_phong;
+            }
+            else if(format == "fb"){
+                ModelInstance* instance_phong = new ModelInstance();
+                instance_phong->buildInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
+                instance_phongs[instance_names[i]] = instance_phong;
+            }
+        }
+        
+        /*
         auto cadMeshDrawCmd = cadV2.createDrawCmd(gpc_ibl);
         auto cadMeshPbrStateGroup = vsg::StateGroup::create();
         cadMeshPbrStateGroup->addChild(cadMeshDrawCmd);
@@ -603,22 +582,8 @@ public:
 
         vsg::ref_ptr<vsg::MatrixTransform> meshTransform = vsg::MatrixTransform::create(vsg::scale(1.0e-3));
         meshTransform->addChild(cadMeshSwitch);
-        cadMeshRoot = meshTransform;
         scenegraph->addChild(meshTransform);
-
-        {
-            drawCube = cadV2.testCube(gpc_ibl);
-            auto cubeTrans = vsg::MatrixTransform::create(vsg::translate(1.0, 0.0, 0.0) * vsg::scale(1.0));
-            auto cubeSwitch = vsg::Switch::create();
-            cubeSwitch->addChild(MASK_MODEL, drawCube);
-            auto drawCubeShadow = cadV2.testCube(gpc_shadow);
-            cubeSwitch->addChild(MASK_DRAW_SHADOW, drawCubeShadow);
-            cubeTrans->addChild(cubeSwitch);
-            drawCube = cubeTrans;
-            cubeTransform = cubeTrans;
-            scenegraph->addChild(cubeTrans);
-        }
-
+        */
 
         //-----------------------------------设置光源----------------------------------//
         //vsg::ref_ptr<vsg::DirectionalLight> directionalLight; //定向光源 ref_ptr智能指针
@@ -647,9 +612,9 @@ public:
         scenegraph->addChild(directionalLightSwitch);
 
         // -----------------------设置相机参数------------------------------//
-        double radius = 2000.0; // 固定观察距离
+        double radius = 2.0; // 固定观察距离
         auto viewport = vsg::ViewportState::create(0, 0, IBLWindowTraits->width, IBLWindowTraits->height);
-        //auto perspective = vsg::Perspective::create(60.0, static_cast<double>(640) / static_cast<double>(480), nearFarRatio * radius, radius * 10.0);
+        //auto perspective = vsg::Perspective::create(60.0, static_cast<double>(IBLWindowTraits->width) / static_cast<double>(IBLWindowTraits->height), 0.01, 50.0);
 
         auto perspective = vsg::Perspective::create(fx, fy, cx, cy, width, height, near, far);
 
@@ -683,7 +648,6 @@ public:
             viewer_IBL->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
             viewer_IBL->addEventHandlers({vsg::CloseHandler::create(viewer_IBL)});
             viewer_IBL->addEventHandler(vsg::Trackball::create(camera));
-
             auto event = vsg::Event::create_if(true, window_IBL->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
             screenshotHandler = IBLScreenshot::ScreenshotHandler::create(event);
             viewer_IBL->addEventHandler(screenshotHandler);
@@ -988,6 +952,10 @@ public:
         instance_shadows[instance_name]->nodePtr[""].transform->matrix = model_matrix;
     }
 
+    void updateObjectPose(vsg::dmat4 model_matrix){
+        this->model_matrix = model_matrix;
+    }
+
 
     bool render(std::vector<std::vector<uint8_t>> &color){
         // std::cout << "new frame: " << std::endl;
@@ -1051,8 +1019,6 @@ public:
             //------------------------------------------------------窗口1-----------------------------------------------------//
             // pass any events into EventHandlers assigned to the Viewer
             viewer_IBL->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
-            
-            cubeTransform->matrix = vsg::translate(guiParams->cubeTransform[0], guiParams->cubeTransform[1], guiParams->cubeTransform[2]) * vsg::scale(guiParams->cubeTransform[3]);
             
             viewer_IBL->update();
             viewer_IBL->recordAndSubmit(); //于记录和提交命令图。它会遍历`RecordAndSubmitTasks`列表中的任务，并对每个任务执行记录和提交操作。
@@ -1142,6 +1108,7 @@ public:
             return false;
         }
     }
+
 };
 
 

@@ -4,7 +4,7 @@ Rendering::Rendering() = default;
 
 Rendering::~Rendering() = default;
 
-int Rendering::Init(std::vector<unordered_map<std::string,std::string>> models, vsg::CommandLine& arguments){
+int Rendering::Init(unordered_map<std::string,std::string> models, vsg::CommandLine& arguments){
     renderer.setWidthAndHeight(width, height,upsample_scale);
     renderer.setKParameters(fx, fy, cx, cy);
 
@@ -15,12 +15,12 @@ int Rendering::Init(std::vector<unordered_map<std::string,std::string>> models, 
     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.691005, 1) * init_model_transforms[1]);
 
     //使用map，将模型名字和模型路径传入
-    for (const auto& model : models) {
-        for (auto const& [key, value] : model) {
-            model_paths.push_back(value);
-            instance_names.push_back(key);
-        }
+
+    for (auto const& [key, value] : models) {
+        model_paths.push_back(value);
+        instance_names.push_back(key);
     }
+    
 
     renderer.initRenderer(renderingDir, model_transforms, model_paths, instance_names, arguments);
 
@@ -32,7 +32,7 @@ int Rendering::Update(){
     if(model_transforms[2][3][2] > -0.45)
         model_transforms[2][3][2] = -0.679909;
 
-    renderer.updateObjectPose("小舱壁-ASM-修改焊接后", model_transforms[2]);
+    renderer.updateObjectPose(model_transforms[2]);
 
     if(trackingViewMatrix){
         // auto vobj = sceneData.getObject("virtualObj1");
@@ -79,7 +79,6 @@ int Rendering::Update(){
 int main(int argc, char** argv){
     std::vector<std::vector<double>> camera_pos;
     std::vector<std::string> camera_pos_timestamp;
-    std::vector<unordered_map<std::string,std::string>> models;
     int frame =  0;
     
     std::ifstream inf;//文件读操作
@@ -115,12 +114,9 @@ int main(int argc, char** argv){
     }
     inf.close();
 
-    unordered_map<string, string> model1;
-    model1["3ED_827"] = "../asset/data/geos/3ED_827.fb";
-    unordered_map<string, string> model2;
-    model2["小舱壁-ASM-修改焊接后"] = "../asset/data/obj/小舱壁-ASM-修改焊接后.obj";
-    models.push_back(model1);
-    models.push_back(model2);
+    unordered_map<string, string> models;
+    models["3ED_827"] = "../asset/data/geos/3ED_827.fb";
+    models["小舱壁-ASM-修改焊接后"] = "../asset/data/obj/小舱壁-ASM-修改焊接后.obj";
     vsg::CommandLine arguments(&argc, argv); //用于解析命令行参数
 
     Rendering rendering;

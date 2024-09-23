@@ -28,7 +28,7 @@ public:
 
     ~Rendering();
 
-    int Init(std::vector<unordered_map<std::string,std::string>> models, vsg::CommandLine& arguments);
+    int Init(unordered_map<std::string,std::string> models, vsg::CommandLine& arguments);
 
     int Update();
 };

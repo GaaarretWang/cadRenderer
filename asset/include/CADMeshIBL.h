@@ -102,6 +102,14 @@ namespace v2
             treeNodeV2 node;
         };
 
+        struct treeNode
+        {
+            std::vector<std::string> kids;
+            vsg::ref_ptr<vsg::MatrixTransform> transform;
+            vsg::mat4 originalMatrix;
+            vsg::dbox bounds;
+        };
+
         std::vector<MaterialObj> mMaterials{};
         std::vector<std::string> mTextures{};
         std::vector<uint32_t> mMatIndex{};
@@ -136,15 +144,22 @@ namespace v2
         std::vector<vsg::ref_ptr<vsg::vec2Array>> coordinatesVector;
         std::vector<vsg::ref_ptr<vsg::uintArray>> indicesVector;
 
+        treeNode node_ibl;
+        treeNode node_shadow;
+
+        vsg::dmat4 model_matrix;
+
         void loadFile(const std::string& path, bool fullNormal);
         void loadRenderFlatBuffer(const RenderFlatBuffer::RenderFlatBufferDoc* renderFlatBuffer, bool fullNormal);
-        
+        void buildObjNode(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix);
+        void buildScene(vsg::ref_ptr<vsg::GraphicsPipelineConfigurator>gpc_ibl, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, vsg::ref_ptr<vsg::PbrMaterialValue> object_mat, vsg::ref_ptr<vsg::Group> scenegraph);
+        void buildOBJScene(vsg::ref_ptr<vsg::GraphicsPipelineConfigurator>gpc_ibl, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow,vsg::ref_ptr<vsg::PbrMaterialValue> object_mat, vsg::ref_ptr<vsg::Group> scenegraph);
         void explode();
         void recover();
 
         vsg::ref_ptr<vsg::Node> createNodeSeperateDraw(vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc);
         vsg::ref_ptr<vsg::Node> createDrawCmd(vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc);
-
+        vsg::ref_ptr<vsg::Node> createOBJDrawCmd(vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc);
         vsg::ref_ptr<vsg::Node> test(vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc);
 
         vsg::ref_ptr<vsg::Node> testCube(vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc);

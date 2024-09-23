@@ -1,5 +1,6 @@
 #include "CADMeshIBL.h"
 #include <iostream>
+#include "MyMask.h"
 
 using namespace vsg;
 
@@ -335,6 +336,101 @@ namespace v2
         std::cout << "totalTriangleNum = " << totalTriangleNum << std::endl;
     }
 
+    void CADMesh::buildObjNode(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix)
+    {
+        assert(model_path != nullptr);
+        OBJLoader objLoader;
+        //设置材质参数
+        vsg::ref_ptr<vsg::vec4Value> default_color;
+        vsg::ref_ptr<vsg::PhongMaterialValue> default_material;
+        default_color = vsg::vec4Value::create(vsg::vec4{ 0.9, 0.9, 0.9, 1.0 });
+        default_material = vsg::PhongMaterialValue::create();
+        default_material->value().ambient.set(0.9, 0.9, 0.9, 1.0);
+        default_material->value().diffuse.set(0.55, 0.55, 0.55, 1.0);
+        default_material->value().specular.set(0.7, 0.7, 0.7, 1.0);
+        //std::cout << mat->value().shininess;//默认值为100
+        default_material->value().shininess = 25;
+
+        std::unordered_map<std::string,int> num = objLoader.vertex_count(model_path);
+
+        auto vertices = vsg::vec3Array::create(num["vertices"]); 
+        auto normals = vsg::vec3Array::create(num["normals"]);
+        auto materials = vsg::PhongMaterialArray::create();
+
+        std::cout <<"success creating obj"<<std::endl;
+
+        vsg::ref_ptr<vsg::uintArray> indices = vsg::uintArray::create(num["indices"]);
+        vsg::ref_ptr<vsg::vec2Array> verticesUV = vsg::vec2Array::create(num["uvs"]);
+        vsg::ref_ptr<vsg::vec3Array> colors;
+        objLoader.load_obj(model_path, material_path, vertices, normals, verticesUV, colors, materials, indices);
+        std::cout <<"success Loading obj"<<std::endl;
+        verticesVector.push_back(vertices);
+        normalsVector.push_back(normals);
+        indicesVector.push_back(indices);
+    }
+
+    void CADMesh::buildScene(vsg::ref_ptr<vsg::GraphicsPipelineConfigurator>gpc_ibl, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow,vsg::ref_ptr<vsg::PbrMaterialValue> object_mat, vsg::ref_ptr<vsg::Group> scenegraph){
+        auto cadMeshDrawCmd = createDrawCmd(gpc_ibl);
+        auto cadMeshPbrStateGroup = vsg::StateGroup::create();
+        cadMeshPbrStateGroup->addChild(cadMeshDrawCmd);
+
+        auto gpc_object = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
+        gpc_object->assignDescriptor("material", object_mat);
+        gpc_object->init();
+        gpc_object->copyTo(cadMeshPbrStateGroup);
+        auto cadMeshShadowStateGroup = vsg::StateGroup::create();
+        cadMeshShadowStateGroup->addChild(cadMeshDrawCmd);
+        gpc_shadow->copyTo(cadMeshShadowStateGroup);
+        auto cadMeshSwitch = vsg::Switch::create();
+        cadMeshSwitch->addChild(MASK_MODEL, cadMeshPbrStateGroup);
+        cadMeshSwitch->addChild(MASK_DRAW_SHADOW, cadMeshShadowStateGroup);
+
+        vsg::ref_ptr<vsg::MatrixTransform> meshTransform = vsg::MatrixTransform::create();
+        meshTransform->matrix = model_matrix;
+        meshTransform->addChild(cadMeshSwitch);
+        scenegraph->addChild(meshTransform);
+    }
+
+    void CADMesh::buildOBJScene(vsg::ref_ptr<vsg::GraphicsPipelineConfigurator>gpc_ibl, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow,vsg::ref_ptr<vsg::PbrMaterialValue> object_mat, vsg::ref_ptr<vsg::Group> scenegraph) {
+        auto cadMeshDrawCmd = createOBJDrawCmd(gpc_ibl);
+        
+        auto cadMeshPbrStateGroup = vsg::StateGroup::create();
+        cadMeshPbrStateGroup->addChild(cadMeshDrawCmd);
+
+        auto gpc_object = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
+        gpc_object->assignDescriptor("material", object_mat);
+        gpc_object->init();
+        gpc_object->copyTo(cadMeshPbrStateGroup);
+        auto cadMeshShadowStateGroup = vsg::StateGroup::create();
+        cadMeshShadowStateGroup->addChild(cadMeshDrawCmd);
+        gpc_shadow->copyTo(cadMeshShadowStateGroup);
+        auto cadMeshSwitch = vsg::Switch::create();
+        cadMeshSwitch->addChild(MASK_MODEL, cadMeshPbrStateGroup);
+        cadMeshSwitch->addChild(MASK_DRAW_SHADOW, cadMeshShadowStateGroup);
+
+        vsg::ref_ptr<vsg::MatrixTransform> meshTransform = vsg::MatrixTransform::create();
+        meshTransform->matrix = model_matrix;
+        meshTransform->addChild(cadMeshSwitch);
+        scenegraph->addChild(meshTransform);
+    }
+
+    vsg::ref_ptr<vsg::Node> CADMesh::createOBJDrawCmd(vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc) {
+        vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0});
+        vsg::ref_ptr<vsg::vec2Array> dummyUV = vsg::vec2Array::create(1);
+        ptr<MatrixTransform> rootTransform = MatrixTransform::create();
+        vsg::DataList OBJ_attributes = {
+            verticesVector[0],
+            normalsVector[0],
+            dummyUV,
+            default_color
+        };
+        auto drawCommands = vsg::Commands::create();
+        drawCommands->addChild(vsg::BindVertexBuffers::create(gpc->baseAttributeBinding, OBJ_attributes));
+        drawCommands->addChild(vsg::BindIndexBuffer::create(indicesVector[0]));
+        drawCommands->addChild(vsg::DrawIndexed::create(indicesVector[0]->size(), 1, 0, 0, 0));
+        rootTransform->addChild(drawCommands);
+        return rootTransform;
+    }
     //void CADMesh::explode()
     //{
     //    auto renderFlatBuffer = RenderFlatBuffer::GetRenderFlatBufferDoc(builder_out.GetBufferPointer());

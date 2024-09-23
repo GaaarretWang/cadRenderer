@@ -426,7 +426,7 @@ void CADMesh::buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Sh
     scene = Env_stateGroup; 
 }
 
-void CADMesh::transferModel(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix){
+void CADMesh::transferModel(const std::string& path, bool fullNormal, const vsg::dmat4& modelMatrix){
     uint8_t* buffer_data;
     int buffer_size;
     std::ifstream file(path, std::ios::binary);
@@ -442,7 +442,7 @@ void CADMesh::transferModel(const std::string& path, bool fullNormal, vsg::ref_p
     file.close();
     buffer_data = buffer.data();
     buffer_size = fileSize;
-    
+
     builder_out.PushFlatBuffer(buffer_data, buffer_size);
     auto renderFlatBuffer = RenderFlatBuffer::GetRenderFlatBufferDoc(builder_out.GetBufferPointer());
     int emptyProtoNum = 0;
@@ -544,7 +544,7 @@ void CADMesh::transferModel(const std::string& path, bool fullNormal, vsg::ref_p
     }
 }
 
-void CADMesh::buildObjNode(const char* model_path, const char* material_path,vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix)
+void CADMesh::buildObjNode(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix)
 {
     assert(model_path != nullptr);
     OBJLoader objLoader;
@@ -559,7 +559,7 @@ void CADMesh::buildObjNode(const char* model_path, const char* material_path,vsg
     //std::cout << mat->value().shininess;//默认值为100
     default_material->value().shininess = 25;
 
-    std::unordered_map<std::string,int> num = objLoader.vertex_count(model_path);
+    std::unordered_map<std::string, int>  num = objLoader.vertex_count(model_path);
 
     auto vertices = vsg::vec3Array::create(num["vertices"]); 
     auto normals = vsg::vec3Array::create(num["normals"]);
