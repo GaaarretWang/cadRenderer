@@ -30,9 +30,9 @@ void main()
     float intPlaneDepth = texture(planeDepth, texCoord).r;
     float intShadowDepth = texture(shadowDepth, texCoord).r;
 
-    // if(intCadDepth > intPlaneDepth)
-    //     outColor.rgb = texture(cadColor, texCoord).rgb;
-    // else
+    if(intCadDepth > intPlaneDepth)
+         outColor.rgb = texture(cadColor, texCoord).rgb;
+     else
         outColor.rgb = texture(planeColor, texCoord).rgb * texture(shadowColor, texCoord).rrr;
     // outColor.rgb = texture(planeColor, texCoord).rgb;
     // outColor.rg = texCoord;

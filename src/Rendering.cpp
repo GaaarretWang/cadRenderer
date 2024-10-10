@@ -32,7 +32,7 @@ int Rendering::Update(){
     if(model_transforms[2][3][2] > -0.45)
         model_transforms[2][3][2] = -0.679909;
 
-    renderer.updateObjectPose(model_transforms[2]);
+    renderer.updateObjectPose("小舱壁-ASM-修改焊接后", model_transforms[2]);
 
     if(trackingViewMatrix){
         // auto vobj = sceneData.getObject("virtualObj1");
