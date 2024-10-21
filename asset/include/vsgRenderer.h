@@ -46,7 +46,6 @@ class vsgRenderer
     vsg::ref_ptr<vsg::Viewer> viewer_IBL = vsg::Viewer::create();
     vsg::ref_ptr<vsg::Viewer> Env_viewer = vsg::Viewer::create();
     vsg::ref_ptr<vsg::Viewer> Shadow_viewer = vsg::Viewer::create();
-    vsg::ref_ptr<vsg::Viewer> Projection_viewer = vsg::Viewer::create();
     vsg::ref_ptr<vsg::Viewer> Final_viewer = vsg::Viewer::create();
 
     std::unordered_map<std::string, CADMesh*> transfered_meshes; //path, mesh*
@@ -62,13 +61,11 @@ class vsgRenderer
     vsg::ref_ptr<IBLScreenshot::ScreenshotHandler> Final_screenshotHandler;
     vsg::ref_ptr<IBLScreenshot::ScreenshotHandler> Shadow_screenshotHandler;
     vsg::ref_ptr<IBLScreenshot::ScreenshotHandler> Env_screenshotHandler;
-    vsg::ref_ptr<IBLScreenshot::ScreenshotHandler> Projection_screenshotHandler;
     vsg::ref_ptr<IBLScreenshot::ScreenshotHandler> screenshotHandler;
 
     vsg::ref_ptr<vsg::Window> window_IBL;
     vsg::ref_ptr<vsg::Window> Env_window;
     vsg::ref_ptr<vsg::Window> Shadow_window;
-    vsg::ref_ptr<vsg::Window> Projection_window;
     vsg::ref_ptr<vsg::Window> Final_window;
     vsg::ref_ptr<vsg::Camera> camera;
 
@@ -96,36 +93,6 @@ class vsgRenderer
     //every frame's real color and depth
     unsigned char * color_pixels;
     unsigned short * depth_pixels;
-
-    
-
-    vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(string windowTitle, int num,  vsg::ref_ptr<vsg::Options> options)
-    {
-        auto windowTraits = vsg::WindowTraits::create();
-        windowTraits->windowTitle = windowTitle;
-        windowTraits->width = render_width;
-        windowTraits->height = render_height;
-        windowTraits->x = render_width * (num % 2);
-        windowTraits->y = render_height * (num / 2);
-        // enable transfer from the colour and depth buffer images
-        windowTraits->swapchainPreferences.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        windowTraits->depthImageUsage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        windowTraits->depthFormat = VK_FORMAT_D16_UNORM;
-
-        // if we are multisampling then to enable copying of the depth buffer we have to enable a depth buffer resolve extension for vsg::RenderPass or require a minimum vulkan version of 1.2
-        if (windowTraits->samples != VK_SAMPLE_COUNT_1_BIT) windowTraits->vulkanVersion = VK_API_VERSION_1_2;
-        windowTraits->deviceExtensionNames = {
-            VK_KHR_MULTIVIEW_EXTENSION_NAME,
-            VK_KHR_MAINTENANCE2_EXTENSION_NAME,
-            VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
-            VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, 
-            VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-            VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
-            VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
-            VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
-            VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME};
-        return windowTraits;
-    }
 
     vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(string windowTitle, int num, vsg::CommandLine& arguments, vsg::ref_ptr<vsg::Options> options)
     {
@@ -337,9 +304,6 @@ public:
         // 输出的Shadow Value
         auto shadowWindowTraits = createWindowTraits("shadowShader", 3, arguments, options);
         shadowWindowTraits->device = device;
-        //投影窗口
-        auto projectionWindowTraits = createWindowTraits("Projection", 4, options);
-        projectionWindowTraits->device = device;
         // 合成的窗口
         auto intgWindowTraits = createWindowTraits("Integration", 5, arguments, options);
         intgWindowTraits->device = device;
@@ -561,6 +525,8 @@ public:
             
         }
 
+        /*
+        //测试用正方体
         v2::CADMesh cadV2;
         vsg::ref_ptr<vsg::Node> drawCube;
         vsg::ref_ptr<vsg::MatrixTransform> cubeTransform;
@@ -576,10 +542,10 @@ public:
             cubeTransform = cubeTrans;
             scenegraph->addChild(cubeTrans);
         }
-
+        */
+ 
         //-----------------------------------设置光源----------------------------------//
         //vsg::ref_ptr<vsg::DirectionalLight> directionalLight; //定向光源 ref_ptr智能指针
-        projectionGroup->addChild(projectionScenegraph);
         for (int i = 0; i < 4; i++)
         {
             directionalLight[i] = vsg::DirectionalLight::create();
@@ -597,10 +563,8 @@ public:
                 break;
             }
             directionalLightSwitch->addChild(false, directionalLight[i]);
-            projectionGroup->addChild(directionalLight[i]);
         }
         directionalLightSwitch->setSingleChildOn(0);
-        projectionScenegraph = projectionGroup;
         scenegraph->addChild(directionalLightSwitch);
 
         // -----------------------设置相机参数------------------------------//
@@ -693,23 +657,7 @@ public:
         Shadow_viewer->addEventHandler(Shadow_screenshotHandler);
 
         std::cout << "阴影窗口" << std::endl;
-
-        //----------------------------------------------------------------投影窗口----------------------------------------------------------//
-        //projectionWindowTraits->device = window->getOrCreateDevice(); //共享设备 
-        Projection_window = vsg::Window::create(projectionWindowTraits);
-        Projection_viewer->addWindow(Projection_window);
-        auto Projection_view = vsg::View::create(camera, projectionScenegraph);                 //共用一个camera，改变一个window的视角，另一个window视角也会改变
-        auto Projection_renderGraph = vsg::RenderGraph::create(Projection_window, Projection_view); //如果用Env_window会报错
-        Projection_renderGraph->clearValues[0].color = {{1.f, 1.f, 1.f, 1.f}};
-        auto Projection_commandGraph = vsg::CommandGraph::create(Projection_window); //如果用Env_window会报错
-        Projection_commandGraph->addChild(Projection_renderGraph);
-        Projection_viewer->assignRecordAndSubmitTaskAndPresentation({Projection_commandGraph});
-        Projection_viewer->compile();
-        auto Projection_event = vsg::Event::create_if(true, Projection_window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
-        Projection_screenshotHandler = IBLScreenshot::ScreenshotHandler::create(Projection_event);
-        Projection_viewer->addEventHandler(Projection_screenshotHandler);
-
-        std::cout << "投影窗口" << std::endl;
+;
         //----------------------------------------------------------------融合窗口----------------------------------------------------------//
         for (int i = 0; i < 6; i++)
         {
@@ -905,8 +853,6 @@ public:
         for (int i = 0; i <= 5; i++){
             Final_commandGraph->addChild(copyImagesIBL[i]);
         }
-        Final_commandGraph->addChild(copyImages[4]);
-        Final_commandGraph->addChild(copyImages[5]);
         Final_commandGraph->addChild(Final_renderGraph);
         Final_viewer->assignRecordAndSubmitTaskAndPresentation({Final_commandGraph});
         //auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(imageInfos[4]->imageView, Final_window);
@@ -968,7 +914,7 @@ public:
         // float a;
         // std::cin >> a;
         //--------------------------------------------------------------渲染循环----------------------------------------------------------//
-        if (viewer_IBL->advanceToNextFrame() && Env_viewer->advanceToNextFrame() && Shadow_viewer->advanceToNextFrame() && Projection_viewer->advanceToNextFrame() && Final_viewer->advanceToNextFrame())
+        if (viewer_IBL->advanceToNextFrame() && Env_viewer->advanceToNextFrame() && Shadow_viewer->advanceToNextFrame() && Final_viewer->advanceToNextFrame())
         {
             // vsg::dvec3 centre = {lookAtVector[0], lookAtVector[1], lookAtVector[2]};                    // 固定观察点
             // vsg::dvec3 eye = {lookAtVector[3], lookAtVector[4], lookAtVector[5]};// 固定相机位置
@@ -1072,18 +1018,6 @@ public:
             copyImagesIBL[5]->srcImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
             //Shadow_viewer->present(); //计算完之后一起呈现在窗口
 
-            //------------------------------------------------------窗口4-----------------------------------------------------//
-            Projection_viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
-            Projection_viewer->update();
-            Projection_viewer->recordAndSubmit(); //于记录和提交命令图。窗口2提交会冲突报错
-            //copyImages[3]->srcImage = Projection_screenshotHandler->screenshot_image(Projection_window);
-            //copyImages[3]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            copyImages[4]->srcImage = Projection_screenshotHandler->screenshot_image(Projection_window);
-            copyImages[4]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-            copyImages[5]->srcImage = Projection_screenshotHandler->screenshot_depth(Projection_window);
-            copyImages[5]->srcImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-            //Shadow_viewer->present(); //计算完之后一起呈现在窗口
-
             //------------------------------------------------------窗口5-----------------------------------------------------//
             Final_viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
             Final_viewer->update();
@@ -1100,7 +1034,6 @@ public:
             viewer_IBL->present();
             Env_viewer->present();
             Shadow_viewer->present(); //计算完之后一起呈现在窗口
-            Projection_viewer->present();
             Final_viewer->present();
             return true;
         }

@@ -710,7 +710,7 @@ void loadEnvmapRect(VsgContext& context)
     auto searchPaths = appData.options->paths;
     searchPaths.push_back("./data");
 
-    auto evnmapFilepath = vsg::findFile("textures/test.hdr", searchPaths);
+    auto evnmapFilepath = vsg::findFile("textures/FINAL.hdr", searchPaths);
     LoadHdrImageSTBI loader;
     loader.readImage(evnmapFilepath.string());
     auto dimensions = loader.getDimensions();
