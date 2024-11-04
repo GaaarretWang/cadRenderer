@@ -199,57 +199,75 @@ Cudaimage::Cudaimage(vsg::ref_ptr<vsg::Image> image, vsg::ref_ptr<vsg::Device> m
         throw std::runtime_error("Failed to get export handle for memory");
     }
 
+//     CUDA_EXTERNAL_MEMORY_HANDLE_DESC memDesc = {};
+// #ifndef _WIN32
+//     memDesc.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD;
+// #else
+//     memDesc.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32;
+// #endif
+//     memDesc.handle.win32.handle = p;
+//     memDesc.size = deviceSize;
+
+//     if (cuImportExternalMemory(&m_extMem, &memDesc) != CUDA_SUCCESS)
+//     {
+//         throw std::runtime_error("Failed to import buffer into CUDA");
+//     }
+
+//     CUDA_ARRAY3D_DESCRIPTOR arrayDesc = {};
+//     arrayDesc.Width = extent.width;
+//     arrayDesc.Height = extent.height;
+//     arrayDesc.Depth = 0; /* CUDA 2D arrays are defined to have depth 0 */
+//     arrayDesc.Format = CU_AD_FORMAT_UNSIGNED_INT8;
+//     arrayDesc.NumChannels = 4;
+//     arrayDesc.Flags = CUDA_ARRAY3D_SURFACE_LDST |
+//                       CUDA_ARRAY3D_COLOR_ATTACHMENT;
+
+//     CUDA_EXTERNAL_MEMORY_MIPMAPPED_ARRAY_DESC mipmapArrayDesc = {};
+//     mipmapArrayDesc.arrayDesc = arrayDesc;
+//     mipmapArrayDesc.numLevels = 1;
+
+//     result = cuExternalMemoryGetMappedMipmappedArray(&m_mipmapArray, m_extMem,
+//                                                      &mipmapArrayDesc);
+//     if (result != CUDA_SUCCESS)
+//     {
+//         std::ostringstream oss;
+//         oss << "Failed to get CUmipmappedArray; " << result;
+//         throw std::runtime_error(oss.str());
+//     }
+
+//     result = cuMipmappedArrayGetLevel(&m_array, m_mipmapArray, 0);
+//     if (result != CUDA_SUCCESS)
+//     {
+//         std::ostringstream oss;
+//         oss << "Failed to get CUarray; " << result;
+//         throw std::runtime_error(oss.str());
+//     }
+
     CUDA_EXTERNAL_MEMORY_HANDLE_DESC memDesc = {};
-#ifndef _WIN32
     memDesc.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD;
-#else
-    memDesc.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32;
-#endif
-    memDesc.handle.win32.handle = p;
+    memDesc.handle.fd = (int)(uintptr_t)p;
     memDesc.size = deviceSize;
 
-    if (cuImportExternalMemory(&m_extMem, &memDesc) != CUDA_SUCCESS)
-    {
+    if (cuImportExternalMemory(&m_extMem, &memDesc) != CUDA_SUCCESS) {
         throw std::runtime_error("Failed to import buffer into CUDA");
     }
 
-    CUDA_ARRAY3D_DESCRIPTOR arrayDesc = {};
-    arrayDesc.Width = extent.width;
-    arrayDesc.Height = extent.height;
-    arrayDesc.Depth = 0; /* CUDA 2D arrays are defined to have depth 0 */
-    arrayDesc.Format = CU_AD_FORMAT_UNSIGNED_INT8;
-    arrayDesc.NumChannels = 4;
-    arrayDesc.Flags = CUDA_ARRAY3D_SURFACE_LDST |
-                      CUDA_ARRAY3D_COLOR_ATTACHMENT;
+    CUDA_EXTERNAL_MEMORY_BUFFER_DESC bufDesc = {};
+    bufDesc.size = memDesc.size;
 
-    CUDA_EXTERNAL_MEMORY_MIPMAPPED_ARRAY_DESC mipmapArrayDesc = {};
-    mipmapArrayDesc.arrayDesc = arrayDesc;
-    mipmapArrayDesc.numLevels = 1;
-
-    result = cuExternalMemoryGetMappedMipmappedArray(&m_mipmapArray, m_extMem,
-                                                     &mipmapArrayDesc);
-    if (result != CUDA_SUCCESS)
-    {
-        std::ostringstream oss;
-        oss << "Failed to get CUmipmappedArray; " << result;
-        throw std::runtime_error(oss.str());
+    if (cuExternalMemoryGetMappedBuffer(&m_deviceptr, m_extMem, &bufDesc) !=
+        CUDA_SUCCESS) {
+        throw std::runtime_error("Failed to get CUdeviceptr");
     }
 
-    result = cuMipmappedArrayGetLevel(&m_array, m_mipmapArray, 0);
-    if (result != CUDA_SUCCESS)
-    {
-        std::ostringstream oss;
-        oss << "Failed to get CUarray; " << result;
-        throw std::runtime_error(oss.str());
-    }
 }
 
 Cudaimage::~Cudaimage()
 {
-    cuMipmappedArrayDestroy(m_mipmapArray);
+    // cuMipmappedArrayDestroy(m_mipmapArray);
     cuDestroyExternalMemory(m_extMem);
-    m_array = 0;
-    m_mipmapArray = 0;
+    // m_array = 0;
+    // m_mipmapArray = 0;
 }
 
 //MFW::Wrapper::Buffer::Ptr NvEncoderWrapper::readBackVulkanBuffer(CUdeviceptr dpFrame) {

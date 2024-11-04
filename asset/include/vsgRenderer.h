@@ -24,6 +24,7 @@ class vsgRenderer
     vsg::ref_ptr<vsg::Viewer> Env_viewer = vsg::Viewer::create();
     vsg::ref_ptr<vsg::Viewer> Shadow_viewer = vsg::Viewer::create();
     vsg::ref_ptr<vsg::Viewer> Final_viewer = vsg::Viewer::create();
+    vsg::ref_ptr<vsg::Viewer> decode_viewer = vsg::Viewer::create();
 
     std::unordered_map<std::string, CADMesh*> transfered_meshes; //path, mesh*
     std::unordered_map<std::string, ModelInstance*> instance_phongs; //path, mesh*
@@ -44,6 +45,7 @@ class vsgRenderer
     vsg::ref_ptr<vsg::Window> Env_window;
     vsg::ref_ptr<vsg::Window> Shadow_window;
     vsg::ref_ptr<vsg::Window> Final_window;
+    vsg::ref_ptr<vsg::Window> decode_window;
     vsg::ref_ptr<vsg::Camera> camera;
 
     std::string project_path;
@@ -163,6 +165,7 @@ public:
         auto envWindowTraits = createWindowTraits("Background", 1, options);
         auto shadowWindowTraits = createWindowTraits("shadowShader", 2, options);
         auto intgWindowTraits = createWindowTraits("Integration", 3, options);
+        auto decodeWindowTraits = createWindowTraits("Decode", 4, options);
 
         double nearFarRatio = 0.0001;       //近平面和远平面之间的比例
         auto numShadowMapsPerLight = 10; //每个光源的阴影贴图数量
@@ -467,11 +470,25 @@ public:
         VkExtent2D extent = {};
         extent.width = render_width;
         extent.height = render_height;
-        // Final_screenshotHandler = ScreenshotHandler::create(window, extent);
-        Final_screenshotHandler = ScreenshotHandler::create();
+        Final_screenshotHandler = ScreenshotHandler::create(Final_window, extent);
+        // Final_screenshotHandler = ScreenshotHandler::create();
         Shadow_screenshotHandler = ScreenshotHandler::create();
         Env_screenshotHandler = ScreenshotHandler::create();
         screenshotHandler = ScreenshotHandler::create();
+
+        decodeWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
+        decode_window = vsg::Window::create(decodeWindowTraits);
+        decode_viewer->addWindow(decode_window);
+        auto decode_commandGraph = vsg::CommandGraph::create(decode_window); //如果用Env_window会报错
+        auto context = vsg::Context::create(decode_window->getOrCreateDevice());
+        auto imageInfo = vsg::ImageInfo::create(vsg::ref_ptr<vsg::Sampler>{}, createImageView(*context, Final_screenshotHandler->outputImage, VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_GENERAL);
+        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(imageInfo->imageView, decode_window);
+        // auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(imageInfos[4]->imageView, decode_window);
+        decode_commandGraph->addChild(copyImageViewToWindow);
+        decode_viewer->assignRecordAndSubmitTaskAndPresentation({decode_commandGraph});
+        decode_viewer->compile();
+        decode_viewer->addEventHandlers({vsg::CloseHandler::create(decode_viewer)});
+        decode_viewer->addEventHandler(vsg::Trackball::create(camera));
     }
 
     void setRealColorAndImage(const std::string& real_color, const std::string& real_depth){
@@ -515,7 +532,7 @@ public:
         // float a;
         // std::cin >> a;
         //--------------------------------------------------------------渲染循环----------------------------------------------------------//
-        if (viewer->advanceToNextFrame() && Env_viewer->advanceToNextFrame() && Shadow_viewer->advanceToNextFrame() && Final_viewer->advanceToNextFrame())
+        if (viewer->advanceToNextFrame() && Env_viewer->advanceToNextFrame() && Shadow_viewer->advanceToNextFrame() && Final_viewer->advanceToNextFrame() && decode_viewer->advanceToNextFrame())
         {
             // vsg::dvec3 centre = {lookAtVector[0], lookAtVector[1], lookAtVector[2]};                    // 固定观察点
             // vsg::dvec3 eye = {lookAtVector[3], lookAtVector[4], lookAtVector[5]};// 固定相机位置
@@ -606,17 +623,16 @@ public:
             Final_viewer->recordAndSubmit(); //于记录和提交命令图。窗口2提交会冲突报错
             // Shadow_screenshotHandler->screenshot_encodeimage(Shadow_window, color);
             // screenshotHandler->screenshot_encodeimage(window, color);
-            // Final_screenshotHandler->screenshot_encodeimage(Final_window, color);
             // Final_screenshotHandler->screenshot_cpudepth(Final_window);
-            Final_screenshotHandler->screenshot_cpuimage(Final_window, color);
-
-            
-            // for(int i = 0; i < size; i ++){
-            //     std::cout << (int) color[i] << " ";
-            // }
-            // std::cout << std::endl;
-
+            // Final_screenshotHandler->screenshot_cpuimage(Final_window, color);
             Final_viewer->present();
+            Final_screenshotHandler->screenshot_encodeimage1(Final_window, color);
+            Final_screenshotHandler->copyDecodeImageToOutputImage(Final_window);
+
+            decode_viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
+            decode_viewer->update();
+            decode_viewer->recordAndSubmit(); //于记录和提交命令图。它会遍历`RecordAndSubmitTasks`列表中的任务，并对每个任务执行记录和提交操作。
+            decode_viewer->present();
             return true;
         }
         else{

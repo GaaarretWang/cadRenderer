@@ -6,14 +6,20 @@
 #endif
 #include <iostream>
 #include <vector>
-#include <cuda.h>
 #include <nvEncodeAPI.h>
 #include <NvEncoder.h>
 #include <NvEncoderVK.h>
 #include "NvDecoder.h"
 #include <NvCodecUtils.h>
 #include <vulkan/vulkan.h>
+#include <cuda.h>
+// #include <cuda_runtime_api.h>
 #include <cuda_runtime.h>
+
+#include "NvEncoderCuda.h"
+#include "ColorSpace.h"
+
+// #include "NvEncoderCLIOptions.h"
 
 class Cudactx
 {
@@ -49,17 +55,16 @@ public:
 
 class Cudaimage
 {
-    CUarray m_array;
-    CUmipmappedArray m_mipmapArray;
     CUexternalMemory m_extMem;
+    CUdeviceptr m_deviceptr;
 
 public:
     Cudaimage(vsg::ref_ptr<vsg::Image> image, vsg::ref_ptr<vsg::Device> m_device, VkDeviceSize deviceSize, VkExtent2D extent);
     ~Cudaimage();
 
-    CUarray get() const
+    CUdeviceptr get() const
     {
-        return m_array;
+        return m_deviceptr;
     }
 };
 
@@ -106,7 +111,7 @@ public:
     NvEncoderVK* getEncoder() { return encoder; }
     NvDecoder* getDecoder() { return decoder; }
     Cudactx* getCudaContext() { return cudaContext; }
-    std::map<CUarray, DeviceAlloc*> mapCUarrayToDeviceAlloc;
+    NvEncoderCuda* enc;
 
     void initCuda(vsg::Instance* instance, vsg::ref_ptr<vsg::Window> window)
     {
@@ -117,91 +122,197 @@ public:
         this->window = window;
     }
 
+    vsg::ref_ptr<vsg::Image> encodeDestinationImage;
+    Cudaimage* encodeDestinationCUImage;
+    vsg::ref_ptr<vsg::Image> decodeImage;
+    Cudaimage* decodeCUImage;
+    CUdeviceptr dpFrame = 0;
+
     void initEncoder(VkExtent2D extent)
     {
         mWidth = extent.width;
         mHeight = extent.height;
-        encoder = new NvEncoderVK(cudaContext->get(), mWidth, mHeight, eFormat);
+        
+        // NvEncoderInitParam encodeCLIOptions;
+        // NvEncoderInitParam* pEncodeCLIOptions = &encodeCLIOptions;
+        CUcontext cuContext = cudaContext->get();
+        enc = new NvEncoderCuda(cuContext, extent.width, extent.height, eFormat, 0);
+        std::cout << extent.width << extent.height << std::endl;
         NV_ENC_INITIALIZE_PARAMS initializeParams = { NV_ENC_INITIALIZE_PARAMS_VER };
         NV_ENC_CONFIG encodeConfig = { NV_ENC_CONFIG_VER };
         initializeParams.encodeConfig = &encodeConfig;
-        std::ostringstream oss;
-        //encodeCLIOptions = NvEncoderInitParam(oss.str().c_str());
-        encoder->CreateDefaultEncoderParams(&initializeParams,
-            NV_ENC_CODEC_H264_GUID,
-            NV_ENC_PRESET_P3_GUID,
-            NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY);
-        //encodeCLIOptions.SetInitParams(&initializeParams, eFormat);
+        enc->CreateDefaultEncoderParams(&initializeParams, NV_ENC_CODEC_H264_GUID, NV_ENC_PRESET_P3_GUID,
+                    NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY);
+        initializeParams.encodeWidth = extent.width;                     /**< [in]: Specifies the encode width. If not set ::NvEncInitializeEncoder() API will fail. */
+        initializeParams.encodeHeight = extent.height;                    /**< [in]: Specifies the encode height. If not set ::NvEncInitializeEncoder() API will fail. */
 
-        encoder->CreateEncoder(&initializeParams);
+        encodeConfig.gopLength = NVENC_INFINITE_GOPLENGTH;
+        encodeConfig.frameIntervalP = 1;
+        encodeConfig.encodeCodecConfig.h264Config.idrPeriod = NVENC_INFINITE_GOPLENGTH;
+        encodeConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR;
+        encodeConfig.rcParams.multiPass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
+        // encodeConfig.rcParams.averageBitRate = (static_cast<unsigned int>(5.0f * initializeParams.encodeWidth * initializeParams.encodeHeight) / (1280 * 720)) * 100000;
+        // encodeConfig.rcParams.vbvBufferSize = (encodeConfig.rcParams.averageBitRate * initializeParams.frameRateDen / initializeParams.frameRateNum) * 5;
+        encodeConfig.rcParams.maxBitRate = encodeConfig.rcParams.averageBitRate;
+        encodeConfig.rcParams.vbvInitialDelay = encodeConfig.rcParams.vbvBufferSize;
+        // pEncodeCLIOptions->SetInitParams(&initializeParams, eFormat);
+        enc->CreateEncoder(&initializeParams);
 
-        int32_t numInputBuffers = encoder->GetNumInputBuffers();
-        std::cout << "numInputBuffers:" << numInputBuffers << std::endl;
-        encodeSurfaces.resize(numInputBuffers);
+        encodeDestinationImage = vsg::Image::create();
+        encodeDestinationImage->imageType = VK_IMAGE_TYPE_2D;
+        encodeDestinationImage->format = VK_FORMAT_R8G8B8A8_UNORM;
+        encodeDestinationImage->extent.width = extent.width;
+        encodeDestinationImage->extent.height = extent.height;
+        encodeDestinationImage->extent.depth = 1;
+        encodeDestinationImage->arrayLayers = 1;
+        encodeDestinationImage->mipLevels = 1;
+        encodeDestinationImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        encodeDestinationImage->samples = VK_SAMPLE_COUNT_1_BIT;
+        encodeDestinationImage->tiling = VK_IMAGE_TILING_LINEAR;
+        encodeDestinationImage->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        VkExternalMemoryImageCreateInfo encodeExternalMemoryImageCreateInfo = {};
+        encodeExternalMemoryImageCreateInfo.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
+        encodeExternalMemoryImageCreateInfo.pNext = nullptr;
+        encodeExternalMemoryImageCreateInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+        encodeDestinationImage->pNext = &encodeExternalMemoryImageCreateInfo;
+        VkExportMemoryAllocateInfo encodeExportMemoryAllocateInfo = {};
+        encodeExportMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
+        encodeExportMemoryAllocateInfo.pNext = nullptr;
+        encodeExportMemoryAllocateInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+        encodeDestinationImage->pNextAllocInfo = &encodeExportMemoryAllocateInfo;
+        encodeDestinationImage->compile(device);
+        auto encodeDeviceMemory = vsg::DeviceMemory::create(device, encodeDestinationImage->getMemoryRequirements(device->deviceID), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        encodeDestinationImage->bind(encodeDeviceMemory, 0);
+        auto encodeBufferSize = encodeDestinationImage->getMemoryRequirements(device->deviceID).size;            
+        std::cout << "bufferSize = " << encodeBufferSize << std::endl;
+        encodeDestinationCUImage = new Cudaimage(encodeDestinationImage, device, encodeBufferSize, extent);
 
-        for (int i = 0; i < numInputBuffers; i++)
-        {
-            encodeSurfaces[i].vulkanImage = vsg::Image::create();
-            encodeSurfaces[i].vulkanImage->imageType = VK_IMAGE_TYPE_2D;
-            encodeSurfaces[i].vulkanImage->format = VK_FORMAT_B8G8R8A8_SRGB; //VK_FORMAT_R8G8B8A8_UNORM;
-            encodeSurfaces[i].vulkanImage->extent.width = extent.width;
-            encodeSurfaces[i].vulkanImage->extent.height = extent.height;
-            encodeSurfaces[i].vulkanImage->extent.depth = 1;
-            encodeSurfaces[i].vulkanImage->mipLevels = 1;
-            encodeSurfaces[i].vulkanImage->arrayLayers = 1;
-            encodeSurfaces[i].vulkanImage->samples = VK_SAMPLE_COUNT_1_BIT;
-            encodeSurfaces[i].vulkanImage->tiling = VK_IMAGE_TILING_OPTIMAL;
-            encodeSurfaces[i].vulkanImage->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT; // sample和storage一定要标
-            encodeSurfaces[i].vulkanImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        decodeImage = vsg::Image::create();
+        decodeImage->imageType = VK_IMAGE_TYPE_2D;
+        decodeImage->format = VK_FORMAT_R8G8B8A8_UNORM;
+        decodeImage->extent.width = extent.width;
+        decodeImage->extent.height = extent.height;
+        decodeImage->extent.depth = 1;
+        decodeImage->arrayLayers = 1;
+        decodeImage->mipLevels = 1;
+        decodeImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        decodeImage->samples = VK_SAMPLE_COUNT_1_BIT;
+        decodeImage->tiling = VK_IMAGE_TILING_LINEAR;
+        decodeImage->usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        VkExternalMemoryImageCreateInfo decodeExternalMemoryImageCreateInfo = {};
+        decodeExternalMemoryImageCreateInfo.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
+        decodeExternalMemoryImageCreateInfo.pNext = nullptr;
+        decodeExternalMemoryImageCreateInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+        decodeImage->pNext = &decodeExternalMemoryImageCreateInfo;
+        VkExportMemoryAllocateInfo decodeExportMemoryAllocateInfo = {};
+        decodeExportMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
+        decodeExportMemoryAllocateInfo.pNext = nullptr;
+        decodeExportMemoryAllocateInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+        decodeImage->pNextAllocInfo = &decodeExportMemoryAllocateInfo;
+        decodeImage->compile(device);
+        auto decodeDeviceMemory = vsg::DeviceMemory::create(device, decodeImage->getMemoryRequirements(device->deviceID), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        decodeImage->bind(decodeDeviceMemory, 0);
+        auto decodeBufferSize = decodeImage->getMemoryRequirements(device->deviceID).size;            
+        std::cout << "bufferSize = " << decodeBufferSize << std::endl;
+        decodeCUImage = new Cudaimage(decodeImage, device, decodeBufferSize, extent);
 
-            VkExternalMemoryImageCreateInfo externalMemoryImageCreateInfo = {};
-            externalMemoryImageCreateInfo.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO;
-            externalMemoryImageCreateInfo.pNext = nullptr;
-            externalMemoryImageCreateInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT;
-            encodeSurfaces[i].vulkanImage->pNext = &externalMemoryImageCreateInfo;
+        cuMemAlloc(&dpFrame, extent.width * extent.height * 4);
+    }
 
-            VkExportMemoryAllocateInfo exportMemoryAllocateInfo = {};
-            exportMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
-            exportMemoryAllocateInfo.pNext = nullptr;
-            exportMemoryAllocateInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
-            encodeSurfaces[i].vulkanImage->pNextAllocInfo = &exportMemoryAllocateInfo;
+    void encodeAndDecode()
+    {
+        std::vector<std::vector<uint8_t>> vPacket;
+        // nRead = fpIn.read(reinterpret_cast<char*>(pHostFrame.get()), nFrameSize).gcount();
+        const NvEncInputFrame* encoderInputFrame =  enc->GetNextInputFrame();
+        CUdeviceptr encode_deviceptr = encodeDestinationCUImage->get();
 
-            //auto context = vsg::Context::create(window->getOrCreateDevice());
+        CUcontext cuContext = cudaContext->get();
+        NvEncoderCuda::CopyToDeviceFrame(cuContext,
+            (void*)encode_deviceptr,
+            0, 
+            (CUdeviceptr)encoderInputFrame->inputPtr,
+            (int)encoderInputFrame->pitch,
+            enc->GetEncodeWidth(),
+            enc->GetEncodeHeight(),
+            CU_MEMORYTYPE_DEVICE, 
+            encoderInputFrame->bufferFormat,
+            encoderInputFrame->chromaOffsets,
+            encoderInputFrame->numChromaPlanes);
+        NV_ENC_PIC_PARAMS picParams = {NV_ENC_PIC_PARAMS_VER};
+        picParams.encodePicFlags = 0;
 
-            encodeSurfaces[i].vulkanImage->compile(device);
-            encodeSurfaces[i].vulkanImage->allocateAndBindMemory(device);
+        enc->EncodeFrame(vPacket, &picParams);
+        // }
+        // else 
+        // {
+        //     enc->EndEncode(vPacket);
+        // }
+        std::cout << vPacket[0].size() << std::endl;
+        // std::ofstream fpOut("./a.h264", std::ios::app);
+        // for (std::vector<uint8_t> &packet : vPacket)
+        // {
+        //     fpOut.write(reinterpret_cast<char*>(packet.data()), packet.size());
+        // }
+        CUdeviceptr decode_deviceptr = decodeCUImage->get();
 
-            VkExportSemaphoreCreateInfoKHR exportSemaphoreCreateInfo = {};
-            exportSemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_EXPORT_SEMAPHORE_CREATE_INFO_KHR;
-            exportSemaphoreCreateInfo.pNext = nullptr;
-            exportSemaphoreCreateInfo.handleTypes = VK_EXTERNAL_SEMAPHORE_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
-            encodeSurfaces[i].vulkanSemaphore = vsg::Semaphore::create(device, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, &exportSemaphoreCreateInfo);
+        if (vPacket.size() > 0) {
+            int nFrameReturned = decoder->Decode(vPacket[0].data(), vPacket[0].size());
+            for (int i = 0; i < nFrameReturned; i++)
+            {
+                int64_t timestamp = 0;
+                uint8_t* pFrame = decoder->GetFrame(&timestamp);
+                int iMatrix = decoder->GetVideoFormatInfo().video_signal_description.matrix_coefficients;
+                if (decoder->GetBitDepth() == 8)
+                {
+                    if (decoder->GetOutputFormat() == cudaVideoSurfaceFormat_YUV444)
+                        YUV444ToColor32<BGRA32>(pFrame, decoder->GetWidth(), (uint8_t*)decode_deviceptr, 4 * mWidth, decoder->GetWidth(), decoder->GetHeight(), iMatrix);
+                    else    // default assumed as NV12
+                        Nv12ToColor32<BGRA32>(pFrame, decoder->GetWidth(), (uint8_t*)decode_deviceptr, 4 * mWidth, decoder->GetWidth(), decoder->GetHeight(), iMatrix);
+                }
+                else
+                {
+                    if (decoder->GetOutputFormat() == cudaVideoSurfaceFormat_YUV444_16Bit)
+                        YUV444P16ToColor32<BGRA32>(pFrame, decoder->GetWidth(), (uint8_t*)decode_deviceptr, 4 * mWidth, decoder->GetWidth(), decoder->GetHeight(), iMatrix);
+                    else // default assumed as P016
+                        P016ToColor32<BGRA32>(pFrame, decoder->GetWidth(), (uint8_t*)decode_deviceptr, 4 * mWidth, decoder->GetWidth(), decoder->GetHeight(), iMatrix);
+                }
+            }
         }
 
-        for (int i = 0; i < numInputBuffers; i++)
-        {
-            vsg::ref_ptr<vsg::Image> image = encodeSurfaces[i].vulkanImage;
+        // CUDA_MEMCPY2D copy = {};
+        // copy.srcMemoryType = CU_MEMORYTYPE_DEVICE;
+        // copy.srcDevice = dpFrame;
+        // copy.dstMemoryType = CU_MEMORYTYPE_DEVICE;
+        // copy.dstDevice = decode_deviceptr;
+        // copy.dstPitch = mWidth * 4;
+        // copy.WidthInBytes = mWidth * 4;
+        // copy.Height = mHeight;
 
-            encodeSurfaces[i].preOpBarrier = new Vkimgmembarrier(image, device->deviceID);
-            encodeSurfaces[i].postOpBarrier = new Vkimgmembarrier(image, device->deviceID);
-        }
+        // CUresult result = cuMemcpy2D(&copy);
+        // if (result != CUDA_SUCCESS) {
+        //     throw std::runtime_error("Failed cuArrayCreate");
+        // }
 
-        for (int i = 0; i < numInputBuffers; i++)
-        {
-            auto bufferSize = encodeSurfaces[i].vulkanImage->getMemoryRequirements(device->deviceID).size;            
-            Cudaimage* cuImage = new Cudaimage(encodeSurfaces[i].vulkanImage,
-                device, bufferSize, extent);
-            Cudasema* cuSema = new Cudasema(encodeSurfaces[i].vulkanSemaphore, device);
-            encodeSurfaces[i].cudaImage = cuImage;
-            encodeSurfaces[i].cudaSemaphore = cuSema;
-            mapCUarrayToDeviceAlloc[cuImage->get()] = &encodeSurfaces[i];
-        }
+        // CUDA_MEMCPY2D copy = {};
+        // void* hostData = malloc(mWidth * mHeight * 4);
+        // copy.srcMemoryType = CU_MEMORYTYPE_DEVICE;
+        // copy.srcDevice = decode_deviceptr;
+        // copy.dstMemoryType = CU_MEMORYTYPE_HOST;
+        // copy.dstHost = hostData;
+        // copy.WidthInBytes = 4 * mWidth;
+        // copy.Height = mHeight;
 
-        std::vector<void*> inputFrames;
-        for (int i = 0; i < numInputBuffers; i++)
-            inputFrames.push_back((void*)encodeSurfaces[i].cudaImage->get()); //(void*)encodeSurfaces[i].cudaImage->get() CUarray!!!
-        encoder->RegisterInputResources(inputFrames, NV_ENC_INPUT_RESOURCE_TYPE_CUDAARRAY,
-            mWidth, mHeight, mWidth, eFormat);
+        // CUresult result = cuMemcpy2D(&copy);
+        // if (result != CUDA_SUCCESS) {
+        //     const char* errorString;
+        //     cuGetErrorString(result, &errorString);
+        //     printf("CUDA Error: %s\n", errorString);
+
+        //     throw std::runtime_error("Failed cuMemcpy2D");
+        // }
+        // for(int m = 0; m < 100; m ++)
+        //     std::cout << (int)(*(reinterpret_cast<uint8_t*>(hostData) + m)) << " ";
+
     }
 
     void initDecoder() {

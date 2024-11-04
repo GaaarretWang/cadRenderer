@@ -5,6 +5,7 @@ class ScreenshotHandler : public vsg::Inherit<vsg::Visitor, ScreenshotHandler>
 public:
     int mFrameCount = 0;
     NvEncoderWrapper* m_encoder = nullptr;
+    vsg::ref_ptr<vsg::Image> outputImage;
     //构造函数
     ScreenshotHandler()
     {
@@ -14,8 +15,194 @@ public:
     {
         m_encoder = new NvEncoderWrapper();
         m_encoder->initCuda(window->getOrCreateDevice()->getInstance(), window);
-        m_encoder->initEncoder(extent);
+        m_encoder->initEncoder(window->extent2D());
         m_encoder->initDecoder();
+
+
+        auto width = window->extent2D().width;
+        auto height = window->extent2D().height;
+        auto device = window->getDevice();
+        VkFormat sourceImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+        VkFormat targetImageFormat = sourceImageFormat;
+        outputImage = vsg::Image::create();
+        outputImage->imageType = VK_IMAGE_TYPE_2D;
+        outputImage->format = targetImageFormat;
+        outputImage->extent.width = width;
+        outputImage->extent.height = height;
+        outputImage->extent.depth = 1;
+        outputImage->arrayLayers = 1;
+        outputImage->mipLevels = 1;
+        outputImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        outputImage->samples = VK_SAMPLE_COUNT_1_BIT;
+        outputImage->tiling = VK_IMAGE_TILING_LINEAR;
+        outputImage->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        outputImage->compile(device);
+        auto deviceMemory = vsg::DeviceMemory::create(device, outputImage->getMemoryRequirements(device->deviceID), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+        outputImage->bind(deviceMemory, 0);
+    }
+
+    void copyDecodeImageToOutputImage(vsg::ref_ptr<vsg::Window> window)
+    {
+        auto width = window->extent2D().width;
+        auto height = window->extent2D().height;
+
+        auto device = window->getDevice();
+        auto physicalDevice = window->getPhysicalDevice();
+        auto swapchain = window->getSwapchain();
+
+        // get the colour buffer image of the previous rendered frame as the current frame hasn't been rendered yet.  The 1 in window->imageIndex(1) means image from 1 frame ago.
+        auto sourceImage = m_encoder->decodeImage;
+
+        VkFormat sourceImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+        VkFormat targetImageFormat = sourceImageFormat;
+
+        //
+        // 1) Check to see if Blit is supported.
+        //
+        VkFormatProperties srcFormatProperties;
+        vkGetPhysicalDeviceFormatProperties(*(physicalDevice), sourceImageFormat, &srcFormatProperties);
+
+        VkFormatProperties destFormatProperties;
+        vkGetPhysicalDeviceFormatProperties(*(physicalDevice), VK_FORMAT_R8G8B8A8_UNORM, &destFormatProperties);
+
+        bool supportsBlit = ((srcFormatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT) != 0) &&
+                            ((destFormatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT) != 0);
+
+        if (supportsBlit)
+        {
+            // we can automatically convert the image format when blit, so take advantage of it to ensure RGBA
+            targetImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+        }
+
+        vsg::info("supportsBlit = ", supportsBlit);
+
+        //
+        // 3) create command buffer and submit to graphics queue
+        //
+        auto commands = vsg::Commands::create();
+
+        // 3.a) transition destinationImage to transfer destination initialLayout
+        auto transitionDestinationImageToDestinationLayoutBarrier = vsg::ImageMemoryBarrier::create(
+            0,                                                             // srcAccessMask
+            VK_ACCESS_TRANSFER_WRITE_BIT,                                  // dstAccessMask
+            VK_IMAGE_LAYOUT_UNDEFINED,                                     // oldLayout
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,                          // newLayout
+            VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
+            VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
+            outputImage,                                              // image
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
+        );
+
+        // 3.b) transition swapChainImage from present to transfer source initialLayout
+        auto transitionSourceImageToTransferSourceLayoutBarrier = vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_MEMORY_READ_BIT,                                     // srcAccessMask
+            VK_ACCESS_TRANSFER_READ_BIT,                                   // dstAccessMask
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,                               // oldLayout
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,                          // newLayout
+            VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
+            VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
+            sourceImage,                                                   // image
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
+        );
+
+        auto cmd_transitionForTransferBarrier = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_TRANSFER_BIT,                       // srcStageMask
+            VK_PIPELINE_STAGE_TRANSFER_BIT,                       // dstStageMask
+            0,                                                    // dependencyFlags
+            transitionDestinationImageToDestinationLayoutBarrier, // barrier
+            transitionSourceImageToTransferSourceLayoutBarrier    // barrier
+        );
+
+        commands->addChild(cmd_transitionForTransferBarrier);
+
+        if (supportsBlit)
+        {
+            // 3.c.1) if blit using vkCmdBlitImage
+            VkImageBlit region{};
+            region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            region.srcSubresource.layerCount = 1;
+            region.srcOffsets[0] = VkOffset3D{0, 0, 0};
+            region.srcOffsets[1] = VkOffset3D{static_cast<int32_t>(width), static_cast<int32_t>(height), 1};
+            region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            region.dstSubresource.layerCount = 1;
+            region.dstOffsets[0] = VkOffset3D{0, 0, 0};
+            region.dstOffsets[1] = VkOffset3D{static_cast<int32_t>(width), static_cast<int32_t>(height), 1};
+
+            auto blitImage = vsg::BlitImage::create();
+            blitImage->srcImage = sourceImage;
+            blitImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            blitImage->dstImage = outputImage;
+            blitImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            blitImage->regions.push_back(region);
+            blitImage->filter = VK_FILTER_NEAREST;
+
+            commands->addChild(blitImage);
+        }
+        else
+        {
+            // 3.c.2) else use vkCmdCopyImage
+
+            VkImageCopy region{};
+            region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            region.srcSubresource.layerCount = 1;
+            region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            region.dstSubresource.layerCount = 1;
+            region.extent.width = width;
+            region.extent.height = height;
+            region.extent.depth = 1;
+
+            auto copyImage = vsg::CopyImage::create();
+            copyImage->srcImage = sourceImage;
+            copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            copyImage->dstImage = outputImage;
+            copyImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            copyImage->regions.push_back(region);
+
+            commands->addChild(copyImage);
+        }
+
+        // 3.d) transition destination image from transfer destination layout to general layout to enable mapping to image DeviceMemory
+        auto transitionDestinationImageToMemoryReadBarrier = vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_TRANSFER_WRITE_BIT,                                  // srcAccessMask
+            VK_ACCESS_MEMORY_READ_BIT,                                     // dstAccessMask
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,                          // oldLayout
+            VK_IMAGE_LAYOUT_GENERAL,                                       // newLayout
+            VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
+            VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
+            outputImage,                                              // image
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
+        );
+
+        // 3.e) transition swap chain image back to present
+        auto transitionSourceImageBackToPresentBarrier = vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_TRANSFER_READ_BIT,                                   // srcAccessMask
+            VK_ACCESS_MEMORY_READ_BIT,                                     // dstAccessMask
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,                          // oldLayout
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,                               // newLayout
+            VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
+            VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
+            sourceImage,                                                   // image
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
+        );
+
+        auto cmd_transitionFromTransferBarrier = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_TRANSFER_BIT,                // srcStageMask
+            VK_PIPELINE_STAGE_TRANSFER_BIT,                // dstStageMask
+            0,                                             // dependencyFlags
+            transitionDestinationImageToMemoryReadBarrier, // barrier
+            transitionSourceImageBackToPresentBarrier      // barrier
+        );
+
+        commands->addChild(cmd_transitionFromTransferBarrier);
+
+        auto fence = vsg::Fence::create(device);
+        auto queueFamilyIndex = physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
+        auto commandPool = vsg::CommandPool::create(device, queueFamilyIndex);
+        auto queue = device->getQueue(queueFamilyIndex);
+
+        vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
+            commands->record(commandBuffer);
+        });
     }
 
     vsg::ref_ptr<vsg::Image> screenshot_image(vsg::ref_ptr<vsg::Window> window)
@@ -84,7 +271,6 @@ public:
         }
 
         // vsg::info("supportsBlit = ", supportsBlit);
-
         //
         // 2) create image to write to
         //创建一个用于存储输出图像的vsg::Image对象
@@ -325,66 +511,48 @@ public:
         // std::cin >> a;
     }
 
-    void screenshot_encodeimage(vsg::ref_ptr<vsg::Window> window, std::vector<std::vector<uint8_t>> &color)
-    {
+    void screenshot_encodeimage1(vsg::ref_ptr<vsg::Window> window, uint8_t*color){
         auto width = window->extent2D().width;
-        auto height = window->extent2D().height; //获取窗口的宽度和高度
+        auto height = window->extent2D().height;
 
         auto device = window->getDevice();
         auto physicalDevice = window->getPhysicalDevice();
-        auto swapchain = window->getSwapchain(); //获取与窗口相关的设备、物理设备和交换链
+        auto swapchain = window->getSwapchain();
 
         // get the colour buffer image of the previous rendered frame as the current frame hasn't been rendered yet.  The 1 in window->imageIndex(1) means image from 1 frame ago.
-        // 下标要为0
-        auto sourceImage = window->imageView(window->imageIndex(0))->image; //获取之前渲染帧的颜色缓冲图像作为当前帧的来源图像 window->imageIndex(1)表示获取之前一帧的图像
+        auto sourceImage = window->imageView(window->imageIndex(0))->image;
 
         VkFormat sourceImageFormat = swapchain->getImageFormat();
-        VkFormat targetImageFormat = sourceImageFormat; //获取源图像和目标图像的格式，并将目标图像格式初始化为源图像格式
+        VkFormat targetImageFormat = sourceImageFormat;
 
         //
         // 1) Check to see if Blit is supported.
-        //获取源图像格式和目标图像格式的属性
+        //
         VkFormatProperties srcFormatProperties;
         vkGetPhysicalDeviceFormatProperties(*(physicalDevice), sourceImageFormat, &srcFormatProperties);
 
         VkFormatProperties destFormatProperties;
         vkGetPhysicalDeviceFormatProperties(*(physicalDevice), VK_FORMAT_R8G8B8A8_UNORM, &destFormatProperties);
 
-        //检查是否支持图像拷贝操作（Blit）。它通过检查源图像格式和目标图像格式的属性来确定是否支持Blit操作
         bool supportsBlit = ((srcFormatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT) != 0) &&
                             ((destFormatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT) != 0);
 
-        //确定是否支持Blit操作
         if (supportsBlit)
-        { //如果支持Blit操作，则将目标图像格式设置为VK_FORMAT_R8G8B8A8_UNORM，以确保输出图像为RGBA格式
+        {
             // we can automatically convert the image format when blit, so take advantage of it to ensure RGBA
-            targetImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
+            targetImageFormat = VK_FORMAT_B8G8R8A8_SRGB;
         }
 
-        // vsg::info("supportsBlit = ", supportsBlit);
-        // if(m_encoder != nullptr)
-        //     std::cout << m_encoder;
-
-        
+        //
         // 2) create image to write to
-        // 创建一个用于存储输出图像的vsg::Image对象
-        CUarray inputArray = (CUarray)m_encoder->getEncoder()->GetNextInputFrame()->inputPtr;
-		const DeviceAlloc* inputSurf = m_encoder->mapCUarrayToDeviceAlloc[inputArray];
-        auto destinationImage = inputSurf->vulkanImage;
+        //
 
-        
+        //
         // 3) create command buffer and submit to graphics queue
-        // 创建命令缓冲区（command buffer）并将其提交给图形队列（graphics queue）
-        auto commands = vsg::Commands::create(); //创建命令缓冲区
+        //
+        auto commands = vsg::Commands::create();
 
         // 3.a) transition destinationImage to transfer destination initialLayout
-        //转换图像布局
-        //
-        //这部分代码执行图像布局转换的操作。它使用`vsg::ImageMemoryBarrier`和`vsg::PipelineBarrier`类创建转换图像布局的屏障对象，
-        //并将其添加到命令缓冲区中。其中，`transitionDestinationImageToDestinationLayoutBarrier`用于将`destinationImage`的布局从未
-        //定义的布局转换为传输目标的初始布局，`transitionSourceImageToTransferSourceLayoutBarrier`用于将`sourceImage`的布局从呈现源
-        //的布局转换为传输源的初始布局
-
         auto transitionDestinationImageToDestinationLayoutBarrier = vsg::ImageMemoryBarrier::create(
             0,                                                             // srcAccessMask
             VK_ACCESS_TRANSFER_WRITE_BIT,                                  // dstAccessMask
@@ -392,7 +560,7 @@ public:
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,                          // newLayout
             VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
             VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
-            destinationImage,                                              // image
+            m_encoder->encodeDestinationImage,                                              // image
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
         );
 
@@ -418,10 +586,9 @@ public:
 
         commands->addChild(cmd_transitionForTransferBarrier);
 
-        //图像拷贝或位块传输 据具体的需求和平台功能进行选择，将相应的图像拷贝或位块传输指令添加到命令缓冲区中
         if (supportsBlit)
         {
-            // 3.c.1) if blit using vkCmdBlitImage 使用`vkCmdBlitImage`进行图像拷贝
+            // 3.c.1) if blit using vkCmdBlitImage
             VkImageBlit region{};
             region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
             region.srcSubresource.layerCount = 1;
@@ -435,7 +602,7 @@ public:
             auto blitImage = vsg::BlitImage::create();
             blitImage->srcImage = sourceImage;
             blitImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            blitImage->dstImage = destinationImage;
+            blitImage->dstImage = m_encoder->encodeDestinationImage;
             blitImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             blitImage->regions.push_back(region);
             blitImage->filter = VK_FILTER_NEAREST;
@@ -444,7 +611,7 @@ public:
         }
         else
         {
-            // 3.c.2) else use vkCmdCopyImage 使用`vkCmdCopyImage`进行图像拷贝
+            // 3.c.2) else use vkCmdCopyImage
 
             VkImageCopy region{};
             region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -458,7 +625,7 @@ public:
             auto copyImage = vsg::CopyImage::create();
             copyImage->srcImage = sourceImage;
             copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            copyImage->dstImage = destinationImage;
+            copyImage->dstImage = m_encoder->encodeDestinationImage;
             copyImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             copyImage->regions.push_back(region);
 
@@ -466,10 +633,6 @@ public:
         }
 
         // 3.d) transition destination image from transfer destination layout to general layout to enable mapping to image DeviceMemory
-        //再次转换图像布局
-        //使用`vsg::ImageMemoryBarrier`和`vsg::PipelineBarrier`类创建屏障对象，并将其添加到命令缓冲区中。
-        //其中，`transitionDestinationImageToMemoryReadBarrier`用于将`destinationImage`的布局从传输目标布局转换为通用布局，
-        // 以便将其映射到图像设备内存；`transitionSourceImageBackToPresentBarrier`用于将`sourceImage`的布局从传输源布局转换为呈现源布局
         auto transitionDestinationImageToMemoryReadBarrier = vsg::ImageMemoryBarrier::create(
             VK_ACCESS_TRANSFER_WRITE_BIT,                                  // srcAccessMask
             VK_ACCESS_MEMORY_READ_BIT,                                     // dstAccessMask
@@ -477,7 +640,7 @@ public:
             VK_IMAGE_LAYOUT_GENERAL,                                       // newLayout
             VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
             VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
-            destinationImage,                                              // image
+            m_encoder->encodeDestinationImage,                                              // image
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
         );
 
@@ -503,38 +666,19 @@ public:
 
         commands->addChild(cmd_transitionFromTransferBarrier);
 
-        //提交命令缓冲区
-        //创建了一个`vsg::Fence`对象用于同步命令缓冲区的提交。然后获取图形队列的队列族索引和命令池对象，
-        //接着通过`device->getQueue(queueFamilyIndex)`获取图形队列对象
         auto fence = vsg::Fence::create(device);
         auto queueFamilyIndex = physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
         auto commandPool = vsg::CommandPool::create(device, queueFamilyIndex);
         auto queue = device->getQueue(queueFamilyIndex);
 
-        //将命令缓冲区提交到图形队列中 在这个函数中，使用lambda表达式对命令缓冲区进行记录（record）操作。
-        //lambda表达式的参数是命令缓冲区对象commandBuffer，可以在其中添加其他需要执行的命令
         vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
             commands->record(commandBuffer);
         });
-		inputSurf->cudaSemaphore->wait();
-		std::vector<std::vector<uint8_t>> vPacket;
-		m_encoder->getEncoder()->EncodeFrame(vPacket);
-        if(vPacket.size() > 0){
-            color = vPacket;
-            // std::cout << vPacket.size() << std::endl;
-            // std::cout << vPacket[0].size() << std::endl;
-            // std::cout <<"send:" << std::endl;
-            // for(int i = 0; i < vPacket[0].size(); i ++){
-            //     std::cout << (int)vPacket[0][i] << " ";
-            // }
-            // std::cout <<std::endl;
-            // int nFrameReturned = m_encoder->getDecoder()->Decode(vPacket[0].data(), vPacket[0].size(), 0, mFrameCount);
-            // std::cout << "nFrameReturned" << nFrameReturned << std::endl;
-        }
-        // if (vPacket.size() > 0){
-		// 	int nFrameReturned = m_encoder->getDecoder()->Decode(vPacket[0].data(), vPacket[0].size(), 0, mFrameCount ++);
-        //     std::cout << "nFrameReturned" << nFrameReturned << std::endl;
-        // }
+
+        // auto bufferSize = encodeSurfaces[i].vulkanImage->getMemoryRequirements(device->deviceID).size;            
+        // Cudaimage* cuImage = new Cudaimage(encodeSurfaces[i].vulkanImage,
+        //         device, bufferSize, extent);
+        m_encoder->encodeAndDecode();
 
     }
 
@@ -697,198 +841,6 @@ public:
             std::cout << "done!" << std::endl;
             std::cin >> a;
 
-        }
-    }
-
-    void screenshot_encodedepth(vsg::ref_ptr<vsg::Window> window, std::vector<std::vector<uint8_t>> &color)
-    {
-        auto width = window->extent2D().width;
-        auto height = window->extent2D().height; //获取窗口大小
-
-        auto device = window->getDevice();
-        auto physicalDevice = window->getPhysicalDevice(); //获取设备和物理设备
-
-        //获取源图像和图像格式 sourceImage 是当前窗口渲染绘制的画面的深度图像
-        vsg::ref_ptr<vsg::Image> sourceImage(window->getDepthImage());
-        //sourceImage表示源图像，sourceImageFormat表示源图像的格式 targetImageFormat表示目标图像的格式
-        VkFormat sourceImageFormat = window->depthFormat();
-        VkFormat targetImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-
-        //
-        // 1) Check to see if Blit is supported.
-        //获取源图像格式和目标图像格式的属性
-        VkFormatProperties srcFormatProperties;
-        vkGetPhysicalDeviceFormatProperties(*(physicalDevice), sourceImageFormat, &srcFormatProperties);
-
-        VkFormatProperties destFormatProperties;
-        vkGetPhysicalDeviceFormatProperties(*(physicalDevice), VK_FORMAT_R8G8B8A8_UNORM, &destFormatProperties);
-
-        //检查是否支持图像拷贝操作（Blit）。它通过检查源图像格式和目标图像格式的属性来确定是否支持Blit操作
-        bool supportsBlit = ((srcFormatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_BLIT_SRC_BIT) != 0) &&
-                            ((destFormatProperties.linearTilingFeatures & VK_FORMAT_FEATURE_BLIT_DST_BIT) != 0);
-
-        //确定是否支持Blit操作
-        if (supportsBlit)
-        { //如果支持Blit操作，则将目标图像格式设置为VK_FORMAT_R8G8B8A8_UNORM，以确保输出图像为RGBA格式
-            // we can automatically convert the image format when blit, so take advantage of it to ensure RGBA
-            targetImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-        }
-
-        CUarray inputArray = (CUarray)m_encoder->getEncoder()->GetNextInputFrame()->inputPtr;
-		const DeviceAlloc* inputSurf = m_encoder->mapCUarrayToDeviceAlloc[inputArray];
-        auto destinationImage = inputSurf->vulkanImage;
-
-        
-        // 3) create command buffer and submit to graphics queue
-        // 创建命令缓冲区（command buffer）并将其提交给图形队列（graphics queue）
-        auto commands = vsg::Commands::create(); //创建命令缓冲区
-
-        auto transitionDestinationImageToDestinationLayoutBarrier = vsg::ImageMemoryBarrier::create(
-            0,                                                             // srcAccessMask
-            VK_ACCESS_TRANSFER_WRITE_BIT,                                  // dstAccessMask
-            VK_IMAGE_LAYOUT_UNDEFINED,                                     // oldLayout
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,                          // newLayout
-            VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
-            VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
-            destinationImage,                                              // image
-            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
-        );
-
-        // 3.b) transition swapChainImage from present to transfer source initialLayout
-        auto transitionSourceImageToTransferSourceLayoutBarrier = vsg::ImageMemoryBarrier::create(
-            VK_ACCESS_MEMORY_READ_BIT,                                     // srcAccessMask
-            VK_ACCESS_TRANSFER_READ_BIT,                                   // dstAccessMask
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,                               // oldLayout
-            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,                          // newLayout
-            VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
-            VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
-            sourceImage,                                                   // image
-            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
-        );
-
-        auto cmd_transitionForTransferBarrier = vsg::PipelineBarrier::create(
-            VK_PIPELINE_STAGE_TRANSFER_BIT,                       // srcStageMask
-            VK_PIPELINE_STAGE_TRANSFER_BIT,                       // dstStageMask
-            0,                                                    // dependencyFlags
-            transitionDestinationImageToDestinationLayoutBarrier, // barrier
-            transitionSourceImageToTransferSourceLayoutBarrier    // barrier
-        );
-
-        commands->addChild(cmd_transitionForTransferBarrier);
-
-        //图像拷贝或位块传输 据具体的需求和平台功能进行选择，将相应的图像拷贝或位块传输指令添加到命令缓冲区中
-        if (supportsBlit)
-        {
-            // 3.c.1) if blit using vkCmdBlitImage 使用`vkCmdBlitImage`进行图像拷贝
-            VkImageBlit region{};
-            region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            region.srcSubresource.layerCount = 1;
-            region.srcOffsets[0] = VkOffset3D{0, 0, 0};
-            region.srcOffsets[1] = VkOffset3D{static_cast<int32_t>(width), static_cast<int32_t>(height), 1};
-            region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            region.dstSubresource.layerCount = 1;
-            region.dstOffsets[0] = VkOffset3D{0, 0, 0};
-            region.dstOffsets[1] = VkOffset3D{static_cast<int32_t>(width), static_cast<int32_t>(height), 1};
-
-            auto blitImage = vsg::BlitImage::create();
-            blitImage->srcImage = sourceImage;
-            blitImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            blitImage->dstImage = destinationImage;
-            blitImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            blitImage->regions.push_back(region);
-            blitImage->filter = VK_FILTER_NEAREST;
-
-            commands->addChild(blitImage);
-        }
-        else
-        {
-            // 3.c.2) else use vkCmdCopyImage 使用`vkCmdCopyImage`进行图像拷贝
-
-            VkImageCopy region{};
-            region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            region.srcSubresource.layerCount = 1;
-            region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            region.dstSubresource.layerCount = 1;
-            region.extent.width = width;
-            region.extent.height = height;
-            region.extent.depth = 1;
-
-            auto copyImage = vsg::CopyImage::create();
-            copyImage->srcImage = sourceImage;
-            copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            copyImage->dstImage = destinationImage;
-            copyImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            copyImage->regions.push_back(region);
-
-            commands->addChild(copyImage);
-        }
-
-        // 3.d) transition destination image from transfer destination layout to general layout to enable mapping to image DeviceMemory
-        //再次转换图像布局
-        //使用`vsg::ImageMemoryBarrier`和`vsg::PipelineBarrier`类创建屏障对象，并将其添加到命令缓冲区中。
-        //其中，`transitionDestinationImageToMemoryReadBarrier`用于将`destinationImage`的布局从传输目标布局转换为通用布局，
-        // 以便将其映射到图像设备内存；`transitionSourceImageBackToPresentBarrier`用于将`sourceImage`的布局从传输源布局转换为呈现源布局
-        auto transitionDestinationImageToMemoryReadBarrier = vsg::ImageMemoryBarrier::create(
-            VK_ACCESS_TRANSFER_WRITE_BIT,                                  // srcAccessMask
-            VK_ACCESS_MEMORY_READ_BIT,                                     // dstAccessMask
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,                          // oldLayout
-            VK_IMAGE_LAYOUT_GENERAL,                                       // newLayout
-            VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
-            VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
-            destinationImage,                                              // image
-            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
-        );
-
-        // 3.e) transition swap chain image back to present
-        auto transitionSourceImageBackToPresentBarrier = vsg::ImageMemoryBarrier::create(
-            VK_ACCESS_TRANSFER_READ_BIT,                                   // srcAccessMask
-            VK_ACCESS_MEMORY_READ_BIT,                                     // dstAccessMask
-            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,                          // oldLayout
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,                               // newLayout
-            VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
-            VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
-            sourceImage,                                                   // image
-            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
-        );
-
-        auto cmd_transitionFromTransferBarrier = vsg::PipelineBarrier::create(
-            VK_PIPELINE_STAGE_TRANSFER_BIT,                // srcStageMask
-            VK_PIPELINE_STAGE_TRANSFER_BIT,                // dstStageMask
-            0,                                             // dependencyFlags
-            transitionDestinationImageToMemoryReadBarrier, // barrier
-            transitionSourceImageBackToPresentBarrier      // barrier
-        );
-
-        commands->addChild(cmd_transitionFromTransferBarrier);
-
-        //提交命令缓冲区
-        //创建了一个`vsg::Fence`对象用于同步命令缓冲区的提交。然后获取图形队列的队列族索引和命令池对象，
-        //接着通过`device->getQueue(queueFamilyIndex)`获取图形队列对象
-        auto fence = vsg::Fence::create(device);
-        auto queueFamilyIndex = physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
-        auto commandPool = vsg::CommandPool::create(device, queueFamilyIndex);
-        auto queue = device->getQueue(queueFamilyIndex);
-
-        //将命令缓冲区提交到图形队列中 在这个函数中，使用lambda表达式对命令缓冲区进行记录（record）操作。
-        //lambda表达式的参数是命令缓冲区对象commandBuffer，可以在其中添加其他需要执行的命令
-        vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
-            commands->record(commandBuffer);
-        });
-		inputSurf->cudaSemaphore->wait();
-
-		std::vector<std::vector<uint8_t>> vPacket;
-		m_encoder->getEncoder()->EncodeFrame(vPacket);
-        if(vPacket.size() > 0){
-            color = vPacket;
-            std::cout << vPacket.size() << std::endl;
-            std::cout << vPacket[0].size() << std::endl;
-            // std::cout <<"send:" << std::endl;
-            // for(int i = 0; i < vPacket[0].size(); i ++){
-            //     std::cout << (int)vPacket[0][i] << " ";
-            // }
-            // std::cout <<std::endl;
-            // int nFrameReturned = m_encoder->getDecoder()->Decode(vPacket[0].data(), vPacket[0].size(), 0, mFrameCount);
-            // std::cout << "nFrameReturned" << nFrameReturned << std::endl;
         }
     }
 };
