@@ -3,6 +3,7 @@
 1.  安装ubuntu系统
 2.  在nvidia官网下载版本较新的驱动，参考https://blog.csdn.net/wr1997/article/details/106909423 安装，驱动版本要在535及以上
 3.  安装vulkansdk
+4.  安装cuda11.6及以上
 #### 依赖库和数据
 1.  解压flatbuffers-23.5.26和VulkanSceneGraph
 2.  安装flatbuffer库
