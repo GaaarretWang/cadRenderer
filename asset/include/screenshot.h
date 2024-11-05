@@ -476,6 +476,9 @@ public:
                 std::memcpy(imageData->dataPointer(row * width), mappedData->dataPointer(row * subResourceLayout.rowPitch), destRowWidth);
             }
         }
+        
+        uint8_t* beginPointer = static_cast<uint8_t*>(imageData->dataPointer(0));
+        std::copy(beginPointer, beginPointer + width * height * 4, color);
 
         // std::vector<uint8_t> color_image(3 * width * height);
         // for (int i = 0; i < width * height; i++)
