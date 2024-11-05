@@ -1,47 +1,37 @@
+#pragma  once
 #include <encoder.h>
+
+enum ScreenshotHandlerType {
+    ENCODER,
+    DECODER,
+    NONE
+};
+
 
 class ScreenshotHandler : public vsg::Inherit<vsg::Visitor, ScreenshotHandler>
 {
 public:
     int mFrameCount = 0;
     NvEncoderWrapper* m_encoder = nullptr;
-    vsg::ref_ptr<vsg::Image> outputImage;
     //构造函数
     ScreenshotHandler()
     {
     }
 
-    ScreenshotHandler(vsg::ref_ptr<vsg::Window> window, VkExtent2D extent)
+    ScreenshotHandler(vsg::ref_ptr<vsg::Window> window, VkExtent2D extent, ScreenshotHandlerType type)
     {
-        m_encoder = new NvEncoderWrapper();
-        m_encoder->initCuda(window->getOrCreateDevice()->getInstance(), window);
-        m_encoder->initEncoder(window->extent2D());
-        m_encoder->initDecoder();
-
-
-        auto width = window->extent2D().width;
-        auto height = window->extent2D().height;
-        auto device = window->getDevice();
-        VkFormat sourceImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
-        VkFormat targetImageFormat = sourceImageFormat;
-        outputImage = vsg::Image::create();
-        outputImage->imageType = VK_IMAGE_TYPE_2D;
-        outputImage->format = targetImageFormat;
-        outputImage->extent.width = width;
-        outputImage->extent.height = height;
-        outputImage->extent.depth = 1;
-        outputImage->arrayLayers = 1;
-        outputImage->mipLevels = 1;
-        outputImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        outputImage->samples = VK_SAMPLE_COUNT_1_BIT;
-        outputImage->tiling = VK_IMAGE_TILING_LINEAR;
-        outputImage->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        outputImage->compile(device);
-        auto deviceMemory = vsg::DeviceMemory::create(device, outputImage->getMemoryRequirements(device->deviceID), VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-        outputImage->bind(deviceMemory, 0);
+        if(type != NONE){
+            m_encoder = new NvEncoderWrapper();
+            m_encoder->initCuda(window->getOrCreateDevice()->getInstance(), window);
+            if(type == ENCODER)
+                m_encoder->initEncoder(window->extent2D());
+            else if(type == DECODER){
+                m_encoder->initDecoder(window->extent2D());
+            }
+        }
     }
 
-    void copyDecodeImageToOutputImage(vsg::ref_ptr<vsg::Window> window)
+    void decodeImage(vsg::ref_ptr<vsg::Window> window, std::vector<std::vector<uint8_t>>& vPacket)
     {
         auto width = window->extent2D().width;
         auto height = window->extent2D().height;
@@ -51,7 +41,7 @@ public:
         auto swapchain = window->getSwapchain();
 
         // get the colour buffer image of the previous rendered frame as the current frame hasn't been rendered yet.  The 1 in window->imageIndex(1) means image from 1 frame ago.
-        auto sourceImage = m_encoder->decodeImage;
+        auto sourceImage = m_encoder->decode_image;
 
         VkFormat sourceImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
         VkFormat targetImageFormat = sourceImageFormat;
@@ -74,7 +64,7 @@ public:
             targetImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
         }
 
-        vsg::info("supportsBlit = ", supportsBlit);
+        // vsg::info("supportsBlit = ", supportsBlit);
 
         //
         // 3) create command buffer and submit to graphics queue
@@ -89,7 +79,7 @@ public:
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,                          // newLayout
             VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
             VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
-            outputImage,                                              // image
+            m_encoder->output_image,                                              // image
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
         );
 
@@ -131,7 +121,7 @@ public:
             auto blitImage = vsg::BlitImage::create();
             blitImage->srcImage = sourceImage;
             blitImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            blitImage->dstImage = outputImage;
+            blitImage->dstImage = m_encoder->output_image;
             blitImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             blitImage->regions.push_back(region);
             blitImage->filter = VK_FILTER_NEAREST;
@@ -154,7 +144,7 @@ public:
             auto copyImage = vsg::CopyImage::create();
             copyImage->srcImage = sourceImage;
             copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            copyImage->dstImage = outputImage;
+            copyImage->dstImage = m_encoder->output_image;
             copyImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             copyImage->regions.push_back(region);
 
@@ -169,7 +159,7 @@ public:
             VK_IMAGE_LAYOUT_GENERAL,                                       // newLayout
             VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
             VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
-            outputImage,                                              // image
+            m_encoder->output_image,                                              // image
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
         );
 
@@ -203,6 +193,8 @@ public:
         vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
             commands->record(commandBuffer);
         });
+
+        m_encoder->decode(vPacket);
     }
 
     vsg::ref_ptr<vsg::Image> screenshot_image(vsg::ref_ptr<vsg::Window> window)
@@ -511,7 +503,7 @@ public:
         // std::cin >> a;
     }
 
-    void screenshot_encodeimage1(vsg::ref_ptr<vsg::Window> window, uint8_t*color){
+    void encodeImage(vsg::ref_ptr<vsg::Window> window, std::vector<std::vector<uint8_t>>& vPacket){
         auto width = window->extent2D().width;
         auto height = window->extent2D().height;
 
@@ -560,7 +552,7 @@ public:
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,                          // newLayout
             VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
             VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
-            m_encoder->encodeDestinationImage,                                              // image
+            m_encoder->encode_destination_image,                                              // image
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
         );
 
@@ -602,7 +594,7 @@ public:
             auto blitImage = vsg::BlitImage::create();
             blitImage->srcImage = sourceImage;
             blitImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            blitImage->dstImage = m_encoder->encodeDestinationImage;
+            blitImage->dstImage = m_encoder->encode_destination_image;
             blitImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             blitImage->regions.push_back(region);
             blitImage->filter = VK_FILTER_NEAREST;
@@ -625,7 +617,7 @@ public:
             auto copyImage = vsg::CopyImage::create();
             copyImage->srcImage = sourceImage;
             copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            copyImage->dstImage = m_encoder->encodeDestinationImage;
+            copyImage->dstImage = m_encoder->encode_destination_image;
             copyImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             copyImage->regions.push_back(region);
 
@@ -640,7 +632,7 @@ public:
             VK_IMAGE_LAYOUT_GENERAL,                                       // newLayout
             VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
             VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
-            m_encoder->encodeDestinationImage,                                              // image
+            m_encoder->encode_destination_image,                                              // image
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
         );
 
@@ -678,8 +670,7 @@ public:
         // auto bufferSize = encodeSurfaces[i].vulkanImage->getMemoryRequirements(device->deviceID).size;            
         // Cudaimage* cuImage = new Cudaimage(encodeSurfaces[i].vulkanImage,
         //         device, bufferSize, extent);
-        m_encoder->encodeAndDecode();
-
+        return m_encoder->encode(vPacket);
     }
 
     void screenshot_cpudepth(vsg::ref_ptr<vsg::Window> window)

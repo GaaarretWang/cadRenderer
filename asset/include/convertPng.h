@@ -1,4 +1,4 @@
-#define STB_IMAGE_IMPLEMENTATION
+#pragma once
 #include "stb_image.h"
 
 class ConvertImage{
