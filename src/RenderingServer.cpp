@@ -27,8 +27,8 @@ int RenderingServer::Init(){
     // vsg::dmat4 plane_transform = vsg::translate(0.0, 1.5, 0.0) * vsg::rotate(90.0, 1.0, 0.0, 0.0) * vsg::translate(0.0, 0.0, 1.0);
     vsg::dmat4 plane_transform = vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -0.78, 1);
     // vsg::vec3 light_direction = vsg::normalize(vsg::vec3(0, 1, 0));
-    vsg::vec3 light_direction = vsg::normalize(vsg::vec3(-1.0, 0.2, -1.0));
-    renderer.initRenderer(rendering_dir, model_transforms, model_paths, instance_names, plane_transform, light_direction);
+    //vsg::vec3 light_direction = vsg::normalize(vsg::vec3(-1.0, 0.2, -1.0));
+    renderer.initRenderer(rendering_dir, model_transforms, model_paths, instance_names, plane_transform);
     
     device = renderer.device;
     return 0;
@@ -76,8 +76,8 @@ int RenderingServer::Update(){
     else{
         // renderer.setRealColorAndImage(frameData.imgColor.data, frameData.imgDepth.data);
     }
-    
-    renderer.render();
+
+    renderer.render();//有问题
     renderer.getEncodeImage(vPacket);
     return 0;
 }

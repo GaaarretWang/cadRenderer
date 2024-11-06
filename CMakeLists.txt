@@ -11,6 +11,8 @@ find_package(CUDA REQUIRED)
 
 find_package(vsg 1.1.0)
 
+find_package(assimp REQUIRED)
+
 # set the use of C++17 globally as all examples require it
 set(CMAKE_CXX_STANDARD 17)
 aux_source_directory(src SRCS)
@@ -30,7 +32,9 @@ target_link_libraries(Rendering
     vsg::vsg 
     flatbuffers
     vsgRenderer
-    libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY})
+    libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY}
+    ${ASSIMP_LIBRARIES}
+    )
 
 get_target_property(Rendering_include_dirs Rendering INTERFACE_INCLUDE_DIRECTORIES)
 message(STATUS "Rendering include directories:${Rendering_include_dirs}")

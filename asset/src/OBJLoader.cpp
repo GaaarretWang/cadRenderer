@@ -13,7 +13,12 @@ std::unordered_map<std::string, int> OBJLoader::vertex_count(const char* filenam
         filename, //model to load
         "", //directory to search for mat_vals
         true); //enable triangulation
-    assert(success);
+
+    if(!success){
+        std::cerr << err << std::endl;
+        assert(success);
+    }
+
 
     int num_vertices = attrib.vertices.size()/3;
     int num_normals = attrib.normals.size()/3;
