@@ -8,8 +8,6 @@
 #include <math.h>
 #include <iostream>
 #include <type_traits>
-#include <vsg/utils/Builder.h>
-#include <vsg/utils/ShaderSet.h>
 #include <stb_image.h>
 
 using namespace vsg;
@@ -1626,8 +1624,8 @@ vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options>
 {
     vsg::info("Local pbr_ShaderSet(", options, ")");
 
-    auto vertexShaderFilepath = vsg::findFile("./shaders/IBL/standard.vert", options->paths);
-    auto fragShaderFilepath = vsg::findFile("./shaders/IBL/custom_pbr.frag", options->paths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/standard.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/custom_pbr.frag", options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
 

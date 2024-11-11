@@ -54,7 +54,7 @@ public:
     void initRenderer(vsg::ref_ptr<vsg::Device> device)
     {
         auto options = vsg::Options::create();
-        auto decodeWindowTraits = createWindowTraits("Decode", 4, options);  
+        auto decodeWindowTraits = createWindowTraits("Decode", 4, options);
 
         decodeWindowTraits->device = device; //共享设备
         decode_window = vsg::Window::create(decodeWindowTraits);

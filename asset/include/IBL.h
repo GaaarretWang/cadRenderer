@@ -2,6 +2,8 @@
 #define ZSZ_IBL
 
 #include <vsg/all.h>
+#include <vsg/utils/Builder.h>
+#include <vsg/utils/ShaderSet.h>
 #include "CustomViewDependentState.h"
 
 namespace IBL

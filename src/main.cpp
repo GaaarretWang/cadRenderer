@@ -3,7 +3,7 @@
 #include "RenderingServer.h"
 simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
-int main(){
+int main(int argc, char** argv){
     std::vector<std::vector<double>> camera_pos;
     std::vector<std::string> camera_pos_timestamp;
     int frame =  0;
@@ -42,7 +42,7 @@ int main(){
     inf.close();
 
     RenderingServer rendering_server;
-    rendering_server.Init();
+    rendering_server.Init(argc, argv);
     Rendering rendering_client;
     rendering_client.Init(rendering_server.device);
     while(true){

@@ -6,10 +6,13 @@ project(Rendering
         LANGUAGES CXX C CUDA
 )
 
+
 find_package(CUDA REQUIRED)
 # set(CMAKE_CUDA_ARCHITECTURES 61)
 
-find_package(vsg 1.1.0)
+#find_package(vsg REQUIRED)
+
+find_package(vsg 1.1.0 REQUIRED)
 
 find_package(assimp REQUIRED)
 
@@ -29,7 +32,7 @@ target_link_directories(Rendering PUBLIC
 )
 
 target_link_libraries(Rendering 
-    vsg::vsg 
+    vsg::vsg
     flatbuffers
     vsgRenderer
     libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY}

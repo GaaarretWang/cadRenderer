@@ -154,7 +154,12 @@ class vsgRendererServer
             VK_KHR_MULTIVIEW_EXTENSION_NAME,
             VK_KHR_MAINTENANCE2_EXTENSION_NAME,
             VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
-            VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME};
+            VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
+            VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+            VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
+            VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
+            VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
+            VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME};
         return windowTraits;
     }
 
@@ -213,13 +218,14 @@ public:
             merge_shader = config_shader.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
     }
 
-    void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)
+    void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform, vsg::CommandLine& arguments)
     {
         // project_path = engine_path.append("Rendering/");
         project_path = engine_path;
         auto options = vsg::Options::create();
         options->fileCache = vsg::getEnv("VSG_FILE_CACHE"); //2
         options->paths = vsg::getEnvPaths("VSG_FILE_PATH");
+        options->paths.push_back("../asset/data/");
         options->sharedObjects = vsg::SharedObjects::create();
 
         std::cout << "SERVER:初始化Vulkan设备" << std::endl;
@@ -271,7 +277,13 @@ public:
         deviceExtensions.insert(deviceExtensions.end(), {VK_KHR_MULTIVIEW_EXTENSION_NAME,
                                                         VK_KHR_MAINTENANCE2_EXTENSION_NAME,
                                                         VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
-                                                        VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME});
+                                                        VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
+                                                        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+                                                        VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
+                                                        VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
+                                                        VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
+                                                        VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME
+                                                        });
 
         vsg::QueueSettings queueSettings{vsg::QueueSetting{queueFamily, {1.0}}};
 
@@ -279,7 +291,7 @@ public:
         deviceFeatures->get().samplerAnisotropy = VK_TRUE;
         deviceFeatures->get().geometryShader = VK_TRUE;
 
-        auto device = vsg::Device::create(physicalDevice, queueSettings, validatedNames, deviceExtensions, deviceFeatures);
+        device = vsg::Device::create(physicalDevice, queueSettings, validatedNames, deviceExtensions, deviceFeatures);
 
         auto context = vsg::Context::create(device);
 
@@ -317,10 +329,18 @@ public:
 
 
         //创建窗口数据
-        auto cadWindowTraits = createWindowTraits("CADModel", 0, options);
-        auto envWindowTraits = createWindowTraits("Background", 1, options);
-        auto shadowWindowTraits = createWindowTraits("shadow_shader", 2, options);
-        auto intgWindowTraits = createWindowTraits("Integration", 3, options);
+        // 只包含虚拟物体
+        auto cadWindowTraits = createWindowTraits("Model", 0, arguments, options);
+        cadWindowTraits->device = device;
+
+        auto envWindowTraits = createWindowTraits("Background", 1, arguments, options);
+        envWindowTraits->device = device;
+
+        auto shadowWindowTraits = createWindowTraits("shadowShader", 2, arguments, options);
+        shadowWindowTraits->device = device;
+
+        auto intgWindowTraits = createWindowTraits("Integration", 3, arguments, options);
+        intgWindowTraits->device = device;
 
         double nearFarRatio = 0.0001;       //近平面和远平面之间的比例
         auto numShadowMapsPerLight = 10; //每个光源的阴影贴图数量
@@ -517,7 +537,7 @@ public:
 
         // HDR环境光采样
         HDRLightSampler lightSampler;
-        lightSampler.loadHDRImage("./data/textures/FINAL.hdr");
+        lightSampler.loadHDRImage("../asset/data/textures/FINAL.hdr");
         lightSampler.computeLuminanceMap();
         lightSampler.computeCDF();
         auto sampledLights = lightSampler.sampleLights(2);
@@ -635,6 +655,8 @@ public:
         auto Shadow_event = vsg::Event::create_if(true, shadow_window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
         shadow_screenshotHandler = IBLScreenshot::ScreenshotHandler::create(Shadow_event);
         shadow_viewer->addEventHandler(shadow_screenshotHandler);
+
+        std::cout << "阴影窗口" << std::endl;
 
         /*
         auto Shadow_event = vsg::Event::create_if(true, Shadow_window->getOrCreateDevice()); // Vulkan creates VkEvent in an unsignalled state
@@ -841,6 +863,11 @@ public:
         final_viewer->compile();
         final_viewer->addEventHandlers({vsg::CloseHandler::create(final_viewer)});
         final_viewer->addEventHandler(vsg::Trackball::create(camera));
+
+        VkExtent2D extent = {};
+        extent.width = render_width;
+        extent.height = render_height;
+        final_screenshotHandler = ScreenshotHandler::create(final_window, extent, ENCODER);
         
     }
 
@@ -870,7 +897,7 @@ public:
     
     void updateObjectPose(std::string instance_name, vsg::dmat4 model_matrix){
         instance_phongs[instance_name]->nodePtr[""].transform->matrix = model_matrix;
-        instance_shadows[instance_name]->nodePtr[""].transform->matrix = model_matrix;
+        //instance_shadows[instance_name]->nodePtr[""].transform->matrix = model_matrix;
     }
 
 

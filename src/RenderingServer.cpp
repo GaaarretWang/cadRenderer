@@ -4,7 +4,7 @@ RenderingServer::RenderingServer() = default;
 
 RenderingServer::~RenderingServer() = default;
 
-int RenderingServer::Init(){
+int RenderingServer::Init(int argc, char** argv){
     renderer.setWidthAndHeight(width, height, upsample_scale);
     renderer.setKParameters(fx, fy, cx, cy);
 
@@ -23,12 +23,14 @@ int RenderingServer::Init(){
     // instance_names.push_back("小舱壁-ASM-修改焊接后0");
     instance_names.push_back("小舱壁-ASM-修改焊接后1");
 
+    vsg::CommandLine arguments(&argc, argv);
+
     renderer.setUpShader(rendering_dir, trackingShader);
     // vsg::dmat4 plane_transform = vsg::translate(0.0, 1.5, 0.0) * vsg::rotate(90.0, 1.0, 0.0, 0.0) * vsg::translate(0.0, 0.0, 1.0);
     vsg::dmat4 plane_transform = vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -0.78, 1);
     // vsg::vec3 light_direction = vsg::normalize(vsg::vec3(0, 1, 0));
     //vsg::vec3 light_direction = vsg::normalize(vsg::vec3(-1.0, 0.2, -1.0));
-    renderer.initRenderer(rendering_dir, model_transforms, model_paths, instance_names, plane_transform);
+    renderer.initRenderer(rendering_dir, model_transforms, model_paths, instance_names, plane_transform, arguments);
     
     device = renderer.device;
     return 0;
@@ -77,7 +79,7 @@ int RenderingServer::Update(){
         // renderer.setRealColorAndImage(frameData.imgColor.data, frameData.imgDepth.data);
     }
 
-    renderer.render();//有问题
+    renderer.render();
     renderer.getEncodeImage(vPacket);
     return 0;
 }
