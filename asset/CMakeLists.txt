@@ -10,7 +10,7 @@ set_target_properties(vsgRenderer PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${render_L
 
 target_include_directories(vsgRenderer PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/dependency/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/CADDataManager/include
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Utils
     ${CUDA_INCLUDE_DIRS}
 )

@@ -20,13 +20,15 @@ add_subdirectory(asset)
 
 target_include_directories(Rendering PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/dependency/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/include
 )
 
 target_link_directories(Rendering PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Lib/linux/stubs/x86_64
+    ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/Video_Codec_SDK_12.0.16/Lib/linux/stubs/x86_64
+    ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/
 )
 
+target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/cadDataManager.a libcurl.a)
 target_link_libraries(Rendering 
     vsg::vsg 
     flatbuffers
@@ -37,5 +39,3 @@ get_target_property(Rendering_include_dirs Rendering INTERFACE_INCLUDE_DIRECTORI
 message(STATUS "Rendering include directories:${Rendering_include_dirs}")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}-pthread")
-target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/dependency/lib/cadDataManager.a)
-target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/dependency/lib/libcurl.a)
