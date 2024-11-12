@@ -20,6 +20,7 @@ add_subdirectory(asset)
 
 target_include_directories(Rendering PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/dependency/include
 )
 
 target_link_directories(Rendering PUBLIC
@@ -36,5 +37,5 @@ get_target_property(Rendering_include_dirs Rendering INTERFACE_INCLUDE_DIRECTORI
 message(STATUS "Rendering include directories:${Rendering_include_dirs}")
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}-pthread")
-target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/lib/cadDataManager.a)
-target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/lib/libcurl.a)
+target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/dependency/lib/cadDataManager.a)
+target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/dependency/lib/libcurl.a)
