@@ -1,0 +1,12 @@
+﻿{
+  "host": "10.102.32.173",
+  "port": 9000,
+  "fileName": "../asset/data/geos/Test测试.fb",
+  "filePath": ".",
+  "precision": 0,
+  "isReadLocalFBData": true,
+  "isConvertModelByFile": true,
+  "writeFile": false,
+  "printLog": true,
+  "debugLog": false
+}
