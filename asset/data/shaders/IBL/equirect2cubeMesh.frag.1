@@ -1,0 +1,25 @@
+// Generates an irradiance cube from an environment map using convolution
+
+#version 450
+
+layout (location = 0) in vec3 inPos;
+layout (location = 0) out vec4 outColor;
+layout (set=0, binding = 0) uniform sampler2D samplerEnv;
+
+layout(push_constant) uniform PushConstants {
+    layout (offset = 128) uint faceIdx;
+} pc;
+
+#define PI 3.1415926535897932384626433832795
+
+void main()
+{
+	vec3 v = normalize(inPos);
+	const float TWO_PI = PI * 2.0;
+
+    float phi   = atan(v.z, v.x);
+	float theta = acos(v.y);
+    vec2 equiRectUV = vec2(phi/TWO_PI + 0.5, theta/PI);
+    vec3 color = texture(samplerEnv, equiRectUV).rgb;
+    outColor = vec4(color, 1.0);
+}

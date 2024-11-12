@@ -32,7 +32,7 @@ public:
 
     ~RenderingServer();
 
-    int Init();
+    int Init(int argc, char** argv);
 
     int Update();
 };
