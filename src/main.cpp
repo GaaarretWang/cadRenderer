@@ -1,9 +1,16 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "Rendering.h"
 #include "RenderingServer.h"
+#include <iostream>
+#include <vsg/all.h>
+#include <CADMesh.h>
+#include "communication/dataInterface.h"
+#include <string>
 simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
-int main(){
+int main(int argc, char** argv){
+    global_argc = argc;
+    global_argv = argv;
     std::vector<std::vector<double>> camera_pos;
     std::vector<std::string> camera_pos_timestamp;
     int frame =  0;

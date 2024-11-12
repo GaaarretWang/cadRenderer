@@ -94,10 +94,6 @@ public:
             return false;
         }
     }
-
-    void getWindowImage(uint8_t* color){
-        decode_screenshotHandler->screenshot_cpuimage(decode_window, color);
-    }
 };
 
 

@@ -77,7 +77,6 @@ int RenderingServer::Update(){
         // renderer.setRealColorAndImage(frameData.imgColor.data, frameData.imgDepth.data);
     }
     
-    renderer.render();
-    renderer.getEncodeImage(vPacket);
+    renderer.render(vPacket);
     return 0;
 }

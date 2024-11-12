@@ -1,10 +1,29 @@
 #include "CADMesh.h"
+#include <chrono>
+#include <iomanip>
+#include <vsg/all.h>
+#include <communication/dataInterface.h>
+
+int global_argc = 0; 
+char** global_argv = nullptr;
 
 template<typename T>
 vsg::vec3 CADMesh::toVec3(const flatbuffers::Vector<T>* flat_vector, int begin)
 {
     // return vsg::vec3(flat_vector->Get(begin) / 1000, flat_vector->Get(begin + 1) / 1000, flat_vector->Get(begin + 2) / 1000);
     return vsg::vec3(flat_vector->Get(begin), flat_vector->Get(begin + 1), flat_vector->Get(begin + 2));
+}
+
+template<typename T>
+vsg::vec3 CADMesh::toNewVec3(std::vector<T>* flat_vector, int begin)
+{
+    // return vsg::vec3(flat_vector->Get(begin) / 1000, flat_vector->Get(begin + 1) / 1000, flat_vector->Get(begin + 2) / 1000);
+
+    //return vsg::vec3(flat_vector[begin], flat_vector[begin + 1], flat_vector[begin + 2]);
+    float a = flat_vector->at(begin);
+    float b = flat_vector->at(begin + 1);
+    float c = flat_vector->at(begin + 2);
+    return vsg::vec3(a, b, c);
 }
 
 template<typename T>
@@ -29,6 +48,24 @@ vsg::vec3 CADMesh::toVec3(const flatbuffers::String* string_vector)
     }
 
     return vector3;
+}
+
+RGB CADMesh::hexToRGB(const std::string& color)
+{
+    // 去掉 '#' 字符
+    std::string testcolor = color.substr(1);
+
+    // 将 hex 转换为 RGB
+    int red = std::stoi(testcolor.substr(0, 2), nullptr, 16);
+    int green = std::stoi(testcolor.substr(2, 2), nullptr, 16);
+    int blue = std::stoi(testcolor.substr(4, 2), nullptr, 16);
+
+    // 将 RGB 转换为 0.0 到 1.0 之间的浮点数
+    float r = red / 255.0f;
+    float g = green / 255.0f;
+    float b = blue / 255.0f;
+
+    return RGB{r, g, b};
 }
 
 void CADMesh::buildPlaneNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix)
@@ -239,6 +276,393 @@ void CADMesh::buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Sh
     scene->addChild(Env_transform);
 }
 
+void CADMesh::drawLine(vsg::vec3& begin, vsg::vec3& end, vsg::ref_ptr<vsg::Group> scene)
+{
+    vsg::vec3 beginPoint = vsg::vec3(begin.x, begin.y, begin.z);
+    if (positionToIndex.count(beginPoint) == 0) //if unique
+    {
+        positionToIndex[beginPoint] = static_cast<uint32_t>(positions.size());
+        positions.push_back(beginPoint);
+    }
+    indices.push_back(positionToIndex[beginPoint]);
+
+    vsg::vec3 endPoint = vsg::vec3(end.x, end.y, end.z);
+    if (positionToIndex.count(endPoint) == 0) //if unique
+    {
+        positionToIndex[endPoint] = static_cast<uint32_t>(positions.size());
+        positions.push_back(endPoint);
+    }
+    indices.push_back(positionToIndex[endPoint]);
+}
+
+void CADMesh::buildNewNode(bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader)
+{
+
+    bool LoadByJson = true; 
+	//执行接口的init方法：包含Json文件读取等一些初始化操作
+    cadDataManager::DataInterface datainterface;
+	datainterface.init();
+
+	//---------------------------------------通过json文件加载数据------------------------------------
+	if (LoadByJson) {
+		bool isReadLocalFBData = datainterface.isReadLocalFBData();
+		if (isReadLocalFBData) {
+			//通过json文件参数读取本地路径下的fb文件
+			datainterface.parseLocalModel();
+		}
+		else {
+			bool isConvertModelByFile = datainterface.isConvertModelByFile();
+			if (isConvertModelByFile) {
+				//path为本地文件路径，直接上传本地CAD文件进行转换
+				datainterface.convertModelByFile();
+			}
+			else {
+				//path为云端文件路径，直接转换云端CAD模型
+				datainterface.convertModelByPath();
+			}
+		}
+		//auto instanceInfos = datainterface.getInstanceInfos();
+		//auto fbModelData = datainterface.getModelFlatbuffersData();
+	}
+    
+	auto info = datainterface.getRenderInfo();
+	auto pmi = datainterface.getPmiInfos(true);
+	auto instances = datainterface.getInstances();
+
+    vsg::CommandLine arguments(&global_argc, global_argv);
+
+    auto options = vsg::Options::create();
+    options->fileCache = vsg::getEnv("VSG_FILE_CACHE"); //2
+    options->paths = vsg::getEnvPaths("VSG_FILE_PATH");
+    options->sharedObjects = vsg::SharedObjects::create();
+
+
+    for (int i = 0; i < pmi.size(); i++)
+    {
+        //std::cout << pmi[i].instanceMatrixList.size() << std::endl;
+        if (pmi[i].type == "Diagonal" || pmi[i].type == "Horizontal") {
+
+            vsg::vec3 temp1 = vsg::vec3(pmi[i].points[0][0], pmi[i].points[0][1], pmi[i].points[0][2]);
+            vsg::vec3 temp2 = vsg::vec3(pmi[i].points[1][0], pmi[i].points[1][1], pmi[i].points[1][2]);
+            vsg::vec3 temp3 = vsg::vec3(pmi[i].points[2][0], pmi[i].points[2][1], pmi[i].points[2][2]);
+            vsg::vec3 temp4 = vsg::vec3(pmi[i].points[3][0], pmi[i].points[3][1], pmi[i].points[3][2]);
+            vsg::vec3 temp5 = vsg::vec3((3 * pmi[i].points[1][0] + 2 * pmi[i].points[3][0]) / 5, (3 * pmi[i].points[1][1] + 2 * pmi[i].points[3][1]) / 5, (3 * pmi[i].points[1][2] + 2 * pmi[i].points[3][2]) / 5);
+            vsg::vec3 temp6 = vsg::vec3((3 * pmi[i].points[3][0] + 2 * pmi[i].points[1][0]) / 5, (3 * pmi[i].points[3][1] + 2 * pmi[i].points[1][1]) / 5, (3 * pmi[i].points[3][2] + 2 * pmi[i].points[1][2]) / 5);
+            vsg::vec3 textx = vsg::vec3((pmi[i].points[1][0] + pmi[i].points[3][0]) / 2, (pmi[i].points[1][1] + pmi[i].points[3][1]) / 2, (pmi[i].points[1][2] + pmi[i].points[3][2]) / 2);
+            //vsg::vec3 texty = vsg::vec3((pmi[i].points[3][0] + pmi[i].points[1][0]) / 2, (pmi[i].points[3][1] + pmi[i].points[1][1]) / 2, 0);
+
+            vsg::mat4 transforms;
+            for (int m = 0; m < 4; m++)
+                for (int n = 0; n < 4; n++)
+                {
+                    transforms[m][n] = pmi[i].instanceMatrixList[0].at(m * 4 + n);
+                }
+            //temp1 = transforms * temp1;
+            //temp2 = transforms * temp2;
+            //temp3 = transforms * temp3;
+            //temp4 = transforms * temp4;
+            //temp5 = transforms * temp5;
+            //temp6 = transforms * temp6;
+            //textx = transforms * textx;
+            //temp1 = 
+            auto font_filename = arguments.value(std::string("../data/fonts/times.vsgb"), "-f");
+            auto enable_tests = arguments.read("--test");
+            auto font = vsg::read_cast<vsg::Font>(font_filename, options);
+            auto layout = vsg::StandardLayout::create();
+            //layout->
+            layout->horizontalAlignment = vsg::StandardLayout::CENTER_ALIGNMENT; //水平居中
+            layout->position = textx;                                            //左右，前后，上下（xyz轴）
+            layout->horizontal = vsg::vec3(50.0, 0.0, 0.0);                      //水平方向上的偏移
+            layout->vertical = vsg::vec3(0.0, 50.0, 0.0);                        //垂直方向上的偏移
+            layout->color = vsg::vec4(1.0, 1.0, 1.0, 1.0);                       //红、绿、蓝和alpha通道
+            layout->outlineWidth = 0.1;
+            layout->billboard = true;
+
+            auto text = vsg::Text::create();
+            text->text = vsg::stringValue::create(pmi[i].value);
+            text->font = font;
+            text->layout = layout;
+            text->setup(0, options);
+            scene->addChild(text);
+            drawLine(temp1, temp2, scene);
+            drawLine(temp3, temp4, scene);
+            drawLine(temp2, temp5, scene);
+            drawLine(temp6, temp4, scene);
+            builder->options = options;
+            geomInfo.color.set(1.0f, 1.0f, 1.0f, 1.0f);
+            geomInfo.cullNode = false;
+            stateInfo.wireframe = true;
+
+            scene->addChild(builder->createLine(geomInfo, stateInfo, positions, indices));
+        }
+        else if (pmi[i].type == "Radius")
+        {
+            vsg::vec3 temp1 = vsg::vec3(pmi[i].points[0][0], pmi[i].points[0][1], pmi[i].points[0][2]);
+            vsg::vec3 temp2 = vsg::vec3(pmi[i].points[1][0], pmi[i].points[1][1], pmi[i].points[1][2]);
+            vsg::vec3 temp3 = vsg::vec3(pmi[i].points[2][0], pmi[i].points[2][1], pmi[i].points[2][2]);
+            vsg::vec3 temp5 = vsg::vec3((2 * pmi[i].points[0][0] + pmi[i].points[1][0]) / 3, (2 * pmi[i].points[0][1] + pmi[i].points[1][1]) / 3, (2 * pmi[i].points[0][2] + pmi[i].points[1][2]) / 3);
+            vsg::vec3 temp6 = vsg::vec3((2 * pmi[i].points[1][0] + pmi[i].points[0][0]) / 3, (2 * pmi[i].points[1][1] + pmi[i].points[0][1]) / 3, (2 * pmi[i].points[1][2] + pmi[i].points[0][2]) / 3);
+
+            vsg::mat4 transforms;
+            for (int m = 0; m < 4; m++)
+                for (int n = 0; n < 4; n++)
+                {
+                    transforms[m][n] = pmi[i].instanceMatrixList[0].at(m * 4 + n);
+                }
+            //temp1 = transforms * temp1;
+            //temp2 = transforms * temp2;
+            //temp3 = transforms * temp3;
+            //temp4 = transforms * temp4;
+            //temp5 = transforms * temp5;
+            //temp6 = transforms * temp6;
+            //textx = transforms * textx;
+            //auto font_filename = arguments.value(std::string("D:/APP/1PostGraduate/vsgExamples1/data/fonts/times.vsgb"), "-f");
+            auto font_filename = arguments.value(std::string("../data/fonts/times.vsgb"), "-f");
+            auto enable_tests = arguments.read("--test");
+            auto font = vsg::read_cast<vsg::Font>(font_filename, options);
+            auto layout = vsg::StandardLayout::create();
+            layout->horizontalAlignment = vsg::StandardLayout::CENTER_ALIGNMENT; //水平居中
+            layout->position = temp3;                                            //左右，前后，上下（xyz轴）
+            layout->horizontal = vsg::vec3(50.0, 0.0, 0.0);                      //水平方向上的偏移
+            layout->vertical = vsg::vec3(0.0, 50.0, 0.0);                        //垂直方向上的偏移
+            layout->color = vsg::vec4(1.0, 1.0, 1.0, 1.0);                       //红、绿、蓝和alpha通道
+            layout->outlineWidth = 0.1;
+            layout->billboard = true;
+
+            auto text = vsg::Text::create();
+            text->text = vsg::stringValue::create(pmi[i].value);
+            text->font = font;
+            text->layout = layout;
+            text->setup(0, options);
+            scene->addChild(text);
+
+            drawLine(temp1, temp5, scene);
+            drawLine(temp6, temp2, scene);
+            builder->options = options;
+            geomInfo.color.set(1.0f, 1.0f, 1.0f, 1.0f);
+            geomInfo.cullNode = false;
+            stateInfo.wireframe = true;
+
+            scene->addChild(builder->createLine(geomInfo, stateInfo, positions, indices));
+        
+        }
+        else if (pmi[i].type == "Diameter")
+        {
+            vsg::vec3 temp1 = vsg::vec3(pmi[i].points[0][0], pmi[i].points[0][1], pmi[i].points[0][2]);
+            vsg::vec3 temp2 = vsg::vec3(pmi[i].points[1][0], pmi[i].points[1][1], pmi[i].points[1][2]);
+            vsg::vec3 temp3 = vsg::vec3(pmi[i].text[0][0], pmi[i].text[0][1], pmi[i].text[0][2]);
+            vsg::vec3 temp5 = vsg::vec3((2 * pmi[i].points[0][0] + pmi[i].points[1][0]) / 3, (2 * pmi[i].points[0][1] + pmi[i].points[1][1]) / 3, (2 * pmi[i].points[0][2] + pmi[i].points[1][2]) / 3);
+            vsg::vec3 temp6 = vsg::vec3((2 * pmi[i].points[1][0] + pmi[i].points[0][0]) / 3, (2 * pmi[i].points[1][1] + pmi[i].points[0][1]) / 3, (2 * pmi[i].points[1][2] + pmi[i].points[0][2]) / 3);
+
+            vsg::mat4 transforms;
+            for (int m = 0; m < 4; m++)
+                for (int n = 0; n < 4; n++)
+                {
+                    transforms[m][n] = pmi[i].instanceMatrixList[0].at(m * 4 + n);
+                }
+            //temp1 = transforms * temp1;
+            //temp2 = transforms * temp2;
+            //temp3 = transforms * temp3;
+            //temp4 = transforms * temp4;
+            //temp5 = transforms * temp5;
+            //temp6 = transforms * temp6;
+            //textx = transforms * textx;
+            auto font_filename = arguments.value(std::string("../data/fonts/times.vsgb"), "-f");
+            auto enable_tests = arguments.read("--test");
+            auto font = vsg::read_cast<vsg::Font>(font_filename, options);
+            auto layout = vsg::StandardLayout::create();
+            layout->horizontalAlignment = vsg::StandardLayout::CENTER_ALIGNMENT; //水平居中
+            layout->position = temp3;                                            //左右，前后，上下（xyz轴）
+            layout->horizontal = vsg::vec3(50.0, 0.0, 0.0);                      //水平方向上的偏移
+            layout->vertical = vsg::vec3(0.0, 50.0, 0.0);                        //垂直方向上的偏移
+            layout->color = vsg::vec4(1.0, 1.0, 1.0, 1.0);                       //红、绿、蓝和alpha通道
+            layout->outlineWidth = 0.1;
+            layout->billboard = true;
+
+            auto text = vsg::Text::create();
+            text->text = vsg::stringValue::create(pmi[i].value);
+            text->font = font;
+            text->layout = layout;
+            text->setup(0, options);
+            scene->addChild(text);
+
+            drawLine(temp1, temp2, scene);
+            drawLine(temp2, temp3, scene);
+            //drawLine(temp1, temp5, scene);
+            //drawLine(temp6, temp2, scene);
+            builder->options = options;
+            geomInfo.color.set(1.0f, 1.0f, 1.0f, 1.0f);
+            geomInfo.cullNode = false;
+            stateInfo.wireframe = true;
+
+            scene->addChild(builder->createLine(geomInfo, stateInfo, positions, indices));
+        }
+    }
+    //drawLine(begin, end, scene);
+    builder->options = options;
+    geomInfo.color.set(1.0f, 1.0f, 1.0f, 1.0f);
+    geomInfo.cullNode = false;
+    stateInfo.wireframe = true;
+
+
+    for (int i = 0; i < lines.size(); i++)
+    {
+        drawLine(lines[i].begin, lines[i].end, scene);
+    }
+
+
+    scene->addChild(builder->createLine(geomInfo, stateInfo, positions, indices));
+
+    
+    uint8_t* buffer_data;
+    int buffer_size;
+    auto data = info.data();
+    for (int o = 0; o < info.size(); o++) {
+        std::unordered_map<TinyModelVertex, uint32_t> uniqueVertices; //存储点信息，相同点只存一份
+        std::vector<TinyModelVertex> mVertices{};                     //保存点在数组中位置信息
+        std::vector<vsg::vec3> mVerticesPos{};                        //保存点在数组中位置信息
+        std::vector<vsg::vec3> mVerticesNor{};                        //保存点在数组中位置信息
+        std::vector<uint32_t> mIndices{};                             //索引，找点
+        
+        RenderInfo modelfbs = info[o];
+        int num = modelfbs.matrixNum;
+        auto matrix = modelfbs.matrix;
+        auto type = modelfbs.type;
+        auto modelGeo = modelfbs.geo;
+        auto modelIndex = modelGeo->getIndex();
+        auto position = modelGeo->getPosition();
+        auto normal = modelGeo->getNormal();
+        auto modelPar = modelfbs.params;
+        auto metalness = modelPar->mMetalness;
+        auto specular = modelPar->mSpecular;
+        auto opacity = modelPar->getOpacity();
+        auto color = modelPar->getColor();
+        auto uv = modelGeo->getUV();
+
+        std::string testcolor = color.substr(1);
+        // 将 hex 转换为 RGB
+        int red = std::stoi(testcolor.substr(0, 2), nullptr, 16);
+        int green = std::stoi(testcolor.substr(2, 2), nullptr, 16);
+        int blue = std::stoi(testcolor.substr(4, 2), nullptr, 16);
+
+        // 将 RGB 转换为 0.0 到 1.0 之间的浮点数
+        float r = red / 255.0f;
+        float g = green / 255.0f;
+        float b = blue / 255.0f;
+
+        //设置材质参数
+        vsg::ref_ptr<vsg::PbrMaterialValue> default_material;
+        default_material = vsg::PbrMaterialValue::create();
+
+        default_material->value().baseColorFactor.set(r, g, b, opacity);
+        default_material->value().metallicFactor = metalness;
+        default_material->value().diffuseFactor.set(0.55, 0.55, 0.55, 1.0f);
+        default_material->value().specularFactor.set(0.7, 0.7, 0.7, 1.0f);
+        default_material->value().emissiveFactor.set(0.0, 0.0, 0.0, 0.0);
+        default_material->value().roughnessFactor = 0.6f;
+        //std::cout << default_color << std::endl;
+        /*
+        */
+        if (type == "face")
+        {
+            for (int j = 0; j < num; j++)
+            {
+                vsg::mat4 transforms;
+                for (int m = 0; m < 4; m++)
+                    for (int n = 0; n < 4; n++)
+                    {
+                        transforms[m][n] = matrix[j * 16 + m * 4 + n];
+                    }
+                for (int i = 0; i < modelIndex.size(); i += 1)
+                {
+                    TinyModelVertex vertex;
+                    int index = modelIndex.at(i);
+                    vertex.pos = toNewVec3(&position, index * 3);
+                    vertex.pos = transforms * vertex.pos;
+                    vertex.normal = toNewVec3(&normal, index * 3);
+
+                    if (uniqueVertices.count(vertex) == 0) //if unique 唯一
+                    {                                      //push进数组。记录位置
+                        uniqueVertices[vertex] = static_cast<uint32_t>(mVertices.size());
+                        mVertices.push_back(vertex);
+                    }
+                    mIndices.push_back(uniqueVertices[vertex]); //根据新proto的数组，索引位置改变
+                }
+                auto now = std::chrono::system_clock::now();
+                // 转换为time_t格式，方便用本地时间表示
+                std::time_t now_c = std::chrono::system_clock::to_time_t(now);
+                // 输出时间，精确到秒
+                //std::cout << std::put_time(std::localtime(&now_c), "%Y-%m-%d %X") << std::endl;
+
+            }
+
+            int Nodenumber = mVertices.size();   //顶点、法向个数
+            int Indicesnumber = mIndices.size(); //索引个数
+
+            vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(Nodenumber); //分配数组空间
+            vsg::ref_ptr<vsg::vec3Array> normals = vsg::vec3Array::create(Nodenumber);
+            //coordinates = vsg::vec2Array::create(Nodenumber);
+            vsg::ref_ptr<vsg::uintArray> indices = vsg::uintArray::create(Indicesnumber);
+
+            //读取顶点，保存成vsg数组形式
+            for (int i = 0; i < Nodenumber; i++)
+            {
+                vertices->at(i) = vsg::vec3(mVertices[i].pos);
+                normals->at(i) = vsg::vec3(mVertices[i].normal);
+                //vertices->at(i) = mVerticesPos[i];
+                //normals->at(i) = mVerticesNor[i];
+            }
+            //读取索引
+            for (int i = 0; i < Indicesnumber; i++)
+            {
+                indices->at(i) = mIndices[i];
+            }
+            // 创建独立的PipelineConfigurator和DrawCommand
+            auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(shader);
+            vsg::DataList vertexArrays;
+            auto drawCommands = vsg::Commands::create();
+
+            //传入模型几何参数
+            graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX,vertices);
+            graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX,normals);
+            graphicsPipelineConfig->assignDescriptor("material", default_material);
+            //绑定索引
+            drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
+            drawCommands->addChild(vsg::BindIndexBuffer::create(indices));
+            drawCommands->addChild(vsg::DrawIndexed::create(indices->size(), 1, 0, 0, 0));
+
+            graphicsPipelineConfig->init();
+            auto stateGroup = vsg::StateGroup::create();
+            graphicsPipelineConfig->copyTo(stateGroup);
+            stateGroup->addChild(drawCommands);
+            scene->addChild(stateGroup);
+        }
+    }
+
+    //verticesVector.push_back(vertices);
+    //normalsVector.push_back(normals);
+    //indicesVector.push_back(indices);
+
+    for (int i = 0; i < indicesVector.size(); i++)
+    {
+
+        //创建纹理或遮罩
+        bool addTexture = 0;
+        auto options = vsg::Options::create();
+        vsg::Path textureFile("../data/textures/lz.vsgb");
+        if (textureFile && addTexture)
+        {
+            auto textureData = vsg::read_cast<vsg::Data>(textureFile, options);
+            if (!textureData)
+            {
+                std::cout << "Could not read texture file : " << textureFile << std::endl;
+            }
+            //graphicsPipelineConfig->assignTexture("diffuseMap", textureData);
+        }
+
+    }
+}
+
 void CADMesh::transferModel(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix){
     uint8_t* buffer_data;
     int buffer_size;
@@ -270,18 +694,19 @@ void CADMesh::transferModel(const std::string& path, bool fullNormal, vsg::ref_p
             continue;
         }
         protoIndex[protofbs->ProtoID()->str()] = static_cast<uint32_t>(p - emptyProtoNum);
-        std::unordered_map<TinyModelVertex, uint32_t> uniqueVertices;
-        std::vector<TinyModelVertex> mVertices{};
-        std::vector<uint32_t> mIndices{};
+        //根据protoid找模型的索引，在所有有model的proto中的位置
+        std::unordered_map<TinyModelVertex, uint32_t> uniqueVertices;//存储点信息，相同点只存一份
+        std::vector<TinyModelVertex> mVertices{};//保存点在数组中位置信息
+        std::vector<uint32_t> mIndices{};        //索引，找点
 
-        for (int m = 0; m < protofbs->Models()->size(); m++)
+        for (int m = 0; m < protofbs->Models()->size(); m++)//每个零件遍历model
         {
             const RenderFlatBuffer::Model* modelfbs = protofbs->Models()->Get(m);
             auto modelGeo = modelfbs->Geo();
             //std::cout << "modelfbs->Type()->str()" << modelfbs->Type()->str() << std::endl;
-            if (modelfbs->Type()->str() == "mesh")
+            if (modelfbs->Type()->str() == "mesh")//三角面片
             {
-                if (fullNormal)
+                if (fullNormal) 
                 {
                     for (int i = 0; i < modelGeo->Index()->size(); i += 1)
                     {
@@ -292,11 +717,11 @@ void CADMesh::transferModel(const std::string& path, bool fullNormal, vsg::ref_p
                         // vertex.uv = toVec2(modelGeo->UV(), index * 2);
 
                         if (uniqueVertices.count(vertex) == 0) //if unique
-                        {
+                        {//push进数组。记录位置
                             uniqueVertices[vertex] = static_cast<uint32_t>(mVertices.size());
                             mVertices.push_back(vertex);
                         }
-                        mIndices.push_back(uniqueVertices[vertex]);
+                        mIndices.push_back(uniqueVertices[vertex]);//根据新proto的数组，索引位置改变
                     }
                 }
                 else
@@ -331,22 +756,22 @@ void CADMesh::transferModel(const std::string& path, bool fullNormal, vsg::ref_p
                 }
             }
         }
-        int Nodenumber = mVertices.size();   //���㡢�������
-        int Indicesnumber = mIndices.size(); //��������
+        int Nodenumber = mVertices.size();    //顶点、法向个数
+        int Indicesnumber = mIndices.size();  //索引个数
         protoTriangleNum[protofbs->ProtoID()->str()] = static_cast<uint32_t>(mIndices.size() / 3);
 
-        vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(Nodenumber);
+        vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(Nodenumber);//分配数组空间
         vsg::ref_ptr<vsg::vec3Array> normals = vsg::vec3Array::create(Nodenumber);
         //coordinates = vsg::vec2Array::create(Nodenumber);
         vsg::ref_ptr<vsg::uintArray> indices = vsg::uintArray::create(Indicesnumber);
 
-        //��ȡ����
+        //读取顶点，保存成vsg数组形式
         for (int i = 0; i < Nodenumber; i++)
         {
             vertices->at(i) = vsg::vec3(mVertices[i].pos);
             normals->at(i) = vsg::vec3(mVertices[i].normal);
         }
-        //��ȡ����
+        //读取索引
         for (int i = 0; i < Indicesnumber; i++)
         {
             indices->at(i) = mIndices[i];
@@ -391,7 +816,7 @@ void CADMesh::transferModel(const std::string& path, bool fullNormal, vsg::ref_p
 //     top.originalMatrix = modelMatrix;
 //     nodePtr[""] = top;
 
-//     //�����������нڵ�
+//     //创建树的所有节点
 //     for (int i = 0; i < renderFlatBuffer->Bom()->size(); i++)
 //     {
 
@@ -404,7 +829,7 @@ void CADMesh::transferModel(const std::string& path, bool fullNormal, vsg::ref_p
 //             vsg::DataList vertexArrays;
 //             auto drawCommands = vsg::Commands::create();
 
-//             //��������������
+//             //创建纹理或遮罩
 //             bool addTexture = 0;
 //             auto options = vsg::Options::create();
 //             vsg::Path textureFile("../asset/data/textures/lz.vsgb");
@@ -418,14 +843,14 @@ void CADMesh::transferModel(const std::string& path, bool fullNormal, vsg::ref_p
 //                 graphicsPipelineConfig->assignTexture("diffuseMap", textureData);
 //             }
 
-//             //����ģ�ͼ��β���
+//             //传入模型几何参数
 //             graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, verticesVector[protoIndex[instance->ProtoID()->str()]]);
 //             graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, normalsVector[protoIndex[instance->ProtoID()->str()]]);
 //             //graphicsPipelineConfig->assignArray(vertexArrays, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, texcoords);
 
 //             graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, default_color);
 //             graphicsPipelineConfig->assignDescriptor("material", default_material);
-//             //������
+//             //绑定索引
 //             drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
 //             drawCommands->addChild(vsg::BindIndexBuffer::create(indicesVector[protoIndex[instance->ProtoID()->str()]]));
 //             drawCommands->addChild(vsg::DrawIndexed::create(indicesVector[protoIndex[instance->ProtoID()->str()]]->size(), 1, 0, 0, 0));

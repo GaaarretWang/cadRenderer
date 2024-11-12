@@ -201,8 +201,10 @@ public:
                 transfer_model = new CADMesh();
                 if(format == "obj")
                     transfer_model->buildObjNode(path_i.c_str(), "", cadScenegraph, phong_shader, model_transforms[i]); //读取obj文件
-                else if(format == "fb")
+                else if(format == "fb"){
                     transfer_model->transferModel(model_paths[i], fullNormal, cadScenegraph, phong_shader, model_transforms[i]);
+                    transfer_model->buildNewNode(fullNormal, cadScenegraph, phong_shader);
+                }
                 transfered_meshes[path_i] = transfer_model;
             }            
             if(format == "obj"){
@@ -505,7 +507,7 @@ public:
     }
 
 
-    bool render(){
+    bool render(std::vector<std::vector<uint8_t>>& vPacket){
         // std::cout << "new frame: " << std::endl;
         // for (int i = 0; i < 9; ++i) {
         //     std::cout << lookat_vector[i] << " ";
@@ -606,7 +608,7 @@ public:
             final_viewer->update();
             final_viewer->recordAndSubmit(); //于记录和提交命令图。窗口2提交会冲突报错
             // shadow_screenshotHandler->screenshot_encodeimage(shadow_window, color);
-            // final_screenshotHandler->encodeImage(final_window, vPacket);
+            final_screenshotHandler->encodeImage(final_window, vPacket);
             // final_screenshotHandler->screenshot_cpudepth(final_window);
             // final_screenshotHandler->screenshot_cpuimage(final_window, color);
             final_viewer->present();
@@ -615,14 +617,6 @@ public:
         else{
             return false;
         }
-    }
-
-    void getWindowImage(uint8_t* color){
-        final_screenshotHandler->screenshot_cpuimage(final_window, color);
-    }
-
-    void getEncodeImage(std::vector<std::vector<uint8_t>>& vPacket){
-        final_screenshotHandler->encodeImage(final_window, vPacket);
     }
 };
 

@@ -3,8 +3,27 @@
 #include <iostream>
 #include <unordered_set>
 #include <vsg/all.h>
+#include "communication/dataInterface.h"
 #include "OBJLoader.h"
 #define EXPLODE
+
+extern int global_argc; 
+extern char** global_argv;
+struct RGB
+{
+    float r, g, b;
+};
+
+struct Line
+{
+    vsg::vec3 begin;
+    vsg::vec3 end;
+
+    Line(const vsg::vec3& beginPoint, const vsg::vec3& endPoint) :
+        begin(beginPoint), end(endPoint)
+    {
+    }
+};
 
 struct MaterialObj
 {
@@ -121,7 +140,10 @@ private:
     vsg::vec3 toVec3(const flatbuffers::Vector<T>* flat_vector, int begin = 0);
     vsg::vec3 toVec3(const flatbuffers::String* string_vector);
     template<typename T>
+    vsg::vec3 toNewVec3(std::vector<T>* flat_vector, int begin);
+    template<typename T>
     vsg::vec2 toVec2(const flatbuffers::Vector<T>* flat_vector, int begin = 0);
+    RGB hexToRGB(const std::string& color);
 
     std::vector<MaterialObj> mMaterials{};
     std::vector<std::string> mTextures{};
@@ -143,10 +165,25 @@ public:
     std::vector<vsg::ref_ptr<vsg::vec3Array>> normalsVector;
     std::vector<vsg::ref_ptr<vsg::vec2Array>> coordinatesVector;
     std::vector<vsg::ref_ptr<vsg::uintArray>> indicesVector;
+    
+    RenderInfo info;
+
+    vsg::GeometryInfo geomInfo;
+    vsg::StateInfo stateInfo;
+    vsg::ref_ptr<vsg::Builder> builder = vsg::Builder::create();
+    vsg::ref_ptr<vsg::Options> options = vsg::Options::create();
+    std::vector<Line> lines;
+    std::vector<vsg::vec3> positions;
+    std::unordered_map<vsg::vec3, uint32_t> positionToIndex;
+    std::vector<uint32_t> indices;
+
+    vsg::ref_ptr<vsg::StateGroup> stateGroup_total = vsg::StateGroup::create();
         
     //����ģ��
     // void buildnode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, vsg::ref_ptr<vsg::ImageInfo>* imageInfos, vsg::ref_ptr<vsg::Data> real_color, vsg::ref_ptr<vsg::Data> real_depth);
+    void drawLine(vsg::vec3& begin, vsg::vec3& end, vsg::ref_ptr<vsg::Group> scene);
+    void buildNewNode(bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader);
     void buildPlaneNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void buildObjNode(const char* path, const char* material_path, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void transferModel(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
