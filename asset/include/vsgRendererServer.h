@@ -977,6 +977,9 @@ public:
 
             //------------------------------------------------------窗口2-----------------------------------------------------//
             env_viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
+
+            IBL::textures.params->dirty();
+
             env_viewer->update();
             env_viewer->recordAndSubmit(); //于记录和提交命令图。窗口2提交会冲突报错
             copyImagesIBL[2]->srcImage = env_screenshotHandler->screenshot_image(env_window);
@@ -988,7 +991,7 @@ public:
             // env_screenshotHandler->screenshot_encodeimage(final_window, color);
 
             //------------------------------------------------------窗口3-----------------------------------------------------//
-            shadow_viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
+            shadow_viewer->handleEvents(); //将保存在`UIEvents`对象中screenshotHandler的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
             shadow_viewer->update();
             shadow_viewer->recordAndSubmit(); //于记录和提交命令图。窗口2提交会冲突报错
             copyImagesIBL[4]->srcImage = shadow_screenshotHandler->screenshot_image(shadow_window);
@@ -1005,10 +1008,6 @@ public:
             // final_screenshotHandler->encodeImage(final_window, vPacket);
             // final_screenshotHandler->screenshot_cpudepth(final_window);
             // final_screenshotHandler->screenshot_cpuimage(final_window, color);
-               
-            viewer_IBL->present();
-            env_viewer->present();
-            shadow_viewer->present(); //计算完之后一起呈现在窗口
             final_viewer->present();
             return true;
         }

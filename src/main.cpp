@@ -49,7 +49,8 @@ int main(int argc, char** argv){
         rendering_server.color_path = "../asset/data/dataset3/color/" + camera_pos_timestamp[frame] + ".png";
         rendering_server.depth_path = "../asset/data/dataset3/depth/" + camera_pos_timestamp[frame] + ".png";
         rendering_server.lookat_vector = camera_pos[frame];
-        rendering_server.Update();//有问题
+        
+        rendering_server.Update();
         if(rendering_server.vPacket.size() > 0)
             std::cout << rendering_server.vPacket[0].size() << std::endl;
 
