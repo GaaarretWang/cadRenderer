@@ -31,7 +31,7 @@
 
 # 接口文档
 ## 文件结构简介
-根目录中实现本地数据的读取，实现Rendering类和RenderingServer类，模拟服务器与客户端的数据传输，该部分仿照AR引擎中的渲染模块接口进行设计，便于迁移，asset文件夹可以直接替换AR引擎中渲染模块的asset文件夹
+根目录中实现本地数据的读取，实现Rendering类和RenderingServer类，模拟服务器与客户端的数据传输，该部分仿照AR引擎中的渲染模块接口进行设计，便于迁移。asset文件夹为渲染器的实现，可以直接替换AR引擎中渲染模块的asset文件夹
 ## Rendering类和RenderingServer类
 #### 控制量
 ```bash  
