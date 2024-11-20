@@ -53,7 +53,7 @@
     // false: 在非相机跟踪时使用深度剔除的shader
     bool trackingShader = true;
 ```
-### 函数接口
+#### 函数接口
 ```bash  
     // 在程序开始调用一次初始化
     int Init();
