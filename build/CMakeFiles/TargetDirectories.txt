@@ -1,0 +1,6 @@
+/home/lzr/下载/cadRenderer-main/build/CMakeFiles/Rendering.dir
+/home/lzr/下载/cadRenderer-main/build/CMakeFiles/edit_cache.dir
+/home/lzr/下载/cadRenderer-main/build/CMakeFiles/rebuild_cache.dir
+/home/lzr/下载/cadRenderer-main/build/asset/CMakeFiles/vsgRenderer.dir
+/home/lzr/下载/cadRenderer-main/build/asset/CMakeFiles/edit_cache.dir
+/home/lzr/下载/cadRenderer-main/build/asset/CMakeFiles/rebuild_cache.dir

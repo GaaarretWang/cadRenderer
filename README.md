@@ -28,4 +28,3 @@
     cd cadRenderer
     bash run.sh
 ```
-# Renderer

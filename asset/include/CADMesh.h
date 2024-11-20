@@ -7,8 +7,6 @@
 #include "OBJLoader.h"
 #define EXPLODE
 
-extern int global_argc; 
-extern char** global_argv;
 struct RGB
 {
     float r, g, b;
@@ -165,6 +163,9 @@ public:
     std::vector<vsg::ref_ptr<vsg::vec3Array>> normalsVector;
     std::vector<vsg::ref_ptr<vsg::vec2Array>> coordinatesVector;
     std::vector<vsg::ref_ptr<vsg::uintArray>> indicesVector;
+    std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> materialVector;
+    std::vector<std::vector<float>> transformVector;
+    std::vector<int> transformNumVector;
     
     RenderInfo info;
 
@@ -179,14 +180,15 @@ public:
 
     vsg::ref_ptr<vsg::StateGroup> stateGroup_total = vsg::StateGroup::create();
         
+        
     //����ģ��
     // void buildnode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, vsg::ref_ptr<vsg::ImageInfo>* imageInfos, vsg::ref_ptr<vsg::Data> real_color, vsg::ref_ptr<vsg::Data> real_depth);
     void drawLine(vsg::vec3& begin, vsg::vec3& end, vsg::ref_ptr<vsg::Group> scene);
-    void buildNewNode(bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader);
+    void buildNewNode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene);
     void buildPlaneNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
-    void buildObjNode(const char* path, const char* material_path, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
-    void transferModel(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
+    void buildObjNode(const char* path, const char* material_path, const vsg::dmat4& modelMatrix);
+    void transferModel(const std::string& path, bool fullNormal, const vsg::dmat4& modelMatrix);
     // void buildInstance(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
 
     // void explode();

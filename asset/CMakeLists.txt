@@ -4,9 +4,15 @@ find_package(vsg REQUIRED)
 
 add_library(vsgRenderer SHARED ${assetSRCS})
 set(render_LIB_PATH 
-    ${CMAKE_CURRENT_SOURCE_DIR}/lib/
+	${CMAKE_CURRENT_SOURCE_DIR}/lib/
 )
 set_target_properties(vsgRenderer PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${render_LIB_PATH})
+
+target_link_libraries(vsgRenderer
+    flatbuffers
+    vsg::vsg
+    libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY}
+)
 
 target_include_directories(vsgRenderer PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include

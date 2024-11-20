@@ -137,7 +137,10 @@ void* getExportHandle(vsg::ref_ptr<vsg::Image> image, vsg::ref_ptr<vsg::Device> 
     fdInfo.handleType = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
 
     auto func = (PFN_vkGetMemoryFdKHR) \
-        vkGetDeviceProcAddr(m_device->vk(), "vkGetMemoryFdKHR");
+        vkGetDeviceProcAddr(m_device->vk(), "vkGetMemoryFdKHR");//
+
+    //VkResult a =func(m_device->vk(), &fdInfo, &fd);
+
     if (!func ||
         func(m_device->vk(), &fdInfo, &fd) != VK_SUCCESS) {
         return nullptr;

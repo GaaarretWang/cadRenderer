@@ -1,4 +1,5 @@
 #include "ConfigShader.h"
+#include <iostream>
 
 vsg::ref_ptr<vsg::ShaderSet> ConfigShader::buildIntgShader(std::string vert, std::string frag)
 {

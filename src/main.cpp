@@ -9,8 +9,6 @@
 simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
 int main(int argc, char** argv){
-    global_argc = argc;
-    global_argv = argv;
     std::vector<std::vector<double>> camera_pos;
     std::vector<std::string> camera_pos_timestamp;
     int frame =  0;
@@ -49,13 +47,14 @@ int main(int argc, char** argv){
     inf.close();
 
     RenderingServer rendering_server;
-    rendering_server.Init();
+    rendering_server.Init(argc, argv);
     Rendering rendering_client;
     rendering_client.Init(rendering_server.device);
     while(true){
         rendering_server.color_path = "../asset/data/dataset3/color/" + camera_pos_timestamp[frame] + ".png";
         rendering_server.depth_path = "../asset/data/dataset3/depth/" + camera_pos_timestamp[frame] + ".png";
         rendering_server.lookat_vector = camera_pos[frame];
+        
         rendering_server.Update();
         if(rendering_server.vPacket.size() > 0)
             std::cout << rendering_server.vPacket[0].size() << std::endl;

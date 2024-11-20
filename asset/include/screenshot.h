@@ -22,7 +22,20 @@ public:
     {
         if(type != NONE){
             m_encoder = new NvEncoderWrapper();
-            m_encoder->initCuda(window->getOrCreateDevice()->getInstance(), window);
+
+            vsg::Instance* instance;
+            try
+            {
+                instance = window->getOrCreateDevice()->getInstance();
+            }
+            catch(const vsg::Exception& e)
+            {
+                std::cerr << e.message << '\n';
+                std::cout << "1111111111111111111" << std::endl;
+            }
+            
+            m_encoder->initCuda(instance, window);
+
             if(type == ENCODER)
                 m_encoder->initEncoder(window->extent2D());
             else if(type == DECODER){
@@ -476,6 +489,9 @@ public:
                 std::memcpy(imageData->dataPointer(row * width), mappedData->dataPointer(row * subResourceLayout.rowPitch), destRowWidth);
             }
         }
+        
+        uint8_t* beginPointer = static_cast<uint8_t*>(imageData->dataPointer(0));
+        std::copy(beginPointer, beginPointer + width * height * 4, color);
 
         // std::vector<uint8_t> color_image(3 * width * height);
         // for (int i = 0; i < width * height; i++)
@@ -552,7 +568,7 @@ public:
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,                          // newLayout
             VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
             VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
-            m_encoder->encode_destination_image,                                              // image
+            m_encoder->encode_destination_image,                           // image
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
         );
 
@@ -663,7 +679,7 @@ public:
         auto commandPool = vsg::CommandPool::create(device, queueFamilyIndex);
         auto queue = device->getQueue(queueFamilyIndex);
 
-        vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
+        vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {//持续等待100000000000
             commands->record(commandBuffer);
         });
 
