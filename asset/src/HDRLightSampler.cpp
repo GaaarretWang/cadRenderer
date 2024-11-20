@@ -55,25 +55,14 @@ size_t HDRLightSampler::findBrightestInArea(int areaX, int areaY, int totalAreas
     int startY = areaY * hdrImage.height / totalAreasY;
     int endY = (areaY + 1) * hdrImage.height / totalAreasY;
 
-    // 计算区域的起始和结束索引
-    size_t startIndex = startY * hdrImage.width + startX;
-    size_t endIndex = (endY - 1) * hdrImage.width + (endX - 1);
+    float maxLuminance = 0.0f;
+    size_t brightestIndex = startY * hdrImage.width + startX;
 
-    // 使用CDF找到区域内最大亮度的索引
-    float startCDF = (startIndex > 0) ? cdf[startIndex - 1] : 0.0f;
-    float endCDF = cdf[endIndex];
-
-    // 区域内的最大CDF差值对应最亮的点
-    float maxCDFDiff = 0.0f;
-    size_t brightestIndex = startIndex;
-
-    for (size_t y = startY; y < endY; ++y) {
-        for (size_t x = startX; x < endX; ++x) {
+    for (int y = startY; y < endY; ++y) {
+        for (int x = startX; x < endX; ++x) {
             size_t index = y * hdrImage.width + x;
-            float cdfDiff = cdf[index] - ((index > 0) ? cdf[index - 1] : 0.0f);
-            
-            if (cdfDiff > maxCDFDiff) {
-                maxCDFDiff = cdfDiff;
+            if (luminanceMap[index] > maxLuminance) {
+                maxLuminance = luminanceMap[index];
                 brightestIndex = index;
             }
         }
@@ -105,13 +94,14 @@ void HDRLightSampler::computeCDF() {
 }
 
 std::vector<LightInfo> HDRLightSampler::sampleLights(uint32_t numSamples) {
-    /*
     std::cout << "Sampling lights with area division..." << std::endl;
+
+    buildKDTree(luminanceMap, hdrImage.width, hdrImage.height);
 
     std::vector<LightInfo> lights;
     int areasX = std::ceil(std::sqrt(numSamples));
     int areasY = std::ceil(static_cast<float>(numSamples) / areasX);
-    
+
     for (int y = 0; y < areasY; ++y) {
         for (int x = 0; x < areasX; ++x) {
             size_t brightestIndex = findBrightestInArea(x, y, areasX, areasY);
@@ -121,29 +111,9 @@ std::vector<LightInfo> HDRLightSampler::sampleLights(uint32_t numSamples) {
         }
     }
 
-    return lights;
-    */
-    std::cout << "Sampling lights with importance sampling and suppression..." << std::endl;
+    //return lights;
 
-    std::vector<LightInfo> lights;
-    std::vector<float> samplingProbability = luminanceMap;
-
-    for (uint32_t i = 0; i < numSamples; ++i) {
-        size_t selectedIndex = importanceSample(samplingProbability);
-        
-        //lights.push_back(createLightFromIndex(selectedIndex));
-        
-        // 局部抑制：降低已选中点周围区域的采样概率
-        //suppressArea(samplingProbability, selectedIndex);
-    }
-
-    //手动选取
-    lights.push_back(createLightFromXY(110, 150));
-    lights.push_back(createLightFromXY(265, 150));
-    lights.push_back(createLightFromXY(600, 145));
-    lights.push_back(createLightFromXY(178, 135));
-
-    return lights;
+    return sampleLightsFromKDTree(numSamples);
 }
 
 LightInfo HDRLightSampler::createLightFromIndex(size_t index) {
@@ -222,32 +192,91 @@ LightInfo HDRLightSampler::createLightFromXY(int _x, int _y) {
 
 }
 
-size_t HDRLightSampler::importanceSample(const std::vector<float>& probabilities) {
-    float totalProbability = std::accumulate(probabilities.begin(), probabilities.end(), 0.0f);
-    float r = static_cast<float>(rand()) / RAND_MAX * totalProbability;
+void HDRLightSampler::buildKDTree(const std::vector<float>& luminanceMap, int width, int height) {
+    imageWidth = width;
+    imageHeight = height;
+    std::vector<Pixel> pixels;
 
-    float cumulativeProbability = 0.0f;
-    for (size_t i = 0; i < probabilities.size(); ++i) {
-        cumulativeProbability += probabilities[i];
-        if (r <= cumulativeProbability) {
-            return i;
+    for (int y = 0; y < height; ++y) {
+        for (int x = 0; x < width; ++x) {
+            size_t index = y * width + x;
+            pixels.push_back({x, y, luminanceMap[index]});
         }
     }
 
-    return probabilities.size() - 1;//返回最后一个
+    root = buildKDTreeRecursive(pixels, 0);
 }
 
-void HDRLightSampler::suppressArea(std::vector<float>& probabilities, size_t centerIndex) {
-    int centerX = centerIndex % hdrImage.width;
-    int centerY = centerIndex / hdrImage.width;
-    int suppressRadius = std::min(hdrImage.width, hdrImage.height) / 20;  // 可调整的抑制半径
+KDNode* HDRLightSampler::buildKDTreeRecursive(std::vector<Pixel>& pixels, int depth) {
+    if (pixels.empty()) return nullptr;
 
-    for (int y = std::max(0, centerY - suppressRadius); y < std::min(static_cast<int>(hdrImage.height), centerY + suppressRadius); ++y) {
-        for (int x = std::max(0, centerX - suppressRadius); x < std::min(static_cast<int>(hdrImage.width), centerX + suppressRadius); ++x) {
-            size_t index = y * hdrImage.width + x;
-            float distance = std::sqrt(std::pow(x - centerX, 2) + std::pow(y - centerY, 2));
-            float suppressionFactor = std::max(0.0f, 1.0f - distance / suppressRadius);
-            probabilities[index] *= (1.0f - suppressionFactor);
+        // Calculate variance in x and y directions
+    float varianceX = calculateVariance(pixels, 0);
+    float varianceY = calculateVariance(pixels, 1);
+
+    // Choose the axis with the maximum variance
+    int axis = (varianceX > varianceY) ? 0 : 1;
+    std::sort(pixels.begin(), pixels.end(), [axis](const Pixel& a, const Pixel& b) {
+        return (axis == 0) ? a.x < b.x : a.y < b.y;
+    });
+
+    size_t medianIndex = pixels.size() / 2;
+    KDNode* node = new KDNode{pixels[medianIndex], nullptr, nullptr};
+
+    std::vector<Pixel> leftPixels(pixels.begin(), pixels.begin() + medianIndex);
+    std::vector<Pixel> rightPixels(pixels.begin() + medianIndex + 1, pixels.end());
+
+    node->left = buildKDTreeRecursive(leftPixels, depth + 1);
+    node->right = buildKDTreeRecursive(rightPixels, depth + 1);
+
+    return node;
+}
+
+std::vector<LightInfo> HDRLightSampler::sampleLightsFromKDTree(uint32_t numSamples) {
+    std::vector<LightInfo> lights;
+    sampleFromKDTree(root, lights, numSamples);
+    return lights;
+}
+
+void HDRLightSampler::sampleFromKDTree(KDNode* node, std::vector<LightInfo>& lights, uint32_t& numSamples) {
+    if (!node || numSamples == 0) return;
+
+    // Create light from current node
+    if(node->pixel.luminance > 0.9f) {
+        lights.push_back(createLightFromXY(node->pixel.x, node->pixel.y));
+        --numSamples;
+    }
+    
+    // Recursively sample from left and right children
+    sampleFromKDTree(node->left, lights, numSamples);
+    sampleFromKDTree(node->right, lights, numSamples);
+}
+
+float HDRLightSampler::calculateVariance(const std::vector<Pixel>& pixels, int axis) {
+    float mean = 0.0f;
+    float variance = 0.0f;
+
+    if (axis == 0) {
+        for (const Pixel& p : pixels) {
+            mean += p.x * p.luminance;
+        }
+    } else {
+        for (const Pixel& p : pixels) {
+            mean += p.y * p.luminance;
         }
     }
+    mean /= pixels.size();
+
+    if (axis == 0) {
+        for (const Pixel& p : pixels) {
+            variance += p.luminance * (p.x - mean) * (p.x - mean);
+        }
+    } else {
+        for (const Pixel& p : pixels) {
+            variance += p.luminance * (p.y - mean) * (p.y - mean);
+        }
+    }
+    variance /= pixels.size();
+
+    return variance;
 }
