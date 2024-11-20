@@ -34,7 +34,7 @@
 根目录中实现本地数据的读取，实现Rendering类和RenderingServer类，模拟服务器与客户端的数据传输，该部分仿照AR引擎中的渲染模块接口进行设计，便于迁移。asset文件夹为渲染器的实现，可以直接替换AR引擎中渲染模块的asset文件夹
 ## Rendering类和RenderingServer类
 #### 控制量
-```bash  
+```cpp  
     // 数据集分辨率低，该参数为渲染提升分辨率的倍数
     double upsample_scale = 2; 
     
@@ -54,7 +54,7 @@
     bool trackingShader = true;
 ```
 #### 函数接口
-```bash  
+```cpp  
     // 在程序开始调用一次初始化
     int Init();
 
