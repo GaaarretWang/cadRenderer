@@ -1,4 +1,5 @@
 #pragma  once
+
 #include "vsg/all.h"
 
 class ConfigShader{
