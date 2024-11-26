@@ -356,7 +356,7 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
 		//DataInterface::removeModelData(cadFileName);
 	}
 	auto info = datainterface.getRenderInfo();
-	auto pmi = datainterface.getPmiInfos(true);
+	pmi = datainterface.getPmiInfos(true);
 	auto instances = datainterface.getInstances();
 
     auto options = vsg::Options::create();

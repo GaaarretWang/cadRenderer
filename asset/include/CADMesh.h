@@ -159,6 +159,7 @@ public:
     // std::unordered_map<std::string, int> instanceIndex;     
     // std::unordered_map<std::string, treeNode> nodePtr;        //
 
+    std::vector<pmiInfo> pmi;
     std::vector<vsg::ref_ptr<vsg::vec3Array>> verticesVector;
     std::vector<vsg::ref_ptr<vsg::vec3Array>> normalsVector;
     std::vector<vsg::ref_ptr<vsg::vec2Array>> coordinatesVector;
