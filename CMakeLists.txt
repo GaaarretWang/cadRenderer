@@ -6,9 +6,9 @@ project(Rendering
         LANGUAGES CXX C CUDA
 )
 
-
+# set_property(TARGET tgt PROPERTY CUDA_ARCHITECTURES native)
+# set(CMAKE_CUDA_ARCHITECTURES tgt)
 find_package(CUDA REQUIRED)
-# set(CMAKE_CUDA_ARCHITECTURES 61)
 
 #find_package(vsg REQUIRED)
 

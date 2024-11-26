@@ -415,17 +415,13 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
             scenegraph->addChild(transforms);
         }
     }
-    auto dynamicTransform = vsg::MatrixTransform::create();
-    float scale = 0.5f;
-    vsg::vec3 scale_factors(scale, scale, scale);
-    vsg::mat4 scale_matrix = vsg::scale(scale_factors);
-    //vsg::mat4 translate_matrix = vsg::translate(100.0f, 0.0f, 0.0f);
-    vsg::mat4 mix_matrix;
-    for (int m = 0; m < 4; m++)
-        for (int n = 0; n < 4; n++)
-            mix_matrix[m][n] = modelMatrix[m][n];
-    //dynamicTransform->matrix = scale_matrix * mix_matrix;
-    dynamicTransform->matrix = modelMatrix;
-    dynamicTransform->addChild(scenegraph);
-    scene->addChild(dynamicTransform);
+
+    treeNode top;
+    top.transform = vsg::MatrixTransform::create();
+    top.transform->addChild(scenegraph);
+    top.transform->matrix = modelMatrix;
+    top.originalMatrix = modelMatrix;
+    nodePtr[""] = top;
+
+    scene->addChild(top.transform);
 }
