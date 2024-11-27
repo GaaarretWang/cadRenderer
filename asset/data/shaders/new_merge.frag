@@ -29,10 +29,12 @@ void main()
     if(shadow > 1.0)
         shadow = 1.0;
 
-    if(intCadDepth <= 0.9)
+    if(intCadDepth <= intPlaneDepth)
         outColor.rgb = texture(cadColor, screenUV).rgb;
-    else
+    else if(intShadowDepth <= intPlaneDepth)
         outColor.rgb = texture(planeColor, screenUV).rgb * shadow;
+    else
+        outColor.rgb = texture(planeColor, screenUV).rgb;
 
     //outColor.rgb = vec3(texture(shadowDepth, screenUV).r * 100);
     //outColor.rgb = vec3(screenUV.x, screenUV.y, 1.0);
