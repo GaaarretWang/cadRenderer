@@ -126,16 +126,16 @@ std::vector<LightInfo> HDRLightSampler::sampleLights(uint32_t numSamples) {
     std::cout << "Sampling lights with importance sampling and suppression..." << std::endl;
 
     std::vector<LightInfo> lights;
-    std::vector<float> samplingProbability = luminanceMap;
+    // std::vector<float> samplingProbability = luminanceMap;
 
-    for (uint32_t i = 0; i < numSamples; ++i) {
-        size_t selectedIndex = importanceSample(samplingProbability);
+    // for (uint32_t i = 0; i < numSamples; ++i) {
+    //     size_t selectedIndex = importanceSample(samplingProbability);
         
-        //lights.push_back(createLightFromIndex(selectedIndex));
+    //     //lights.push_back(createLightFromIndex(selectedIndex));
         
-        // 局部抑制：降低已选中点周围区域的采样概率
-        //suppressArea(samplingProbability, selectedIndex);
-    }
+    //     // 局部抑制：降低已选中点周围区域的采样概率
+    //     //suppressArea(samplingProbability, selectedIndex);
+    // }
 
     //手动选取
     lights.push_back(createLightFromXY(110, 150));
