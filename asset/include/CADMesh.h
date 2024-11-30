@@ -159,6 +159,7 @@ public:
     // std::unordered_map<std::string, int> instanceIndex;     
     // std::unordered_map<std::string, treeNode> nodePtr;        //
 
+    std::vector<pmiInfo> pmi;
     std::vector<vsg::ref_ptr<vsg::vec3Array>> verticesVector;
     std::vector<vsg::ref_ptr<vsg::vec3Array>> normalsVector;
     std::vector<vsg::ref_ptr<vsg::vec2Array>> coordinatesVector;
@@ -184,7 +185,6 @@ public:
     //����ģ��
     // void buildnode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, vsg::ref_ptr<vsg::ImageInfo>* imageInfos, vsg::ref_ptr<vsg::Data> real_color, vsg::ref_ptr<vsg::Data> real_depth);
-    void drawLine(vsg::vec3& begin, vsg::vec3& end, vsg::ref_ptr<vsg::Group> scene);
     void buildNewNode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene);
     void buildPlaneNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void buildObjNode(const char* path, const char* material_path, const vsg::dmat4& modelMatrix);
