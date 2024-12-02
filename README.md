@@ -63,7 +63,7 @@
 ```cpp  
     // 在程序开始调用一次初始化
     int Init();
-
+```
 # 环境光贴图接口文档
 
 ## 目录
@@ -581,6 +581,5 @@ ptr<Node> iblDemoSceneGraph(VsgContext& context)
 - 当前实现中注释掉了一些可能用于设置IBL相关描述符集的代码
     // 每次渲染循环都调用
     int Update();
-```
 
 
