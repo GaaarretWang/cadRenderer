@@ -439,7 +439,7 @@ public:
                 
                 ModelInstance* instance_phong = new ModelInstance();
                 //instance_phong->buildInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
-                instance_phong->buildFbInstance(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
+                instance_phong->buildFbInstance(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i], options);
                 //instance_phong->buildInstanceIBL(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
                 instance_phongs[instance_names[i]] = instance_phong;
                 
@@ -502,7 +502,7 @@ public:
             view->mask = MASK_PBR_FULL;
             view->viewDependentState = CustomViewDependentState::create(view.get());
             auto renderGraph = vsg::RenderGraph::create(window, view);
-            renderGraph->clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
+            renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
             auto commandGraph = vsg::CommandGraph::create(window);
             commandGraph->addChild(renderGraph);
             viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
@@ -583,10 +583,14 @@ public:
             storageImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
             storageImagesIBL[i] = storageImage;
             auto context = vsg::Context::create(window->getOrCreateDevice());
+            auto sampler = vsg::Sampler::create();
+            sampler->magFilter = VK_FILTER_NEAREST;
+            sampler->minFilter = VK_FILTER_NEAREST;
+
             if (i % 2 == 0){
-                imageInfosIBL[i] = vsg::ImageInfo::create(vsg::Sampler::create(), vsg::createImageView(*context, storageImage, VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                imageInfosIBL[i] = vsg::ImageInfo::create(sampler, vsg::createImageView(*context, storageImage, VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
             }else{
-                imageInfosIBL[i] = vsg::ImageInfo::create(vsg::Sampler::create(), vsg::createImageView(*context, storageImage, VK_IMAGE_ASPECT_DEPTH_BIT), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                imageInfosIBL[i] = vsg::ImageInfo::create(sampler, vsg::createImageView(*context, storageImage, VK_IMAGE_ASPECT_DEPTH_BIT), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
             }
             copyImagesIBL[i] = vsg::CopyImage::create();
             copyImagesIBL[i]->dstImage = storageImage;

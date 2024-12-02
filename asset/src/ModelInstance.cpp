@@ -388,17 +388,14 @@ void ModelInstance::drawLine(vsg::vec3& begin, vsg::vec3& end, vsg::ref_ptr<vsg:
     indices.push_back(positionToIndex[endPoint]);
 }
 
-void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_ibl, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix){
+void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_ibl, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::Options> options){
     
     vsg::ref_ptr<vsg::Group> scenegraph = vsg::Group::create();
     vsg::ref_ptr<vsg::Group> text_scenegraph = vsg::Group::create();
 
-    auto options = vsg::Options::create();
     auto builder = vsg::Builder::create();
-    options->fileCache = vsg::getEnv("VSG_FILE_CACHE"); //2
-    options->paths = vsg::getEnvPaths("VSG_FILE_PATH");
     options->sharedObjects = vsg::SharedObjects::create();
-    std::string font_filename = "/home/lzr/下载/cadRenderer-main/asset/data/fonts/times.vsgt";
+    std::string font_filename = vsg::findFile("fonts/times.vsgt", options->paths);
     auto font = vsg::read_cast<vsg::Font>(font_filename, options);
     if(!font){
         std::cout << "failed to read font" << std::endl;

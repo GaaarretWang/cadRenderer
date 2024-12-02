@@ -6,7 +6,7 @@ public:
     int width = 640;
     int height = 480;
     bool use_png = true;
-    bool trackingViewMatrix = false;
+    bool not_initialized = true;
     bool trackingShader = false;
     std::string* real_color1;
     std::string* real_depth1;
