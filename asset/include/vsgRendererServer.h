@@ -15,7 +15,7 @@
 #include "CADMeshIBL.h"
 #include "HDRLightSampler.h"
 
-// #include "fixDepth.h"
+#include "fixDepth.h"
 
 using namespace std;
 
@@ -231,7 +231,7 @@ public:
             viewer_IBL->present();
             break;
         }
-        viewer_IBL->recordAndSubmitTasks.clear();
+        // viewer_IBL->recordAndSubmitTasks.clear();
 
         auto drawSkyboxNode = IBL::drawSkyboxVSGNode(vsgContext);
 
@@ -711,6 +711,8 @@ public:
         extent.height = render_height;
         final_screenshotHandler = ScreenshotHandler::create(final_window, extent, ENCODER);
         screenshotHandler = ScreenshotHandler::create();        
+        
+        allocate_fix_depth_memory(render_width, render_height);
     }
 
     void setRealColorAndImage(const std::string& real_color, const std::string& real_depth){
@@ -743,31 +745,34 @@ public:
         //--------------------------------------------------------------渲染循环----------------------------------------------------------//
         if (viewer->advanceToNextFrame() && final_viewer->advanceToNextFrame())
         {
+            fix_depth(width, height, depth_pixels);
             uint8_t* vsg_color_image_beginPointer = static_cast<uint8_t*>(vsg_color_image->dataPointer(0));
             std::copy(color_pixels, color_pixels + width * height * 3, vsg_color_image_beginPointer);
             uint16_t* vsg_depth_image_beginPointer = static_cast<uint16_t*>(vsg_depth_image->dataPointer(0));
             std::copy(depth_pixels, depth_pixels + width * height, vsg_depth_image_beginPointer);
 
+            
+
             // depth fit 
-            for(int iterate_num = 0; iterate_num < 30; iterate_num++){
-                for(int i = 0; i < height; i++){
-                    for(int j = 0; j < width; j++){
-                        uint16_t* depth_pixel = static_cast<uint16_t*>(vsg_depth_image->dataPointer(width * i + j));
-                        if(*depth_pixel < 100){
-                            for(int m = -1; m <= 1; m ++){ //height
-                                for(int n = -1; n <= 1; n ++){ //width
-                                    if((i + m) >= 0 && (i + m) < height && (j + n) >= 0 && (j + n) < width){
-                                        uint16_t* neighbor_pixel = static_cast<uint16_t*>(vsg_depth_image->dataPointer(width * (i + m) + (j + n)));
+            // for(int iterate_num = 0; iterate_num < 30; iterate_num++){
+            //     for(int i = 0; i < height; i++){
+            //         for(int j = 0; j < width; j++){
+            //             uint16_t* depth_pixel = static_cast<uint16_t*>(vsg_depth_image->dataPointer(width * i + j));
+            //             if(*depth_pixel < 100){
+            //                 for(int m = -1; m <= 1; m ++){ //height
+            //                     for(int n = -1; n <= 1; n ++){ //width
+            //                         if((i + m) >= 0 && (i + m) < height && (j + n) >= 0 && (j + n) < width){
+            //                             uint16_t* neighbor_pixel = static_cast<uint16_t*>(vsg_depth_image->dataPointer(width * (i + m) + (j + n)));
                                         
-                                        if(*neighbor_pixel > 100)
-                                            *depth_pixel = *neighbor_pixel;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            //                             if(*neighbor_pixel > 100)
+            //                                 *depth_pixel = *neighbor_pixel;
+            //                         }
+            //                     }
+            //                 }
+            //             }
+            //         }
+            //     }
+            // }
 
             vsg_color_image->dirty();
             vsg_depth_image->dirty();
