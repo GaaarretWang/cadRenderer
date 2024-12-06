@@ -699,7 +699,7 @@ public:
         auto final_renderGraph = vsg::RenderGraph::create(final_window, final_view); //如果用Env_window会报错
         final_renderGraph->clearValues[0].color = {{0.8f, 0.8f, 0.8f, 1.f}};
         auto final_commandGraph = vsg::CommandGraph::create(final_window); //如果用Env_window会报错
-        for (int i = 0; i <= 4; i++){
+        for (int i = 0; i < 4; i++){
             final_commandGraph->addChild(copyImagesIBL[i]);
         }
         final_commandGraph->addChild(final_renderGraph);
