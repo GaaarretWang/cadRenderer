@@ -1,6 +1,11 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "Rendering.h"
 #include "RenderingServer.h"
+#include <iostream>
+#include <vsg/all.h>
+#include <CADMesh.h>
+#include "communication/dataInterface.h"
+#include <string>
 simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
 int main(int argc, char** argv){

@@ -14,6 +14,7 @@
 #include "IBL.h"
 #include "CADMeshIBL.h"
 #include "HDRLightSampler.h"
+#include "PlaneLoader.h"
 
 #include "screenshotIBL.h"
 
@@ -346,14 +347,6 @@ public:
         auto numShadowMapsPerLight = 10; //每个光源的阴影贴图数量
         auto numLights = 2;                //光源数量
 
-        //是否使用线框表示
-        bool wireFrame = 0;
-        if (wireFrame)
-        {
-            auto rasterizationState = vsg::RasterizationState::create();
-            rasterizationState->polygonMode = VK_POLYGON_MODE_LINE;
-            phong_shader->defaultGraphicsPipelineStates.push_back(rasterizationState);
-        }
         //---------------------------------------------------场景创建--------------------------------------//
         auto cadScenegraph = vsg::Group::create();
         auto envScenegraph = vsg::Group::create();
@@ -377,6 +370,16 @@ public:
 
         vsg::ref_ptr<vsg::PbrMaterialValue> objectMaterial;
         auto pbriblShaderSet = IBL::customPbrShaderSet(options);//
+        
+        bool wireFrame = 1;
+        //if (arguments.read("--wireframe")) wireFrame = 1;
+        if (wireFrame)
+        {
+            auto rasterizationState = vsg::RasterizationState::create();
+            rasterizationState->polygonMode = VK_POLYGON_MODE_LINE;
+            pbriblShaderSet->defaultGraphicsPipelineStates.push_back(rasterizationState);
+        }
+
         //材质
         auto plane_mat = vsg::PbrMaterialValue::create();
         plane_mat->value().roughnessFactor = 0.5f;
@@ -450,20 +453,24 @@ public:
         gpc_shadow->assignDescriptor("material", plane_mat);
         gpc_shadow->init();
 
-        //---------------------------------------读取CAD模型------------------------------------------//
         CADMesh cad;
-
         //读取.fb格式的模型参数信息
         bool fullNormal = 0;
 
-            
+        PlaneData planeData = createTestPlanes();
+        int subdivisions = 4;
+        PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
+
+        MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
+
         vsg::ref_ptr<vsg::Node> reconstructRoot;
         vsg::ref_ptr<vsg::Geometry> reconstructDrawCmd;
         {
             auto roomFilepath = vsg::findFile("geos/plane.ply", options->paths);
             SimpleMesh importMesh;
             if (importMeshPly(roomFilepath.string(), importMesh))
-            {
+            {   
+                /*
                 reconstructDrawCmd = vsg::Geometry::create();
                 reconstructDrawCmd->assignArrays({importMesh.vertices,
                                                 importMesh.normals,
@@ -471,7 +478,15 @@ public:
                                                 vsg::vec4Value::create(1, 1, 1, 1)});
                 reconstructDrawCmd->assignIndices(importMesh.indices);
                 reconstructDrawCmd->commands.push_back(vsg::DrawIndexed::create(importMesh.numIndices, 1, 0, 0, 0));
+                */
 
+                reconstructDrawCmd->assignArrays({mesh.vertices,
+                                          mesh.normals,
+                                          vsg::vec2Array::create(1),
+                                          vsg::vec4Value::create(1, 1, 1, 1)});
+                reconstructDrawCmd->assignIndices(mesh.indices);
+                reconstructDrawCmd->commands.push_back(vsg::DrawIndexed::create(mesh.indices->size(), 1, 0, 0, 0));
+                    
                 auto stateSwtich = vsg::Switch::create();
                 auto pbrStateGroup = vsg::StateGroup::create();
                 auto gpc_mesh = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
@@ -486,7 +501,7 @@ public:
                 //stateSwtich->addChild(MASK_PBR_FULL | MASK_FAKE_BACKGROUND, pbrStateGroup);
                 //stateSwtich->addChild(MASK_DRAW_SHADOW, shadowStateGroup);
 
-                //rootSwitch->addChild(MASK_FAKE_BACKGROUND | MASK_SHADOW_CASTER, pbrStateGroup);
+                rootSwitch->addChild(MASK_FAKE_BACKGROUND | MASK_SHADOW_CASTER, pbrStateGroup);
                 rootSwitch->addChild(MASK_DRAW_SHADOW, shadowStateGroup);
                 reconstructRoot = stateSwtich;
             }
@@ -496,7 +511,7 @@ public:
             }
         }
 
-    
+        //---------------------------------------读取CAD模型------------------------------------------//
         for(int i = 0; i < model_paths.size(); i ++){
             std::string &path_i = model_paths[i];
             size_t pos = path_i.find_last_of('.');

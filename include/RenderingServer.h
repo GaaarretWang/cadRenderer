@@ -6,8 +6,8 @@ public:
     int width = 640;
     int height = 480;
     bool use_png = true;
-    bool trackingViewMatrix = false;
-    bool trackingShader = true;
+    bool not_initialized = true;
+    bool trackingShader = false;
     std::string* real_color1;
     std::string* real_depth1;
     std::vector<double> lookat_vector = {0.000588, 0.739846, -0.903124, 0.087284, 1.51642, -0.279094, 0.163545, -0.628984, 0.760021};

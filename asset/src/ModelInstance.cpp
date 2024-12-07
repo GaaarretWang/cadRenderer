@@ -368,3 +368,222 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
 
     scene->addChild(top.transform);
 }
+
+void ModelInstance::drawLine(vsg::vec3& begin, vsg::vec3& end, vsg::ref_ptr<vsg::Group> scene)
+{
+    vsg::vec3 beginPoint = vsg::vec3(begin.x, begin.y, begin.z);
+    if (positionToIndex.count(beginPoint) == 0) //if unique
+    {
+        positionToIndex[beginPoint] = static_cast<uint32_t>(positions.size());
+        positions.push_back(beginPoint);
+    }
+    indices.push_back(positionToIndex[beginPoint]);
+
+    vsg::vec3 endPoint = vsg::vec3(end.x, end.y, end.z);
+    if (positionToIndex.count(endPoint) == 0) //if unique
+    {
+        positionToIndex[endPoint] = static_cast<uint32_t>(positions.size());
+        positions.push_back(endPoint);
+    }
+    indices.push_back(positionToIndex[endPoint]);
+}
+
+void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_ibl, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::Options> options){
+    
+    vsg::ref_ptr<vsg::Group> scenegraph = vsg::Group::create();
+    vsg::ref_ptr<vsg::Group> text_scenegraph = vsg::Group::create();
+
+    auto builder = vsg::Builder::create();
+    options->sharedObjects = vsg::SharedObjects::create();
+    std::string font_filename = vsg::findFile("fonts/times.vsgt", options->paths);
+    auto font = vsg::read_cast<vsg::Font>(font_filename, options);
+    if(!font){
+        std::cout << "failed to read font" << std::endl;
+    }
+    auto pmi = mesh->pmi;
+    auto geomInfo = mesh->geomInfo;
+    auto stateInfo = mesh->stateInfo;
+
+    for (int i = 0; i < pmi.size(); i++)
+    {
+        //std::cout << pmi[i].instanceMatrixList.size() << std::endl;
+        if (pmi[i].type == "Diagonal" || pmi[i].type == "Horizontal") {
+
+            vsg::vec3 temp1 = vsg::vec3(pmi[i].points[0][0], pmi[i].points[0][1], pmi[i].points[0][2]);
+            vsg::vec3 temp2 = vsg::vec3(pmi[i].points[1][0], pmi[i].points[1][1], pmi[i].points[1][2]);
+            vsg::vec3 temp3 = vsg::vec3(pmi[i].points[2][0], pmi[i].points[2][1], pmi[i].points[2][2]);
+            vsg::vec3 temp4 = vsg::vec3(pmi[i].points[3][0], pmi[i].points[3][1], pmi[i].points[3][2]);
+            vsg::vec3 temp5 = vsg::vec3((3 * pmi[i].points[1][0] + 2 * pmi[i].points[3][0]) / 5, (3 * pmi[i].points[1][1] + 2 * pmi[i].points[3][1]) / 5, (3 * pmi[i].points[1][2] + 2 * pmi[i].points[3][2]) / 5);
+            vsg::vec3 temp6 = vsg::vec3((3 * pmi[i].points[3][0] + 2 * pmi[i].points[1][0]) / 5, (3 * pmi[i].points[3][1] + 2 * pmi[i].points[1][1]) / 5, (3 * pmi[i].points[3][2] + 2 * pmi[i].points[1][2]) / 5);
+            vsg::vec3 textx = vsg::vec3((pmi[i].points[1][0] + pmi[i].points[3][0]) / 2, (pmi[i].points[1][1] + pmi[i].points[3][1]) / 2, (pmi[i].points[1][2] + pmi[i].points[3][2]) / 2);
+            //vsg::vec3 texty = vsg::vec3((pmi[i].points[3][0] + pmi[i].points[1][0]) / 2, (pmi[i].points[3][1] + pmi[i].points[1][1]) / 2, 0);
+
+            vsg::mat4 transforms;
+            for (int m = 0; m < 4; m++)
+                for (int n = 0; n < 4; n++)
+                {
+                    transforms[m][n] = pmi[i].instanceMatrixList[0].at(m * 4 + n);
+                }
+            //temp1 = transforms * temp1;
+            //temp2 = transforms * temp2;
+            //temp3 = transforms * temp3;
+            //temp4 = transforms * temp4;
+            //temp5 = transforms * temp5;
+            //temp6 = transforms * temp6;
+            //textx = transforms * textx;
+            auto layout = vsg::StandardLayout::create();
+            layout->horizontalAlignment = vsg::StandardLayout::CENTER_ALIGNMENT; //水平居中
+            layout->position = textx;                                            //左右，前后，上下（xyz轴）
+            layout->horizontal = vsg::vec3(0.01, 0.0, 0.0);                      //水平方向上的偏移
+            layout->vertical = vsg::vec3(0.0, 0.01, 0.0);                        //垂直方向上的偏移
+            layout->color = vsg::vec4(1.0, 1.0, 1.0, 1.0);                       //红、绿、蓝和alpha通道
+            layout->outlineWidth = 0.0;
+            layout->billboard = true;
+
+            auto text = vsg::Text::create();
+            text->text = vsg::stringValue::create(pmi[i].value);
+            text->font = font;
+            text->layout = layout;
+            text->setup(0, options);
+            text_scenegraph->addChild(text);
+            drawLine(temp1, temp2, scenegraph);
+            drawLine(temp3, temp4, scenegraph);
+            drawLine(temp2, temp5, scenegraph);
+            drawLine(temp6, temp4, scenegraph);
+        }
+        else if (pmi[i].type == "Radius")
+        {
+            vsg::vec3 temp1 = vsg::vec3(pmi[i].points[0][0], pmi[i].points[0][1], pmi[i].points[0][2]);
+            vsg::vec3 temp2 = vsg::vec3(pmi[i].points[1][0], pmi[i].points[1][1], pmi[i].points[1][2]);
+            vsg::vec3 temp3 = vsg::vec3(pmi[i].points[2][0], pmi[i].points[2][1], pmi[i].points[2][2]);
+            vsg::vec3 temp5 = vsg::vec3((2 * pmi[i].points[0][0] + pmi[i].points[1][0]) / 3, (2 * pmi[i].points[0][1] + pmi[i].points[1][1]) / 3, (2 * pmi[i].points[0][2] + pmi[i].points[1][2]) / 3);
+            vsg::vec3 temp6 = vsg::vec3((2 * pmi[i].points[1][0] + pmi[i].points[0][0]) / 3, (2 * pmi[i].points[1][1] + pmi[i].points[0][1]) / 3, (2 * pmi[i].points[1][2] + pmi[i].points[0][2]) / 3);
+
+            vsg::mat4 transforms;
+            for (int m = 0; m < 4; m++)
+                for (int n = 0; n < 4; n++)
+                {
+                    transforms[m][n] = pmi[i].instanceMatrixList[0].at(m * 4 + n);
+                }
+            auto layout = vsg::StandardLayout::create();
+            layout->horizontalAlignment = vsg::StandardLayout::CENTER_ALIGNMENT; //水平居中
+            layout->position = temp3;                                            //左右，前后，上下（xyz轴）
+            layout->horizontal = vsg::vec3(0.01, 0.0, 0.0);                      //水平方向上的偏移
+            layout->vertical = vsg::vec3(0.0, 0.01, 0.0);                        //垂直方向上的偏移
+            layout->color = vsg::vec4(1.0, 1.0, 1.0, 1.0);                       //红、绿、蓝和alpha通道
+            layout->outlineWidth = 0.0; 
+            layout->billboard = true;
+
+            auto text = vsg::Text::create();
+            text->text = vsg::stringValue::create(pmi[i].value);
+            text->font = font;
+            text->layout = layout;
+            text->setup(0, options);
+            text_scenegraph->addChild(text);
+
+            drawLine(temp1, temp5, scenegraph);
+            drawLine(temp6, temp2, scenegraph);
+        }
+        else if (pmi[i].type == "Diameter")
+        {
+            vsg::vec3 temp1 = vsg::vec3(pmi[i].points[0][0], pmi[i].points[0][1], pmi[i].points[0][2]);
+            vsg::vec3 temp2 = vsg::vec3(pmi[i].points[1][0], pmi[i].points[1][1], pmi[i].points[1][2]);
+            vsg::vec3 temp3 = vsg::vec3(pmi[i].text[0][0], pmi[i].text[0][1], pmi[i].text[0][2]);
+            vsg::vec3 temp5 = vsg::vec3((2 * pmi[i].points[0][0] + pmi[i].points[1][0]) / 3, (2 * pmi[i].points[0][1] + pmi[i].points[1][1]) / 3, (2 * pmi[i].points[0][2] + pmi[i].points[1][2]) / 3);
+            vsg::vec3 temp6 = vsg::vec3((2 * pmi[i].points[1][0] + pmi[i].points[0][0]) / 3, (2 * pmi[i].points[1][1] + pmi[i].points[0][1]) / 3, (2 * pmi[i].points[1][2] + pmi[i].points[0][2]) / 3);
+
+            vsg::mat4 transforms;
+            for (int m = 0; m < 4; m++)
+                for (int n = 0; n < 4; n++)
+                {
+                    transforms[m][n] = pmi[i].instanceMatrixList[0].at(m * 4 + n);
+                }
+            auto layout = vsg::StandardLayout::create();
+            layout->horizontalAlignment = vsg::StandardLayout::CENTER_ALIGNMENT; //水平居中
+            layout->position = temp3;                                            //左右，前后，上下（xyz轴）
+            layout->horizontal = vsg::vec3(0.01, 0.0, 0.0);                      //水平方向上的偏移
+            layout->vertical = vsg::vec3(0.0, 0.01, 0.0);                        //垂直方向上的偏移
+            layout->color = vsg::vec4(1.0, 1.0, 1.0, 1.0);                       //红、绿、蓝和alpha通道
+            layout->outlineWidth = 0.0;
+            layout->billboard = true;
+
+            auto text = vsg::Text::create();
+            text->text = vsg::stringValue::create(pmi[i].value);
+            text->font = font;
+            text->layout = layout;
+            text->setup(0, options);
+            text_scenegraph->addChild(text);
+
+            drawLine(temp1, temp2, scenegraph);
+            drawLine(temp2, temp3, scenegraph);
+            //drawLine(temp1, temp5, scenegraph);
+            //drawLine(temp6, temp2, scenegraph);
+        }
+    }
+
+    builder->options = options;
+    geomInfo.color.set(1.0f, 1.0f, 1.0f, 1.0f);
+    geomInfo.cullNode = false;
+    stateInfo.wireframe = true;
+
+    for (int i = 0; i < lines.size(); i++)
+    {
+        drawLine(lines[i].begin, lines[i].end, scenegraph);
+    }
+
+    scenegraph->addChild(builder->createLine(geomInfo, stateInfo, positions, indices));
+
+    vsg::ref_ptr<vsg::vec2Array> dummyUV = vsg::vec2Array::create(0);
+    for(int i = 1; i < mesh->verticesVector.size(); i++){
+        // 创建独立的DrawCommand
+        vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(
+            mesh->materialVector[i]->value().baseColorFactor);
+        vsg::DataList vertexArrays = {
+            mesh->verticesVector[i],
+            mesh->normalsVector[i],
+            dummyUV,
+            default_color
+        };
+        auto drawCommands = vsg::Commands::create();
+
+        //绑定索引
+        drawCommands->addChild(vsg::BindVertexBuffers::create(gpc_ibl->baseAttributeBinding, vertexArrays));
+        drawCommands->addChild(vsg::BindIndexBuffer::create(mesh->indicesVector[i]));
+        drawCommands->addChild(vsg::DrawIndexed::create(mesh->indicesVector[i]->size(), 1, 0, 0, 0));
+
+        auto PbrStateGroup = vsg::StateGroup::create();
+        PbrStateGroup->addChild(drawCommands);
+        auto gpc_object = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
+        gpc_object->assignDescriptor("material", mesh->materialVector[i]);
+        gpc_object->init();
+        gpc_object->copyTo(PbrStateGroup);
+        auto cadMeshShadowStateGroup = vsg::StateGroup::create();
+        cadMeshShadowStateGroup->addChild(drawCommands);
+        gpc_shadow->copyTo(cadMeshShadowStateGroup);
+        auto cadMeshSwitch = vsg::Switch::create();
+        cadMeshSwitch->addChild(MASK_MODEL, PbrStateGroup);
+        cadMeshSwitch->addChild(MASK_DRAW_SHADOW, cadMeshShadowStateGroup);
+        
+        //std::cout<<i<<std::endl;
+        for (int j = 0; j < mesh->transformNumVector[i]; j++)
+        {
+            auto transforms = vsg::MatrixTransform::create();
+            vsg::mat4 transforms_matrix;
+            for (int m = 0; m < 4; m++)
+                for (int n = 0; n < 4; n++)
+                    transforms->matrix[m][n] = mesh->transformVector[i][j * 16 + m * 4 + n];
+            transforms->addChild(cadMeshSwitch);
+            scenegraph->addChild(transforms);
+        }
+    }
+
+    treeNode top;
+    top.transform = vsg::MatrixTransform::create();
+    top.transform->addChild(scenegraph);
+    top.transform->addChild(text_scenegraph);
+    top.transform->matrix = modelMatrix;
+    top.originalMatrix = modelMatrix;
+    nodePtr[""] = top;
+
+    scene->addChild(top.transform);
+}

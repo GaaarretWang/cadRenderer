@@ -8,9 +8,9 @@
 
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
-static_assert(FLATBUFFERS_VERSION_MAJOR == 23 &&
-              FLATBUFFERS_VERSION_MINOR == 5 &&
-              FLATBUFFERS_VERSION_REVISION == 26,
+static_assert(FLATBUFFERS_VERSION_MAJOR == 2 &&
+              FLATBUFFERS_VERSION_MINOR == 0 &&
+              FLATBUFFERS_VERSION_REVISION == 0,
              "Non-compatible flatbuffers version included");
 
 namespace RenderFlatBuffer {
@@ -65,7 +65,7 @@ struct Instance FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_INSTANCEID) &&
            verifier.VerifyString(InstanceID()) &&
-           VerifyField<int32_t>(verifier, VT_MATERIALID, 4) &&
+           //VerifyField<int32_t>(verifier, VT_MATERIALID, 4) &&
            VerifyOffset(verifier, VT_PROTOID) &&
            verifier.VerifyString(ProtoID()) &&
            VerifyOffset(verifier, VT_PARENTID) &&
@@ -266,7 +266,7 @@ struct Model FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     return VerifyTableStart(verifier) &&
            VerifyOffset(verifier, VT_TYPE) &&
            verifier.VerifyString(Type()) &&
-           VerifyField<int32_t>(verifier, VT_MATERIALID, 4) &&
+           //VerifyField<int32_t>(verifier, VT_MATERIALID, 4) &&
            VerifyOffset(verifier, VT_GEO) &&
            verifier.VerifyTable(Geo()) &&
            verifier.EndTable();
@@ -461,20 +461,20 @@ struct Material FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<int32_t>(verifier, VT_MATERIALID, 4) &&
+           //VerifyField<int32_t>(verifier, VT_MATERIALID, 4) &&
            VerifyOffset(verifier, VT_DIFFUSE) &&
            verifier.VerifyString(Diffuse()) &&
            VerifyOffset(verifier, VT_SPECULAR) &&
            verifier.VerifyString(Specular()) &&
-           VerifyField<float>(verifier, VT_SHININESS, 4) &&
+           //VerifyField<float>(verifier, VT_SHININESS, 4) &&
            VerifyOffset(verifier, VT_DIFFUSETEXTURENAME) &&
            verifier.VerifyString(DiffuseTextureName()) &&
            VerifyOffset(verifier, VT_EMISSIVE) &&
            verifier.VerifyString(Emissive()) &&
-           VerifyField<float>(verifier, VT_EMISSIVEINTENSITY, 4) &&
-           VerifyField<float>(verifier, VT_METALNESS, 4) &&
-           VerifyField<float>(verifier, VT_ROUGHNESS, 4) &&
-           VerifyField<float>(verifier, VT_TRANSMISSION, 4) &&
+           //VerifyField<float>(verifier, VT_EMISSIVEINTENSITY, 4) &&
+           //VerifyField<float>(verifier, VT_METALNESS, 4) &&
+           //VerifyField<float>(verifier, VT_ROUGHNESS, 4) &&
+           //VerifyField<float>(verifier, VT_TRANSMISSION, 4) &&
            verifier.EndTable();
   }
 };

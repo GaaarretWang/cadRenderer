@@ -6,9 +6,9 @@ project(Rendering
         LANGUAGES CXX C CUDA
 )
 
-
+# set_property(TARGET tgt PROPERTY CUDA_ARCHITECTURES native)
+# set(CMAKE_CUDA_ARCHITECTURES tgt)
 find_package(CUDA REQUIRED)
-# set(CMAKE_CUDA_ARCHITECTURES 61)
 
 #find_package(vsg REQUIRED)
 
@@ -25,11 +25,15 @@ add_subdirectory(asset)
 
 target_include_directories(Rendering PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/include
 )
 
 target_link_directories(Rendering PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Lib/linux/stubs/x86_64
+    ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/Lib/
 )
+
+target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/Lib/cadDataManager.a ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/Lib/libcurl.a)
 
 target_link_libraries(Rendering 
     vsg::vsg
@@ -42,3 +46,4 @@ target_link_libraries(Rendering
 get_target_property(Rendering_include_dirs Rendering INTERFACE_INCLUDE_DIRECTORIES)
 message(STATUS "Rendering include directories:${Rendering_include_dirs}")
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}-pthread")
