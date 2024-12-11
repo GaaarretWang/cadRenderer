@@ -24,6 +24,7 @@ public:
     std::string depth_path = "/home/lab/workspace/wgy/cadvsg_intg/asset/data/slamData/depth/1711699313.948925.png";
     double upsample_scale = 2;
 
+    int frame_count = 0;
     vsg::ref_ptr<vsg::Device> device;
     std::vector<std::vector<uint8_t>> vPacket;
 public:

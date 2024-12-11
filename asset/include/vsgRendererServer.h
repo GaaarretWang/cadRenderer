@@ -48,6 +48,10 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::Window> final_window;
     vsg::ref_ptr<vsg::Camera> camera;
 
+    //IBL
+    IBL::VsgContext vsgContext = {};
+    vsg::ref_ptr<vsg::StateGroup> drawSkyboxNode = vsg::StateGroup::create();
+
     vsg::ref_ptr<vsg::DirectionalLight> directionalLight[4];
     vsg::ref_ptr<vsg::Switch> directionalLightSwitch = vsg::Switch::create();
 
@@ -128,6 +132,27 @@ public:
             merge_shader = config_shader.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
     }
 
+    void preprocessEnvMap(std::string envmapFilepath){
+        IBL::generateEnvmap(vsgContext, envmapFilepath);
+        IBL::generateIrradianceCube(vsgContext);
+        IBL::generatePrefilteredEnvmapCube(vsgContext);
+
+        viewer_IBL->compile();
+        bool process_done = false;
+        while (viewer_IBL->advanceToNextFrame())
+        {
+            if(process_done)
+                break;
+            viewer_IBL->handleEvents();
+            viewer_IBL->update();
+            viewer_IBL->recordAndSubmit();
+            viewer_IBL->present();
+            process_done = true;
+        }
+
+        IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode);
+    }
+
     void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)
     {
         // project_path = engine_path.append("Rendering/");
@@ -205,7 +230,6 @@ public:
 
         auto context = vsg::Context::create(device);
 
-        IBL::VsgContext vsgContext = {};
         vsgContext.viewer = viewer_IBL;
         vsgContext.context = context;
         vsgContext.device = device;
@@ -216,25 +240,8 @@ public:
         IBL::appData.options = options;
         IBL::createResources(vsgContext);
         IBL::generateBRDFLUT(vsgContext);
-        IBL::generateEnvmap(vsgContext);
-        IBL::generateIrradianceCube(vsgContext);
-        IBL::generatePrefilteredEnvmapCube(vsgContext);
-
-        uint32_t frame = 0;
-
-        viewer_IBL->compile();
-        while (viewer_IBL->advanceToNextFrame())
-        {
-            viewer_IBL->handleEvents();
-            viewer_IBL->update();
-            viewer_IBL->recordAndSubmit();
-            viewer_IBL->present();
-            break;
-        }
-        // viewer_IBL->recordAndSubmitTasks.clear();
-
-        auto drawSkyboxNode = IBL::drawSkyboxVSGNode(vsgContext);
-
+        std::string envmapFilepath = "textures/test_pool.hdr";
+        preprocessEnvMap(envmapFilepath);
         std::cout << "IBL:创建环境光数据完成----创建窗口" << std::endl;
 
 
@@ -565,7 +572,7 @@ public:
             vsg::ref_ptr<vsg::Image> storageImage = vsg::Image::create();
             storageImage->imageType = VK_IMAGE_TYPE_2D;
             if (i % 2 == 0){
-                storageImage->format = VK_FORMAT_R8G8B8A8_UNORM; //VK_FORMAT_R8G8B8A8_UNORM;
+                storageImage->format = VK_FORMAT_B8G8R8A8_UNORM; //VK_FORMAT_R8G8B8A8_UNORM;
                 storageImage->usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
             }else{
                 storageImage->format = VK_FORMAT_D32_SFLOAT; //VK_FORMAT_R8G8B8A8_UNORM;
@@ -633,11 +640,11 @@ public:
 
                 const uint32_t TEXTURE_DESCRIPTOR_SET = 0;
                 const uint32_t MATERIAL_DESCRIPTOR_SET = 1;
-                shaderSet->addDescriptorBinding("cadColor", "", TEXTURE_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
+                shaderSet->addDescriptorBinding("cadColor", "", TEXTURE_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
                 shaderSet->addDescriptorBinding("cadDepth", "", TEXTURE_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
-                shaderSet->addDescriptorBinding("planeColor", "", TEXTURE_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec3Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
-                shaderSet->addDescriptorBinding("planeDepth", "", TEXTURE_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
-                shaderSet->addDescriptorBinding("shadowColor", "", TEXTURE_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
+                shaderSet->addDescriptorBinding("planeColor", "", TEXTURE_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec3Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8_UNORM}));
+                shaderSet->addDescriptorBinding("planeDepth", "", TEXTURE_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
+                shaderSet->addDescriptorBinding("shadowColor", "", TEXTURE_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
                 shaderSet->addDescriptorBinding("shadowDepth", "", TEXTURE_DESCRIPTOR_SET, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
                 //shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(TEXTURE_DESCRIPTOR_SET));
                 return shaderSet;
@@ -715,7 +722,7 @@ public:
         extent.height = render_height;
         final_screenshotHandler = ScreenshotHandler::create(final_window, extent, ENCODER);
         screenshotHandler = ScreenshotHandler::create();        
-        
+
         allocate_fix_depth_memory(render_width, render_height);
     }
 
@@ -744,10 +751,15 @@ public:
         instance_phongs[instance_name]->nodePtr[""].transform->matrix = model_matrix;
     }
 
+    void updateEnvLighting(std::string& envmapFilepath){
+        preprocessEnvMap(envmapFilepath);
+        viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
+    }
+
 
     bool render(){
         //--------------------------------------------------------------渲染循环----------------------------------------------------------//
-        if (viewer->advanceToNextFrame() && final_viewer->advanceToNextFrame())
+        while (viewer->advanceToNextFrame() && final_viewer->advanceToNextFrame())
         {
             fix_depth(width, height, depth_pixels);
             uint8_t* vsg_color_image_beginPointer = static_cast<uint8_t*>(vsg_color_image->dataPointer(0));
@@ -803,9 +815,6 @@ public:
             final_viewer->recordAndSubmit(); //于记录和提交命令图。窗口2提交会冲突报错
             final_viewer->present();
             return true;
-        }
-        else{
-            return false;
         }
     }
 

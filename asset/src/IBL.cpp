@@ -852,7 +852,7 @@ void generateBRDFLUT(VsgContext &vsgContext)
     viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
-void generateEnvmap(VsgContext& vsgContext)
+void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath)
 {
     auto searchPaths = appData.options->paths;
     searchPaths.push_back("./data");
@@ -865,8 +865,6 @@ void generateEnvmap(VsgContext& vsgContext)
         std::cout << "Could not create shaders." << std::endl;
         return;
     }
-
-    const std::string envmapFilepath = "textures/FINAL.hdr";
 
     loadEnvmapRect(vsgContext, envmapFilepath);
     auto& context = vsgContext.context;
@@ -1482,7 +1480,7 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext)
     viewer->addRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
-ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context)
+ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGroup> root)
 {
     auto searchPaths = appData.options->paths;
     searchPaths.push_back("./data");
@@ -1532,7 +1530,6 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context)
     drawCmds->addChild(BindVertexBuffers::create(pplcfg->baseAttributeBinding, pipelineInputs));
     drawCmds->addChild(BindIndexBuffer::create(gSkyboxCube.indices));
     drawCmds->addChild(DrawIndexed::create(gSkyboxCube.indices->size(), 1, 0, 0, 0));
-    auto root = StateGroup::create();
     pplcfg->copyTo(root);
     root->addChild(drawCmds);
     return root;

@@ -89,13 +89,13 @@ namespace IBL
 
     void generateBRDFLUT(VsgContext &vsgContext);
 
-    void generateEnvmap(VsgContext& vsgContext);
+    void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath);
 
     void generateIrradianceCube(VsgContext& vsgContext);
 
     void generatePrefilteredEnvmapCube(VsgContext& vsgContext);
 
-    ptr<vsg::StateGroup> drawSkyboxVSGNode(VsgContext& context);
+    ptr<vsg::StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGroup> root);
 
     vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options> options);
 
