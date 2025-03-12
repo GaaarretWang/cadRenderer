@@ -3,73 +3,74 @@
 #include <string>
 #include <vector>
 #include <functional>
+namespace cadDataManager {
+	class Quaternion {
+	public:
+		Quaternion() = default;
 
-class Quaternion {
-public:
-	Quaternion() = default;
+		Quaternion(float x, float y, float z, float w);
 
-	Quaternion(float x, float y, float z, float w);
+		~Quaternion() = default;
 
-	~Quaternion() = default;
+		float getX() const;
 
-	float getX() const;
+		Quaternion& setX(float value);
 
-	Quaternion& setX(float value);
+		float getY() const;
 
-	float getY() const;
+		Quaternion& setY(float value);
 
-	Quaternion& setY(float value);
+		float getZ() const;
 
-	float getZ() const;
+		Quaternion& setZ(float value);
 
-	Quaternion& setZ(float value);
+		float getW() const;
 
-	float getW() const;
+		Quaternion& setW(float value);
 
-	Quaternion& setW(float value);
+		Quaternion& set(float x, float y, float z, float w);
 
-	Quaternion& set(float x, float y, float z, float w);
+		Quaternion& copy(Quaternion quaternion);
 
-	Quaternion& copy(Quaternion quaternion);
+		Quaternion& identity();
 
-	Quaternion& identity();
+		Quaternion& invert();
 
-	Quaternion& invert();
+		Quaternion& conjugate();
 
-	Quaternion& conjugate();
+		float dot(Quaternion v);
 
-	float dot(Quaternion v);
+		float lengthSq();
 
-	float lengthSq();
+		float length();
 
-	float length();
+		Quaternion& normalize();
 
-	Quaternion& normalize();
+		Quaternion& multiply(Quaternion q);
 
-	Quaternion& multiply(Quaternion q);
+		Quaternion& multiply(Quaternion q, Quaternion p);
 
-	Quaternion& multiply(Quaternion q, Quaternion p);
+		Quaternion& premultiply(Quaternion q);
 
-	Quaternion& premultiply(Quaternion q);
+		Quaternion& multiplyQuaternions(Quaternion a, Quaternion b);
 
-	Quaternion& multiplyQuaternions(Quaternion a, Quaternion b);
+		Quaternion& slerp(Quaternion qb, float t);
 
-	Quaternion& slerp(Quaternion qb, float t);
+		Quaternion& slerpQuaternions(Quaternion qa, Quaternion qb, float t);
 
-	Quaternion& slerpQuaternions(Quaternion qa, Quaternion qb, float t);
+		bool equals(Quaternion quaternion);
 
-	bool equals(Quaternion quaternion);
+		Quaternion& fromArray(std::vector<float> arr, long offset = 0);
 
-	Quaternion& fromArray(std::vector<float> arr, long offset = 0);
+		std::vector<float> toArray(std::vector<float> arr, long offset = 0);
 
-	std::vector<float> toArray(std::vector<float> arr, long offset = 0);
+		std::string toString();
 
-	std::string toString();
-
-private:
-	float mX{ 0.0f };
-	float mY{ 0.0f };
-	float mZ{ 0.0f };
-	float mW{ 0.0f };
-	std::function<void()> mChangeCallback{ nullptr };
-};
+	private:
+		float mX{ 0.0f };
+		float mY{ 0.0f };
+		float mZ{ 0.0f };
+		float mW{ 0.0f };
+		std::function<void()> mChangeCallback{ nullptr };
+	};
+}

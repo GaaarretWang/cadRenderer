@@ -21,20 +21,22 @@ layout(location = 0) in vec2 screenUV;
 
 void main()
 {
-    // ivec2 fragCoord = ivec2(gl_FragCoord.xy);
-    // ivec2 screenSize = ivec2(720, 405);
-    // vec2 texCoord = vec2(fragCoord * 1.f) / vec2(screenSize);
-    vec2 texCoord = screenUV;
+    float intCadDepth = 0.1 / (texture(cadDepth, screenUV).r * 65.435 + 0.1);
+    //float intPlaneDepth = 0.1 / (texture(planeDepth, screenUV).r * 65.435 + 0.1);
+    float intPlaneDepth = texture(planeDepth, screenUV).r;
+    float intShadowDepth = 0.1 / (texture(shadowDepth, screenUV).r * 65.435 + 0.1);
+    float shadow = texture(shadowColor, screenUV).r * 0.1 + 0.9;
+    if(shadow > 1.0)
+        shadow = 1.0;
 
-    float intCadDepth = texture(cadDepth, texCoord).r;
-    float intPlaneDepth = texture(planeDepth, texCoord).r;
-    float intShadowDepth = texture(shadowDepth, texCoord).r;
+    if(intCadDepth <= intPlaneDepth)
+        outColor.rgb = texture(cadColor, screenUV).rgb;
+    else if(intShadowDepth <= intPlaneDepth)
+        outColor.rgb = texture(planeColor, screenUV).rgb * shadow;
+    else
+        outColor.rgb = texture(planeColor, screenUV).rgb;
 
-    if(intCadDepth > intPlaneDepth)
-         outColor.rgb = texture(cadColor, texCoord).rgb;
-     else
-        outColor.rgb = texture(planeColor, texCoord).rgb * texture(shadowColor, texCoord).rrr;
-    // outColor.rgb = texture(planeColor, texCoord).rgb;
-    // outColor.rg = texCoord;
+    //outColor.rgb = vec3(texture(shadowDepth, screenUV).r * 100);
+    //outColor.rgb = vec3(screenUV.x, screenUV.y, 1.0);
     outColor.a = 1.f;
 }

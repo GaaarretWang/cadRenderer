@@ -38,6 +38,5 @@ void main()
         outColor.rgb = texture(planeColor, screen_uv).rgb;
 
     //outColor.rgb = vec3(texture(shadowDepth, screen_uv).r * 100);
-    //outColor.rgb = vec3(screen_uv.x, screen_uv.y, 1.0);
     outColor.a = 1.f;
 }

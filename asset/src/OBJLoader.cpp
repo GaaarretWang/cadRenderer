@@ -32,6 +32,7 @@ std::unordered_map<std::string, int> OBJLoader::vertex_count(const char* filenam
             count++;
         }
     }
+        std::cout << count << std::endl;
 
     std::unordered_map <std::string, int> nums;
 
@@ -45,8 +46,9 @@ std::unordered_map<std::string, int> OBJLoader::vertex_count(const char* filenam
 
 void OBJLoader::components_to_vec2s(std::vector<float> components, vsg::ref_ptr<vsg::vec2Array>& vecs) {
     for(size_t vec_start = 0; vec_start < components.size(); vec_start+=2) {
-        vecs->at(vec_start/2) = vsg::vec2(components[vec_start], components[vec_start+1]
-        );
+        //std::cout<<components[vec_start]<<"  ";
+        vsg::vec2 normal(components[vec_start], components[vec_start+1]);
+        vecs->at(vec_start/2) = normal;
     }
 }
 
@@ -57,29 +59,36 @@ void OBJLoader::components_to_vec3s(std::vector<float> components, vsg::ref_ptr<
     }
 }
 
-void OBJLoader::load_materials(const std::vector<tinyobj::material_t>& objmaterials,vsg::ref_ptr<vsg::PhongMaterialArray>& mat_val){
+void OBJLoader::load_materials(const std::vector<tinyobj::material_t>& objmaterials,vsg::ref_ptr<vsg::PbrMaterialArray>& mat_val, std::vector<std::string>& textures){
+    int i = 0;
     for(auto mat = objmaterials.begin(); mat < objmaterials.end(); ++mat) {
         size_t index = std::distance(objmaterials.begin(), mat);
-        mat_val->set(index,
-            vsg::PhongMaterial{
-                vsg::vec4{mat->ambient[0], mat->ambient[1], mat->ambient[2], 1.0f},
+        mat_val->set(i,
+            vsg::PbrMaterial{
                 vsg::vec4{mat->diffuse[0], mat->diffuse[1], mat->diffuse[2], 1.0f},
+                vsg::vec4{mat->ambient[0], mat->ambient[1], mat->ambient[2], 1.0f},
+                vsg::vec4{0.9f, 0.9f, 0.9f, 1.0f},
                 vsg::vec4{mat->specular[0], mat->specular[1], mat->specular[2], 1.0f},
-                vsg::vec4{mat->emission[0], mat->emission[1], mat->emission[2], 1.0f},
-                mat->shininess
+                1.0f,
+                (1.0f - (mat->shininess / 64.0f))
             }
         );
+        //std::cout << mat->diffuse_texname << std::endl;
+        textures.push_back(mat->diffuse_texname);
+        i++;
     }
 
 }
 
-void OBJLoader::load_obj(const char* filename, const char* materials_path,vsg::ref_ptr<vsg::vec3Array> &vertices, vsg::ref_ptr<vsg::vec3Array>& vertnormals, vsg::ref_ptr<vsg::vec2Array>& vertuvs, vsg::ref_ptr<vsg::vec3Array>& colors, vsg::ref_ptr<vsg::PhongMaterialArray>& materials,vsg::ref_ptr<vsg::uintArray>& indices) {
-
+void OBJLoader::load_obj(const char* filename, const char* materials_path, vsg::ref_ptr<vsg::vec3Array>& vertices,
+                         vsg::ref_ptr<vsg::vec3Array>& vertnormals, vsg::ref_ptr<vsg::vec2Array>& vertuvs,
+                         vsg::ref_ptr<vsg::vec3Array>& colors, vsg::ref_ptr<vsg::PbrMaterialArray>& materials,
+                         std::vector<vsg::ref_ptr<vsg::uintArray>>& indices, std::vector<std::string>& textures, std::vector<int>& mtr_ids)
+{
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
     std::vector<tinyobj::material_t> objmaterials;
-    std::string warn;
-    std::string err;
+    std::string warn, err;
 
 
     //load all data in Obj file
@@ -97,32 +106,37 @@ void OBJLoader::load_obj(const char* filename, const char* materials_path,vsg::r
         exit(1);
     }
     
-    
-
     if(attrib.vertices.size() != 0) {
         components_to_vec3s(attrib.vertices, vertices);
     }
     if(attrib.normals.size() != 0) {
         components_to_vec3s(attrib.normals, vertnormals);//不单独拿出来就不执行,不加上述if else会超限segmentation fault (core dumped)
-    }else if(attrib.texcoords.size() != 0) {
+    }
+    if(attrib.texcoords.size() != 0) {
         components_to_vec2s(attrib.texcoords, vertuvs);
-    }else if(attrib.colors.size() != 0) {
+    }
+    else if(attrib.colors.size() != 0) {
         components_to_vec3s(attrib.colors, colors);
     }
 
 
-    std::cout << "Loaded vertices." << std::endl;
-
-    int count = 0;
-    for(auto shape = shapes.begin(); shape < shapes.end(); shape++) {
-        for(auto index = shape->mesh.indices.begin(); index < shape->mesh.indices.end(); index++) {
-            indices->set(count,index->vertex_index);
-            count++;
-        }
+    std::cout << "Loading Material" << std::endl;
+    if(objmaterials.size() != 0) {
+        load_materials(objmaterials, materials, textures);
     }
 
-    if(objmaterials.size() != 0) {
-        load_materials(objmaterials, materials);
+    int i = 0;
+    for(auto shape = shapes.begin(); shape < shapes.end(); shape++) {
+        mtr_ids.push_back(shape->mesh.material_ids[0]);
+        //std::cout << mtr_ids[i] << std::endl;
+        int count = 0;
+        vsg::ref_ptr<vsg::uintArray> indice = vsg::uintArray::create(shape->mesh.indices.size());
+        for(auto index = shape->mesh.indices.begin(); index < shape->mesh.indices.end(); index++) {
+            indice->set(count,index->vertex_index);
+            count++;
+        }
+        indices.push_back(indice);
+        i++;
     }
 
     std::cout << "Loaded materials." << std::endl;

@@ -3,6 +3,7 @@
 #include <iostream>
 #include <unordered_set>
 #include <vsg/all.h>
+#include <vsgXchange/all.h>
 #include "communication/dataInterface.h"
 #include "OBJLoader.h"
 #define EXPLODE
@@ -140,6 +141,8 @@ private:
     template<typename T>
     vsg::vec3 toNewVec3(std::vector<T>* flat_vector, int begin);
     template<typename T>
+    vsg::vec2 toNewVec2(std::vector<T>* flat_vector, int begin);
+    template<typename T>
     vsg::vec2 toVec2(const flatbuffers::Vector<T>* flat_vector, int begin = 0);
     RGB hexToRGB(const std::string& color);
 
@@ -159,16 +162,26 @@ public:
     // std::unordered_map<std::string, int> instanceIndex;     
     // std::unordered_map<std::string, treeNode> nodePtr;        //
 
-    std::vector<pmiInfo> pmi;
+    std::vector<vsg::ref_ptr<vsg::vec3Array>> objVerticesVector;
+    std::vector<vsg::ref_ptr<vsg::vec3Array>> objNormalsVector;
+    std::vector<vsg::ref_ptr<vsg::vec2Array>> objUVVector;
+    std::vector<std::vector<std::string>> objTexturePath;
+    std::vector<std::vector<vsg::ref_ptr<vsg::uintArray>>> objIndicesVector;
+    std::vector<std::vector<int>> objMaterialIndice;
+    std::vector<vsg::ref_ptr<vsg::PbrMaterialArray>> objMaterialVector;
+
+    std::vector<cadDataManager::pmiInfo> pmi;
     std::vector<vsg::ref_ptr<vsg::vec3Array>> verticesVector;
     std::vector<vsg::ref_ptr<vsg::vec3Array>> normalsVector;
+    std::vector<vsg::ref_ptr<vsg::vec2Array>> UVVector;
     std::vector<vsg::ref_ptr<vsg::vec2Array>> coordinatesVector;
     std::vector<vsg::ref_ptr<vsg::uintArray>> indicesVector;
     std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> materialVector;
+    std::vector<std::string> materialNameVector;
     std::vector<std::vector<float>> transformVector;
     std::vector<int> transformNumVector;
     
-    RenderInfo info;
+    cadDataManager::RenderInfo info;
 
     vsg::GeometryInfo geomInfo;
     vsg::StateInfo stateInfo;
@@ -185,11 +198,10 @@ public:
     //����ģ��
     // void buildnode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, vsg::ref_ptr<vsg::ImageInfo>* imageInfos, vsg::ref_ptr<vsg::Data> real_color, vsg::ref_ptr<vsg::Data> real_depth);
-    void drawLine(vsg::vec3& begin, vsg::vec3& end, vsg::ref_ptr<vsg::Group> scene);
     void buildNewNode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene);
     void buildPlaneNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void buildObjNode(const char* path, const char* material_path, const vsg::dmat4& modelMatrix);
-    void transferModel(const std::string& path, bool fullNormal, const vsg::dmat4& modelMatrix);
+    // void transferModel(const std::string& path, bool fullNormal, const vsg::dmat4& modelMatrix);
     // void buildInstance(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
 
     // void explode();

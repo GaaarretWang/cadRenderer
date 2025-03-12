@@ -1,32 +1,33 @@
 ﻿#pragma once
 #include "global/baseDef.h"
 #include "model/element/element.h"
+namespace cadDataManager {
+	class ElementManager
+	{
+	private:
+		std::unordered_map<int, Element::Ptr> mElementMap;
 
-class ElementManager 
-{
-private:
-	std::unordered_map<int, Element::Ptr> mElementMap;
+	public:
+		ElementManager() {};
+		~ElementManager() {};
 
-public:
-	ElementManager() {};
-	~ElementManager() {};
+		using Ptr = std::shared_ptr<ElementManager>;
+		static Ptr create() {
+			return std::make_shared<ElementManager>();
+		}
 
-	using Ptr = std::shared_ptr<ElementManager>;
-	static Ptr create() {
-		return std::make_shared<ElementManager>();
-	}
+		void addElement(Element::Ptr element);
 
-	void addElement(Element::Ptr element);
+		void removeElement(int id);
 
-	void removeElement(int id);
+		bool existElement(int id);
 
-	bool existElement(int id);
+		void clearElement();
 
-	void clearElement();
+		Element::Ptr getElement(int id);
 
-	Element::Ptr getElement(int id);
+		void addToElementMap(Element::Ptr element);
 
-	void addToElementMap(Element::Ptr element);
-
-	std::unordered_map<int, Element::Ptr> getElementMap() { return mElementMap; };
-};
+		std::unordered_map<int, Element::Ptr> getElementMap() { return mElementMap; };
+	};
+}

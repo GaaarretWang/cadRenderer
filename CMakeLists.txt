@@ -6,13 +6,15 @@ project(Rendering
         LANGUAGES CXX C CUDA
 )
 
-
+# set_property(TARGET tgt PROPERTY CUDA_ARCHITECTURES native)
+# set(CMAKE_CUDA_ARCHITECTURES tgt)
 find_package(CUDA REQUIRED)
-# set(CMAKE_CUDA_ARCHITECTURES 61)
 
 #find_package(vsg REQUIRED)
 
 find_package(vsg 1.1.0 REQUIRED)
+
+find_package(vsgXchange REQUIRED)
 
 find_package(assimp REQUIRED)
 
@@ -30,13 +32,14 @@ target_include_directories(Rendering PUBLIC
 
 target_link_directories(Rendering PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Lib/linux/stubs/x86_64
-    ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/
+    ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/Lib/
 )
 
-target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/cadDataManager.a libcurl.a)
+target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/Lib/cadDataManager.a ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/Lib/libcurl.a)
 
 target_link_libraries(Rendering 
     vsg::vsg
+    vsgXchange::vsgXchange
     flatbuffers
     vsgRenderer
     libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY}

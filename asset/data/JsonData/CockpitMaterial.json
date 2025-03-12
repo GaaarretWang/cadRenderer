@@ -1,0 +1,1240 @@
+{
+    "YIBIAOPAN": [
+        {
+            "protoId": "006F1783-7FDA-4B8E-9219-69528CB35488",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "007A8C0C-BA56-4F47-95E6-294CC7444E25",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "0103F622-8C3C-4872-833D-850E1D60190D",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal009",
+            "metalness": 0.05,
+            "roughness": 0.8
+        },
+        {
+            "protoId": "06FF30A9-50CA-4296-9636-2F7B7EFB6CC4",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "08333F85-D22B-4EF5-888F-F96CA81C56EF",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "0A7FC82F-8950-446A-8E10-871EAB94BD7A",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "0B6D2CBA-6C5E-46AD-B2A5-E6E9CCBEF127",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "0D9B6C1F-1025-4A40-9A10-8FBB90043328",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "0EE8E118-D8EF-428B-8960-3EE79E5FC922",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "0FEF62F9-194D-4119-93CD-F6A62EC77C1B",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "10C54F18-2200-494C-8CF6-BAB4BDC50B48",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "11D857EC-1CD9-4753-AA49-ADFBC4424A15",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "123E0959-9BD4-486F-826C-F0FFDCE67EC7",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "1457257A-3E78-4B95-AE9E-7F8EDEDEAA44",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "173FCF63-9A53-47A3-9C3F-ED377B1FA9A6",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "1B0BEAA1-BB72-4AC4-8EA7-E28B8BBBAF42",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal009",
+            "metalness": 0.05,
+            "roughness": 0.8
+        },
+        {
+            "protoId": "1C47064B-26CA-489E-AECC-999FE6E765A4",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "2097C6A8-1F99-4145-A9C4-E116878CDE42",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "21E509A7-BB36-43BE-A1C3-68A4C826371E",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "2240E061-8186-473D-8E25-B46BC1CF8E38",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "22850C34-3073-41A7-82A6-124A74681C5F",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "23E5207F-F1C8-44EA-AFA8-AA003C16D389",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "28A9D3E8-D181-40BA-A99F-DDDF0B3F3384",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "28F1E659-0B93-4A5A-9D8C-AEC5E1E9F151",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "29949183-B0ED-42F0-8770-68A036015255",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "2EC0DE06-3087-4819-BC65-8E6A8466A871",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "312048E7-5838-485F-8B41-FE68041B0F4B",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "3139FF0D-3389-4F3F-8C3E-40C2EA595DC4",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "31E8827C-958A-40BC-8E10-6B860EF054E1",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "3252B654-93E0-4AF2-B22A-5111B3533C92",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "32738302-15EA-4613-9B52-1E388A6F72A9",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "32F3A673-4834-468C-B68D-2DBD7B2F6E0F",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "374A7983-2577-489F-A46D-A11245C57549",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "37561F81-0817-4DA5-9F09-A1E5476D47BD",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "38DE78D9-919C-4225-AB4C-D58A7CC539F0",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "3C214262-349D-48C0-9A60-F9317DAF7208",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "3D2649FA-910C-4C9C-8850-84E15E909804",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "3E8A00AD-4CBB-4D79-9A31-B122886DA5C6",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "3F2F8488-27FF-4A8A-BAFA-EFE430D2412B",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "42911178-4835-434D-8C95-68EC79F204F5",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "43862529-51F6-4FC9-82E8-2D08EE976449",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "4410DC83-2CD5-4189-A079-B992484301C9",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "463B1AF6-1128-471D-B960-456EA9A4C720",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "468EF95F-0E57-4425-BD65-D4220FD1FFE5",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal009",
+            "metalness": 0.05,
+            "roughness": 0.8
+        },
+        {
+            "protoId": "48EB404E-76F3-456C-9B16-A445F580C5CA",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "4A696EBF-6232-47AA-BFCF-6C5C9F4BC7AD",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "4B1E0449-A572-419D-A895-3EE039282855",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "4BE99862-2FBB-4C67-9848-786B99B39DFE",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "4BED32EA-0A5D-4192-AC71-E7E668FF0E42",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "4F210906-B8AC-43F9-A44D-51CBAE2E8D2D",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal009",
+            "metalness": 0.05,
+            "roughness": 0.8
+        },
+        {
+            "protoId": "4FBE03C0-4CF5-41E9-8049-2C8CA35DC462",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "521D3AAC-7EC8-4A1D-A2BF-B7D249D1C159",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "523B5397-480A-423D-8290-0D0014B46D8B",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "52469901-55A9-4C00-AA2F-948C32E91160",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "52AD10D3-A937-4FA5-BCC5-E6B7220CFC3D",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "5339AAA3-0CC5-4D01-BF55-287845642CAC",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "5435B2DD-E9F3-4386-966B-166140D893C4",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "56D8F3BC-874F-4E01-B611-568F7E2F53D3",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "5AC51016-BAFD-4E26-8340-642C722A4306",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal009",
+            "metalness": 0.05,
+            "roughness": 0.8
+        },
+        {
+            "protoId": "5C1AE51A-0906-4E36-BD85-F7CB0A915E4E",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "5D64589D-39F9-4E00-A4BE-303A441B3EB6",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "5F5AA8CA-EEC2-4D53-89C6-B7AB2AD48DB8",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "5FF3B946-14FF-4147-B111-BC53F2649D5A",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "60B444FA-72A7-4700-A474-6B4005B20BFD",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "6713E53D-1B9C-4C05-854A-5686EB3BCF44",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "698C3A10-C51B-4896-872E-24B709D59FD0",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "6AC87570-08B9-4461-859A-5E8387FAE721",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "6C1BBE64-CC72-4548-91C6-A6330F6829CD",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "6D971972-5B7A-4D46-A054-6481E77CBF2A",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "6DF2ABE3-958A-4964-86FB-22B01DEB86BD",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "707BA289-92EB-4445-8D7C-E63EEF1FC220",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "7673EA7F-5D16-4F02-9C9C-B04B2E04634C",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "7825D0C0-93E0-479E-82FA-AC30845F4EB0",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal009",
+            "metalness": 0.05,
+            "roughness": 0.8
+        },
+        {
+            "protoId": "7962EFCF-EED2-4F17-BD90-3D3A9B834608",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "79CA6AB5-DC18-47AC-81C9-87CAEB1098B8",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "7A04B2BE-60F1-4456-AAF3-1029C38C209E",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "7B3E0E0F-106E-49BB-A0C1-023271D33618",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "7E5A842E-02A2-4920-AAA1-1A1F12224811",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "7E93E974-48D1-41D1-9EEC-E0705E9AC78F",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "7EB4EB08-A08F-4B67-AE13-DF51196D9530",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "7F3BF3DC-5585-4D9C-AF4C-5CE16B5DBB07",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "7F5EECDC-F5E0-4A62-A9EB-5987460F9FD2",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "80CCECDA-22BB-4E5D-BA8D-2861F1D51E36",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "81CB1855-4A5D-4AA5-88A0-B05E105C92A5",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "824CDF58-512C-4663-A4A6-77FEE6F803B5",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "825D39DD-CA86-4B14-BDD0-4F0100038E44",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "863A8CEB-AC22-4D6C-8F34-669496B493E1",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "86A7D4C2-4337-4DF7-B241-CCD3F48E4578",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "89235FC9-5FF9-4438-A676-F65E41C3AD27",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "89CD21C4-DED8-4198-8F18-47DC4AC15A62",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "8C69E721-F193-4489-AB8E-84876DD1D376",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "8C778F5C-30F0-4652-B098-1212C45E0343",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "8CECFEAB-077D-455F-915E-45359AB5580C",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "8E83BC1A-0575-4135-BE21-9C462D8002BE",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "8F1A91FF-C64C-47D7-BA0E-3030164EC9AC",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "8F3DBBA3-1743-4536-9D62-3BAA6E2E5BBC",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "8F6FAFA5-24CC-42FD-BEBA-28A5B48AC85B",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "927B755C-FA26-4331-BE56-04DEE9E34CFE",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "953D9C7D-8A0A-49B1-A548-7AC833970D59",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "960D4A84-CCA4-4725-A640-E1E73FDC00B3",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "97C8DB28-6875-4BB6-9C81-9D43E0160405",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "9812D2DD-EA5C-4BF8-8F35-0BE58D2281F9",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "9B4B2F06-25B3-4463-B157-A536E70D93BD",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "9C91F53D-57F2-4734-84C7-5174D25DAA90",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "9F0E6994-8201-4B24-A0C5-5FFDDFBFA14E",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "A132FF39-212E-4248-85B3-B35A0B6DF1F1",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "A1A8783D-7717-4B57-929F-39C143F41F9F",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "A1E21F02-4F58-4E24-8DCB-FB8A493431FD",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "A6C6E7D1-5A79-4065-83E3-4BAED6F6AF0B",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "A912993E-0347-4F6D-BB9D-C066C1D34B4C",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "A979BBFB-15AC-404F-96E6-86F9046E6918",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "AE6C7FEA-2C55-496C-9CB7-FBE914548EFE",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "B029D8D9-577C-4A05-9A13-8F8E5F60488D",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "B56436B3-0B16-4479-8E17-35D2848747F4",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "B638EA3D-2B41-4642-A76B-DF2FE569CBD5",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "B70219E1-C192-41EA-A94B-1C2DB77C7CF9",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "B7FB0712-DC07-45B0-927C-E36F1BE86CD3",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "B8A9BB1A-8A74-4229-A176-0F084CA0B693",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "B9309FBB-5E66-4673-B9F0-2F8D5C65F7CD",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "B9F13C92-66D1-44A4-8D8F-4DA30F2D3356",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "BBD78447-3121-4544-9088-A8A210E1EEEE",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "BEACAAEF-5998-4B6B-BB43-80C55E333FF6",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "BEE6E811-AA14-48EC-BE27-E77FC54D8C6F",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "C155215C-2BC9-4E94-84AF-C289B10A8F55",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "C413825B-6658-4EA1-A2CD-9E47E1413501",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "C9B73224-B59A-4B4F-9F73-AD0410C27B54",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "CAB8ED98-6F03-43A2-B51F-A458416CC8C4",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "CF6ABEE3-36B0-4E74-94A0-C8E3BE5B4D9C",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "CF9556AD-3840-466E-B0D6-3D67F11A464B",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "D01E9A7D-F091-4404-ABF8-CF51E628C321",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "D1CC8EC7-1FA7-4920-8012-574D525897BF",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "D27D0858-AEF0-4826-A8B5-D38F2FD63CE6",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "D63DD5E5-3992-4E23-B479-C43BE420B725",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "D72FF988-30DD-4985-B7C5-A5219C767300",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "D746788F-F47D-4AEF-BD7F-D2B420F8C070",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "D88A4B0D-F025-491E-BD3A-A43CA6338CFA",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "D9912D48-54C1-4816-8EA4-2CAAA2A29A9A",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "D9D9FC34-C126-4DA1-BD2D-13A1619C38CC",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "DA05A47E-C236-4683-8589-9CD1379DB29E",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "DA130399-9747-4009-8C92-4AEEBBD08FBA",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "DB9F42DA-CE7C-4C9B-BF53-39BCBB7EBD45",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal009",
+            "metalness": 0.05,
+            "roughness": 0.8
+        },
+        {
+            "protoId": "DFCE0DE3-B1C8-4AAA-AA15-814C6A9500C4",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "E2A1B8FC-2686-40D3-9C2E-F4254E0AB726",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "E40320E1-3A69-4816-9F97-647D835E17B8",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "E487B480-FD6E-48CB-A975-058194BE5447",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "E51F8562-8A3F-4F05-903D-164DFF579ACB",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "E5CCFB76-B4F3-4672-9DD8-8E1078B727D2",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "E675EBDA-7FA9-47DF-91A3-567F9086D451",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "E799BFBB-425E-41D1-8260-936F002A5A53",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "E849B007-DC4A-4C5E-BD5D-1388302FD879",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "E8CCC336-230F-4FC2-B6B2-5CF4322A9670",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "E97B6DE2-5FC6-48E6-BDE5-24C797E78BEB",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "E9F7D33A-EDB6-4C04-9E1D-C3E1AE20D91B",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "EB993A34-4E57-4F9C-8DC3-57EB3D8A8CD5",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "EC9DA3B0-4A0E-479E-A5E0-111CA77A8AA7",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "ECECA764-F6EA-4479-A3AF-299A9D908A67",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "EE3E035E-F4A7-4EB3-9A70-3E2A468C0DC6",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "F0EC7BBC-21A1-45DE-8F6C-721085823A74",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "F15CF637-91B1-44E5-B2F3-60E9D22F0B1B",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "F27E29A5-E527-4D4D-92A9-27879648655F",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "F3FC25DE-8AB4-4ECF-9859-F66C612FABEF",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "F6E2E69B-E538-45CC-9D89-6A1F9C648854",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "F7C0E1EC-63EA-4412-8833-72FB7927089A",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "F889E847-8434-4AE3-97CE-251EDBC11D5C",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "F8A9002D-C2A8-4F08-A83C-31B8C9BA4A35",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "F8ABA51D-130D-4200-BC45-D2D8023ADB5F",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "FA7AD4D5-7B84-433B-B7EE-3B0B25633D44",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "FB52EDD3-C8D1-498A-A429-3BDA1FB9725F",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "FBAFDB8E-3DA1-4674-B174-788AADFC0C00",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "FD0352D4-1A30-4847-A876-B40B8F4FD0B5",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "FDFA1403-C36A-4465-A561-C8BC3F7A3FF5",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal032",
+            "metalness": 0.2,
+            "roughness": 0.7
+        },
+        {
+            "protoId": "FF8EFD8C-1A20-4AC0-BFF1-EB2902090F0A",
+            "modelName": "YIBIAOPAN",
+            "materialName": "Metal009",
+            "metalness": 0.05,
+            "roughness": 0.8
+        }
+    ],
+    "ranyoukongzhi": [
+        {
+            "protoId": "37D3CD29-4C6E-4686-9E56-8BC6DC8A571F",
+            "modelName": "ranyoukongzhi",
+            "materialName": "Metal009",
+            "metalness": 0.1,
+            "roughness": 0.8
+        },
+        {
+            "protoId": "E1473692-C24A-4C90-82F7-51EBE613CC4D",
+            "modelName": "ranyoukongzhi",
+            "materialName": "Metal009",
+            "metalness": 0.1,
+            "roughness": 0.8
+        }
+    ],
+    "TUILIGAN": [
+        {
+            "protoId": "0BE3958D-5F13-46E4-99E6-E8C40A44A531",
+            "modelName": "TUILIGAN",
+            "materialName": "Metal009",
+            "metalness": 0.1,
+            "roughness": 0.8
+        },
+        {
+            "protoId": "E6A541D7-EC33-4753-94F7-9916A3F402E9",
+            "modelName": "TUILIGAN",
+            "materialName": "Metal032",
+            "metalness": 0.3,
+            "roughness": 0.7
+        }
+    ]
+}

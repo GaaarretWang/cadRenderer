@@ -1,17 +1,18 @@
 ﻿#pragma once
 #include "element.h"
 
+namespace cadDataManager {
+	class Edge : public Element
+	{
+	public:
+		using Ptr = std::shared_ptr<Edge>;
+		static Ptr create() {
+			return std::make_shared<Edge>();
+		}
 
-class Edge : public Element 
-{
-public:
-	using Ptr = std::shared_ptr<Edge>;
-	static Ptr create() {
-		return std::make_shared<Edge>();
-	}
+		Edge() {};
 
-	Edge() {};
-
-private:
-	ElementType         mType{ ElementType::ELEMENT_EDGE };
-};
+	private:
+		ElementType         mType{ ElementType::ELEMENT_EDGE };
+	};
+}

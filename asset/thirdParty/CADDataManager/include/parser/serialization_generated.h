@@ -5,7 +5,7 @@
 #define FLATBUFFERS_GENERATED_SERIALIZATION_FLATBUFFERDOCSPACE_H_
 
 #include "flatbuffers/flatbuffers.h"
-
+namespace cadDataManager {
 namespace FlatBufferDocSpace {
 
 struct SnapPoint;
@@ -33319,5 +33319,6 @@ inline void FinishSizePrefixedFlatBufferDocBuffer(
 }
 
 }  // namespace FlatBufferDocSpace
+}
 
 #endif  // FLATBUFFERS_GENERATED_SERIALIZATION_FLATBUFFERDOCSPACE_H_
