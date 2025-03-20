@@ -43,8 +43,8 @@ int RenderingServer::Update(){
 
     // renderer.updateObjectPose("小舱壁-ASM-修改焊接后1", model_transforms[2]);
     if(frame_count == 100){
-        std::string envmapFilepath = "textures/FINAL.hdr";
-        renderer.updateEnvLighting(envmapFilepath);
+        renderer.hdr_image_num = 1;
+        renderer.updateEnvLighting();
     }
     if(not_initialized){
         vsg::dvec3 centre = {lookat_vector[0], lookat_vector[1], lookat_vector[2]};                    // 固定观察点
@@ -71,7 +71,6 @@ int RenderingServer::Update(){
     else{
         // renderer.setRealColorAndImage(frameData.imgColor.data, frameData.imgDepth.data);
     }
-    std::string envmapFilepath = "textures/FINAL.hdr";
 
     renderer.render();
     renderer.getEncodeImage(vPacket);

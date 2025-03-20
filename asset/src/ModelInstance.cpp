@@ -253,8 +253,8 @@ void ModelInstance::buildInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> sce
             cadMeshShadowStateGroup->addChild(drawCommands);
             gpc_shadow->copyTo(cadMeshShadowStateGroup);
             auto cadMeshSwitch = vsg::Switch::create();
-            cadMeshSwitch->addChild(MASK_MODEL, PbrStateGroup);
-            cadMeshSwitch->addChild(MASK_DRAW_SHADOW, cadMeshShadowStateGroup);
+            cadMeshSwitch->addChild(MASK_PBR_FULL, PbrStateGroup);
+            cadMeshSwitch->addChild(MASK_SHADOW_CASTER, cadMeshShadowStateGroup);
 
 
 
@@ -322,9 +322,13 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
     vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0});
     vsg::ref_ptr<vsg::vec2Array> dummyUV = vsg::vec2Array::create(1);
     auto object_mat = vsg::PbrMaterialValue::create();
-    object_mat->value().roughnessFactor = 0.1f;
-    object_mat->value().metallicFactor = 0.9f;
-    object_mat->value().baseColorFactor = vsg::vec4(1.0, 1.0, 1.0, 1.0);
+    object_mat->value().baseColorFactor.set(1.0, 1.0, 1.0, 1.0f);
+    object_mat->value().metallicFactor = 0.6f;
+    object_mat->value().diffuseFactor.set(0.9f, 0.9f, 0.9f, 1.0f);
+    object_mat->value().specularFactor.set(0.9f, 0.9f, 0.9f, 1.0f);
+    object_mat->value().emissiveFactor.set(0.0f, 0.0f, 0.0f, 0.0f);
+    object_mat->value().roughnessFactor = 0.3f;
+    object_mat->value().alphaMaskCutoff = 0.0f;
 
     // Create the graphics pipeline configurator
     vsg::DataList OBJ_vertexArrays = {
@@ -357,7 +361,7 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
 
     auto cadMeshSwitch = vsg::Switch::create();
     cadMeshSwitch->addChild(MASK_PBR_FULL, PbrStateGroup);
-    cadMeshSwitch->addChild(MASK_DRAW_SHADOW, cadMeshShadowStateGroup);
+    // cadMeshSwitch->addChild(MASK_DRAW_SHADOW, cadMeshShadowStateGroup);
 
     treeNode top;
     top.transform = vsg::MatrixTransform::create();
@@ -561,8 +565,8 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
         cadMeshShadowStateGroup->addChild(drawCommands);
         gpc_shadow->copyTo(cadMeshShadowStateGroup);
         auto cadMeshSwitch = vsg::Switch::create();
-        cadMeshSwitch->addChild(MASK_MODEL, PbrStateGroup);
-        cadMeshSwitch->addChild(MASK_DRAW_SHADOW, cadMeshShadowStateGroup);
+        cadMeshSwitch->addChild(MASK_PBR_FULL, PbrStateGroup);
+        cadMeshSwitch->addChild(MASK_SHADOW_CASTER, cadMeshShadowStateGroup);
         
         //std::cout<<i<<std::endl;
         for (int j = 0; j < mesh->transformNumVector[i]; j++)

@@ -14,6 +14,7 @@
 #include "IBL.h"
 #include "CADMeshIBL.h"
 #include "HDRLightSampler.h"
+#include "PlaneLoader.h"
 
 #include "fixDepth.h"
 
@@ -51,6 +52,8 @@ class vsgRendererServer
     //IBL
     IBL::VsgContext vsgContext = {};
     vsg::ref_ptr<vsg::StateGroup> drawSkyboxNode = vsg::StateGroup::create();
+    vsg::ref_ptr<vsg::Group> lightGroup = vsg::Group::create();
+    int hdr_image_num = 0;
 
     vsg::ref_ptr<vsg::DirectionalLight> directionalLight[4];
     vsg::ref_ptr<vsg::Switch> directionalLightSwitch = vsg::Switch::create();
@@ -132,7 +135,8 @@ public:
             merge_shader = config_shader.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
     }
 
-    void preprocessEnvMap(std::string envmapFilepath){
+    void preprocessEnvMap(){
+        std::string envmapFilepath = project_path + "asset/data/textures/" + std::to_string(hdr_image_num) + ".hdr";
         IBL::generateEnvmap(vsgContext, envmapFilepath);
         IBL::generateIrradianceCube(vsgContext);
         IBL::generatePrefilteredEnvmapCube(vsgContext);
@@ -152,6 +156,39 @@ public:
 
         IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode);
     }
+
+    void update_directional_lights(){
+        lightGroup->children.clear();
+        // HDR环境光采样
+        HDRLightSampler lightSampler;
+        lightSampler.loadHDRImage(project_path + "asset/data/textures/" + std::to_string(hdr_image_num) + ".hdr");
+        lightSampler.computeLuminanceMap();
+        lightSampler.computeCDF();
+        auto sampledLights = lightSampler.sampleLights(2);
+
+
+        //-----------------------------------设置光源----------------------------------//
+        //vsg::ref_ptr<vsg::DirectionalLight> directionalLight; //定向光源 ref_ptr智能指针
+        for (const auto& light : sampledLights)
+        {   
+            vsg::vec3 lightColor = vsg::vec3(light.color[0], light.color[1], light.color[2]);
+            vsg::vec3 lightPosition = vsg::vec3(light.position[0], light.position[1], light.position[2]);
+
+            auto pointLight = vsg::DirectionalLight::create();
+            pointLight->color = lightColor;
+            pointLight->intensity = light.intensity;
+            pointLight->direction = vsg::normalize(-lightPosition);
+            pointLight->shadowMaps = 1;
+            
+            auto lightTransform = vsg::MatrixTransform::create();
+            lightTransform->matrix = vsg::translate(lightPosition);
+            lightTransform->addChild(pointLight);
+            
+            lightGroup->addChild(lightTransform);
+        }
+    }
+
+ 
 
     void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)
     {
@@ -240,8 +277,7 @@ public:
         IBL::appData.options = options;
         IBL::createResources(vsgContext);
         IBL::generateBRDFLUT(vsgContext);
-        std::string envmapFilepath = "textures/test_pool.hdr";
-        preprocessEnvMap(envmapFilepath);
+        preprocessEnvMap();
         std::cout << "IBL:创建环境光数据完成----创建窗口" << std::endl;
 
 
@@ -263,30 +299,19 @@ public:
         auto numShadowMapsPerLight = 10; //每个光源的阴影贴图数量
         auto numLights = 2;                //光源数量
 
-        //是否使用线框表示
-        bool wireFrame = 0;
-        if (wireFrame)
-        {
-            auto rasterizationState = vsg::RasterizationState::create();
-            rasterizationState->polygonMode = VK_POLYGON_MODE_LINE;
-            phong_shader->defaultGraphicsPipelineStates.push_back(rasterizationState);
-        }
         //---------------------------------------------------场景创建--------------------------------------//
-        auto cadScenegraph = vsg::Group::create();
-        auto envScenegraph = vsg::Group::create();
-        auto shadowScenegraph = vsg::Group::create();
-        auto intgScenegraph = vsg::Group::create();
-
-        auto geometryGroup = vsg::Group::create();
         auto modelGroup = vsg::Group::create();
-        auto envSceneGroup = vsg::Group::create();
-        auto projectionGroup = vsg::Group::create();
+        auto modelShadowGroup = vsg::Group::create();
         auto shadowGroup = vsg::Group::create();
+        auto envSceneGroup = vsg::Group::create();
+        auto wireframeGroup = vsg::Group::create();
+
         auto rootSwitch = vsg::Switch::create();
-        rootSwitch->addChild(MASK_GEOMETRY, geometryGroup);
-        rootSwitch->addChild(MASK_MODEL, modelGroup);
-        rootSwitch->addChild(MASK_DRAW_SHADOW, shadowGroup);
+        rootSwitch->addChild(MASK_PBR_FULL, modelGroup);
+        rootSwitch->addChild(MASK_SHADOW_CASTER, modelShadowGroup);
+        rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowGroup);
         rootSwitch->addChild(MASK_FAKE_BACKGROUND, envSceneGroup);
+        rootSwitch->addChild(MASK_WIREFRAME, wireframeGroup);
         vsg::ref_ptr<vsg::Group> scenegraph = vsg::Group::create();
         scenegraph->addChild(rootSwitch);
 
@@ -294,6 +319,8 @@ public:
         std::cout << "1" << std::endl;
         vsg::ref_ptr<vsg::PbrMaterialValue> objectMaterial;
         auto pbriblShaderSet = IBL::customPbrShaderSet(options);//
+        
+
         //材质
         auto plane_mat = vsg::PbrMaterialValue::create();
         plane_mat->value().roughnessFactor = 0.5f;
@@ -351,6 +378,15 @@ public:
         vsg::Data::Properties vec4ValueProps = {};
 
         auto gpc_ibl = vsg::GraphicsPipelineConfigurator::create(pbriblShaderSet);
+        bool wireFrame = 1;
+        //if (arguments.read("--wireframe")) wireFrame = 1;
+        if (wireFrame)
+        {
+            auto rasterizationState = vsg::RasterizationState::create();
+            rasterizationState->polygonMode = VK_POLYGON_MODE_LINE;
+            pbriblShaderSet->defaultGraphicsPipelineStates.push_back(rasterizationState);
+        }
+        auto gpc_ibl_wireframe = vsg::GraphicsPipelineConfigurator::create(pbriblShaderSet);
 
         vsg::DataList dummyArrays;
         addVertexAttribute(gpc_ibl, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
@@ -359,6 +395,13 @@ public:
         addVertexAttribute(gpc_ibl, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vec4ValueProps);
         //gpc_ibl->assignDescriptor("material", plane_mat);
         gpc_ibl->init();
+        addVertexAttribute(gpc_ibl_wireframe, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
+        addVertexAttribute(gpc_ibl_wireframe, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
+        addVertexAttribute(gpc_ibl_wireframe, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, vec2ArrayProps);
+        addVertexAttribute(gpc_ibl_wireframe, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vec4ValueProps);
+        //gpc_ibl->assignDescriptor("material", plane_mat);
+        gpc_ibl_wireframe->init();
+
         auto gpc_shadow = vsg::GraphicsPipelineConfigurator::create(shadow_shader);
         addVertexAttribute(gpc_shadow, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
         addVertexAttribute(gpc_shadow, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
@@ -367,20 +410,23 @@ public:
         gpc_shadow->assignDescriptor("material", plane_mat);
         gpc_shadow->init();
 
-        //---------------------------------------读取CAD模型------------------------------------------//
         CADMesh cad;
-
         //读取.fb格式的模型参数信息
         bool fullNormal = 0;
+        PlaneData planeData = createTestPlanes();
+        float subdivisions = 0.1;
+        PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
 
-            
+        MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
+
         vsg::ref_ptr<vsg::Node> reconstructRoot;
-        vsg::ref_ptr<vsg::Geometry> reconstructDrawCmd;
+        vsg::ref_ptr<vsg::Geometry> reconstructDrawCmd = vsg::Geometry::create();
         {
             auto roomFilepath = vsg::findFile("geos/plane.ply", options->paths);
             SimpleMesh importMesh;
             if (importMeshPly(roomFilepath.string(), importMesh))
-            {
+            {   
+                /*
                 reconstructDrawCmd = vsg::Geometry::create();
                 reconstructDrawCmd->assignArrays({importMesh.vertices,
                                                 importMesh.normals,
@@ -388,14 +434,30 @@ public:
                                                 vsg::vec4Value::create(1, 1, 1, 1)});
                 reconstructDrawCmd->assignIndices(importMesh.indices);
                 reconstructDrawCmd->commands.push_back(vsg::DrawIndexed::create(importMesh.numIndices, 1, 0, 0, 0));
-
+                */
+                reconstructDrawCmd->assignArrays({mesh.vertices,
+                                          mesh.normals,
+                                          vsg::vec2Array::create(1),
+                                          vsg::vec4Value::create(1, 1, 1, 1)});
+                reconstructDrawCmd->assignIndices(mesh.indices);
+                reconstructDrawCmd->commands.push_back(vsg::DrawIndexed::create(mesh.indices->size(), 1, 0, 0, 0));
+                    
                 auto stateSwtich = vsg::Switch::create();
+
                 auto pbrStateGroup = vsg::StateGroup::create();
                 auto gpc_mesh = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
                 gpc_mesh->assignDescriptor("material", plane_mat);
                 gpc_mesh->init();
                 gpc_mesh->copyTo(pbrStateGroup);
                 pbrStateGroup->addChild(reconstructDrawCmd);
+                
+                auto pbrStateGroup_wireframe = vsg::StateGroup::create();
+                auto gpc_mesh_wireframe = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl_wireframe);
+                gpc_mesh_wireframe->assignDescriptor("material", plane_mat);
+                gpc_mesh_wireframe->init();
+                gpc_mesh_wireframe->copyTo(pbrStateGroup_wireframe);
+                pbrStateGroup_wireframe->addChild(reconstructDrawCmd);
+
                 auto shadowStateGroup = vsg::StateGroup::create();
                 gpc_shadow->copyTo(shadowStateGroup);
                 shadowStateGroup->addChild(reconstructDrawCmd);
@@ -403,8 +465,9 @@ public:
                 //stateSwtich->addChild(MASK_PBR_FULL | MASK_FAKE_BACKGROUND, pbrStateGroup);
                 //stateSwtich->addChild(MASK_DRAW_SHADOW, shadowStateGroup);
 
-                rootSwitch->addChild(MASK_FAKE_BACKGROUND | MASK_SHADOW_CASTER, pbrStateGroup);
-                rootSwitch->addChild(MASK_DRAW_SHADOW, shadowStateGroup);
+                rootSwitch->addChild(MASK_WIREFRAME, pbrStateGroup_wireframe);
+                // rootSwitch->addChild(MASK_SHADOW_RECEIVER, pbrStateGroup);
+                rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowStateGroup);
                 reconstructRoot = stateSwtich;
             }
             else
@@ -413,7 +476,7 @@ public:
             }
         }
 
-    
+        //---------------------------------------读取CAD模型------------------------------------------//
         for(int i = 0; i < model_paths.size(); i ++){
             std::string &path_i = model_paths[i];
             size_t pos = path_i.find_last_of('.');
@@ -457,33 +520,8 @@ public:
         std::cout << "model processing done" << std::endl;
 
         // HDR环境光采样
-        HDRLightSampler lightSampler;
-        lightSampler.loadHDRImage(engine_path + "asset/data/textures/FINAL.hdr");
-        lightSampler.computeLuminanceMap();
-        lightSampler.computeCDF();
-        auto sampledLights = lightSampler.sampleLights(2);
 
-
-        //-----------------------------------设置光源----------------------------------//
-        //vsg::ref_ptr<vsg::DirectionalLight> directionalLight; //定向光源 ref_ptr智能指针
-        auto lightGroup = vsg::Group::create();
-        for (const auto& light : sampledLights)
-        {   
-            vsg::vec3 lightColor = vsg::vec3(light.color[0], light.color[1], light.color[2]);
-            vsg::vec3 lightPosition = vsg::vec3(light.position[0], light.position[1], light.position[2]);
-
-            auto pointLight = vsg::DirectionalLight::create();
-            pointLight->color = lightColor;
-            pointLight->intensity = light.intensity;
-            pointLight->direction = vsg::normalize(-lightPosition);
-            pointLight->shadowMaps = 1;
-            
-            auto lightTransform = vsg::MatrixTransform::create();
-            lightTransform->matrix = vsg::translate(lightPosition);
-            lightTransform->addChild(pointLight);
-            
-            lightGroup->addChild(lightTransform);
-        }
+        update_directional_lights();
         scenegraph->addChild(lightGroup);
 
         // -----------------------设置相机参数------------------------------//
@@ -506,7 +544,7 @@ public:
             viewer->addWindow(window);
             auto view = vsg::View::create(camera, scenegraph);
             view->features = vsg::RECORD_LIGHTS;
-            view->mask = MASK_PBR_FULL;
+            view->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_FAKE_BACKGROUND;
             view->viewDependentState = CustomViewDependentState::create(view.get());
             auto renderGraph = vsg::RenderGraph::create(window, view);
             renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
@@ -535,7 +573,7 @@ public:
         env_window = vsg::Window::create(envWindowTraits);
         viewer->addWindow(env_window);
         auto env_view = vsg::View::create(camera, scenegraph);              //共用一个camera，改变一个window的视角，另一个window视角也会改变
-        env_view->mask = MASK_PBR_FULL | MASK_SHADOW_CASTER | MASK_FAKE_BACKGROUND;
+        env_view->mask = MASK_FAKE_BACKGROUND | MASK_PBR_FULL;
         env_view->features = vsg::RECORD_LIGHTS;
         auto env_renderGraph = vsg::RenderGraph::create(env_window, env_view); //如果用Env_window会报错
         env_renderGraph->clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
@@ -551,7 +589,7 @@ public:
         viewer->addWindow(shadow_window);
         auto Shadow_view = vsg::View::create(camera, scenegraph);                 //共用一个camera，改变一个window的视角，另一个window视角也会改变
         
-        Shadow_view->mask = MASK_DRAW_SHADOW;
+        Shadow_view->mask = MASK_SHADOW_CASTER | MASK_SHADOW_RECEIVER;
         Shadow_view->features = vsg::RECORD_SHADOW_MAPS;
         Shadow_view->viewDependentState = CustomViewDependentState::create(Shadow_view.get());
         env_view->viewDependentState = Shadow_view->viewDependentState;
@@ -651,7 +689,6 @@ public:
             };
             auto mergeShaderSet = buildMergeShaderSet(options);
 
-            vsg::DataList Env_vertexArrays;
             auto Env_graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(mergeShaderSet); //渲染管线创建
             vsg::ImageInfoList cadColor = {imageInfosIBL[0]};
             vsg::ImageInfoList cadDepth = {imageInfosIBL[1]};
@@ -706,7 +743,7 @@ public:
         auto final_renderGraph = vsg::RenderGraph::create(final_window, final_view); //如果用Env_window会报错
         final_renderGraph->clearValues[0].color = {{0.8f, 0.8f, 0.8f, 1.f}};
         auto final_commandGraph = vsg::CommandGraph::create(final_window); //如果用Env_window会报错
-        for (int i = 0; i <= 4; i++){
+        for (int i = 0; i < 4; i++){
             final_commandGraph->addChild(copyImagesIBL[i]);
         }
         final_commandGraph->addChild(final_renderGraph);
@@ -751,8 +788,9 @@ public:
         instance_phongs[instance_name]->nodePtr[""].transform->matrix = model_matrix;
     }
 
-    void updateEnvLighting(std::string& envmapFilepath){
-        preprocessEnvMap(envmapFilepath);
+    void updateEnvLighting(){
+        preprocessEnvMap();
+        update_directional_lights();
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
     }
 

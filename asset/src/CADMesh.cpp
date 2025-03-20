@@ -372,14 +372,14 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
         int blue = std::stoi(testcolor.substr(4, 2), nullptr, 16);
 
         // 将 RGB 转换为 0.0 到 1.0 之间的浮点数, tmp modify
-        float r = red / 255.0f * 3;
-        float g = green / 255.0f * 3;
-        float b = blue / 255.0f * 3;
+        float r = red / 255.0f;
+        float g = green / 255.0f;
+        float b = blue / 255.0f;
         vsg::ref_ptr<vsg::PbrMaterialValue> default_material;
         default_material = vsg::PbrMaterialValue::create();
 
         default_material->value().baseColorFactor.set(r, g, b, opacity);
-        default_material->value().metallicFactor = 0.1f;
+        default_material->value().metallicFactor = 0.3f;
         default_material->value().diffuseFactor.set(0.9f, 0.9f, 0.9f, 1.0f);
         default_material->value().specularFactor.set(0.9f, 0.9f, 0.9f, 1.0f);
         default_material->value().emissiveFactor.set(0.0f, 0.0f, 0.0f, 0.0f);

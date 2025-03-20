@@ -710,11 +710,10 @@ void loadEnvmapRect(VsgContext& context, const std::string& filePath)
 {
     auto searchPaths = appData.options->paths;
     searchPaths.push_back("./data");
-
     //auto evnmapFilepath = vsg::findFile("textures/test_park.hdr", searchPaths);
-    auto evnmapFilepath = vsg::findFile(filePath, searchPaths);
+    // auto evnmapFilepath = vsg::findFile(filePath, searchPaths);
     LoadHdrImageSTBI loader;
-    loader.readImage(evnmapFilepath.string());
+    loader.readImage(filePath);
     auto dimensions = loader.getDimensions();
     gEnvmapRect.width = dimensions.x;
     gEnvmapRect.height = dimensions.y;
