@@ -5,6 +5,8 @@ public:
     vsgRendererServer renderer;
     int width = 640;
     int height = 480;
+    bool cameara_pos_bool = true;
+    bool stop_cameara_pos = false;
     bool use_png = true;
     bool not_initialized = true;
     bool trackingShader = false;

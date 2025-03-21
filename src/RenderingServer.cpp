@@ -10,16 +10,16 @@ int RenderingServer::Init(int argc, char** argv){
 
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
+    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 1.01482, -0.491005, 1) * init_model_transforms[0]);
     //model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.991005, 1) * init_model_transforms[1]);
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.691005, 1) * init_model_transforms[1]);
-    model_paths.push_back(rendering_dir + "asset/data/geos/大舱壁-ASM(PMI).fb");
-    //model_paths.push_back(rendering_dir + "asset/data/geos/3ED_827.fb");
+    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.491005, 1) * init_model_transforms[1]);
+    // model_paths.push_back(rendering_dir + "asset/data/geos/大舱壁-ASM(PMI).fb");
+    model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
     // model_paths.push_back(rendering_dir + "asset/data/obj/小舱壁-ASM-修改焊接后.obj");
-    model_paths.push_back(rendering_dir + "asset/data/obj/小舱壁-ASM-修改焊接后.obj");
-    instance_names.push_back("3ED_827_0");
-    //instance_names.push_back("3ED_827_1");
+    model_paths.push_back(rendering_dir + "asset/data/obj/Medieval_building/output.obj");
+    instance_names.push_back("大舱壁-ASM(PMI)");
+    // instance_names.push_back("YIBIAOPAN");
     // instance_names.push_back("小舱壁-ASM-修改焊接后0");
     instance_names.push_back("小舱壁-ASM-修改焊接后1");
 
@@ -37,20 +37,25 @@ int RenderingServer::Init(int argc, char** argv){
 }
 
 int RenderingServer::Update(){
-    // model_transforms[2][3][2] += 0.005;
-    // if(model_transforms[2][3][2] > -0.45)
-    //     model_transforms[2][3][2] = -0.679909;
-
-    // renderer.updateObjectPose("小舱壁-ASM-修改焊接后1", model_transforms[2]);
     if(frame_count == 100){
-        renderer.hdr_image_num = 1;
+        renderer.hdr_image_num = 0;
         renderer.updateEnvLighting();
     }
+    //model_transforms[2][3][2] += 0.005;
+    if(model_transforms[2][3][2] > -0.45)
+        model_transforms[2][3][2] = -0.679909;
+
+    renderer.updateObjectPose("大舱壁-ASM(PMI)", model_transforms[2]);
+
     if(not_initialized){
         vsg::dvec3 centre = {lookat_vector[0], lookat_vector[1], lookat_vector[2]};                    // 固定观察点
         vsg::dvec3 eye = {lookat_vector[3], lookat_vector[4], lookat_vector[5]};// 固定相机位置
         vsg::dvec3 up = {lookat_vector[6], lookat_vector[7], lookat_vector[8]};                       // 固定观察方向
-        renderer.updateCamera(centre, eye, up);
+        if(cameara_pos_bool){//停止位姿变化
+            renderer.updateCamera(centre, eye, up);
+            if(stop_cameara_pos)
+                cameara_pos_bool = false;
+        }
     }
     // not_initialized = false;
 

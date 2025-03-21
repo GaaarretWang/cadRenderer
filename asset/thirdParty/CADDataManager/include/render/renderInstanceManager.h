@@ -1,28 +1,29 @@
 ﻿#pragma once
 #include "renderInstance.h"
 #include <unordered_map>
+namespace cadDataManager {
+	class RenderInstanceManager
+	{
+	private:
+		std::unordered_map<std::string, RInstance> mRInstanceMap;
+		RenderInstanceManager() {};
 
-class RenderInstanceManager
-{
-private:
-	std::unordered_map<std::string, RInstance> mRInstanceMap;
-	RenderInstanceManager() {};
+	public:
+		static RenderInstanceManager& GetInstance() {
+			static RenderInstanceManager instance;
+			return instance;
+		}
 
-public:
-	static RenderInstanceManager& GetInstance() {
-		static RenderInstanceManager instance;
-		return instance;
-	}
+		void addRInstance(RInstance ins);
 
-	void addRInstance(RInstance ins);
+		void removeRInstance(std::string id);
 
-	void removeRInstance(std::string id);
+		bool existRInstance(std::string id);
 
-	bool existRInstance(std::string id);
+		void clearRInstance();
 
-	void clearRInstance();
+		void addToRInstanceMap(RInstance ins);
 
-	void addToRInstanceMap(RInstance ins);
-
-	std::unordered_map<std::string, RInstance> getRInstanceMap() { return mRInstanceMap; };
-};
+		std::unordered_map<std::string, RInstance> getRInstanceMap() { return mRInstanceMap; };
+	};
+}

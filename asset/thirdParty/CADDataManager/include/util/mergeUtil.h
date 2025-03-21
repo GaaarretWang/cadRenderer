@@ -1,5 +1,6 @@
 
-
-class MergeUtil {
-public:
-};
+namespace cadDataManager {
+	class MergeUtil {
+	public:
+	};
+}

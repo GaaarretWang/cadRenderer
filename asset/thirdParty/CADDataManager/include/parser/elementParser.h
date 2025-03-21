@@ -5,14 +5,15 @@
 #include "../model/element/face.h"
 #include "parser/geometryParser.h"
 #include "util/geometryMergeUtil.h"
+namespace cadDataManager {
+	class ElementParser
+	{
+	public:
+		static Element::Ptr parseElement(const FlatBufferDocSpace::ElementData* elementObj, std::string id = "");
+		static Element::Ptr parseVertex(const FlatBufferDocSpace::ElementData* elementObj);
+		static Element::Ptr parseEdge(const FlatBufferDocSpace::ElementData* elementObj);
+		static Element::Ptr parseMesh(const FlatBufferDocSpace::ElementData* elementObj, std::string id = "");
+		static Element::Ptr parseFace(const FlatBufferDocSpace::ElementData* elementObj, std::string id = "");
 
-class ElementParser
-{
-public:
-	static Element::Ptr parseElement(const FlatBufferDocSpace::ElementData* elementObj);
-	static Element::Ptr parseVertex(const FlatBufferDocSpace::ElementData* elementObj);
-	static Element::Ptr parseEdge(const FlatBufferDocSpace::ElementData* elementObj);
-	static Element::Ptr parseMesh(const FlatBufferDocSpace::ElementData* elementObj);
-	static Element::Ptr parseFace(const FlatBufferDocSpace::ElementData* elementObj);
-	
-};
+	};
+}

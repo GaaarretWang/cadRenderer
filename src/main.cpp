@@ -6,6 +6,7 @@
 #include <CADMesh.h>
 #include "communication/dataInterface.h"
 #include <string>
+#include <chrono>
 simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
 int main(int argc, char** argv){
@@ -50,16 +51,40 @@ int main(int argc, char** argv){
     rendering_server.Init(argc, argv);
     Rendering rendering_client;
     rendering_client.Init(rendering_server.device);
+    auto startTime = std::chrono::high_resolution_clock::now();
+    int frameCount = 0;
     while(true){
+        //std::this_thread::sleep_for(std::chrono::milliseconds(100));
         rendering_server.color_path = "../asset/data/dataset3/color/" + camera_pos_timestamp[frame] + ".png";
         rendering_server.depth_path = "../asset/data/dataset3/depth/" + camera_pos_timestamp[frame] + ".png";
         rendering_server.lookat_vector = camera_pos[frame];
         
+        // 增量帧计数器
+        frameCount++;
+
+        // 计算经过的时间
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<float> elapsedTime = currentTime - startTime;
+
+        // 检查是否已过一秒
+        if (elapsedTime.count() >= 1.0f)
+        {
+            // 计算 FPS
+            float fps = frameCount / elapsedTime.count();
+
+            // 将FPS输出到控制台
+            std::cout << "FPS: " << fps << std::endl;
+
+            // 下一秒重置
+            frameCount = 0;
+            startTime = currentTime;
+        }
+
         rendering_server.Update();
         if(rendering_server.vPacket.size() > 0)
-            std::cout << rendering_server.vPacket[0].size() << std::endl;
+            //std::cout << rendering_server.vPacket[0].size() << std::endl;
 
-        rendering_client.Update(rendering_server.vPacket);
+            rendering_client.Update(rendering_server.vPacket);
         frame++;
         if(frame > 698)
             frame = 0;

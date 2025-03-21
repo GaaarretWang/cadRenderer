@@ -14,6 +14,8 @@ find_package(CUDA REQUIRED)
 
 find_package(vsg 1.1.0 REQUIRED)
 
+find_package(vsgXchange REQUIRED)
+
 find_package(assimp REQUIRED)
 
 # set the use of C++17 globally as all examples require it
@@ -37,6 +39,7 @@ target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdPa
 
 target_link_libraries(Rendering 
     vsg::vsg
+    vsgXchange::vsgXchange
     flatbuffers
     vsgRenderer
     libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY}

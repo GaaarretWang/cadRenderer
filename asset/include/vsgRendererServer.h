@@ -53,7 +53,7 @@ class vsgRendererServer
     IBL::VsgContext vsgContext = {};
     vsg::ref_ptr<vsg::StateGroup> drawSkyboxNode = vsg::StateGroup::create();
     vsg::ref_ptr<vsg::Group> lightGroup = vsg::Group::create();
-    int hdr_image_num = 0;
+    int hdr_image_num = 1;
 
     vsg::ref_ptr<vsg::DirectionalLight> directionalLight[4];
     vsg::ref_ptr<vsg::Switch> directionalLightSwitch = vsg::Switch::create();
@@ -488,7 +488,7 @@ public:
                 transfer_model = new CADMesh();
                 if(format == "obj")
                 {
-                    transfer_model->buildObjNode(path_i.c_str(), "", model_transforms[i]); //读取obj文件
+                    transfer_model->buildObjNode(path_i.c_str(), "../asset/data/obj/Medieval_building", model_transforms[i]); //读取obj文件
                 }
                 else if(format == "fb")
                 {
@@ -759,7 +759,6 @@ public:
         extent.height = render_height;
         final_screenshotHandler = ScreenshotHandler::create(final_window, extent, ENCODER);
         screenshotHandler = ScreenshotHandler::create();        
-
         allocate_fix_depth_memory(render_width, render_height);
     }
 
@@ -804,7 +803,6 @@ public:
             std::copy(color_pixels, color_pixels + width * height * 3, vsg_color_image_beginPointer);
             uint16_t* vsg_depth_image_beginPointer = static_cast<uint16_t*>(vsg_depth_image->dataPointer(0));
             std::copy(depth_pixels, depth_pixels + width * height, vsg_depth_image_beginPointer);
-
             
 
             // depth fit 

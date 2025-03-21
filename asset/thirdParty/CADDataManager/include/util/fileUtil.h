@@ -2,7 +2,7 @@
 #ifndef CLOUDRENDER_FILEUTIL_H
 #define CLOUDRENDER_FILEUTIL_H
 #include "global/baseDef.h"
-
+namespace cadDataManager {
     class FileUtil {
     public:
         static std::vector<char> readBinary(const std::string& fileName);
@@ -14,8 +14,10 @@
 
         static std::string concatURL(const std::string ip, int port, const std::string interfaceStr);
         static std::string concatFullFilePath(const std::string fileName, const std::string filePath);
+        static std::string removeDotAndAfter(const std::string& input);
+    
     };
 
-
+}
 
 #endif //CLOUDRENDER_FILEUTIL_H

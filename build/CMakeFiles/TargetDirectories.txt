@@ -1,0 +1,6 @@
+/home/lab/workspace/wgy/cadRenderer/build/CMakeFiles/Rendering.dir
+/home/lab/workspace/wgy/cadRenderer/build/CMakeFiles/edit_cache.dir
+/home/lab/workspace/wgy/cadRenderer/build/CMakeFiles/rebuild_cache.dir
+/home/lab/workspace/wgy/cadRenderer/build/asset/CMakeFiles/vsgRenderer.dir
+/home/lab/workspace/wgy/cadRenderer/build/asset/CMakeFiles/edit_cache.dir
+/home/lab/workspace/wgy/cadRenderer/build/asset/CMakeFiles/rebuild_cache.dir

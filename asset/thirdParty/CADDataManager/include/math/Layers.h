@@ -1,26 +1,27 @@
 #pragma once
 #include "global/baseDef.h"
+namespace cadDataManager {
+	class Layers {
+	public:
+		Layers() = default;
 
-class Layers {
-public:
-	Layers() = default;
+		int getMask();
 
-	int getMask();
+		void set(int channel);
 
-	void set(int channel);
+		void enable(int channel);
 
-	void enable(int channel);
+		void enalbeAll();
 
-	void enalbeAll(); 
+		void toggle(int channel);
 
-	void toggle(int channel);
+		void disable(int channel);
 
-	void disable(int channel);
+		void disableAll();
 
-	void disableAll();
+		bool test(Layers layers);
 
-	bool test(Layers layers);
-
-private:
-	int mMask{ 0 | 1 };
-};
+	private:
+		int mMask{ 0 | 1 };
+	};
+}

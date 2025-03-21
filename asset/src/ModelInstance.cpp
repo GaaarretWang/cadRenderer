@@ -320,52 +320,383 @@ void ModelInstance::buildInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> sce
 
 void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_ibl,vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix){
     vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0});
-    vsg::ref_ptr<vsg::vec2Array> dummyUV = vsg::vec2Array::create(1);
+    std::cout<< "objUVVector count :" << mesh->objUVVector[0]->size() << std::endl;
+    std::cout<< "objNormalVector count :" << mesh->objNormalsVector[0]->size() << std::endl;
+    std::cout<< "objVerticesVector count :" << mesh->objVerticesVector[0]->size() << std::endl;
+    std::cout<< "objIndicesVector count :" << mesh->objIndicesVector[0][0]->size() << std::endl;
+    auto objmaterial = mesh->objMaterialVector[0];
     auto object_mat = vsg::PbrMaterialValue::create();
-    object_mat->value().baseColorFactor.set(1.0, 1.0, 1.0, 1.0f);
-    object_mat->value().metallicFactor = 0.6f;
-    object_mat->value().diffuseFactor.set(0.9f, 0.9f, 0.9f, 1.0f);
-    object_mat->value().specularFactor.set(0.9f, 0.9f, 0.9f, 1.0f);
-    object_mat->value().emissiveFactor.set(0.0f, 0.0f, 0.0f, 0.0f);
-    object_mat->value().roughnessFactor = 0.3f;
-    object_mat->value().alphaMaskCutoff = 0.0f;
+    object_mat->value().roughnessFactor = 0.1f;
+    object_mat->value().metallicFactor = 0.9f;
+    object_mat->value().baseColorFactor = vsg::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+    // object_mat->value() = objmaterial->at(0);
 
+    std::cout << mesh->objVerticesVector[0]->size() << "**********************************" << std::endl;
     // Create the graphics pipeline configurator
     vsg::DataList OBJ_vertexArrays = {
-        mesh->verticesVector[0],
-        mesh->normalsVector[0],
-        dummyUV,
-        default_color
-    };
-    
-    // Assign the vertex, normal, and texcoord arrays to the graphics pipeline configurator
-    // graphicsPipelineConfig->assignArray(OBJ_vertexArrays,"vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, verticesUV);
+            mesh->objVerticesVector[0],
+            mesh->objNormalsVector[0],
+            mesh->objUVVector[0],
+            default_color
+        };
+    auto options = vsg::Options::create();
+    options->add(vsgXchange::all::create());
+    vsg::Builder builder;
+    vsg::GeometryInfo geomInfo;
+    geomInfo.dx.set(500.0f, 0.0f, 0.0f);
+    geomInfo.dy.set(0.0f, 500.0f, 0.0f);
+    geomInfo.dz.set(0.0f, 0.0f, 500.0f);
+    geomInfo.position.z-=1000;
+    geomInfo.color = vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f};
+    vsg::StateInfo stateinfo;
 
-    //绑定索引
-    auto drawCommands = vsg::Commands::create();
-    drawCommands->addChild(vsg::BindVertexBuffers::create(gpc_ibl->baseAttributeBinding, OBJ_vertexArrays));
-    drawCommands->addChild(vsg::BindIndexBuffer::create(mesh->indicesVector[0]));
-    drawCommands->addChild(vsg::DrawIndexed::create(mesh->indicesVector[0]->size(), 1, 0, 0, 0));
+    auto sampler = vsg::Sampler::create();
+    sampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler->minFilter = VK_FILTER_LINEAR; // 线性过滤（平滑纹理）
+    sampler->magFilter = VK_FILTER_LINEAR;
 
-    auto PbrStateGroup = vsg::StateGroup::create();
-    PbrStateGroup->addChild(drawCommands);
 
-    auto gpc_object = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
-    gpc_object->assignDescriptor("material", object_mat);
-    gpc_object->init();
-    gpc_object->copyTo(PbrStateGroup);
-
-    auto cadMeshShadowStateGroup = vsg::StateGroup::create();
-    cadMeshShadowStateGroup->addChild(drawCommands);
-    gpc_shadow->copyTo(cadMeshShadowStateGroup);
-
+    std::vector<vsg::ref_ptr<vsg::GraphicsPipelineConfigurator>> gpc_group;
+    std::vector<vsg::ref_ptr<vsg::GraphicsPipelineConfigurator>> gpc_mtrgroup;
     auto cadMeshSwitch = vsg::Switch::create();
-    cadMeshSwitch->addChild(MASK_PBR_FULL, PbrStateGroup);
-    // cadMeshSwitch->addChild(MASK_DRAW_SHADOW, cadMeshShadowStateGroup);
-
     treeNode top;
     top.transform = vsg::MatrixTransform::create();
+
+    for(int i = 0; i < mesh->objIndicesVector[0].size(); i++){
+
+        auto gpc_obj = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
+        gpc_group.push_back(gpc_obj);
+        
+        //绑定纹理
+        if(mesh->objTexturePath[0][i]!=""){
+            auto textureData = vsg::read_cast<vsg::Data>("../asset/data/obj/Medieval_building/textures/" + mesh->objTexturePath[0][mesh->objMaterialIndice[0][i]], options);
+            
+            gpc_group[i]->assignTexture("diffuseMap", textureData, sampler);
+        }
+
+        //绑定索引
+        auto drawCommands = vsg::Commands::create();
+        drawCommands->addChild(vsg::BindVertexBuffers::create(gpc_group[i]->baseAttributeBinding, OBJ_vertexArrays));
+        drawCommands->addChild(vsg::BindIndexBuffer::create(mesh->objIndicesVector[0][i]));//******************* */
+        drawCommands->addChild(vsg::DrawIndexed::create(mesh->objIndicesVector[0][i]->size(), 1, 0, 0, 0));//******************* */
+
+        auto PbrStateGroup = vsg::StateGroup::create();
+        PbrStateGroup->addChild(drawCommands);
+
+        auto gpc_object = vsg::GraphicsPipelineConfigurator::create(*gpc_group[i]);
+        auto obj_mat = vsg::PbrMaterialValue::create(mesh->objMaterialVector[0]->at(i));
+        gpc_object->assignDescriptor("material", obj_mat);//材质在这里修改
+        gpc_object->init();
+        gpc_object->copyTo(PbrStateGroup);
+
+        auto cadMeshShadowStateGroup = vsg::StateGroup::create();
+        cadMeshShadowStateGroup->addChild(drawCommands);
+        gpc_shadow->copyTo(cadMeshShadowStateGroup);
+
+        cadMeshSwitch->addChild(MASK_PBR_FULL, PbrStateGroup);
+        cadMeshSwitch->addChild(MASK_SHADOW_CASTER, cadMeshShadowStateGroup);
+        
+        //添加材质物体
+        //top.transform->addChild(builder.createSphere(geomInfo, stateinfo));
+    }
+
+    //展示材质
+    vsg::ref_ptr<vsg::PbrMaterialArray> mtr_mtrVector = vsg::PbrMaterialArray::create(20);
+    vsg::ref_ptr<vsg::vec4Array> mtr_colors = vsg::vec4Array::create(20);
+    std::vector<std::string> mtr_path;
+    //黄金
+    mtr_mtrVector->set(0,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.9f, 0.9f, 0.9f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.08f
+            });
+    mtr_colors->set(0, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/gold/Metal034_1K-JPG_Color.jpg");
+    //白银
+    mtr_mtrVector->set(1,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.9f, 0.9f, 0.9f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.08f
+            });
+    mtr_colors->set(1, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/silver/Metal041A_1K-JPG_Color.jpg");
+    //铜
+    mtr_mtrVector->set(2,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.9f, 0.9f, 0.9f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.2f
+            });
+    mtr_colors->set(2, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/bronze/Metal035_1K-JPG_Color.jpg");
+    //合金
+    mtr_mtrVector->set(3,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.9f, 0.9f, 0.9f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                0.8f,
+                0.3f
+            });
+    mtr_colors->set(3, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/iron/Metal009_1K-JPG_Color.jpg");
+    //石头
+    mtr_mtrVector->set(4,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.9f, 0.9f, 0.9f, 1.0f},
+                vsg::vec4{0.04f, 0.04f, 0.04f, 1.0f},
+                1.0f,
+                0.6f
+            });
+    mtr_colors->set(4, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/stone/Asphalt031_1K-JPG_Color.jpg");
+    //塑料
+    mtr_mtrVector->set(5,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.2f, 0.2f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.2f, 0.2f, 1.0f},
+                vsg::vec4{0.04f, 0.04f, 0.04f, 1.0f},
+                1.0f,
+                0.28f
+            });
+    mtr_colors->set(5, vsg::vec4{0.95f, 0.2f, 0.2f, 1.0f});
+    mtr_path.push_back("/plastic/Plastic007_1K-JPG_Color.jpg");
+    //草坪
+    mtr_mtrVector->set(6,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.04f, 0.04f, 0.04f, 1.0f},
+                1.0f,
+                0.8f
+            });
+    mtr_colors->set(6, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/grass/Grass005_1K-JPG_Color.jpg");
+    //皮革
+    mtr_mtrVector->set(7,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.6f
+            });
+    mtr_colors->set(7, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/Leather/Leather037_1K-JPG_Color.jpg");
+    //木头
+    mtr_mtrVector->set(8,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.7f
+            });
+    mtr_colors->set(8, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/Wood/Wood093_1K-JPG_Color.jpg");
+    //木头地板
+    mtr_mtrVector->set(9,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.7f
+            });
+    mtr_colors->set(9, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/WoodFloor/WoodFloor040_1K-JPG_Color.jpg");
+    //大理石
+    mtr_mtrVector->set(10,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.3f
+            });
+    mtr_colors->set(10, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/Marble/Marble020_1K-JPG_Color.jpg");
+    //金属平面
+    mtr_mtrVector->set(11,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.2f
+            });
+    mtr_colors->set(11, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/DiamondPlate/DiamondPlate008C_1K-JPG_Roughness.jpg");
+    //纤维
+    mtr_mtrVector->set(12,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.9f
+            });
+    mtr_colors->set(12, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/Fabric/Fabric080_1K-JPG_Color.jpg");
+    //纤维1
+    mtr_mtrVector->set(13,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.9f
+            });
+    mtr_colors->set(13, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/Fabric1/Fabric070_1K-JPG_Roughness.jpg");
+    //Tile
+    mtr_mtrVector->set(14,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.9f
+            });
+    mtr_colors->set(14, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/Tiles/Tiles101_1K-JPG_Color.jpg");
+    //金属1
+    mtr_mtrVector->set(15,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.6f
+            });
+    mtr_colors->set(15, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/Metal1/Metal041C_1K-JPG_Color.jpg");
+    //木头1
+    mtr_mtrVector->set(16,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.8f
+            });
+    mtr_colors->set(16, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/Wood1/Wood025_1K-JPG_Color.jpg");
+    //图案金属
+    mtr_mtrVector->set(17,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.6f
+            });
+    mtr_colors->set(17, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/PaintedMetal/PaintedMetal009_1K-JPG_Color.jpg");
+    //缺陷平面
+    mtr_mtrVector->set(18,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.6f
+            });
+    mtr_colors->set(18, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/SurfaceImperfections/SurfaceImperfections007_1K-JPG_Color.jpg");
+    //Tiles1
+    mtr_mtrVector->set(19,
+        vsg::PbrMaterial{
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f},
+                vsg::vec4{0.2f, 0.2f, 0.2f, 1.0f},
+                1.0f,
+                0.9f
+            });
+    mtr_colors->set(19, vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f});
+    mtr_path.push_back("/Tiles1/Tiles056_1K-JPG_Color.jpg");
+
+
+    for (int i = 0; i < 20; i++)
+    {
+        vsg::ref_ptr<vsg::vec4Value> mtr_color = vsg::vec4Value::create(mtr_colors->at(i));
+        if(i%5 == 0){
+            geomInfo.position.x-=1000;
+            geomInfo.position.y+=4000;
+        }
+        else {
+            geomInfo.position.y-=1000;
+        }
+
+        auto gpc_mtr = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
+        gpc_mtrgroup.push_back(gpc_mtr);
+
+        auto drawCommands_mtr = vsg::Commands::create();
+        auto mtr_array = builder.createSphereWithArray(geomInfo, stateinfo);//实现array，indices绑定
+        mtr_array.insert(mtr_array.begin()+3, mtr_color);
+        vsg::ref_ptr<vsg::Data> lastData = mtr_array.back();
+        vsg::ref_ptr<vsg::ushortArray> indices = lastData.cast<vsg::ushortArray>();
+        mtr_array.pop_back();
+        auto textureData = vsg::read_cast<vsg::Data>("../asset/data/textures" + mtr_path[i], options);
+        //textureData.reset();
+        gpc_mtrgroup[i]->assignTexture("diffuseMap", textureData, sampler);
+
+        drawCommands_mtr->addChild(vsg::BindVertexBuffers::create(gpc_mtrgroup[i]->baseAttributeBinding, mtr_array));
+        drawCommands_mtr->addChild(vsg::BindIndexBuffer::create(indices));//******************* */
+        drawCommands_mtr->addChild(vsg::DrawIndexed::create(indices->size(), 1, 0, 0, 0));//******************* */
+
+        auto mtrStateGroup = vsg::StateGroup::create();
+        mtrStateGroup->addChild(drawCommands_mtr);
+
+        auto gpc_mat = vsg::GraphicsPipelineConfigurator::create(*gpc_mtrgroup[i]);
+        auto mat = vsg::PbrMaterialValue::create(mtr_mtrVector->at(i));
+        auto obj_mat = vsg::PbrMaterialValue::create(mesh->objMaterialVector[0]->at(i));
+        gpc_mat->assignDescriptor("material", mat);//材质在这里修改
+        gpc_mat->init();
+        gpc_mat->copyTo(mtrStateGroup);
+
+        auto materialShadowStateGroup = vsg::StateGroup::create();
+        materialShadowStateGroup->addChild(drawCommands_mtr);
+        gpc_shadow->copyTo(materialShadowStateGroup);
+
+        cadMeshSwitch->addChild(MASK_PBR_FULL, mtrStateGroup);
+        cadMeshSwitch->addChild(MASK_SHADOW_CASTER, materialShadowStateGroup);
+
+    }
     top.transform->addChild(cadMeshSwitch);
+    
+
+    // top.transform->addChild(builder.createBox(geomInfo, stateinfo));
     top.transform->matrix = modelMatrix;
     top.originalMatrix = modelMatrix;
     nodePtr[""] = top;
@@ -428,13 +759,6 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
                 {
                     transforms[m][n] = pmi[i].instanceMatrixList[0].at(m * 4 + n);
                 }
-            //temp1 = transforms * temp1;
-            //temp2 = transforms * temp2;
-            //temp3 = transforms * temp3;
-            //temp4 = transforms * temp4;
-            //temp5 = transforms * temp5;
-            //temp6 = transforms * temp6;
-            //textx = transforms * textx;
             auto layout = vsg::StandardLayout::create();
             layout->horizontalAlignment = vsg::StandardLayout::CENTER_ALIGNMENT; //水平居中
             layout->position = textx;                                            //左右，前后，上下（xyz轴）
@@ -537,27 +861,42 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
 
     scenegraph->addChild(builder->createLine(geomInfo, stateInfo, positions, indices));
 
-    vsg::ref_ptr<vsg::vec2Array> dummyUV = vsg::vec2Array::create(0);
-    for(int i = 1; i < mesh->verticesVector.size(); i++){
+    for(int i = 0; i < mesh->indicesVector.size(); i++){
         // 创建独立的DrawCommand
+        // vsg::ref_ptr<vsg::vec2Array> dummyUV = vsg::vec2Array::create(mesh->verticesVector[i]->size());
         vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(
             mesh->materialVector[i]->value().baseColorFactor);
         vsg::DataList vertexArrays = {
             mesh->verticesVector[i],
             mesh->normalsVector[i],
-            dummyUV,
+            mesh->indicesVector[i],
             default_color
         };
         auto drawCommands = vsg::Commands::create();
 
+        auto gpc_fb = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
+        auto options = vsg::Options::create();
+        options->add(vsgXchange::all::create());
+        auto sampler = vsg::Sampler::create();
+        sampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        sampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        sampler->minFilter = VK_FILTER_LINEAR; // 线性过滤（平滑纹理）
+        sampler->magFilter = VK_FILTER_LINEAR;
+        // std::string name = mesh->materialNameVector[i];
+        std::string name = "Metal032";// 纹理材质，华云那边接口有点问题还没有改，没问题了之后有上面注释掉的
+        std::string mtr_path = "../asset/data/textures/"+name+"/"+name+"_2K_Color.png";
+        std::cout << mtr_path << std::endl;
+        auto textureData = vsg::read_cast<vsg::Data>(mtr_path, options);
+        gpc_fb->assignTexture("diffuseMap", textureData, sampler);
+
         //绑定索引
-        drawCommands->addChild(vsg::BindVertexBuffers::create(gpc_ibl->baseAttributeBinding, vertexArrays));
+        drawCommands->addChild(vsg::BindVertexBuffers::create(gpc_fb->baseAttributeBinding, vertexArrays));
         drawCommands->addChild(vsg::BindIndexBuffer::create(mesh->indicesVector[i]));
         drawCommands->addChild(vsg::DrawIndexed::create(mesh->indicesVector[i]->size(), 1, 0, 0, 0));
 
         auto PbrStateGroup = vsg::StateGroup::create();
         PbrStateGroup->addChild(drawCommands);
-        auto gpc_object = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
+        auto gpc_object = vsg::GraphicsPipelineConfigurator::create(*gpc_fb);
         gpc_object->assignDescriptor("material", mesh->materialVector[i]);
         gpc_object->init();
         gpc_object->copyTo(PbrStateGroup);
