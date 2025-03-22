@@ -52,6 +52,8 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::Switch> directionalLightSwitch = vsg::Switch::create();
 
     std::string project_path;
+    bool isTexture = false;
+    std::string texture_path = "asset/data/obj/Medieval_building";
 
     float fx = 386.52199190267083;//焦距(x轴上)
     float fy = 387.32300428823663;//焦距(y轴上)
@@ -59,6 +61,7 @@ class vsgRendererServer
     float cy = 237.40293732598795;//图像中心点(y轴)
     float near = 0.1f;
     float far = 65.535f;
+    int countnum = 0;//测试用，用来看循环次数
     int width;
     int height;
     int render_width;
@@ -128,7 +131,7 @@ public:
             merge_shader = config_shader.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
     }
 
-    void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)
+    void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform, std::string rendering_dir)
     {
         // project_path = engine_path.append("Rendering/");
         project_path = engine_path;
@@ -411,6 +414,7 @@ public:
             std::string &path_i = model_paths[i];
             size_t pos = path_i.find_last_of('.');
             std::string format = path_i.substr(pos + 1);
+            std::string texture_path_i = rendering_dir + texture_path;
             CADMesh* transfer_model;
             if (transfered_meshes.find(path_i) != transfered_meshes.end()){
                 transfer_model = transfered_meshes[path_i];
@@ -418,7 +422,7 @@ public:
                 transfer_model = new CADMesh();
                 if(format == "obj")
                 {
-                    transfer_model->buildObjNode(path_i.c_str(), "../asset/data/obj/Medieval_building", model_transforms[i]); //读取obj文件
+                    transfer_model->buildObjNode(path_i.c_str(), texture_path_i.c_str(), model_transforms[i]); //读取obj文件
                 }
                 else if(format == "fb")
                 {
@@ -431,7 +435,7 @@ public:
             if(format == "obj"){
                 
                 ModelInstance* instance_phong = new ModelInstance();
-                instance_phong->buildObjInstanceIBL(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
+                instance_phong->buildObjInstanceIBL(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i], isTexture);
                 //instance_phong->buildObjInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
                 instance_phongs[instance_names[i]] = instance_phong;
             }
@@ -444,7 +448,11 @@ public:
                 instance_phongs[instance_names[i]] = instance_phong;
                 
             }
-            
+            else if(format == "texture")
+            {
+                ModelInstance* instance_phong = new ModelInstance();
+                instance_phong->buildTextureSphere(scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
+            }
         }
 
         std::cout << "model processing done" << std::endl;
@@ -761,7 +769,6 @@ public:
             uint16_t* vsg_depth_image_beginPointer = static_cast<uint16_t*>(vsg_depth_image->dataPointer(0));
             std::copy(depth_pixels, depth_pixels + width * height, vsg_depth_image_beginPointer);
             
-
             // depth fit 
             // for(int iterate_num = 0; iterate_num < 30; iterate_num++){
             //     for(int i = 0; i < height; i++){
@@ -789,9 +796,11 @@ public:
 
             //------------------------------------------------------窗口123-----------------------------------------------------//
             // pass any events into EventHandlers assigned to the Viewer
+            viewer->compile();
             viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
             viewer->update();
-            viewer->recordAndSubmit(); //于记录和提交命令图。它会遍历`RecordAndSubmitTasks`列表中的任务，并对每个任务执行记录和提交操作。
+            viewer->recordAndSubmit(); //于记录和提交命令图。它会遍历`RecordAndSubmitTasks`列表中的任务，并对每个任务执行记录和提交操作。 修改颜色报错了555
+            // std::cout<<"test"<<std::endl;
             viewer->present();
             copyImagesIBL[0]->srcImage = screenshotHandler->screenshot_image(window);
             copyImagesIBL[0]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
@@ -811,6 +820,33 @@ public:
         }
         else{
             return false;
+        }
+    }
+
+    void repaint(){
+        countnum++;
+        if(countnum==32)
+        {
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("006F1783-7FDA-4B8E-9219-69528CB35488",0);
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("007A8C0C-BA56-4F47-95E6-294CC7444E25",0);
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("0103F622-8C3C-4872-833D-850E1D60190D",0);
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("06FF30A9-50CA-4296-9636-2F7B7EFB6CC4",0);
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("08333F85-D22B-4EF5-888F-F96CA81C56EF",0);
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("0A7FC82F-8950-446A-8E10-871EAB94BD7A",0);
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("0B6D2CBA-6C5E-46AD-B2A5-E6E9CCBEF127",0);
+            // instance_phongs["大舱壁-ASM(PMI)"]->repaint("",1);
+        }
+        else if(countnum==64)
+        {
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("006F1783-7FDA-4B8E-9219-69528CB35488",1);
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("007A8C0C-BA56-4F47-95E6-294CC7444E25",1);
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("0103F622-8C3C-4872-833D-850E1D60190D",1);
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("06FF30A9-50CA-4296-9636-2F7B7EFB6CC4",1);
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("08333F85-D22B-4EF5-888F-F96CA81C56EF",1);
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("0A7FC82F-8950-446A-8E10-871EAB94BD7A",1);
+            instance_phongs["大舱壁-ASM(PMI)"]->repaint("0B6D2CBA-6C5E-46AD-B2A5-E6E9CCBEF127",1);
+            // instance_phongs["大舱壁-ASM(PMI)"]->repaint(1);
+            countnum = 0;
         }
     }
 

@@ -11,17 +11,19 @@ int RenderingServer::Init(int argc, char** argv){
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
+    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.591005, 1) * init_model_transforms[0] * mat);
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.991005, 1) * init_model_transforms[1]);
     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.691005, 1) * init_model_transforms[1]);
     // model_paths.push_back(rendering_dir + "asset/data/geos/大舱壁-ASM(PMI).fb");
     model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
     // model_paths.push_back(rendering_dir + "asset/data/obj/小舱壁-ASM-修改焊接后.obj");
     model_paths.push_back(rendering_dir + "asset/data/obj/Medieval_building/output.obj");
-    instance_names.push_back("大舱壁-ASM(PMI)");
+    model_paths.push_back(rendering_dir + "test.texture");
     // instance_names.push_back("YIBIAOPAN");
     // instance_names.push_back("小舱壁-ASM-修改焊接后0");
-    instance_names.push_back("小舱壁-ASM-修改焊接后1");
+    instance_names.push_back("大舱壁-ASM(PMI)");
+    instance_names.push_back("Medieval_building");
+    instance_names.push_back("texture");
 
     vsg::CommandLine arguments(&argc, argv);
 
@@ -30,7 +32,7 @@ int RenderingServer::Init(int argc, char** argv){
     vsg::dmat4 plane_transform = vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -0.78, 1);
     // vsg::vec3 light_direction = vsg::normalize(vsg::vec3(0, 1, 0));
     //vsg::vec3 light_direction = vsg::normalize(vsg::vec3(-1.0, 0.2, -1.0));
-    renderer.initRenderer(rendering_dir, model_transforms, model_paths, instance_names, plane_transform);
+    renderer.initRenderer(rendering_dir, model_transforms, model_paths, instance_names, plane_transform, rendering_dir);
     
     device = renderer.device;
     return 0;
@@ -42,6 +44,7 @@ int RenderingServer::Update(){
         model_transforms[2][3][2] = -0.679909;
 
     renderer.updateObjectPose("大舱壁-ASM(PMI)", model_transforms[2]);
+    renderer.repaint();
 
     if(not_initialized){
         vsg::dvec3 centre = {lookat_vector[0], lookat_vector[1], lookat_vector[2]};                    // 固定观察点

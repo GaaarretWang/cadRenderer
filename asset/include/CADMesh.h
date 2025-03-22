@@ -154,6 +154,7 @@ private:
 public:
     int Nodenumber;
     int Triangnumber;
+    int countnum = 0;
 
     flatbuffers::FlatBufferBuilder builder_out;
     std::unordered_map<std::string, uint32_t> protoIndex;
@@ -180,6 +181,7 @@ public:
     std::vector<std::string> materialNameVector;
     std::vector<std::vector<float>> transformVector;
     std::vector<int> transformNumVector;
+    std::unordered_map<std::string, int> meshIndice; //存储零件名和它在数组中的位置，便于查找
     
     cadDataManager::RenderInfo info;
 

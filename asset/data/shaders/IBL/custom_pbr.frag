@@ -44,6 +44,10 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D emissiveMap
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap;
 #endif
 
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 9) uniform transparentData{
+    int semitransparent;
+} transparent;
+
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
 {
     vec4 baseColorFactor;
@@ -777,5 +781,11 @@ void main()
     float exposure = 3.0f;
     color = Uncharted2Tonemap(color * exposure);
 	color = color * (vec3(1.0f) / Uncharted2Tonemap(vec3(11.2f)));
-    outColor = LINEARtoSRGB(vec4(color, baseColor.a));
+    if(transparent.semitransparent == 0)
+    {
+        outColor = LINEARtoSRGB(vec4(color, baseColor.a * 0.5));
+    }
+    else{
+        outColor = LINEARtoSRGB(vec4(color, baseColor.a));
+    }
 }
