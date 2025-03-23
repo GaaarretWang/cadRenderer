@@ -318,6 +318,45 @@ void ModelInstance::buildInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> sce
     scene->addChild(nodePtr[""].transform);
 }
 
+void ModelInstance::buildObjInstanceShadow(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, vsg::dmat4 modelMatrix){
+    vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0});
+    vsg::ref_ptr<vsg::vec2Array> dummyUV = vsg::vec2Array::create(1);
+    auto object_mat = vsg::PbrMaterialValue::create();
+    object_mat->value().roughnessFactor = 1.0f;
+    object_mat->value().metallicFactor = 0.0f;
+    object_mat->value().baseColorFactor = vsg::vec4(1.0, 1.0, 1.0, 1.0);
+    object_mat->value().specularFactor = vsg::vec4(0.f, 0.f, 0.f, 1.0f);
+
+    // Create the graphics pipeline configurator
+    vsg::DataList OBJ_vertexArrays = {
+        mesh->verticesVector[0],
+        mesh->normalsVector[0],
+        dummyUV,
+        default_color
+    };
+    
+    // Assign the vertex, normal, and texcoord arrays to the graphics pipeline configurator
+    // graphicsPipelineConfig->assignArray(OBJ_vertexArrays,"vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, verticesUV);
+
+    //绑定索引
+    auto drawCommands = vsg::Commands::create();
+    drawCommands->addChild(vsg::BindVertexBuffers::create(gpc_shadow->baseAttributeBinding, OBJ_vertexArrays));
+    drawCommands->addChild(vsg::BindIndexBuffer::create(mesh->indicesVector[0]));
+    drawCommands->addChild(vsg::DrawIndexed::create(mesh->indicesVector[0]->size(), 1, 0, 0, 0));
+    auto cadMeshShadowStateGroup = vsg::StateGroup::create();
+    cadMeshShadowStateGroup->addChild(drawCommands);
+    gpc_shadow->copyTo(cadMeshShadowStateGroup);
+
+    treeNode top;
+    top.transform = vsg::MatrixTransform::create();
+    top.transform->addChild(cadMeshShadowStateGroup);
+    top.transform->matrix = modelMatrix;
+    top.originalMatrix = modelMatrix;
+    nodePtr[""] = top;
+
+    scene->addChild(top.transform);
+}
+
 void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_ibl,vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix){
     vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0});
     std::cout<< "objUVVector count :" << mesh->objUVVector[0]->size() << std::endl;
@@ -864,8 +903,10 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
     for(int i = 0; i < mesh->indicesVector.size(); i++){
         // 创建独立的DrawCommand
         // vsg::ref_ptr<vsg::vec2Array> dummyUV = vsg::vec2Array::create(mesh->verticesVector[i]->size());
-        vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(
-            mesh->materialVector[i]->value().baseColorFactor);
+        // vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(
+        //     mesh->materialVector[i]->value().baseColorFactor);
+        // std::cout << mesh->verticesVector[i]->at(5).x << std::endl;
+        vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0});
         vsg::DataList vertexArrays = {
             mesh->verticesVector[i],
             mesh->normalsVector[i],
@@ -885,7 +926,7 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
         // std::string name = mesh->materialNameVector[i];
         std::string name = "Metal032";// 纹理材质，华云那边接口有点问题还没有改，没问题了之后有上面注释掉的
         std::string mtr_path = "../asset/data/textures/"+name+"/"+name+"_2K_Color.png";
-        std::cout << mtr_path << std::endl;
+        // std::cout << mtr_path << std::endl;
         auto textureData = vsg::read_cast<vsg::Data>(mtr_path, options);
         gpc_fb->assignTexture("diffuseMap", textureData, sampler);
 
@@ -897,9 +938,9 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
         auto PbrStateGroup = vsg::StateGroup::create();
         PbrStateGroup->addChild(drawCommands);
         auto gpc_object = vsg::GraphicsPipelineConfigurator::create(*gpc_fb);
-        gpc_object->assignDescriptor("material", mesh->materialVector[i]);
-        gpc_object->init();
-        gpc_object->copyTo(PbrStateGroup);
+        gpc_fb->assignDescriptor("material", mesh->materialVector[i]);
+        gpc_fb->init();
+        gpc_fb->copyTo(PbrStateGroup);
         auto cadMeshShadowStateGroup = vsg::StateGroup::create();
         cadMeshShadowStateGroup->addChild(drawCommands);
         gpc_shadow->copyTo(cadMeshShadowStateGroup);

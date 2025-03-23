@@ -343,7 +343,7 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
 		//通过removeModelData移除模型数据
 		//DataInterface::removeModelData(cadFileName);
 	}
-    datainterface.loadMaterialData("/home/lzr/cadRenderer-main/cadRenderer/asset/data/JsonData/CockpitMaterial.json");//括号输入json路径
+    datainterface.loadMaterialData("/home/lab/workspace/wgy/cadRenderer/asset/data/JsonData/CockpitMaterial.json");//括号输入json路径
 	// auto info = datainterface.getRenderInfo();
     auto MapInfo = datainterface.getRenderInfoMap();
 	pmi = datainterface.getPmiInfos(false);

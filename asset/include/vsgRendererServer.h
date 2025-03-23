@@ -59,6 +59,8 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::Switch> directionalLightSwitch = vsg::Switch::create();
 
     std::string project_path;
+    std::string shadow_recevier_path;
+    vsg::dmat4 shadow_recevier_transform;
 
     float fx = 386.52199190267083;//焦距(x轴上)
     float fy = 387.32300428823663;//焦距(y轴上)
@@ -368,9 +370,6 @@ public:
             return false;
         };
 
-        auto dummyArrayVec2 = vsg::vec2Array::create(1);
-        auto dummyArrayVec3 = vsg::vec3Array::create(1);
-        auto dummyArrayVec4 = vsg::vec3Array::create(1);
         vsg::Data::Properties vec2ArrayProps = {};
         vec2ArrayProps.stride = sizeof(vsg::vec2);
         vsg::Data::Properties vec3ArrayProps = {};
@@ -410,72 +409,53 @@ public:
         gpc_shadow->assignDescriptor("material", plane_mat);
         gpc_shadow->init();
 
-        CADMesh cad;
-        //读取.fb格式的模型参数信息
-        bool fullNormal = 0;
         PlaneData planeData = createTestPlanes();
         float subdivisions = 0.1;
         PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
 
         MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
 
-        vsg::ref_ptr<vsg::Node> reconstructRoot;
-        vsg::ref_ptr<vsg::Geometry> reconstructDrawCmd = vsg::Geometry::create();
         {
-            auto roomFilepath = vsg::findFile("geos/plane.ply", options->paths);
-            SimpleMesh importMesh;
-            if (importMeshPly(roomFilepath.string(), importMesh))
-            {   
-                /*
-                reconstructDrawCmd = vsg::Geometry::create();
-                reconstructDrawCmd->assignArrays({importMesh.vertices,
-                                                importMesh.normals,
-                                                vsg::vec2Array::create(1),
-                                                vsg::vec4Value::create(1, 1, 1, 1)});
-                reconstructDrawCmd->assignIndices(importMesh.indices);
-                reconstructDrawCmd->commands.push_back(vsg::DrawIndexed::create(importMesh.numIndices, 1, 0, 0, 0));
-                */
-                reconstructDrawCmd->assignArrays({mesh.vertices,
-                                          mesh.normals,
-                                          vsg::vec2Array::create(1),
-                                          vsg::vec4Value::create(1, 1, 1, 1)});
-                reconstructDrawCmd->assignIndices(mesh.indices);
-                reconstructDrawCmd->commands.push_back(vsg::DrawIndexed::create(mesh.indices->size(), 1, 0, 0, 0));
-                    
-                auto stateSwtich = vsg::Switch::create();
+            vsg::ref_ptr<vsg::Geometry> reconstructDrawCmd = vsg::Geometry::create();
+            reconstructDrawCmd->assignArrays({mesh.vertices,
+                                        mesh.normals,
+                                        vsg::vec2Array::create(1),
+                                        vsg::vec4Value::create(1, 1, 1, 1)});
+            reconstructDrawCmd->assignIndices(mesh.indices);
+            reconstructDrawCmd->commands.push_back(vsg::DrawIndexed::create(mesh.indices->size(), 1, 0, 0, 0));
+                                
+            // auto pbrStateGroup = vsg::StateGroup::create();
+            // gpc_ibl->copyTo(pbrStateGroup);
+            // pbrStateGroup->addChild(reconstructDrawCmd);
 
-                auto pbrStateGroup = vsg::StateGroup::create();
-                auto gpc_mesh = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
-                gpc_mesh->assignDescriptor("material", plane_mat);
-                gpc_mesh->init();
-                gpc_mesh->copyTo(pbrStateGroup);
-                pbrStateGroup->addChild(reconstructDrawCmd);
-                
-                auto pbrStateGroup_wireframe = vsg::StateGroup::create();
-                auto gpc_mesh_wireframe = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl_wireframe);
-                gpc_mesh_wireframe->assignDescriptor("material", plane_mat);
-                gpc_mesh_wireframe->init();
-                gpc_mesh_wireframe->copyTo(pbrStateGroup_wireframe);
-                pbrStateGroup_wireframe->addChild(reconstructDrawCmd);
+            auto wireframeStateGroup = vsg::StateGroup::create();
+            gpc_ibl_wireframe->copyTo(wireframeStateGroup);
+            wireframeStateGroup->addChild(reconstructDrawCmd);
 
-                auto shadowStateGroup = vsg::StateGroup::create();
-                gpc_shadow->copyTo(shadowStateGroup);
-                shadowStateGroup->addChild(reconstructDrawCmd);
 
-                //stateSwtich->addChild(MASK_PBR_FULL | MASK_FAKE_BACKGROUND, pbrStateGroup);
-                //stateSwtich->addChild(MASK_DRAW_SHADOW, shadowStateGroup);
+            // auto shadowStateGroup = vsg::StateGroup::create();
+            // gpc_shadow->copyTo(shadowStateGroup);
+            // shadowStateGroup->addChild(reconstructDrawCmd);
 
-                rootSwitch->addChild(MASK_WIREFRAME, pbrStateGroup_wireframe);
-                // rootSwitch->addChild(MASK_SHADOW_RECEIVER, pbrStateGroup);
-                rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowStateGroup);
-                reconstructRoot = stateSwtich;
-            }
-            else
-            {
-                std::cerr << "Error loading ply mesh" << std::endl;
-            }
+            rootSwitch->addChild(MASK_WIREFRAME, wireframeStateGroup);
+            // rootSwitch->addChild(MASK_PBR_FULL, pbrStateGroup);
+            // rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowStateGroup);
         }
 
+        {
+            CADMesh* shadow_recevier_mesh = new CADMesh();
+            shadow_recevier_mesh->buildObjNode(shadow_recevier_path.c_str(), "", shadow_recevier_transform);
+            ModelInstance* shadow_recevier_instance = new ModelInstance();
+            auto shadowStateGroup = vsg::StateGroup::create();
+            shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, shadowStateGroup, gpc_shadow, shadow_recevier_transform);
+            rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowStateGroup);
+            ModelInstance* ibl_shadow_recevier_instance = new ModelInstance();
+            auto iblStateGroup = vsg::StateGroup::create();
+            ibl_shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, iblStateGroup, gpc_ibl, shadow_recevier_transform);
+            rootSwitch->addChild(MASK_FAKE_BACKGROUND, iblStateGroup);
+        }
+
+        bool fullNormal = true;
         //---------------------------------------读取CAD模型------------------------------------------//
         for(int i = 0; i < model_paths.size(); i ++){
             std::string &path_i = model_paths[i];
@@ -504,6 +484,7 @@ public:
                 instance_phong->buildObjInstanceIBL(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
                 //instance_phong->buildObjInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
                 instance_phongs[instance_names[i]] = instance_phong;
+                std::cout << "**************** reading obj ******************" << std::endl;
             }
             else if(format == "fb"){
                 
@@ -512,6 +493,7 @@ public:
                 instance_phong->buildFbInstance(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i], options);
                 //instance_phong->buildInstanceIBL(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
                 instance_phongs[instance_names[i]] = instance_phong;
+                std::cout << "**************** reading fb ******************" << std::endl;
                 
             }
             
@@ -852,6 +834,7 @@ public:
             final_viewer->present();
             return true;
         }
+        return false;
     }
 
     void getWindowImage(uint8_t* color){

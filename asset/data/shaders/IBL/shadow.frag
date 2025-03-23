@@ -314,6 +314,8 @@ void main()
     if (numDirectionalLights>0)
     {
         float totalAttenuation = 1.0f;
+        float totalBrigtness = 0.0f;
+        float totalVisibility = 0.0f;
         // directional lights
         for(int i = 0; i<numDirectionalLights; ++i)
         {
@@ -321,7 +323,8 @@ void main()
             vec3 direction = -lightData.values[index++].xyz; //获取光源方向向量
             vec4 shadowMapSettings = lightData.values[index++]; //获取阴影贴图的设置参数
 
-            float brightness = 1.0f; //从光源颜色中提取亮度值
+            float brightness = lightColor.a; //从光源颜色中提取亮度值
+            totalBrigtness += brightness;
             float lightShadowStrength = 0.7f;
             float attenuation = 1.0f;
 
@@ -346,16 +349,18 @@ void main()
                     // attenuation *= mix(1.0, lightShadowStrength, coverage); //根据阴影贴图的覆盖率调整亮度值。
 
                     attenuation *= (1-lightShadowStrength) + lightShadowStrength * (1-coverage); //根据阴影贴图的覆盖率调整亮度值。
-                    // visibility = PCF(shadowMaps,sm_tc,shadowMapIndex);
+                    visibility = PCF(shadowMaps,sm_tc,shadowMapIndex);
                     //float visibility = PCSS(shadowMaps,sm_tc,shadowMapIndex);
                     //float d_Blocker = findBlocker(shadowMaps, sm_tc,shadowMapIndex);
                     //brightness *= (1.0-visibility);
+                    visibility = (1.0 - visibility);
                     // brightness=1-visibility;
                 }
 
                 ++shadowMapIndex;
                 shadowMapSettings.r -= 1.0; //更新阴影贴图索引和设置参数
             }
+            totalVisibility += brightness * visibility;
 
             if (shadowMapSettings.r > 0.0) //检查是否还有未访问的阴影贴图
             { 
@@ -378,7 +383,7 @@ void main()
         }
         // if light is too dim/shadowed to effect the rendering skip it 如果光源的亮度值小于等于亮度阈值，则跳过当前光源的计算和渲染。
         // if (totalAttenuation >= brightnessCutoff ) discard; //******************
-        color.rgb = totalAttenuation.xxx;
+        color.rgb = (totalVisibility / totalBrigtness).xxx;
     }
 
     //----------------------------------------输出颜色----------------------------------------//
