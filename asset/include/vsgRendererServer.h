@@ -34,11 +34,7 @@ class vsgRendererServer
     std::unordered_map<std::string, CADMesh*> transfered_meshes; //path, mesh*
     std::unordered_map<std::string, ModelInstance*> instance_phongs; //path, mesh*
 
-    vsg::ref_ptr<vsg::ShaderSet> pbr_shader;
-    vsg::ref_ptr<vsg::ShaderSet> phong_shader;
-    vsg::ref_ptr<vsg::ShaderSet> plane_shader;
     vsg::ref_ptr<vsg::ShaderSet> shadow_shader;
-    vsg::ref_ptr<vsg::ShaderSet> merge_shader;
 
     vsg::ref_ptr<ScreenshotHandler> final_screenshotHandler;
     vsg::ref_ptr<ScreenshotHandler> screenshotHandler;
@@ -61,6 +57,8 @@ class vsgRendererServer
     std::string project_path;
     std::string shadow_recevier_path;
     vsg::dmat4 shadow_recevier_transform;
+    bool isTexture = false;
+    std::string texture_path = "asset/data/obj/Medieval_building";
 
     float fx = 386.52199190267083;//焦距(x轴上)
     float fy = 387.32300428823663;//焦距(y轴上)
@@ -68,6 +66,7 @@ class vsgRendererServer
     float cy = 237.40293732598795;//图像中心点(y轴)
     float near = 0.1f;
     float far = 65.535f;
+    int countnum = 0;//测试用，用来看循环次数
     int width;
     int height;
     int render_width;
@@ -79,6 +78,32 @@ class vsgRendererServer
     //every frame's real color and depth
     unsigned char * color_pixels;
     unsigned short * depth_pixels;
+    mergeShaderType shader_type;
+
+
+    vsg::ref_ptr<vsg::ShaderSet> buildMergeShaderSet(vsg::ref_ptr<vsg::Options> options) {
+        auto vertexShader = vsg::read_cast<vsg::ShaderStage>("shaders/IBL/fullscreenquad.vert", options);
+        vsg::ref_ptr<vsg::ShaderStage> fragShader;
+        if(shader_type == FULL_MODEL){
+            fragShader = vsg::read_cast<vsg::ShaderStage>("shaders/merge_full_model.frag", options);
+        }else if(shader_type == CAMERA_DEPTH){
+            fragShader = vsg::read_cast<vsg::ShaderStage>("shaders/new_merge.frag", options);
+        }else if(shader_type == CAD_DAPTH){
+            fragShader = vsg::read_cast<vsg::ShaderStage>("shaders/new_merge_background.frag", options);
+        }
+        auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragShader});
+
+        const uint32_t TEXTURE_DESCRIPTOR_SET = 0;
+        const uint32_t MATERIAL_DESCRIPTOR_SET = 1;
+        shaderSet->addDescriptorBinding("cadColor", "", TEXTURE_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+        shaderSet->addDescriptorBinding("cadDepth", "", TEXTURE_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
+        shaderSet->addDescriptorBinding("planeColor", "", TEXTURE_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec3Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8_UNORM}));
+        shaderSet->addDescriptorBinding("planeDepth", "", TEXTURE_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
+        shaderSet->addDescriptorBinding("shadowColor", "", TEXTURE_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+        shaderSet->addDescriptorBinding("shadowDepth", "", TEXTURE_DESCRIPTOR_SET, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
+        //shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(TEXTURE_DESCRIPTOR_SET));
+        return shaderSet;
+    };
 
     vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(string windowTitle, int num,  vsg::ref_ptr<vsg::Options> options)
     {
@@ -124,17 +149,10 @@ public:
         this->cy = cy;
     }
 
-    void setUpShader(std::string project_path, bool objtracking_shader){
+    void setUpShader(std::string project_path){
         //-----------------------------------------设置shader------------------------------------//
         ConfigShader config_shader;
-        pbr_shader = config_shader.buildShader(project_path + "asset/data/shaders/standard.vert", project_path + "asset/data/shaders/standard_pbr.frag");
-        phong_shader = config_shader.buildShader(project_path + "asset/data/shaders/standard.vert", project_path + "asset/data/shaders/standard_phong.frag");
-        plane_shader = config_shader.buildShader(project_path + "asset/data/shaders/plane.vert", project_path + "asset/data/shaders/plane.frag");
         shadow_shader = config_shader.buildShader(project_path + "asset/data/shaders/IBL/shadow.vert", project_path + "asset/data/shaders/IBL/shadow.frag");
-        if(objtracking_shader)
-            merge_shader = config_shader.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge_objtracking.frag");
-        else
-            merge_shader = config_shader.buildIntgShader(project_path + "asset/data/shaders/merge.vert", project_path + "asset/data/shaders/merge.frag");
     }
 
     void preprocessEnvMap(){
@@ -443,16 +461,16 @@ public:
         }
 
         {
-            CADMesh* shadow_recevier_mesh = new CADMesh();
-            shadow_recevier_mesh->buildObjNode(shadow_recevier_path.c_str(), "", shadow_recevier_transform);
-            ModelInstance* shadow_recevier_instance = new ModelInstance();
-            auto shadowStateGroup = vsg::StateGroup::create();
-            shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, shadowStateGroup, gpc_shadow, shadow_recevier_transform);
-            rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowStateGroup);
-            ModelInstance* ibl_shadow_recevier_instance = new ModelInstance();
-            auto iblStateGroup = vsg::StateGroup::create();
-            ibl_shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, iblStateGroup, gpc_ibl, shadow_recevier_transform);
-            rootSwitch->addChild(MASK_FAKE_BACKGROUND, iblStateGroup);
+            // CADMesh* shadow_recevier_mesh = new CADMesh();
+            // shadow_recevier_mesh->buildObjNode(shadow_recevier_path.c_str(), "", shadow_recevier_transform);
+            // ModelInstance* shadow_recevier_instance = new ModelInstance();
+            // auto shadowStateGroup = vsg::StateGroup::create();
+            // shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, shadowStateGroup, gpc_shadow, shadow_recevier_transform);
+            // rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowStateGroup);
+            // ModelInstance* ibl_shadow_recevier_instance = new ModelInstance();
+            // auto iblStateGroup = vsg::StateGroup::create();
+            // ibl_shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, iblStateGroup, gpc_ibl, shadow_recevier_transform);
+            // rootSwitch->addChild(MASK_FAKE_BACKGROUND, iblStateGroup);
         }
 
         bool fullNormal = true;
@@ -461,6 +479,7 @@ public:
             std::string &path_i = model_paths[i];
             size_t pos = path_i.find_last_of('.');
             std::string format = path_i.substr(pos + 1);
+            std::string texture_path_i = engine_path + texture_path;
             CADMesh* transfer_model;
             if (transfered_meshes.find(path_i) != transfered_meshes.end()){
                 transfer_model = transfered_meshes[path_i];
@@ -468,7 +487,7 @@ public:
                 transfer_model = new CADMesh();
                 if(format == "obj")
                 {
-                    transfer_model->buildObjNode(path_i.c_str(), "../asset/data/obj/Medieval_building", model_transforms[i]); //读取obj文件
+                    transfer_model->buildObjNode(path_i.c_str(), texture_path_i.c_str(), model_transforms[i]); //读取obj文件
                 }
                 else if(format == "fb")
                 {
@@ -481,7 +500,7 @@ public:
             if(format == "obj"){
                 
                 ModelInstance* instance_phong = new ModelInstance();
-                instance_phong->buildObjInstanceIBL(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
+                instance_phong->buildObjInstanceIBL(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i], isTexture);
                 //instance_phong->buildObjInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
                 instance_phongs[instance_names[i]] = instance_phong;
                 std::cout << "**************** reading obj ******************" << std::endl;
@@ -490,13 +509,17 @@ public:
                 
                 ModelInstance* instance_phong = new ModelInstance();
                 //instance_phong->buildInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
-                instance_phong->buildFbInstance(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i], options);
+                instance_phong->buildFbInstance(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i], options, engine_path);
                 //instance_phong->buildInstanceIBL(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
                 instance_phongs[instance_names[i]] = instance_phong;
                 std::cout << "**************** reading fb ******************" << std::endl;
                 
             }
-            
+            else if(format == "texture")
+            {
+                ModelInstance* instance_phong = new ModelInstance();
+                instance_phong->buildTextureSphere(scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
+            }
         }
 
         std::cout << "model processing done" << std::endl;
@@ -653,22 +676,6 @@ public:
 
         vsg::ref_ptr<vsg::Group> mergeScenegraph = vsg::Group::create();
         {
-            auto buildMergeShaderSet = [](vsg::ref_ptr<vsg::Options> options) -> vsg::ref_ptr<vsg::ShaderSet> {
-                auto vertexShader = vsg::read_cast<vsg::ShaderStage>("shaders/IBL/fullscreenquad.vert", options);
-                auto fragShader = vsg::read_cast<vsg::ShaderStage>("shaders/new_merge.frag", options);
-                auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragShader});
-
-                const uint32_t TEXTURE_DESCRIPTOR_SET = 0;
-                const uint32_t MATERIAL_DESCRIPTOR_SET = 1;
-                shaderSet->addDescriptorBinding("cadColor", "", TEXTURE_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
-                shaderSet->addDescriptorBinding("cadDepth", "", TEXTURE_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
-                shaderSet->addDescriptorBinding("planeColor", "", TEXTURE_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec3Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8_UNORM}));
-                shaderSet->addDescriptorBinding("planeDepth", "", TEXTURE_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
-                shaderSet->addDescriptorBinding("shadowColor", "", TEXTURE_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
-                shaderSet->addDescriptorBinding("shadowDepth", "", TEXTURE_DESCRIPTOR_SET, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
-                //shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(TEXTURE_DESCRIPTOR_SET));
-                return shaderSet;
-            };
             auto mergeShaderSet = buildMergeShaderSet(options);
 
             auto Env_graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(mergeShaderSet); //渲染管线创建
@@ -786,7 +793,6 @@ public:
             uint16_t* vsg_depth_image_beginPointer = static_cast<uint16_t*>(vsg_depth_image->dataPointer(0));
             std::copy(depth_pixels, depth_pixels + width * height, vsg_depth_image_beginPointer);
             
-
             // depth fit 
             // for(int iterate_num = 0; iterate_num < 30; iterate_num++){
             //     for(int i = 0; i < height; i++){
@@ -814,9 +820,11 @@ public:
 
             //------------------------------------------------------窗口123-----------------------------------------------------//
             // pass any events into EventHandlers assigned to the Viewer
+            viewer->compile();
             viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
             viewer->update();
-            viewer->recordAndSubmit(); //于记录和提交命令图。它会遍历`RecordAndSubmitTasks`列表中的任务，并对每个任务执行记录和提交操作。
+            viewer->recordAndSubmit(); //于记录和提交命令图。它会遍历`RecordAndSubmitTasks`列表中的任务，并对每个任务执行记录和提交操作。 修改颜色报错了555
+            // std::cout<<"test"<<std::endl;
             viewer->present();
             copyImagesIBL[0]->srcImage = screenshotHandler->screenshot_image(window);
             copyImagesIBL[0]->srcImageLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
@@ -835,6 +843,10 @@ public:
             return true;
         }
         return false;
+    }
+
+    void repaint(std::string model_name, std::string part_name, int state){
+        instance_phongs[model_name]->repaint(part_name, state);
     }
 
     void getWindowImage(uint8_t* color){

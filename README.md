@@ -54,10 +54,6 @@
     std::vector<vsg::dmat4> model_transforms; // 可以重复
     std::vector<std::string> model_paths; // 可以重复
     std::vector<std::string> instance_names; // 不可重复
-
-    // true: 在相机跟踪时使用单独的shader，不进行深度剔除，总是显示模型
-    // false: 在非相机跟踪时使用深度剔除的shader
-    bool trackingShader = true;
 ```
 #### 函数接口
 ```cpp  

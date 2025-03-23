@@ -355,7 +355,6 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
     int buffer_size;
     for (auto it = MapInfo.begin(); it != MapInfo.end(); ++it){
         auto info = it->second;
-        // std::cout << it->first << std::endl;
         for (int o = 0; o < info.size(); o++) {
             std::unordered_map<TinyModelVertex, uint32_t> uniqueVertices; //存储点信息，相同点只存一份
             std::vector<TinyModelVertex> mVertices{};                     //保存点在数组中位置信息
@@ -398,15 +397,12 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
             //设置材质参数
             vsg::ref_ptr<vsg::PbrMaterialValue> default_material;
             default_material = vsg::PbrMaterialValue::create();
-
             default_material->value().baseColorFactor.set(r, g, b, opacity);
-            default_material->value().metallicFactor = 0.6f;
-            default_material->value().diffuseFactor.set(0.1f, 0.1f, 0.1f, 1.0f);
-            default_material->value().roughnessFactor = 0.0f;
-            default_material->value().specularFactor.set(0.7f, 0.7f, 0.7f, 1.0f);
             default_material->value().emissiveFactor.set(0.0f, 0.0f, 0.0f, 0.0f);
-            //default_material->value().roughnessFactor = roughness;
-            default_material->value().alphaMaskCutoff = 0.0f;
+            default_material->value().diffuseFactor.set(0.1f, 0.1f, 0.1f, 1.0f);
+            default_material->value().specularFactor.set(0.7f, 0.7f, 0.7f, 1.0f);
+            default_material->value().metallicFactor = 0.6f;
+            default_material->value().roughnessFactor = 0.0f;
             /*
             */
             if (type == "face")
@@ -448,6 +444,7 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
                     indices->at(i) = mIndices[i];
                 }
                 //以零件为单位来进行绘制，每个零件都有单独的数据
+                meshIndice[it->first] = verticesVector.size();//记录零件名和它对应的编号
                 verticesVector.push_back(vertices);
                 normalsVector.push_back(normals);
                 UVVector.push_back(uvs);
@@ -1043,10 +1040,6 @@ void CADMesh::buildObjNode(const char* model_path, const char* material_path, co
     std::vector<int> mtr_ids;
     objLoader.load_obj(model_path, material_path, vertices, normals, verticesUV, colors, materials, indices, textures, mtr_ids);
     //std::cout <<"success Loading obj "<<material_path<<std::endl;
-    for(int i = 0; i < vertices->size(); i++){
-        vertices->at(i) *= 200;
-        vertices->at(i).y -= 2000;
-    }
     for(int i=0;i<verticesUV->size();i++){
         //std::cout<<verticesUV->at(i).x<<"  ";
     }

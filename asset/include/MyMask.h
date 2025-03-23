@@ -34,4 +34,10 @@ constexpr vsg::Mask MASK_WIREFRAME = 16ul;
 constexpr vsg::Mask MASK_MODEL = MASK_PBR_FULL | MASK_SHADOW_CASTER;
 constexpr vsg::Mask MASK_GEOMETRY = MASK_DRAW_SHADOW | MASK_FAKE_BACKGROUND | MASK_SHADOW_CASTER;
 constexpr vsg::Mask MASK_SKYBOX = MASK_FAKE_BACKGROUND;
+
+enum mergeShaderType{
+    FULL_MODEL, 
+    CAMERA_DEPTH,
+    CAD_DAPTH
+};
 #endif // MYMASK_H

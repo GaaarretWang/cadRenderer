@@ -357,8 +357,12 @@ void ModelInstance::buildObjInstanceShadow(CADMesh* mesh, vsg::ref_ptr<vsg::Grou
     scene->addChild(top.transform);
 }
 
-void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_ibl,vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix){
+void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_ibl, 
+    vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix, bool isTexture){
+    countNum++;
+    std::cout<<countNum<<std::endl;
     vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0});
+    
     std::cout<< "objUVVector count :" << mesh->objUVVector[0]->size() << std::endl;
     std::cout<< "objNormalVector count :" << mesh->objNormalsVector[0]->size() << std::endl;
     std::cout<< "objVerticesVector count :" << mesh->objVerticesVector[0]->size() << std::endl;
@@ -396,7 +400,6 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
     sampler->magFilter = VK_FILTER_LINEAR;
 
 
-    std::vector<vsg::ref_ptr<vsg::GraphicsPipelineConfigurator>> gpc_group;
     std::vector<vsg::ref_ptr<vsg::GraphicsPipelineConfigurator>> gpc_mtrgroup;
     auto cadMeshSwitch = vsg::Switch::create();
     treeNode top;
@@ -404,30 +407,50 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
 
     for(int i = 0; i < mesh->objIndicesVector[0].size(); i++){
 
+        auto gpc_high = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
+        gpc_high_group.push_back(gpc_high);
+
         auto gpc_obj = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
         gpc_group.push_back(gpc_obj);
         
         //绑定纹理
-        if(mesh->objTexturePath[0][i]!=""){
-            auto textureData = vsg::read_cast<vsg::Data>("../asset/data/obj/Medieval_building/textures/" + mesh->objTexturePath[0][mesh->objMaterialIndice[0][i]], options);
-            
+        if(isTexture){
+            vsg::ref_ptr<vsg::Data> textureData = vsg::read_cast<vsg::Data>("../asset/data/obj/Medieval_building/textures/" + mesh->objTexturePath[0][mesh->objMaterialIndice[0][i]], options);
             gpc_group[i]->assignTexture("diffuseMap", textureData, sampler);
         }
 
         //绑定索引
+        // vsg::BindVertexBuffers::create(gpc_high_group[i]->baseAttributeBinding, OBJ_vertexArrays);
         auto drawCommands = vsg::Commands::create();
         drawCommands->addChild(vsg::BindVertexBuffers::create(gpc_group[i]->baseAttributeBinding, OBJ_vertexArrays));
         drawCommands->addChild(vsg::BindIndexBuffer::create(mesh->objIndicesVector[0][i]));//******************* */
         drawCommands->addChild(vsg::DrawIndexed::create(mesh->objIndicesVector[0][i]->size(), 1, 0, 0, 0));//******************* */
 
-        auto PbrStateGroup = vsg::StateGroup::create();
-        PbrStateGroup->addChild(drawCommands);
+        auto blendState = vsg::ColorBlendState::create();
+        blendState->attachments = vsg::ColorBlendState::ColorBlendAttachments{
+            {true,                                        // blendEnable
+             VK_BLEND_FACTOR_SRC_ALPHA,                   // srcColorBlendFactor
+             VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,         // dstColorBlendFactor
+             VK_BLEND_OP_ADD,                             // colorBlendOp
+             VK_BLEND_FACTOR_ZERO,                         // srcAlphaBlendFactor
+             VK_BLEND_FACTOR_ONE,                        // dstAlphaBlendFactor
+             VK_BLEND_OP_ADD,                             // alphaBlendOp
+             VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+             VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT} // colorWriteMask
+        };
+        auto depthState = vsg::DepthStencilState::create();
+        depthState->depthWriteEnable = VK_FALSE;
 
-        auto gpc_object = vsg::GraphicsPipelineConfigurator::create(*gpc_group[i]);
+        auto PbrStateGroup = vsg::StateGroup::create();
+        pbr_group.push_back(PbrStateGroup);
+        // PbrStateGroup->add(blendState);
+        // PbrStateGroup->add(depthState);
+        pbr_group[i]->addChild(drawCommands);
+
         auto obj_mat = vsg::PbrMaterialValue::create(mesh->objMaterialVector[0]->at(i));
-        gpc_object->assignDescriptor("material", obj_mat);//材质在这里修改
-        gpc_object->init();
-        gpc_object->copyTo(PbrStateGroup);
+        gpc_group[i]->assignDescriptor("material", obj_mat);//材质在这里修改
+        gpc_group[i]->init();
+        gpc_group[i]->copyTo(pbr_group[i]);
 
         auto cadMeshShadowStateGroup = vsg::StateGroup::create();
         cadMeshShadowStateGroup->addChild(drawCommands);
@@ -436,9 +459,40 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
         cadMeshSwitch->addChild(MASK_PBR_FULL, PbrStateGroup);
         cadMeshSwitch->addChild(MASK_SHADOW_CASTER, cadMeshShadowStateGroup);
         
-        //添加材质物体
-        //top.transform->addChild(builder.createSphere(geomInfo, stateinfo));
     }
+
+    top.transform->addChild(cadMeshSwitch);
+    top.transform->matrix = modelMatrix;
+    top.originalMatrix = modelMatrix;
+    nodePtr[""] = top;
+
+    scene->addChild(top.transform);
+}
+
+void ModelInstance::buildTextureSphere(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_ibl, 
+    vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix)
+{
+    auto options = vsg::Options::create();
+    options->add(vsgXchange::all::create());
+    vsg::Builder builder;
+    vsg::GeometryInfo geomInfo;
+    geomInfo.dx.set(500.0f, 0.0f, 0.0f);
+    geomInfo.dy.set(0.0f, 500.0f, 0.0f);
+    geomInfo.dz.set(0.0f, 0.0f, 500.0f);
+    geomInfo.position.z-=1000;
+    geomInfo.color = vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f};
+    vsg::StateInfo stateinfo;
+
+    auto sampler = vsg::Sampler::create();
+    sampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler->minFilter = VK_FILTER_LINEAR; // 线性过滤（平滑纹理）
+    sampler->magFilter = VK_FILTER_LINEAR;
+
+    std::vector<vsg::ref_ptr<vsg::GraphicsPipelineConfigurator>> gpc_mtrgroup;
+    auto cadMeshSwitch = vsg::Switch::create();
+    treeNode top;
+    top.transform = vsg::MatrixTransform::create();
 
     //展示材质
     vsg::ref_ptr<vsg::PbrMaterialArray> mtr_mtrVector = vsg::PbrMaterialArray::create(20);
@@ -710,6 +764,18 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
         //textureData.reset();
         gpc_mtrgroup[i]->assignTexture("diffuseMap", textureData, sampler);
 
+        auto blendState = vsg::ColorBlendState::create();
+        blendState->attachments = vsg::ColorBlendState::ColorBlendAttachments{
+            {true,                                        // blendEnable
+             VK_BLEND_FACTOR_SRC_ALPHA,                   // srcColorBlendFactor
+             VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,         // dstColorBlendFactor
+             VK_BLEND_OP_ADD,                             // colorBlendOp
+             VK_BLEND_FACTOR_ONE,                         // srcAlphaBlendFactor
+             VK_BLEND_FACTOR_ZERO,                        // dstAlphaBlendFactor
+             VK_BLEND_OP_ADD,                             // alphaBlendOp
+             VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+             VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT} // colorWriteMask
+        };
         drawCommands_mtr->addChild(vsg::BindVertexBuffers::create(gpc_mtrgroup[i]->baseAttributeBinding, mtr_array));
         drawCommands_mtr->addChild(vsg::BindIndexBuffer::create(indices));//******************* */
         drawCommands_mtr->addChild(vsg::DrawIndexed::create(indices->size(), 1, 0, 0, 0));//******************* */
@@ -719,8 +785,9 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
 
         auto gpc_mat = vsg::GraphicsPipelineConfigurator::create(*gpc_mtrgroup[i]);
         auto mat = vsg::PbrMaterialValue::create(mtr_mtrVector->at(i));
-        auto obj_mat = vsg::PbrMaterialValue::create(mesh->objMaterialVector[0]->at(i));
         gpc_mat->assignDescriptor("material", mat);//材质在这里修改
+        gpc_mat->assignUniform("transparent", vsg::intValue::create(1));//是否半透明判断
+        gpc_mat->pipelineStates.push_back(blendState);
         gpc_mat->init();
         gpc_mat->copyTo(mtrStateGroup);
 
@@ -734,8 +801,6 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
     }
     top.transform->addChild(cadMeshSwitch);
     
-
-    // top.transform->addChild(builder.createBox(geomInfo, stateinfo));
     top.transform->matrix = modelMatrix;
     top.originalMatrix = modelMatrix;
     nodePtr[""] = top;
@@ -762,7 +827,7 @@ void ModelInstance::drawLine(vsg::vec3& begin, vsg::vec3& end, vsg::ref_ptr<vsg:
     indices.push_back(positionToIndex[endPoint]);
 }
 
-void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_ibl, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::Options> options){
+void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_ibl, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::Options> options, std::string rendering_path){
     
     vsg::ref_ptr<vsg::Group> scenegraph = vsg::Group::create();
     vsg::ref_ptr<vsg::Group> text_scenegraph = vsg::Group::create();
@@ -900,12 +965,10 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
 
     scenegraph->addChild(builder->createLine(geomInfo, stateInfo, positions, indices));
 
+    meshIndice = mesh->meshIndice;
     for(int i = 0; i < mesh->indicesVector.size(); i++){
         // 创建独立的DrawCommand
         // vsg::ref_ptr<vsg::vec2Array> dummyUV = vsg::vec2Array::create(mesh->verticesVector[i]->size());
-        // vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(
-        //     mesh->materialVector[i]->value().baseColorFactor);
-        // std::cout << mesh->verticesVector[i]->at(5).x << std::endl;
         vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0});
         vsg::DataList vertexArrays = {
             mesh->verticesVector[i],
@@ -915,7 +978,12 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
         };
         auto drawCommands = vsg::Commands::create();
 
+        auto gpc_temp = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
+        gpc_temp_group.push_back(gpc_temp);
+        auto gpc_high = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
+        gpc_high_group.push_back(gpc_high);
         auto gpc_fb = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
+        gpc_group.push_back(gpc_fb);
         auto options = vsg::Options::create();
         options->add(vsgXchange::all::create());
         auto sampler = vsg::Sampler::create();
@@ -923,24 +991,56 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
         sampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         sampler->minFilter = VK_FILTER_LINEAR; // 线性过滤（平滑纹理）
         sampler->magFilter = VK_FILTER_LINEAR;
-        // std::string name = mesh->materialNameVector[i];
+        
+        vsg::ref_ptr<vsg::Data> highTextureData = vsg::read_cast<vsg::Data>("../asset/data/obj/Medieval_building/textures/white.jpg", options);
+        gpc_high_group[i]->assignTexture("diffuseMap", highTextureData, sampler);
+        gpc_temp_group[i]->assignTexture("diffuseMap", highTextureData, sampler);
+
         std::string name = "Metal032";// 纹理材质，华云那边接口有点问题还没有改，没问题了之后有上面注释掉的
-        std::string mtr_path = "../asset/data/textures/"+name+"/"+name+"_2K_Color.png";
-        // std::cout << mtr_path << std::endl;
+        std::string mtr_path = rendering_path + "/asset/data/textures/"+name+"/"+name+"_2K_Color.png";
         auto textureData = vsg::read_cast<vsg::Data>(mtr_path, options);
-        gpc_fb->assignTexture("diffuseMap", textureData, sampler);
+        gpc_group[i]->assignTexture("diffuseMap", textureData, sampler);
+        gpc_group[i]->assignUniform("transparent", vsg::intValue::create(1));
 
         //绑定索引
-        drawCommands->addChild(vsg::BindVertexBuffers::create(gpc_fb->baseAttributeBinding, vertexArrays));
+        vsg::BindVertexBuffers::create(gpc_high_group[i]->baseAttributeBinding, vertexArrays);
+        vsg::BindVertexBuffers::create(gpc_temp_group[i]->baseAttributeBinding, vertexArrays);
+        drawCommands->addChild(vsg::BindVertexBuffers::create(gpc_group[i]->baseAttributeBinding, vertexArrays));
         drawCommands->addChild(vsg::BindIndexBuffer::create(mesh->indicesVector[i]));
         drawCommands->addChild(vsg::DrawIndexed::create(mesh->indicesVector[i]->size(), 1, 0, 0, 0));
 
+        auto blendState = vsg::ColorBlendState::create();
+        blendState->attachments = vsg::ColorBlendState::ColorBlendAttachments{
+            {true,                                        // blendEnable
+             VK_BLEND_FACTOR_SRC_ALPHA,                   // srcColorBlendFactor
+             VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,         // dstColorBlendFactor
+             VK_BLEND_OP_ADD,                             // colorBlendOp
+             VK_BLEND_FACTOR_ONE,                         // srcAlphaBlendFactor
+             VK_BLEND_FACTOR_ZERO,                        // dstAlphaBlendFactor
+             VK_BLEND_OP_ADD,                             // alphaBlendOp
+             VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+             VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT} // colorWriteMask
+        };
+        auto depthState = vsg::DepthStencilState::create();
+        depthState->depthWriteEnable = VK_FALSE;
+
         auto PbrStateGroup = vsg::StateGroup::create();
-        PbrStateGroup->addChild(drawCommands);
-        auto gpc_object = vsg::GraphicsPipelineConfigurator::create(*gpc_fb);
-        gpc_fb->assignDescriptor("material", mesh->materialVector[i]);
-        gpc_fb->init();
-        gpc_fb->copyTo(PbrStateGroup);
+        pbr_group.push_back(PbrStateGroup);
+        pbr_group[i]->addChild(drawCommands);
+        gpc_group[i]->assignDescriptor("material", mesh->materialVector[i]);
+        gpc_high_group[i]->assignDescriptor("material", vsg::PbrMaterialValue::create(vsg::PbrMaterial{
+            vsg::vec4{1.0f, 0.0f, 0.0f, 1.0f},
+            vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+            vsg::vec4{1.0f, 0.0f, 0.0f, 1.0f},
+            vsg::vec4{0.04f, 0.04f, 0.04f, 1.0f},
+            1.0f,
+            0.28f
+        }));//材质在这里修改
+        gpc_high_group[i]->init();
+        gpc_group[i]->init();
+        gpc_group[i]->copyTo(pbr_group[i]);
+        // gpc_group[i]->pipelineStates.push_back(blendState);
+        // gpc_group[i]->pipelineStates.push_back(depthState);
         auto cadMeshShadowStateGroup = vsg::StateGroup::create();
         cadMeshShadowStateGroup->addChild(drawCommands);
         gpc_shadow->copyTo(cadMeshShadowStateGroup);
@@ -948,7 +1048,6 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
         cadMeshSwitch->addChild(MASK_PBR_FULL, PbrStateGroup);
         cadMeshSwitch->addChild(MASK_SHADOW_CASTER, cadMeshShadowStateGroup);
         
-        //std::cout<<i<<std::endl;
         for (int j = 0; j < mesh->transformNumVector[i]; j++)
         {
             auto transforms = vsg::MatrixTransform::create();
@@ -970,4 +1069,74 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
     nodePtr[""] = top;
 
     scene->addChild(top.transform);
+}
+
+
+void ModelInstance::repaint(int judge){
+    std::cout<<"开始重新绘制"<<std::endl;
+    switch (judge)
+    {
+    case 0:
+        for(int i=0; i<gpc_group.size(); i++){
+            gpc_high_group[i]->copyTo(pbr_group[i]);
+        }
+        break;
+    
+    case 1:
+        for(int i=0; i<gpc_group.size(); i++){
+            gpc_group[i]->copyTo(pbr_group[i]);
+        }
+        break;
+    
+    case 2:
+        for(int i=0; i<gpc_group.size(); i++){
+            gpc_temp_group[i]->assignDescriptor("material", vsg::PbrMaterialValue::create(vsg::PbrMaterial{
+                vsg::vec4{0.0f, 0.0f, 1.0f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 1.0f, 1.0f},
+                vsg::vec4{0.04f, 0.04f, 0.04f, 1.0f},
+                1.0f,
+                0.28f
+            }));
+            gpc_temp_group[i]->init();
+            gpc_temp_group[i]->copyTo(pbr_group[i]);
+        }
+        break;
+    
+    default:
+        break;
+    }
+}
+
+
+void ModelInstance::repaint(std::string componentName, int judge, vsg::PbrMaterial pbr){
+    auto it = meshIndice.find(componentName);
+    if(it != meshIndice.end()){
+        int i = meshIndice[componentName];
+        switch (judge)
+        {
+        case 0:
+            gpc_high_group[i]->copyTo(pbr_group[i]);
+            break;
+
+        case 1:
+            gpc_group[i]->copyTo(pbr_group[i]);
+            break;
+
+        case 2:
+            gpc_high_group[i]->assignDescriptor("material", vsg::PbrMaterialValue::create(vsg::PbrMaterial{
+                vsg::vec4{0.0f, 0.0f, 1.0f, 1.0f},
+                vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{1.0f, 0.0f, 0.0f, 1.0f},
+                vsg::vec4{0.04f, 0.04f, 0.04f, 1.0f},
+                1.0f,
+                0.28f
+            }));
+            gpc_high_group[i]->copyTo(pbr_group[i]);
+            break;
+        
+        default:
+            break;
+        }
+    }
 }
