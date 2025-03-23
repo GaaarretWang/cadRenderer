@@ -32,10 +32,10 @@ target_include_directories(Rendering PUBLIC
 
 target_link_directories(Rendering PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Lib/linux/stubs/x86_64
-    ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/Lib/
+    ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/
 )
 
-target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/Lib/cadDataManager.a ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/Lib/libcurl.a)
+target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/cadDataManager.a ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/libcurl.a)
 
 target_link_libraries(Rendering 
     vsg::vsg
