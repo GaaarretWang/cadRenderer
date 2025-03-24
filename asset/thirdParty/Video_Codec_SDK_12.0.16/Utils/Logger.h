@@ -9,8 +9,9 @@
 *
 */
 
+#ifndef LOGGER_H
+#define LOGGER_H
 #pragma once
-
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -19,10 +20,7 @@
 #include <time.h>
 
 #ifdef _WIN32
-#include <winsock.h>
-#include <windows.h>
-
-#pragma comment(lib, "ws2_32.lib")
+#include <winsock2.h>
 #undef ERROR
 #else
 #include <unistd.h>
@@ -236,5 +234,6 @@ private:
 
 }
 
-// extern simplelogger::Logger *logger;
+static simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 #define LOG(level) simplelogger::LogTransaction(logger, level, __FILE__, __LINE__, __FUNCTION__).GetStream()
+#endif // LOGGER_H

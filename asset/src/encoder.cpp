@@ -247,7 +247,11 @@ Cudaimage::Cudaimage(vsg::ref_ptr<vsg::Image> image, vsg::ref_ptr<vsg::Device> m
 //     }
 
     CUDA_EXTERNAL_MEMORY_HANDLE_DESC memDesc = {};
+    #ifdef _WIN32
+    memDesc.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32;
+    #else
     memDesc.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD;
+    #endif
     memDesc.handle.fd = (int)(uintptr_t)p;
     memDesc.size = deviceSize;
 

@@ -85,7 +85,7 @@ vsg::ref_ptr<vsg::ShaderSet> ConfigShader::buildShader(std::string vert, std::st
     }
     else
     {
-        std::cout << "Could not create shaders." << std::endl;
+        std::cout << "Could not create phong shaders." << std::endl;
     }
 
     return shaderSet;

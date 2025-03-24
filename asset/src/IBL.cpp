@@ -750,7 +750,7 @@ void generateBRDFLUT(VsgContext &vsgContext)
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
     if (!vertexShader || !fragmentShader)
     {
-        std::cout << "Could not create shaders." << std::endl;
+        std::cout << "Could not create fullscreenguad.vert genbrdflut.frag shaders." << std::endl;
         return;
     }
 
@@ -861,7 +861,7 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath)
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
     if (!vertexShader || !fragmentShader)
     {
-        std::cout << "Could not create shaders." << std::endl;
+        std::cout << "Could not create fullscreenguad equirect2cude shaders." << std::endl;
         return;
     }
 
@@ -1083,7 +1083,7 @@ void generateIrradianceCube(VsgContext& vsgContext)//生成辐照度贴图
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
     if (!vertexShader || !fragmentShader)
     {
-        std::cout << "Could not create shaders." << std::endl;
+        std::cout << "Could not create skyboxCubegen irradianceCubeMesh shaders." << std::endl;
         return;
     }
 
@@ -1288,7 +1288,7 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext)
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
     if (!vertexShader || !fragmentShader)
     {
-        std::cout << "Could not create shaders." << std::endl;
+        std::cout << "Could not create skyboxCubegen prefilterenvmapMesh shaders." << std::endl;
         return;
     }
 
@@ -1491,7 +1491,7 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGr
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
     if (!vertexShader || !fragmentShader)
     {
-        std::cout << "Could not create shaders." << std::endl;
+        std::cout << "Could not create skybox shaders." << std::endl;
         return ptr<StateGroup>();
     }
 

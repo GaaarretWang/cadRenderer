@@ -1,3 +1,5 @@
+#ifndef CONVERT_PNG_H
+#define CONVERT_PNG_H
 #pragma once
 #include "stb_image.h"
 
@@ -24,3 +26,4 @@ public:
         return data;
     }
 };
+#endif //CONVERT_PNG_H

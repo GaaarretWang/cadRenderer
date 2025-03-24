@@ -1,3 +1,5 @@
+#ifndef VSGRENDERERSERVER_H
+#define VSGRENDERERSERVER_H
 #pragma  once
 #include <iostream>
 #include <screenshot.h>
@@ -11,9 +13,9 @@
 #endif
 
 #include "assimp.h"
-#include "IBL.h"
-#include "CADMeshIBL.h"
 #include "HDRLightSampler.h"
+#include "CADMeshIBL.h"
+
 #include "PlaneLoader.h"
 
 #include "fixDepth.h"
@@ -64,9 +66,10 @@ class vsgRendererServer
     float fy = 387.32300428823663;//焦距(y轴上)
     float cx = 326.5103569741365;//图像中心点(x轴)
     float cy = 237.40293732598795;//图像中心点(y轴)
-    float near = 0.1f;
-    float far = 65.535f;
-    int countnum = 0;//测试用，用来看循环次数
+
+    float near_plane = 0.1f;
+    float far_plane = 65.535f;
+
     int width;
     int height;
     int render_width;
@@ -128,8 +131,14 @@ class vsgRendererServer
             VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
             VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
             VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
+            #ifdef _WIN32
+            VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME,
+            VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME
+            #else
             VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
-            VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME};
+            VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME
+            #endif
+            };
         return windowTraits;
     }
 
@@ -220,7 +229,7 @@ public:
         options->paths.push_back(engine_path + "asset/data/");
         options->sharedObjects = vsg::SharedObjects::create();
 
-        std::cout << "SERVER:初始化Vulkan设备" << std::endl;
+        std::cout << "SERVER: Init Vulkan Device" << std::endl;
         
         //手动初始化vulkan设备
         vsg::Names instanceExtensions;
@@ -240,13 +249,15 @@ public:
         
         #ifdef _WIN32
             instanceExtensions.push_back("VK_KHR_win32_surface");//如果你使用windows
+            instanceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME);
+            instanceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
         #else
             instanceExtensions.push_back("VK_KHR_xcb_surface"); //如果你使用linux
         #endif
 
         vsg::Names validatedNames = vsg::validateInstancelayerNames(requestedLayers);
 
-        std::cout << "mainV2:创建实例" << std::endl;
+        std::cout << "mainV2: Create Instance" << std::endl;
         
 
         vsg::ref_ptr<vsg::Instance> instance;
@@ -256,6 +267,10 @@ public:
             std::cout << "-----Error creating Vulkan Instance: " << ex.message << "----result code: "<< ex.result <<std::endl;
             return;
         }
+		catch (...) {
+			std::cout << "-----Error creating Vulkan Instance: unknown error" << std::endl;
+			return;
+		}
 
         auto [physicalDevice, queueFamily] = instance->getPhysicalDeviceAndQueueFamily(VK_QUEUE_GRAPHICS_BIT);
         if (!physicalDevice || queueFamily < 0)
@@ -272,9 +287,15 @@ public:
                                                         VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
                                                         VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
                                                         VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
+#ifdef _WIN32
+                                                        VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME,
+		                                                VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
+			                                            VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME,
+#else
+			                                            VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
                                                         VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
-                                                        VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
-                                                        VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME
+                                                        VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME,
+#endif
                                                         });
 
         vsg::QueueSettings queueSettings{vsg::QueueSetting{queueFamily, {1.0}}};
@@ -282,18 +303,20 @@ public:
         auto deviceFeatures = vsg::DeviceFeatures::create();
         deviceFeatures->get().samplerAnisotropy = VK_TRUE;
         deviceFeatures->get().geometryShader = VK_TRUE;
-
-        device = vsg::Device::create(physicalDevice, queueSettings, validatedNames, deviceExtensions, deviceFeatures);
-
+        try {
+            device = vsg::Device::create(physicalDevice, queueSettings, validatedNames, deviceExtensions, deviceFeatures);
+        }
+		catch (const vsg::Exception& ex) {
+			std::cout << "-----Error creating Vulkan Device: " << ex.message << "----result code: " << ex.result << std::endl;
+			return;
+		}
         auto context = vsg::Context::create(device);
 
         vsgContext.viewer = viewer_IBL;
         vsgContext.context = context;
         vsgContext.device = device;
         vsgContext.queueFamily = queueFamily;
-
-        std::cout << "IBL:创建环境光数据" << std::endl;
-
+        //std::cout<<"IBL:创建环境光数据"<< std::endl;
         IBL::appData.options = options;
         IBL::createResources(vsgContext);
         IBL::generateBRDFLUT(vsgContext);
@@ -533,7 +556,7 @@ public:
         double radius = 2000.0; // 固定观察距离
         auto viewport = vsg::ViewportState::create(0, 0, cadWindowTraits->width, cadWindowTraits->height);
         // auto perspective = vsg::Perspective::create(60.0, static_cast<double>(640) / static_cast<double>(480), nearFarRatio * radius, radius * 10.0);
-        auto perspective = vsg::Perspective::create(fx, fy, cx, cy, width, height, near, far);
+        auto perspective = vsg::Perspective::create(fx, fy, cx, cy, width, height, near_plane, far_plane);
 
         vsg::dvec3 centre = {0.0, 0.0, 1.0};                    // 固定观察点
         vsg::dvec3 eye = vsg::dvec3(0.0, 0.0, 0.0); // 固定相机位置
@@ -586,7 +609,7 @@ public:
         auto env_commandGraph = vsg::CommandGraph::create(env_window); //如果用Env_window会报错
         env_commandGraph->addChild(env_renderGraph);
 
-        std::cout << "环境窗口" << std::endl;
+        std::cout << "Env Window" << std::endl;
 
         //----------------------------------------------------------------窗口3----------------------------------------------------------//
         //shadowWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
@@ -604,7 +627,7 @@ public:
         auto Shadow_commandGraph = vsg::CommandGraph::create(shadow_window); //如果用Env_window会报错
         Shadow_commandGraph->addChild(Shadow_renderGraph);
 
-        std::cout << "阴影窗口" << std::endl;
+        std::cout << "Shadow Window" << std::endl;
         viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph, Shadow_commandGraph, env_commandGraph});
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
         // std::cout << "4" << std::endl;
@@ -714,7 +737,7 @@ public:
             mergeScenegraph = Env_stateGroup;
         }
 
-        std::cout << "融合窗口" << std::endl;
+        std::cout << "Merge Window" << std::endl;
         
         double mergeradius = 2000.0; // 固定观察距离
         auto mergeviewport = vsg::ViewportState::create(0, 0, intgWindowTraits->width, intgWindowTraits->height);
@@ -857,3 +880,5 @@ public:
         final_screenshotHandler->encodeImage(final_window, vPacket);
     }
 };
+
+#endif //VSGR_RENDERER_SERVER_H

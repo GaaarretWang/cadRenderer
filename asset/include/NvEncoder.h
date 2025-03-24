@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "Logger.h"
 #include <vector>
 #include "nvEncodeAPI.h"
 #include <stdint.h>

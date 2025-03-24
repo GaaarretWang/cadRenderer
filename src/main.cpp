@@ -7,7 +7,7 @@
 #include "communication/dataInterface.h"
 #include <string>
 #include <chrono>
-simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
+// simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
 int main(int argc, char** argv){
     std::vector<std::vector<double>> camera_pos;

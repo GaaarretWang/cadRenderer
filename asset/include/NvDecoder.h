@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "Logger.h"
 #include <assert.h>
 #include <stdint.h>
 #include <mutex>

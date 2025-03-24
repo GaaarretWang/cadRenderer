@@ -1,5 +1,5 @@
 #include "fixDepth.h"
-
+#include <cuda_runtime.h>
 __global__ static void convert_4_to_channels(int w, int h, unsigned short * depth_pixels_cuda) {  
     int idx = blockIdx.x * blockDim.x + threadIdx.x;  
     int idy = blockIdx.y * blockDim.y + threadIdx.y;  

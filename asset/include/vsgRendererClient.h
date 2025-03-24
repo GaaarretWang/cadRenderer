@@ -2,7 +2,6 @@
 #include <iostream>
 #include <screenshot.h>
 #include <vsg/all.h>
-#include "convertPng.h"
 #include "ConfigShader.h"
 #include "ModelInstance.h"
 

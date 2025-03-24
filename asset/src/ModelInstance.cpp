@@ -834,7 +834,7 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
 
     auto builder = vsg::Builder::create();
     options->sharedObjects = vsg::SharedObjects::create();
-    std::string font_filename = vsg::findFile("fonts/times.vsgt", options->paths);
+    vsg::Path font_filename = vsg::findFile(vsg::Path("fonts/times.vsgt"), options->paths);
     auto font = vsg::read_cast<vsg::Font>(font_filename, options);
     if(!font){
         std::cout << "failed to read font" << std::endl;

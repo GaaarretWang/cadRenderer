@@ -1,5 +1,9 @@
 #include "HDRLightSampler.h"
 
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 void HDRLightSampler::loadHDRImage(const std::string& filename) {
     int width, height, channels;
     float* data = IBL::loadHdrFile(filename, width, height, channels);
