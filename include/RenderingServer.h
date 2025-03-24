@@ -6,7 +6,7 @@ public:
     int width = 640;
     int height = 480;
     bool cameara_pos_bool = true;
-    bool stop_cameara_pos = true;
+    bool stop_cameara_pos = false;
     bool use_png = true;
     mergeShaderType shader_type = CAMERA_DEPTH;
 
