@@ -384,25 +384,61 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
             auto material = modelPar->getMaterialName();//这里得到材质的名称(未生效)
 
             std::string testcolor = color.substr(1);
-            // 将 hex 转换为 RGB
-            int red = std::stoi(testcolor.substr(0, 2), nullptr, 16);
-            int green = std::stoi(testcolor.substr(2, 2), nullptr, 16);
-            int blue = std::stoi(testcolor.substr(4, 2), nullptr, 16);
+            // std::cout << testcolor << std::endl;
+            // // 将 hex 转换为 RGB
+            // int red = std::stoi(testcolor.substr(0, 2), nullptr, 16);
+            // int green = std::stoi(testcolor.substr(2, 2), nullptr, 16);
+            // int blue = std::stoi(testcolor.substr(4, 2), nullptr, 16);
 
-            // 将 RGB 转换为 0.0 到 1.0 之间的浮点数
-            float r = red / 255.0f;
-            float g = green / 255.0f;
-            float b = blue / 255.0f;
+            // // 将 RGB 转换为 0.0 到 1.0 之间的浮点数
+            // float r = red / 255.0f;
+            // float g = green / 255.0f;
+            // float b = blue / 255.0f;
 
             //设置材质参数
             vsg::ref_ptr<vsg::PbrMaterialValue> default_material;
             default_material = vsg::PbrMaterialValue::create();
-            default_material->value().baseColorFactor.set(r, g, b, opacity);
-            default_material->value().emissiveFactor.set(0.0f, 0.0f, 0.0f, 0.0f);
-            default_material->value().diffuseFactor.set(0.1f, 0.1f, 0.1f, 1.0f);
-            default_material->value().specularFactor.set(0.7f, 0.7f, 0.7f, 1.0f);
-            default_material->value().metallicFactor = 0.6f;
-            default_material->value().roughnessFactor = 0.0f;
+            if(testcolor == "000000"){
+                // black specular button
+                default_material->value().baseColorFactor.set(0, 0, 0, opacity);
+                default_material->value().metallicFactor = 0.8f;
+                default_material->value().diffuseFactor.set(0.1f, 0.1f, 0.1f, 1.0f);
+                default_material->value().roughnessFactor = 0.0f;
+                default_material->value().specularFactor.set(0.9f, 0.9f, 0.9f, 1.0f);
+                default_material->value().emissiveFactor.set(0.0f, 0.0f, 0.0f, 0.0f);
+                //default_material->value().roughnessFactor = roughness;
+                default_material->value().alphaMaskCutoff = 0.0f;
+            }else if(testcolor == "BBBBBB" || testcolor == "333333"){
+                // diffuse gray board
+                default_material->value().baseColorFactor.set(0.2, 0.2, 0.2, opacity);
+                default_material->value().metallicFactor = 0.2f;
+                default_material->value().diffuseFactor.set(0.2f, 0.2f, 0.2f, 1.0f);
+                default_material->value().roughnessFactor = 0.8f;
+                default_material->value().specularFactor.set(0.9f, 0.9f, 0.9f, 1.0f);
+                default_material->value().emissiveFactor.set(0.0f, 0.0f, 0.0f, 0.0f);
+                //default_material->value().roughnessFactor = roughness;
+                default_material->value().alphaMaskCutoff = 0.0f;
+            }else if(testcolor == "FF0000"){
+                //plastic red board
+                default_material->value().baseColorFactor.set(1, 0, 0, opacity);
+                default_material->value().metallicFactor = 0.8f;
+                default_material->value().diffuseFactor.set(0.9f, 0.0f, 0.0f, 1.0f);
+                default_material->value().roughnessFactor = 0.7f;
+                default_material->value().specularFactor.set(0.9f, 0.0f, 0.0f, 1.0f);
+                default_material->value().emissiveFactor.set(0.0f, 0.0f, 0.0f, 0.0f);
+                //default_material->value().roughnessFactor = roughness;
+                default_material->value().alphaMaskCutoff = 0.0f;
+            }else{
+                // yellow words and lines
+                default_material->value().baseColorFactor.set(1, 1, 1, opacity);
+                default_material->value().metallicFactor = 0.8f;
+                default_material->value().diffuseFactor.set(0.93, 0.61, 0.53, 1.0f);
+                default_material->value().roughnessFactor = 0.2f;
+                default_material->value().specularFactor.set(1.0f, 1.0f, 1.0f, 1.0f);
+                default_material->value().emissiveFactor.set(0.0f, 0.0f, 0.0f, 0.0f);
+                //default_material->value().roughnessFactor = roughness;
+                default_material->value().alphaMaskCutoff = 0.0f;
+            }
             /*
             */
             if (type == "face")
@@ -413,7 +449,9 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
                     int index = modelIndex.at(i);
                     vertex.pos = toNewVec3(&position, index * 3);
                     vertex.normal = toNewVec3(&normal, index * 3);
-                    vertex.uv = toNewVec2(&uv, index * 2);
+                    if(uv.size() > index * 2){
+                        vertex.uv = toNewVec2(&uv, index * 2);
+                    }
 
                     if (uniqueVertices.count(vertex) == 0) //if unique 唯一
                     {                                      //push进数组。记录位置
@@ -444,7 +482,6 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
                     indices->at(i) = mIndices[i];
                 }
                 //以零件为单位来进行绘制，每个零件都有单独的数据
-                meshIndice[it->first] = verticesVector.size();//记录零件名和它对应的编号
                 verticesVector.push_back(vertices);
                 normalsVector.push_back(normals);
                 UVVector.push_back(uvs);
@@ -1033,22 +1070,60 @@ void CADMesh::buildObjNode(const char* model_path, const char* material_path, co
 
     std::cout <<"success creating obj"<<std::endl;
 
-    std::vector<vsg::ref_ptr<vsg::uintArray>> indices;// = vsg::uintArray::create(num["indices"]);
+    std::vector<std::vector<vsg::ref_ptr<vsg::uintArray>>> indices;// = vsg::uintArray::create(num["indices"]);
     vsg::ref_ptr<vsg::vec2Array> verticesUV = vsg::vec2Array::create(num["uvs"]);
-    vsg::ref_ptr<vsg::vec3Array> colors;
-    std::vector<std::string> textures;
+    vsg::ref_ptr<vsg::vec3Array> colors = vsg::vec3Array::create(num["vertices"]);
+    std::vector<std::vector<std::string>> textures;
     std::vector<int> mtr_ids;
+    std::cout << material_path << std::endl;
     objLoader.load_obj(model_path, material_path, vertices, normals, verticesUV, colors, materials, indices, textures, mtr_ids);
     //std::cout <<"success Loading obj "<<material_path<<std::endl;
     for(int i=0;i<verticesUV->size();i++){
         //std::cout<<verticesUV->at(i).x<<"  ";
     }
-    objVerticesVector.push_back(vertices);
-    objNormalsVector.push_back(normals);
-    objUVVector.push_back(verticesUV);
-    objIndicesVector.push_back(indices);
+    for (int i = 0; i < indices.size(); i += 1)
+    {
+        std::unordered_map<TinyModelVertex, uint32_t> uniqueVertices; //存储点信息，相同点只存一份
+        std::vector<TinyModelVertex> mVertices;
+        std::vector<uint32_t> mIndices;
+        for(int j = 0; j < indices[i][0]->size(); j ++){
+            TinyModelVertex vertex;
+            int index_pos = indices[i][0]->at(j);
+            vertex.pos = vertices->at(index_pos);
+            int index_normal = indices[i][1]->at(j);
+            vertex.normal = normals->at(index_normal);
+            int index_coord = indices[i][2]->at(j);
+            vertex.uv = verticesUV->at(index_coord);    
+            if (uniqueVertices.count(vertex) == 0) //if unique 唯一
+            {                                      //push进数组。记录位置
+                uniqueVertices[vertex] = static_cast<uint32_t>(mVertices.size());
+                mVertices.push_back(vertex);
+            }
+            mIndices.push_back(uniqueVertices[vertex]); //根据新proto的数组，索引位置改变
+        }
+        auto vertices_i = vsg::vec3Array::create(mVertices.size()); 
+        auto normals_i = vsg::vec3Array::create(mVertices.size());
+        auto uvs_i = vsg::vec2Array::create(mVertices.size());
+        auto indices_i = vsg::uintArray::create(mIndices.size());
+        for(int m = 0; m < mVertices.size(); m ++){
+            vertices_i->at(m) = mVertices[m].pos;
+            normals_i->at(m) = mVertices[m].normal;
+            uvs_i->at(m) = mVertices[m].uv;
+        }
+        for(int m = 0; m < mIndices.size(); m ++){
+            indices_i->at(m) = mIndices[m];
+        }
+        objIndicesVector.push_back(indices_i);
+        objVerticesVector.push_back(vertices_i);
+        objNormalsVector.push_back(normals_i);
+        objUVVector.push_back(uvs_i);
+    }
+    // objVerticesVector.push_back(vertices);
+    // objNormalsVector.push_back(normals);
+    // objUVVector.push_back(verticesUV);
+    // objIndicesVector = indices;
     objMaterialVector.push_back(materials);
-    objTexturePath.push_back(textures);
+    objTexturePath=textures;
     objMaterialIndice.push_back(mtr_ids);
     //std::cout << material << std::endl;
 }

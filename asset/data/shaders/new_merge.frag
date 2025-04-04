@@ -25,18 +25,16 @@ void main()
     //float intPlaneDepth = 0.1 / (texture(planeDepth, screenUV).r * 65.435 + 0.1);
     float intPlaneDepth = texture(planeDepth, screenUV).r;
     float intShadowDepth = 0.1 / (texture(shadowDepth, screenUV).r * 65.435 + 0.1);
-    float shadow = texture(shadowColor, screenUV).r * 0.1 + 0.9;
+    float shadow = texture(shadowColor, screenUV).r * 0.5 + 0.5;
     if(shadow > 1.0)
         shadow = 1.0;
 
     if(intCadDepth <= intPlaneDepth)
-        outColor.rgb = texture(cadColor, screenUV).rgb;
-    else if(intShadowDepth <= intPlaneDepth)
-        outColor.rgb = texture(planeColor, screenUV).rgb * shadow;
+        outColor.rgb = texture(cadColor, screenUV).rgb * shadow;
     else
-        outColor.rgb = texture(planeColor, screenUV).rgb;
+        outColor.rgb = texture(planeColor, screenUV).rgb * shadow;
 
     //outColor.rgb = vec3(texture(shadowDepth, screenUV).r * 100);
-    //outColor.rgb = vec3(screenUV.x, screenUV.y, 1.0);
+    //outColor.rgb = vec3(shadow, shadow, shadow);
     outColor.a = 1.f;
 }

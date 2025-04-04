@@ -176,7 +176,34 @@ vec3 getNormal()
 #endif
     return result;
 }
+vec3 getWorldNormal()
+{
+    vec3 result;
+#ifdef VSG_NORMAL_MAP
+    vec3 tangentNormal = texture(normalMap, texCoord0 * 4).xyz * 2.0 - 1.0;
+    tangentNormal = tangentNormal * 0.3 + vec3(0, 0, 1) * 0.7;
+    //vec3 tangentNormal = texture(normalMap, texCoord0).xyz * 2.0 - 1.0;
+    
+    vec3 Q1 = dFdx(worldViewDir);
+    vec3 Q2 = dFdy(worldViewDir);
+    vec2 st1 = dFdx(texCoord0);
+    vec2 st2 = dFdy(texCoord0);
 
+    vec3 N = normalize(worldNormal);
+    vec3 T = normalize(Q1*st2.t - Q2*st1.t);
+    vec3 B = -normalize(cross(N, T));
+    mat3 TBN = mat3(T, B, N);
+
+    result = normalize(TBN * tangentNormal);
+#else
+    result = normalize(normalDir);
+#endif
+#ifdef VSG_TWO_SIDED_LIGHTING
+    if (!gl_FrontFacing)
+        result = -result;
+#endif
+    return result;
+}
 // Basic Lambertian diffuse
 // Implementation from Lambert's Photometria https://archive.org/details/lambertsphotome00lambgoog
 // See also [1], Equation 1
@@ -379,7 +406,7 @@ vec3 Uncharted2Tonemap(vec3 x)
 }
 
 
-vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, float alphaRoughness, vec3 diffuseColor, vec3 specularColor, float ao){
+vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, vec3 diffuseColor){
     vec3 R = normalize(reflect(-v, n));
 
     float NdotV = clamp(abs(dot(n, v)), 0.001, 1.0);
@@ -406,130 +433,6 @@ vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specula
 	// color = Uncharted2Tonemap(color * exposure);
 	// color = color * (1.0f / Uncharted2Tonemap(vec3(11.2f)));
     return color;
-}
-
-highp float rand_1to1(highp float x ) {                              //��
-  // ��float���͵�һά�������x����һ��[-1,1]��Χ��float 
-  // -1 -1
-  return fract(sin(x)*10000.0);
-}
-
-highp float rand_2to1(vec2 uv ) {                              //��
-  // ��һ����ά�������uv�������һ����Χ[0,1]��float����
-  // 0 - 1
-	const highp float a = 12.9898, b = 78.233, c = 43758.5453;
-	highp float dt = dot( uv.xy, vec2( a,b ) ), sn = mod( dt, PI );
-	return fract(sin(sn) * c);
-}
-
-vec2 poissonDisk[NUM_SAMPLES];
-void uniformDiskSamples( const in vec2 randomSeed ) {                              //��
-  //����Բ�̲���
-
-  float randNum = rand_2to1(randomSeed);
-  float sampleX = rand_1to1( randNum ) ;
-  float sampleY = rand_1to1( sampleX ) ;
-
-  float angle = sampleX * PI2;
-  float radius = sqrt(sampleY);
-
-  for( int i = 0; i < NUM_SAMPLES; i ++ ) {
-    poissonDisk[i] = vec2( radius * cos(angle) , radius * sin(angle)  );
-
-    sampleX = rand_1to1( sampleY ) ;
-    sampleY = rand_1to1( sampleX ) ;
-
-    angle = sampleX * PI2;
-    radius = sqrt(sampleY);
-  }
-}
-
-void poissonDiskSamples( const in vec2 randomSeed ) {
-  //����Բ�̲���
-
-  float ANGLE_STEP = PI2 * float( NUM_RINGS ) / float( NUM_SAMPLES );
-  float INV_NUM_SAMPLES = 1.0 / float( NUM_SAMPLES );
-
-  float angle = rand_2to1( randomSeed ) * PI2;
-  float radius = INV_NUM_SAMPLES;
-  float radiusStep = radius;
-
-  for( int i = 0; i < NUM_SAMPLES; i ++ ) {
-    poissonDisk[i] = vec2( cos( angle ), sin( angle ) ) * pow( radius, 0.75 );
-    radius += radiusStep;
-    angle += ANGLE_STEP;
-  }
-}
-
-float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex) {
-  float Stride = 20.0;
-  float shadowmapSize = 2048.;
-  float visibility = 0.0;
-  float cur_depth = coords.z;
-  
-  poissonDiskSamples(coords.xy);
-
-  //uniformDiskSamples(coords.xy);
-
-  float ctrl = 1.0;
-     
-  for(int i =0 ; i < NUM_SAMPLES; i++)
-  {
-     float res  = texture(shadowMap, vec4(coords.xy + poissonDisk[i] * Stride / shadowmapSize, shadowMapIndex, coords.z)).r;
-     visibility += res;
-  }
-
-  return visibility / float(NUM_SAMPLES);
-}
-
-float findBlocker(sampler2DArrayShadow shadowMap,  vec4 coords, int shadowMapIndex) {
-  int blockerNum = 0;
-  float block_depth = 0.;
-  float shadowmapSize = 2048.;
-  float Stride = 20.;
-
-  poissonDiskSamples(coords.xy);
-
-  for(int i = 0; i < NUM_SAMPLES; i++){
-      vec2 xy=vec2(coords.xy + poissonDisk[i] * Stride / shadowmapSize);
-	  float dp = 1.0;
-	  while (texture(shadowMap, vec4(xy, shadowMapIndex, dp)).r < 1.0 && dp>=0.0)
-		{
-			dp -= 0.01;
-		}
-		if (dp >=0.0) {
-			blockerNum++;
-			block_depth += dp;
-		}
-  }
-  if(blockerNum == 0){
-    return 1.;
-  }
-  return float(block_depth) / float(blockerNum);
-}
-
-float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex){
-
-  // STEP 1: avgblocker depth
-  float d_Blocker = findBlocker(shadowMap, coords,shadowMapIndex);
-  float w_Light = 1.;
-  float d_Receiver = coords.z;
-
-  // STEP 2: penumbra size
-  float w_penumbra = w_Light * (d_Receiver - d_Blocker) / d_Blocker;
-
-  // STEP 3: filtering
-  float Stride = 40.;
-  float shadowmapSize = 2048.;
-  float visibility = 0.;
-  float cur_depth = coords.z;
-
-  for(int i = 0; i < NUM_SAMPLES; i++){
-     float res  = texture(shadowMap, vec4(coords.xy + poissonDisk[i] * Stride / shadowmapSize* w_penumbra, shadowMapIndex, coords.z)).r;
-     visibility += res;
-  }
-
-  return visibility / float(NUM_SAMPLES);
 }
 
 void main()
@@ -641,118 +544,8 @@ void main()
             color += (baseColor.rgb * ambient_color.rgb) * (ambient_color.a * ambientOcclusion);
         }
     }
-
-    // index used to step through the shadowMaps array
-    int shadowMapIndex = 0;
-    float visibility=0.0f;
-    if (numDirectionalLights>0)
-    {
-        // directional lights
-        for(int i = 0; i<numDirectionalLights; ++i)
-        {
-            vec4 lightColor = lightData.values[index++];
-            vec3 direction = -lightData.values[index++].xyz;
-            vec4 shadowMapSettings = lightData.values[index++];
-
-            float brightness = lightColor.a;
-
-            // check shadow maps if required
-            bool matched = false;
-            while ((shadowMapSettings.r > 0.0 && brightness > brightnessCutoff) && !matched)
-            {
-                mat4 sm_matrix = mat4(lightData.values[index++],
-                                      lightData.values[index++],
-                                      lightData.values[index++],
-                                      lightData.values[index++]);
-
-                vec4 sm_tc = (sm_matrix) * vec4(eyePos, 1.0);
-
-                if (sm_tc.x >= 0.0 && sm_tc.x <= 1.0 && sm_tc.y >= 0.0 && sm_tc.y <= 1.0 && sm_tc.z >= 0.0 /* && sm_tc.z <= 1.0*/)
-                {
-                    matched = true;
-
-                    float coverage = texture(shadowMaps, vec4(sm_tc.st, shadowMapIndex, sm_tc.z)).r;
-                    brightness *= (1.0-coverage);
-
-#ifdef SHADOWMAP_DEBUG
-                    if (shadowMapIndex==0) color = vec3(1.0, 0.0, 0.0);
-                    else if (shadowMapIndex==1) color = vec3(0.0, 1.0, 0.0);
-                    else if (shadowMapIndex==2) color = vec3(0.0, 0.0, 1.0);
-                    else if (shadowMapIndex==3) color = vec3(1.0, 1.0, 0.0);
-                    else if (shadowMapIndex==4) color = vec3(0.0, 1.0, 1.0);
-                    else color = vec3(1.0, 1.0, 1.0);
-#endif
-
-                    // visibility = PCSS(shadowMaps,sm_tc,shadowMapIndex);
-                    // brightness *= 1-visibility;
-                }
-
-                ++shadowMapIndex;
-                shadowMapSettings.r -= 1.0;
-            }
-
-            if (shadowMapSettings.r > 0.0)
-            {
-                // skip lightData and shadowMap entries for shadow maps that we haven't visited for this light
-                // so subsequent light pointions are correct.
-                index += 4 * int(shadowMapSettings.r);
-                shadowMapIndex += int(shadowMapSettings.r);
-            }
-
-            // if light is too dim/shadowed to effect the rendering skip it
-            if (brightness <= brightnessCutoff ) continue;
-
-            vec3 l = direction;         // Vector from surface point to light
-            vec3 h = normalize(l+v);    // Half vector between both l and v
-            float scale = brightness;
-
-            // color.rgb += BRDF(lightColor.rgb * scale, v, n, l, h, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, ambientOcclusion);
-        }
-    }
-
-    if (numPointLights>0)
-    {
-        // point light
-        for(int i = 0; i<numPointLights; ++i)
-        {
-            vec4 lightColor = lightData.values[index++];
-            vec3 position = lightData.values[index++].xyz;
-
-            vec3 delta = position - eyePos;
-            float distance2 = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
-            vec3 direction = delta / sqrt(distance2);
-
-            vec3 l = direction;         // Vector from surface point to light
-            vec3 h = normalize(l+v);    // Half vector between both l and v
-            float scale = lightColor.a / distance2;
-
-            color.rgb += BRDF(lightColor.rgb * scale, v, n, l, h, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, ambientOcclusion);
-        }
-    }
-
-    if (numSpotLights>0)
-    {
-        // spot light
-        for(int i = 0; i<numSpotLights; ++i)
-        {
-            vec4 lightColor = lightData.values[index++];
-            vec4 position_cosInnerAngle = lightData.values[index++];
-            vec4 lightDirection_cosOuterAngle = lightData.values[index++];
-
-            vec3 delta = position_cosInnerAngle.xyz - eyePos;
-            float distance2 = delta.x * delta.x + delta.y * delta.y + delta.z * delta.z;
-            vec3 direction = delta / sqrt(distance2);
-            float dot_lightdirection = -dot(lightDirection_cosOuterAngle.xyz, direction);
-
-            vec3 l = direction;        // Vector from surface point to light
-            vec3 h = normalize(l+v);    // Half vector between both l and v
-            float scale = (lightColor.a * smoothstep(lightDirection_cosOuterAngle.w, position_cosInnerAngle.w, dot_lightdirection)) / distance2;
-
-            color.rgb += BRDF(lightColor.rgb * scale, v, n, l, h, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, ambientOcclusion);
-        }
-    }
     
-    vec3 worldN = normalize(worldNormal);
+    vec3 worldN = normalize(getWorldNormal());
     // vec3 worldPos = worldViewDir;
     
     // vec3 worldCamPos = vec3(-viewMatrixData.view[0][3], -viewMatrixData.view[1][3], -viewMatrixData.view[2][3]);
@@ -765,7 +558,7 @@ void main()
     vec3 worldV = normalize(worldCamPos - worldPos);    
 
     // metallic = 0.0;
-    vec3 iblColor = IBL(worldV, worldN, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, alphaRoughness, diffuseColor, specularColor, ambientOcclusion);
+    vec3 iblColor = IBL(worldV, worldN, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, diffuseColor);
     // iblColor *= ambientOcclusion;
     // iblColor.xyz = worldN;
     color += iblColor * envmapData.param.a;

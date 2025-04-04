@@ -348,7 +348,7 @@ void main()
                     // float coverage = PCF(shadowMaps,sm_tc,shadowMapIndex);
                     // attenuation *= mix(1.0, lightShadowStrength, coverage); //根据阴影贴图的覆盖率调整亮度值。
 
-                    attenuation *= (1-lightShadowStrength) + lightShadowStrength * (1-coverage); //根据阴影贴图的覆盖率调整亮度值。
+                    //attenuation *= (1-lightShadowStrength) + lightShadowStrength * (1-coverage); //根据阴影贴图的覆盖率调整亮度值。
                     visibility = PCF(shadowMaps,sm_tc,shadowMapIndex);
                     //float visibility = PCSS(shadowMaps,sm_tc,shadowMapIndex);
                     //float d_Blocker = findBlocker(shadowMaps, sm_tc,shadowMapIndex);

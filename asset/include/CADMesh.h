@@ -167,7 +167,7 @@ public:
     std::vector<vsg::ref_ptr<vsg::vec3Array>> objNormalsVector;
     std::vector<vsg::ref_ptr<vsg::vec2Array>> objUVVector;
     std::vector<std::vector<std::string>> objTexturePath;
-    std::vector<std::vector<vsg::ref_ptr<vsg::uintArray>>> objIndicesVector;
+    std::vector<vsg::ref_ptr<vsg::uintArray>> objIndicesVector;
     std::vector<std::vector<int>> objMaterialIndice;
     std::vector<vsg::ref_ptr<vsg::PbrMaterialArray>> objMaterialVector;
 

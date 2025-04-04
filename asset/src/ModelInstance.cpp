@@ -318,47 +318,8 @@ void ModelInstance::buildInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> sce
     scene->addChild(nodePtr[""].transform);
 }
 
-void ModelInstance::buildObjInstanceShadow(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, vsg::dmat4 modelMatrix){
-    vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0});
-    vsg::ref_ptr<vsg::vec2Array> dummyUV = vsg::vec2Array::create(1);
-    auto object_mat = vsg::PbrMaterialValue::create();
-    object_mat->value().roughnessFactor = 1.0f;
-    object_mat->value().metallicFactor = 0.0f;
-    object_mat->value().baseColorFactor = vsg::vec4(1.0, 1.0, 1.0, 1.0);
-    object_mat->value().specularFactor = vsg::vec4(0.f, 0.f, 0.f, 1.0f);
-
-    // Create the graphics pipeline configurator
-    vsg::DataList OBJ_vertexArrays = {
-        mesh->verticesVector[0],
-        mesh->normalsVector[0],
-        dummyUV,
-        default_color
-    };
-    
-    // Assign the vertex, normal, and texcoord arrays to the graphics pipeline configurator
-    // graphicsPipelineConfig->assignArray(OBJ_vertexArrays,"vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, verticesUV);
-
-    //绑定索引
-    auto drawCommands = vsg::Commands::create();
-    drawCommands->addChild(vsg::BindVertexBuffers::create(gpc_shadow->baseAttributeBinding, OBJ_vertexArrays));
-    drawCommands->addChild(vsg::BindIndexBuffer::create(mesh->indicesVector[0]));
-    drawCommands->addChild(vsg::DrawIndexed::create(mesh->indicesVector[0]->size(), 1, 0, 0, 0));
-    auto cadMeshShadowStateGroup = vsg::StateGroup::create();
-    cadMeshShadowStateGroup->addChild(drawCommands);
-    gpc_shadow->copyTo(cadMeshShadowStateGroup);
-
-    treeNode top;
-    top.transform = vsg::MatrixTransform::create();
-    top.transform->addChild(cadMeshShadowStateGroup);
-    top.transform->matrix = modelMatrix;
-    top.originalMatrix = modelMatrix;
-    nodePtr[""] = top;
-
-    scene->addChild(top.transform);
-}
-
-void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_ibl, 
-    vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix, bool isTexture){
+void ModelInstance::buildObjInstanceShadow(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, 
+    vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix){
     countNum++;
     std::cout<<countNum<<std::endl;
     vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0});
@@ -366,7 +327,7 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
     std::cout<< "objUVVector count :" << mesh->objUVVector[0]->size() << std::endl;
     std::cout<< "objNormalVector count :" << mesh->objNormalsVector[0]->size() << std::endl;
     std::cout<< "objVerticesVector count :" << mesh->objVerticesVector[0]->size() << std::endl;
-    std::cout<< "objIndicesVector count :" << mesh->objIndicesVector[0][0]->size() << std::endl;
+    std::cout<< "objIndicesVector count :" << mesh->objIndicesVector[0]->size() << std::endl;
     auto objmaterial = mesh->objMaterialVector[0];
     auto object_mat = vsg::PbrMaterialValue::create();
     object_mat->value().roughnessFactor = 0.1f;
@@ -376,12 +337,6 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
 
     std::cout << mesh->objVerticesVector[0]->size() << "**********************************" << std::endl;
     // Create the graphics pipeline configurator
-    vsg::DataList OBJ_vertexArrays = {
-            mesh->objVerticesVector[0],
-            mesh->objNormalsVector[0],
-            mesh->objUVVector[0],
-            default_color
-        };
     auto options = vsg::Options::create();
     options->add(vsgXchange::all::create());
     vsg::Builder builder;
@@ -405,7 +360,86 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
     treeNode top;
     top.transform = vsg::MatrixTransform::create();
 
-    for(int i = 0; i < mesh->objIndicesVector[0].size(); i++){
+    for(int i = 0; i < mesh->objIndicesVector.size(); i++){        
+        //绑定索引
+        // vsg::BindVertexBuffers::create(gpc_high_group[i]->baseAttributeBinding, OBJ_vertexArrays);
+        vsg::DataList OBJ_vertexArrays = {
+            mesh->objVerticesVector[i],
+            mesh->objNormalsVector[i],
+            mesh->objUVVector[i],
+            default_color
+        };
+        auto drawCommands = vsg::Commands::create();
+        drawCommands->addChild(vsg::BindVertexBuffers::create(gpc_shadow->baseAttributeBinding, OBJ_vertexArrays));
+        drawCommands->addChild(vsg::BindIndexBuffer::create(mesh->objIndicesVector[i]));//******************* */
+        drawCommands->addChild(vsg::DrawIndexed::create(mesh->objIndicesVector[i]->size(), 1, 0, 0, 0));//******************* */
+
+        auto cadMeshShadowStateGroup = vsg::StateGroup::create();
+        cadMeshShadowStateGroup->addChild(drawCommands);
+        gpc_shadow->copyTo(cadMeshShadowStateGroup);
+
+        cadMeshSwitch->addChild(MASK_SHADOW_RECEIVER, cadMeshShadowStateGroup);
+        
+    }
+
+    top.transform->addChild(cadMeshSwitch);
+    top.transform->matrix = modelMatrix;
+    top.originalMatrix = modelMatrix;
+    nodePtr[""] = top;
+
+    scene->addChild(top.transform);
+}
+
+void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> pbriblShaderSet, 
+    vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix){
+    auto gpc_ibl = vsg::GraphicsPipelineConfigurator::create(pbriblShaderSet);
+    countNum++;
+    std::cout<<countNum<<std::endl;
+    vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(vsg::vec4{1.0, 1.0, 1.0, 1.0});
+    
+    std::cout<< "objUVVector count :" << mesh->objUVVector[0]->size() << std::endl;
+    std::cout<< "objNormalVector count :" << mesh->objNormalsVector[0]->size() << std::endl;
+    std::cout<< "objVerticesVector count :" << mesh->objVerticesVector[0]->size() << std::endl;
+    std::cout<< "objIndicesVector count :" << mesh->objIndicesVector[0]->size() << std::endl;
+    auto objmaterial = mesh->objMaterialVector[0];
+    auto object_mat = vsg::PbrMaterialValue::create();
+    object_mat->value().roughnessFactor = 0.1f;
+    object_mat->value().metallicFactor = 0.9f;
+    object_mat->value().baseColorFactor = vsg::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+    // object_mat->value() = objmaterial->at(0);
+
+    std::cout << mesh->objVerticesVector[0]->size() << "**********************************" << std::endl;
+    // Create the graphics pipeline configurator
+    auto options = vsg::Options::create();
+    options->add(vsgXchange::all::create());
+    vsg::Builder builder;
+    vsg::GeometryInfo geomInfo;
+    geomInfo.dx.set(500.0f, 0.0f, 0.0f);
+    geomInfo.dy.set(0.0f, 500.0f, 0.0f);
+    geomInfo.dz.set(0.0f, 0.0f, 500.0f);
+    geomInfo.position.z-=1000;
+    geomInfo.color = vsg::vec4{0.95f, 0.95f, 0.95f, 1.0f};
+    vsg::StateInfo stateinfo;
+
+    auto sampler = vsg::Sampler::create();
+    sampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler->minFilter = VK_FILTER_LINEAR; // 线性过滤（平滑纹理）
+    sampler->magFilter = VK_FILTER_LINEAR;
+
+
+    std::vector<vsg::ref_ptr<vsg::GraphicsPipelineConfigurator>> gpc_mtrgroup;
+    auto cadMeshSwitch = vsg::Switch::create();
+    treeNode top;
+    top.transform = vsg::MatrixTransform::create();
+
+    for(int i = 0; i < mesh->objIndicesVector.size(); i++){
+        vsg::DataList OBJ_vertexArrays = {
+            mesh->objVerticesVector[i],
+            mesh->objNormalsVector[i],
+            mesh->objUVVector[i],
+            default_color
+        };
 
         auto gpc_high = vsg::GraphicsPipelineConfigurator::create(*gpc_ibl);
         gpc_high_group.push_back(gpc_high);
@@ -414,17 +448,39 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
         gpc_group.push_back(gpc_obj);
         
         //绑定纹理
-        if(isTexture){
-            vsg::ref_ptr<vsg::Data> textureData = vsg::read_cast<vsg::Data>("../asset/data/obj/Medieval_building/textures/" + mesh->objTexturePath[0][mesh->objMaterialIndice[0][i]], options);
+        if(i < mesh->objMaterialIndice[0].size() && mesh->objTexturePath.size() > mesh->objMaterialIndice[0][i]){
+            std::cout << "../asset/data/obj/helicopter-engine/tex/" << mesh->objTexturePath[mesh->objMaterialIndice[0][i]][0] << std::endl;
+            vsg::ref_ptr<vsg::Data> textureData = vsg::read_cast<vsg::Data>("../asset/data/obj/helicopter-engine/tex/" + mesh->objTexturePath[mesh->objMaterialIndice[0][i]][0], options);
+            // vsg::ref_ptr<vsg::Data> textureData = vsg::read_cast<vsg::Data>("../asset/data/obj/Medieval_building/textures/" + mesh->objTexturePath[0][mesh->objMaterialIndice[0][i]], options);
             gpc_group[i]->assignTexture("diffuseMap", textureData, sampler);
+            // std::cout << "../asset/data/obj/helicopter-engine/tex/" << mesh->objTexturePath[mesh->objMaterialIndice[0][i]][1] << std::endl;
+            vsg::ref_ptr<vsg::Data> normalData = vsg::read_cast<vsg::Data>("../asset/data/obj/helicopter-engine/tex/" + mesh->objTexturePath[mesh->objMaterialIndice[0][i]][1], options);
+            gpc_group[i]->assignTexture("normalMap", normalData, sampler);
+            vsg::ref_ptr<vsg::Data> metallicData = vsg::read_cast<vsg::Data>("../asset/data/obj/helicopter-engine/tex/" + mesh->objTexturePath[mesh->objMaterialIndice[0][i]][2], options);
+            vsg::ref_ptr<vsg::Data> roughnessData = vsg::read_cast<vsg::Data>("../asset/data/obj/helicopter-engine/tex/" + mesh->objTexturePath[mesh->objMaterialIndice[0][i]][3], options);
+            vsg::ref_ptr<vsg::Data> mrData = vsg::ushortArray2D::create(metallicData->width(), metallicData->height(), vsg::Data::Properties{VK_FORMAT_R8G8_UNORM});
+            auto* metallicPtr = static_cast<const uint8_t*>(metallicData->dataPointer());
+            auto* roughnessPtr = static_cast<const uint8_t*>(roughnessData->dataPointer());
+            auto* mrPtr = static_cast<uint8_t*>(mrData->dataPointer());
+
+            for (size_t i = 0; i < metallicData->dataSize()/4; ++i) {
+                // 假设RGBA顺序，取R通道（每4字节中的第0字节）
+                uint8_t metallic = metallicPtr[i * 4];      // R通道
+                uint8_t roughness = roughnessPtr[i * 4];     // R通道
+                mrPtr[i*2] = metallic; // 组合为双通道
+                mrPtr[i*2+1] = roughness; // 组合为双通道
+            }
+            // std::cout << metallicData->width() << " " << metallicData->height() << std::endl;
+            // std::cout << mrData->width() << " " << mrData->height() << std::endl;
+            gpc_group[i]->assignTexture("mrMap", mrData, sampler);
         }
 
         //绑定索引
         // vsg::BindVertexBuffers::create(gpc_high_group[i]->baseAttributeBinding, OBJ_vertexArrays);
         auto drawCommands = vsg::Commands::create();
         drawCommands->addChild(vsg::BindVertexBuffers::create(gpc_group[i]->baseAttributeBinding, OBJ_vertexArrays));
-        drawCommands->addChild(vsg::BindIndexBuffer::create(mesh->objIndicesVector[0][i]));//******************* */
-        drawCommands->addChild(vsg::DrawIndexed::create(mesh->objIndicesVector[0][i]->size(), 1, 0, 0, 0));//******************* */
+        drawCommands->addChild(vsg::BindIndexBuffer::create(mesh->objIndicesVector[i]));//******************* */
+        drawCommands->addChild(vsg::DrawIndexed::create(mesh->objIndicesVector[i]->size(), 1, 0, 0, 0));//******************* */
 
         auto blendState = vsg::ColorBlendState::create();
         blendState->attachments = vsg::ColorBlendState::ColorBlendAttachments{
@@ -826,9 +882,34 @@ void ModelInstance::drawLine(vsg::vec3& begin, vsg::vec3& end, vsg::ref_ptr<vsg:
     }
     indices.push_back(positionToIndex[endPoint]);
 }
+// VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_D32_SFLOAT
+vsg::ImageInfoList createImageInfo(vsg::ref_ptr<vsg::Data> in_data, VkFormat type, int width, int height, vsg::ref_ptr<vsg::Context> context){
+    vsg::ref_ptr<vsg::Image> storageImage = vsg::Image::create(in_data);
+    storageImage->imageType = VK_IMAGE_TYPE_2D;
+    storageImage->format = type; //VK_FORMAT_R8G8B8A8_UNORM;
+    storageImage->usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    storageImage->extent.width = width;
+    storageImage->extent.height = height;
+    storageImage->extent.depth = 1;
+    storageImage->mipLevels = 1;
+    storageImage->arrayLayers = 1;
+    storageImage->samples = VK_SAMPLE_COUNT_1_BIT;
+    storageImage->tiling = VK_IMAGE_TILING_OPTIMAL;
+    storageImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    storageImage->flags = 0;
+    storageImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_ibl, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::Options> options, std::string rendering_path){
-    
+    auto sampler = vsg::Sampler::create();
+    sampler->magFilter = VK_FILTER_NEAREST;
+    sampler->minFilter = VK_FILTER_NEAREST;
+
+    vsg::ref_ptr<vsg::ImageInfo> imageInfosIBL = vsg::ImageInfo::create(sampler, vsg::createImageView(*context, storageImage, VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    vsg::ImageInfoList imageInfosListIBL = {imageInfosIBL};
+    return imageInfosListIBL;
+}
+
+void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> pbriblShaderSet, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::Options> options, std::string rendering_path){
+    auto gpc_ibl = vsg::GraphicsPipelineConfigurator::create(pbriblShaderSet);
     vsg::ref_ptr<vsg::Group> scenegraph = vsg::Group::create();
     vsg::ref_ptr<vsg::Group> text_scenegraph = vsg::Group::create();
 
@@ -973,7 +1054,7 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
         vsg::DataList vertexArrays = {
             mesh->verticesVector[i],
             mesh->normalsVector[i],
-            mesh->indicesVector[i],
+            mesh->UVVector[i],
             default_color
         };
         auto drawCommands = vsg::Commands::create();
@@ -997,9 +1078,39 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
         gpc_temp_group[i]->assignTexture("diffuseMap", highTextureData, sampler);
 
         std::string name = "Metal032";// 纹理材质，华云那边接口有点问题还没有改，没问题了之后有上面注释掉的
-        std::string mtr_path = rendering_path + "/asset/data/textures/"+name+"/"+name+"_2K_Color.png";
-        auto textureData = vsg::read_cast<vsg::Data>(mtr_path, options);
-        gpc_group[i]->assignTexture("diffuseMap", textureData, sampler);
+        std::string mtr_path;
+        std::string normal_path;
+        if(mesh->materialVector[i]->value().baseColorFactor.r > 0.9 && 
+           mesh->materialVector[i]->value().baseColorFactor.g > 0.9 &&
+           mesh->materialVector[i]->value().baseColorFactor.b > 0.9 ){
+            mtr_path = rendering_path + "/asset/data/textures/gold/Metal034_1K-JPG_Color.jpg";
+            normal_path = rendering_path + "/asset/data/textures/gold/isotropic.png";
+        }else{
+            mtr_path = rendering_path + "/asset/data/textures/"+name+"/"+name+"_2K_Color.png";
+            normal_path = rendering_path + "/asset/data/textures/"+name+"/"+ "Metal032_2K_NormalGL.png";
+        }
+        vsg::ImageInfoList textureImageInfo;
+        vsg::ImageInfoList normalTextureImageInfo;
+        if(texturemap_map.find(mtr_path) == texturemap_map.end()){
+            vsg::ref_ptr<vsg::Data> textureData = vsg::read_cast<vsg::Data>(mtr_path, options);
+            textureImageInfo = createImageInfo(textureData, VK_FORMAT_R8G8B8A8_UNORM, textureData->width(), 
+                                                textureData->height(), context);
+            texturemap_map[mtr_path] = textureImageInfo;
+        }else{
+            textureImageInfo = texturemap_map[mtr_path];
+        }
+        if(normalmap_map.find(mtr_path) == normalmap_map.end()){
+            vsg::ref_ptr<vsg::Data> textureData = vsg::read_cast<vsg::Data>(normal_path, options);
+            normalTextureImageInfo = createImageInfo(textureData, VK_FORMAT_R8G8B8A8_UNORM, textureData->width(), 
+                                                textureData->height(), context);
+            normalmap_map[mtr_path] = normalTextureImageInfo;
+        }else{
+            normalTextureImageInfo = normalmap_map[mtr_path];
+        }
+
+        gpc_group[i]->assignTexture("diffuseMap", textureImageInfo);
+        gpc_group[i]->assignTexture("normalMap", normalTextureImageInfo);
+        std::cout << "texture done!";
         gpc_group[i]->assignUniform("transparent", vsg::intValue::create(1));
 
         //绑定索引
@@ -1039,8 +1150,8 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
         gpc_high_group[i]->init();
         gpc_group[i]->init();
         gpc_group[i]->copyTo(pbr_group[i]);
-        // gpc_group[i]->pipelineStates.push_back(blendState);
-        // gpc_group[i]->pipelineStates.push_back(depthState);
+        gpc_group[i]->pipelineStates.push_back(blendState);
+        gpc_group[i]->pipelineStates.push_back(depthState);
         auto cadMeshShadowStateGroup = vsg::StateGroup::create();
         cadMeshShadowStateGroup->addChild(drawCommands);
         gpc_shadow->copyTo(cadMeshShadowStateGroup);

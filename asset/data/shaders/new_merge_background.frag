@@ -38,7 +38,7 @@ void main()
     //    outColor.rgb = texture(planeColor, screenUV).rgb;
 
     if(texture(cadDepth, screenUV).r + 1e-6 >= texture(shadowDepth, screenUV).r)
-        outColor.rgb = texture(cadColor, screenUV).rgb;
+        outColor.rgb = texture(cadColor, screenUV).rgb * shadow;
     else
         outColor.rgb = texture(planeColor, screenUV).rgb * shadow;
 

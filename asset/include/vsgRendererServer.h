@@ -59,8 +59,8 @@ class vsgRendererServer
     std::string project_path;
     std::string shadow_recevier_path;
     vsg::dmat4 shadow_recevier_transform;
-    bool isTexture = false;
-    std::string texture_path = "asset/data/obj/Medieval_building";
+    std::string texture_path = "asset/data/obj/helicopter-engine";
+    // std::string texture_path = "asset/data/obj/Medieval_building";
 
     float fx = 386.52199190267083;//焦距(x轴上)
     float fy = 387.32300428823663;//焦距(y轴上)
@@ -83,6 +83,7 @@ class vsgRendererServer
     unsigned short * depth_pixels;
     mergeShaderType shader_type;
 
+    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_8_BIT;//多重采样的倍数
 
     vsg::ref_ptr<vsg::ShaderSet> buildMergeShaderSet(vsg::ref_ptr<vsg::Options> options) {
         auto vertexShader = vsg::read_cast<vsg::ShaderStage>("shaders/IBL/fullscreenquad.vert", options);
@@ -111,6 +112,7 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(string windowTitle, int num,  vsg::ref_ptr<vsg::Options> options)
     {
         auto windowTraits = vsg::WindowTraits::create();
+        windowTraits->samples = msaaSamples;  // 设置多重采样
         windowTraits->windowTitle = windowTitle;
         windowTraits->width = render_width;
         windowTraits->height = render_height;
@@ -122,7 +124,11 @@ class vsgRendererServer
         windowTraits->depthFormat = VK_FORMAT_D32_SFLOAT;
 
         // if we are multisampling then to enable copying of the depth buffer we have to enable a depth buffer resolve extension for vsg::RenderPass or require a minimum vulkan version of 1.2
-        if (windowTraits->samples != VK_SAMPLE_COUNT_1_BIT) windowTraits->vulkanVersion = VK_API_VERSION_1_2;
+        if (windowTraits->samples != VK_SAMPLE_COUNT_1_BIT)
+        {
+            windowTraits->vulkanVersion = VK_API_VERSION_1_2;
+            windowTraits->depthImageUsage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT; // 优化内存
+        }
         windowTraits->deviceExtensionNames = {
             VK_KHR_MULTIVIEW_EXTENSION_NAME,
             VK_KHR_MAINTENANCE2_EXTENSION_NAME,
@@ -193,7 +199,7 @@ public:
         lightSampler.loadHDRImage(project_path + "asset/data/textures/" + std::to_string(hdr_image_num) + ".hdr");
         lightSampler.computeLuminanceMap();
         lightSampler.computeCDF();
-        auto sampledLights = lightSampler.sampleLights(2);
+        auto sampledLights = lightSampler.sampleLights(1);
 
 
         //-----------------------------------设置光源----------------------------------//
@@ -337,10 +343,9 @@ public:
 
         auto intgWindowTraits = createWindowTraits("Integration", 3, options);
         intgWindowTraits->device = device;
+        window = vsg::Window::create(cadWindowTraits);
 
         double nearFarRatio = 0.0001;       //近平面和远平面之间的比例
-        auto numShadowMapsPerLight = 10; //每个光源的阴影贴图数量
-        auto numLights = 2;                //光源数量
 
         //---------------------------------------------------场景创建--------------------------------------//
         auto modelGroup = vsg::Group::create();
@@ -361,20 +366,7 @@ public:
         envSceneGroup->addChild(drawSkyboxNode);
         std::cout << "1" << std::endl;
         vsg::ref_ptr<vsg::PbrMaterialValue> objectMaterial;
-        auto pbriblShaderSet = IBL::customPbrShaderSet(options);//
         
-
-        //材质
-        auto plane_mat = vsg::PbrMaterialValue::create();
-        plane_mat->value().roughnessFactor = 0.5f;
-        plane_mat->value().metallicFactor = 0.0f;
-        plane_mat->value().baseColorFactor = vsg::vec4(1, 1, 1, 1);
-
-        auto object_mat = vsg::PbrMaterialValue::create();
-        object_mat->value().roughnessFactor = 0.1f;
-        object_mat->value().metallicFactor = 0.9f;
-        object_mat->value().baseColorFactor = vsg::vec4(0.701960784313725f, 0.0549019607843137f, 0.0549019607843137f, 1.f);
-
         struct SetPipelineStates : public vsg::Visitor
         {
             uint32_t base = 0;
@@ -417,24 +409,20 @@ public:
         vec3ArrayProps.stride = sizeof(vsg::vec3);
         vsg::Data::Properties vec4ValueProps = {};
 
+        auto pbriblShaderSet = IBL::customPbrShaderSet(options);//
         auto gpc_ibl = vsg::GraphicsPipelineConfigurator::create(pbriblShaderSet);
-        bool wireFrame = 1;
-        //if (arguments.read("--wireframe")) wireFrame = 1;
-        if (wireFrame)
-        {
-            auto rasterizationState = vsg::RasterizationState::create();
-            rasterizationState->polygonMode = VK_POLYGON_MODE_LINE;
-            pbriblShaderSet->defaultGraphicsPipelineStates.push_back(rasterizationState);
-        }
-        auto gpc_ibl_wireframe = vsg::GraphicsPipelineConfigurator::create(pbriblShaderSet);
-
-        vsg::DataList dummyArrays;
         addVertexAttribute(gpc_ibl, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
         addVertexAttribute(gpc_ibl, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
         addVertexAttribute(gpc_ibl, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, vec2ArrayProps);
         addVertexAttribute(gpc_ibl, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vec4ValueProps);
         //gpc_ibl->assignDescriptor("material", plane_mat);
         gpc_ibl->init();
+
+        auto wireframeShaderSet = IBL::customPbrShaderSet(options);//
+        auto rasterizationState = vsg::RasterizationState::create();
+        rasterizationState->polygonMode = VK_POLYGON_MODE_LINE;
+        wireframeShaderSet->defaultGraphicsPipelineStates.push_back(rasterizationState);
+        auto gpc_ibl_wireframe = vsg::GraphicsPipelineConfigurator::create(wireframeShaderSet);
         addVertexAttribute(gpc_ibl_wireframe, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
         addVertexAttribute(gpc_ibl_wireframe, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
         addVertexAttribute(gpc_ibl_wireframe, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, vec2ArrayProps);
@@ -447,7 +435,7 @@ public:
         addVertexAttribute(gpc_shadow, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
         addVertexAttribute(gpc_shadow, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, vec2ArrayProps);
         addVertexAttribute(gpc_shadow, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vec4ValueProps);
-        gpc_shadow->assignDescriptor("material", plane_mat);
+        // gpc_shadow->assignDescriptor("material", plane_mat);
         gpc_shadow->init();
 
         PlaneData planeData = createTestPlanes();
@@ -483,16 +471,18 @@ public:
             // rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowStateGroup);
         }
 
+        if(shadow_recevier_path != "")
         {
-            // CADMesh* shadow_recevier_mesh = new CADMesh();
-            // shadow_recevier_mesh->buildObjNode(shadow_recevier_path.c_str(), "", shadow_recevier_transform);
-            // ModelInstance* shadow_recevier_instance = new ModelInstance();
-            // auto shadowStateGroup = vsg::StateGroup::create();
-            // shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, shadowStateGroup, gpc_shadow, shadow_recevier_transform);
-            // rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowStateGroup);
+            CADMesh* shadow_recevier_mesh = new CADMesh();
+            // string texture = engine_path + "asset/data/obj/Medieval_building";
+            string texture = engine_path + "asset/data/obj/helicopter-engine";
+            shadow_recevier_mesh->buildObjNode(shadow_recevier_path.c_str(), texture.c_str(), shadow_recevier_transform);
+            ModelInstance* shadow_recevier_instance = new ModelInstance();
+            shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, scenegraph, gpc_shadow, shadow_recevier_transform);
+            // scenegraph->addChild(shadowStateGroup);
             // ModelInstance* ibl_shadow_recevier_instance = new ModelInstance();
             // auto iblStateGroup = vsg::StateGroup::create();
-            // ibl_shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, iblStateGroup, gpc_ibl, shadow_recevier_transform);
+            // ibl_shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, iblStateGroup, gpc_ibl, gpc_shadow, shadow_recevier_transform, false);
             // rootSwitch->addChild(MASK_FAKE_BACKGROUND, iblStateGroup);
         }
 
@@ -521,22 +511,20 @@ public:
             }
    
             if(format == "obj"){
-                
                 ModelInstance* instance_phong = new ModelInstance();
-                instance_phong->buildObjInstanceIBL(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i], isTexture);
+                instance_phong->buildObjInstanceIBL(transfer_model, scenegraph, pbriblShaderSet, gpc_shadow, model_transforms[i]);
                 //instance_phong->buildObjInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
                 instance_phongs[instance_names[i]] = instance_phong;
                 std::cout << "**************** reading obj ******************" << std::endl;
             }
             else if(format == "fb"){
-                
                 ModelInstance* instance_phong = new ModelInstance();
+                instance_phong->context = vsg::Context::create(window->getOrCreateDevice());
                 //instance_phong->buildInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
-                instance_phong->buildFbInstance(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i], options, engine_path);
+                instance_phong->buildFbInstance(transfer_model, scenegraph, pbriblShaderSet, gpc_shadow, model_transforms[i], options, engine_path);
                 //instance_phong->buildInstanceIBL(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
                 instance_phongs[instance_names[i]] = instance_phong;
                 std::cout << "**************** reading fb ******************" << std::endl;
-                
             }
             else if(format == "texture")
             {
@@ -568,12 +556,11 @@ public:
         // try
         // {
         // create the viewer and assign window(s) to it
-            window = vsg::Window::create(cadWindowTraits);
             viewer->addWindow(window);
             auto view = vsg::View::create(camera, scenegraph);
             view->features = vsg::RECORD_LIGHTS;
             view->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_FAKE_BACKGROUND;
-            view->viewDependentState = CustomViewDependentState::create(view.get());
+            view->viewDependentState = CustomViewDependentState::create(view.get(), true);
             auto renderGraph = vsg::RenderGraph::create(window, view);
             renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
             auto commandGraph = vsg::CommandGraph::create(window);

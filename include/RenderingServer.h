@@ -6,9 +6,9 @@ public:
     int width = 640;
     int height = 480;
     bool cameara_pos_bool = true;
-    bool stop_cameara_pos = false;
+    bool stop_cameara_pos = true;
     bool use_png = true;
-    mergeShaderType shader_type = CAMERA_DEPTH;
+    mergeShaderType shader_type = FULL_MODEL;
 
     std::string* real_color1;
     std::string* real_depth1;

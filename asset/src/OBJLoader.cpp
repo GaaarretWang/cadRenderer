@@ -46,8 +46,7 @@ std::unordered_map<std::string, int> OBJLoader::vertex_count(const char* filenam
 
 void OBJLoader::components_to_vec2s(std::vector<float> components, vsg::ref_ptr<vsg::vec2Array>& vecs) {
     for(size_t vec_start = 0; vec_start < components.size(); vec_start+=2) {
-        //std::cout<<components[vec_start]<<"  ";
-        vsg::vec2 normal(components[vec_start], components[vec_start+1]);
+        vsg::vec2 normal(components[vec_start], -components[vec_start+1]);
         vecs->at(vec_start/2) = normal;
     }
 }
@@ -59,7 +58,7 @@ void OBJLoader::components_to_vec3s(std::vector<float> components, vsg::ref_ptr<
     }
 }
 
-void OBJLoader::load_materials(const std::vector<tinyobj::material_t>& objmaterials,vsg::ref_ptr<vsg::PbrMaterialArray>& mat_val, std::vector<std::string>& textures){
+void OBJLoader::load_materials(const std::vector<tinyobj::material_t>& objmaterials,vsg::ref_ptr<vsg::PbrMaterialArray>& mat_val, std::vector<std::vector<std::string>>& textures){
     int i = 0;
     for(auto mat = objmaterials.begin(); mat < objmaterials.end(); ++mat) {
         size_t index = std::distance(objmaterials.begin(), mat);
@@ -73,17 +72,16 @@ void OBJLoader::load_materials(const std::vector<tinyobj::material_t>& objmateri
                 (1.0f - (mat->shininess / 64.0f))
             }
         );
-        //std::cout << mat->diffuse_texname << std::endl;
-        textures.push_back(mat->diffuse_texname);
+        std::cout << mat->diffuse_texname << std::endl;
+        textures.push_back({mat->diffuse_texname, mat->normal_texname, mat->metallic_texname, mat->roughness_texname});
         i++;
     }
-
 }
 
 void OBJLoader::load_obj(const char* filename, const char* materials_path, vsg::ref_ptr<vsg::vec3Array>& vertices,
                          vsg::ref_ptr<vsg::vec3Array>& vertnormals, vsg::ref_ptr<vsg::vec2Array>& vertuvs,
                          vsg::ref_ptr<vsg::vec3Array>& colors, vsg::ref_ptr<vsg::PbrMaterialArray>& materials,
-                         std::vector<vsg::ref_ptr<vsg::uintArray>>& indices, std::vector<std::string>& textures, std::vector<int>& mtr_ids)
+                         std::vector<std::vector<vsg::ref_ptr<vsg::uintArray>>>& indices, std::vector<std::vector<std::string>>& textures, std::vector<int>& mtr_ids)
 {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -119,24 +117,24 @@ void OBJLoader::load_obj(const char* filename, const char* materials_path, vsg::
         components_to_vec3s(attrib.colors, colors);
     }
 
-
     std::cout << "Loading Material" << std::endl;
     if(objmaterials.size() != 0) {
         load_materials(objmaterials, materials, textures);
     }
 
-    int i = 0;
     for(auto shape = shapes.begin(); shape < shapes.end(); shape++) {
         mtr_ids.push_back(shape->mesh.material_ids[0]);
-        //std::cout << mtr_ids[i] << std::endl;
         int count = 0;
-        vsg::ref_ptr<vsg::uintArray> indice = vsg::uintArray::create(shape->mesh.indices.size());
-        for(auto index = shape->mesh.indices.begin(); index < shape->mesh.indices.end(); index++) {
-            indice->set(count,index->vertex_index);
+        vsg::ref_ptr<vsg::uintArray> indice_pos = vsg::uintArray::create(shape->mesh.indices.size());
+        vsg::ref_ptr<vsg::uintArray> indice_normal = vsg::uintArray::create(shape->mesh.indices.size());
+        vsg::ref_ptr<vsg::uintArray> indice_coord = vsg::uintArray::create(shape->mesh.indices.size());
+        for(auto index = shape->mesh.indices.begin(); index < shape->mesh.indices.end(); index++) {          
+            indice_pos->set(count,index->vertex_index);
+            indice_normal->set(count,index->normal_index);
+            indice_coord->set(count,index->texcoord_index);
             count++;
         }
-        indices.push_back(indice);
-        i++;
+        indices.push_back({indice_pos, indice_normal, indice_coord});
     }
 
     std::cout << "Loaded materials." << std::endl;

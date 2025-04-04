@@ -25,12 +25,12 @@ void main()
     //float intPlaneDepth = 0.1 / (texture(planeDepth, screen_uv).r * 65.435 + 0.1);
     //float intPlaneDepth = texture(planeDepth, screen_uv).r;
     //float intShadowDepth = 0.1 / (texture(shadowDepth, screen_uv).r * 65.435 + 0.1);
-    float shadow = texture(shadowColor, screenUV).r * 0.1 + 0.9;
+    float shadow = texture(shadowColor, screenUV).r * 0.5 + 0.5;
     if(shadow > 1.0)
         shadow = 1.0;
 
     if(intCadDepth <= 0.9)
-        outColor.rgb = texture(cadColor, screenUV).rgb;
+        outColor.rgb = texture(cadColor, screenUV).rgb * shadow;
     else
         outColor.rgb = texture(planeColor, screenUV).rgb * shadow;
 
