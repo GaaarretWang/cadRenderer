@@ -29,6 +29,7 @@ constexpr vsg::Mask MASK_SHADOW_RECEIVER = 4ul;
 constexpr vsg::Mask MASK_DRAW_SHADOW = 4ul;
 constexpr vsg::Mask MASK_FAKE_BACKGROUND = 8ul;
 constexpr vsg::Mask MASK_WIREFRAME = 16ul;
+constexpr vsg::Mask MASK_CAMERA_IMAGE = 32ul;
 
 // constexpr vsg::Mask MASK_MODEL = MASK_PBR_FULL | MASK_SHADOW_CASTER;
 constexpr vsg::Mask MASK_MODEL = MASK_PBR_FULL | MASK_SHADOW_CASTER;

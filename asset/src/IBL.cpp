@@ -1479,7 +1479,7 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext)
     viewer->addRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
-ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGroup> root)
+ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGroup> root, int width, int height, vsg::ref_ptr<vsg::Data> camera_data)
 {
     auto searchPaths = appData.options->paths;
     searchPaths.push_back("./data");
@@ -1497,9 +1497,11 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGr
 
     auto shaderCompileSettings = ShaderCompileSettings::create();
     auto shaderStages = ShaderStages{vertexShader, fragmentShader};
-    auto tonemapParams = floatArray::create(2);
+    auto tonemapParams = floatArray::create(4);
     tonemapParams->set(0, 3.0f); //exposure
     tonemapParams->set(1, 2.2f); //gamma
+    tonemapParams->set(2, width * 1.f); //gamma
+    tonemapParams->set(3, height * 1.f); //gamma
 
     auto skyBoxShaderSet = ShaderSet::create(shaderStages, shaderCompileSettings);
     skyBoxShaderSet->addAttributeBinding("inPos", "", 0, VK_FORMAT_R32G32B32_SFLOAT, gSkyboxCube.vertices);
@@ -1508,6 +1510,7 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGr
     // 但是Data在创建Layout和做绑定的时候没有真正使用，所以这里先随便用个Data代替一下
     skyBoxShaderSet->addDescriptorBinding("envmap", "", 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vec4Array2D::create(1, 1, vsg::Data::Properties{Constants::EnvmapCube::format}));
     skyBoxShaderSet->addDescriptorBinding("tonemapParams", "", 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, tonemapParams);
+    if(camera_data) skyBoxShaderSet->addDescriptorBinding("cameraImage", "CAMERA_IMAGE", 0, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
     skyBoxShaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT, 0, 128);
 
     vsg::DataList pipelineInputs;
@@ -1523,6 +1526,7 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGr
     pplcfg->assignArray(pipelineInputs, "inPos", VK_VERTEX_INPUT_RATE_VERTEX, gSkyboxCube.vertices);
     pplcfg->assignTexture("envmap", ImageInfoList{textures.envmapCubeInfo});
     pplcfg->assignDescriptor("tonemapParams", tonemapParams);
+    if(camera_data) pplcfg->assignTexture("cameraImage", camera_data);
     pplcfg->init();
 
     auto drawCmds = Commands::create();

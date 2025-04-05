@@ -68,7 +68,7 @@ void CustomViewDependentState::init(ResourceRequirements& requirements)
     auto tcon = TraverseChildrenOfNode::create(view);
     compute_bound_view->addChild(tcon);
     vsg::ComputeBounds computeSceneBounds;
-    computeSceneBounds.traversalMask = MASK_ALL & (~MASK_SKYBOX) & (~MASK_SHADOW_RECEIVER) & (~MASK_WIREFRAME);
+    computeSceneBounds.traversalMask = MASK_ALL & (~MASK_SKYBOX);
     view->accept(computeSceneBounds);
     //auto ws_bounds = computeFrustumBounds(clip_near_z, clip_far_z, clipToWorld);
     scene_bound_ws = computeSceneBounds.bounds;

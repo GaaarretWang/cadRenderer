@@ -13,9 +13,9 @@ int RenderingServer::Init(int argc, char** argv){
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.591005, 1) * init_model_transforms[0]
                                * vsg::dmat4(
-                                    200, 0, 0, 0, 
-                                    0, 200, 0, 0, 
-                                    0, 0, 200, 0, 
+                                    20, 0, 0, 0, 
+                                    0, 20, 0, 0, 
+                                    0, 0, 20, 0, 
                                     0, 0, 0, 1));
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.991005, 1) * init_model_transforms[1]);
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.491005, 1) * init_model_transforms[1] * mat);
