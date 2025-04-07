@@ -13,6 +13,7 @@ public:
     vsg::ref_ptr<vsg::mat4Array> viewMatrixData;
     vsg::ref_ptr<vsg::BufferInfo> viewMatrixDataBufferInfo;
     bool disableShadowMap;
+    vsg::dbox virtual_bound_ws;
     vsg::dbox scene_bound_ws;
 
     CustomViewDependentState(vsg::View* in_view, bool in_disableShadowMap = false) :

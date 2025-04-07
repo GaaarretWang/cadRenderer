@@ -2,6 +2,17 @@
 
 template <typename T>
 using ptr = vsg::ref_ptr<T>;
+vsg::ImageInfoList createImageInfo(vsg::ref_ptr<vsg::Data> in_data, VkFormat type, int width, int height, vsg::ref_ptr<vsg::Context> context){
+    auto sampler = vsg::Sampler::create();
+    sampler->magFilter = VK_FILTER_NEAREST;
+    sampler->minFilter = VK_FILTER_NEAREST;
+
+    vsg::ref_ptr<vsg::ImageInfo> imageInfosIBL = vsg::ImageInfo::create(sampler, in_data);
+    vsg::ImageInfoList imageInfosListIBL = {imageInfosIBL};
+    return imageInfosListIBL;
+}
+
+// VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_D32_SFLOAT
 
 void ModelInstance::buildInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix){
     vsg::ref_ptr<vsg::vec4Value> default_color = vsg::vec4Value::create(vsg::vec4{0.9, 0.9, 0.9, 1.0});
@@ -249,14 +260,8 @@ void ModelInstance::buildInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> sce
             gpc_object->assignDescriptor("material", object_mat);
             gpc_object->init();
             gpc_object->copyTo(PbrStateGroup);
-            auto cadMeshShadowStateGroup = vsg::StateGroup::create();
-            cadMeshShadowStateGroup->addChild(drawCommands);
-            gpc_shadow->copyTo(cadMeshShadowStateGroup);
             auto cadMeshSwitch = vsg::Switch::create();
             cadMeshSwitch->addChild(MASK_PBR_FULL, PbrStateGroup);
-            cadMeshSwitch->addChild(MASK_SHADOW_CASTER, cadMeshShadowStateGroup);
-
-
 
             treeNode node;
             node.transform = vsg::MatrixTransform::create();
@@ -391,7 +396,7 @@ void ModelInstance::buildObjInstanceShadow(CADMesh* mesh, vsg::ref_ptr<vsg::Grou
 }
 
 void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> pbriblShaderSet, 
-    vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix){
+    const vsg::dmat4& modelMatrix, vsg::ImageInfoList cameraImageInfo, vsg::ImageInfoList depthImageInfo){
     auto gpc_ibl = vsg::GraphicsPipelineConfigurator::create(pbriblShaderSet);
     countNum++;
     std::cout<<countNum<<std::endl;
@@ -470,9 +475,14 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
                 mrPtr[i*2] = metallic; // 组合为双通道
                 mrPtr[i*2+1] = roughness; // 组合为双通道
             }
-            // std::cout << metallicData->width() << " " << metallicData->height() << std::endl;
-            // std::cout << mrData->width() << " " << mrData->height() << std::endl;
             gpc_group[i]->assignTexture("mrMap", mrData, sampler);
+            gpc_group[i]->assignTexture("cameraImage", cameraImageInfo);
+            gpc_group[i]->assignTexture("depthImage", depthImageInfo);
+            auto params = vsg::floatArray::create(3);
+            params->set(0, 1.f);
+            params->set(1, 640.f * 2);
+            params->set(2, 480.f * 2);
+            gpc_group[i]->assignUniform("customParams", params);//是否半透明判断
         }
 
         //绑定索引
@@ -508,13 +518,8 @@ void ModelInstance::buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> 
         gpc_group[i]->init();
         gpc_group[i]->copyTo(pbr_group[i]);
 
-        auto cadMeshShadowStateGroup = vsg::StateGroup::create();
-        cadMeshShadowStateGroup->addChild(drawCommands);
-        gpc_shadow->copyTo(cadMeshShadowStateGroup);
 
-        cadMeshSwitch->addChild(MASK_PBR_FULL, PbrStateGroup);
-        cadMeshSwitch->addChild(MASK_SHADOW_CASTER, cadMeshShadowStateGroup);
-        
+        cadMeshSwitch->addChild(MASK_PBR_FULL, PbrStateGroup);        
     }
 
     top.transform->addChild(cadMeshSwitch);
@@ -842,17 +847,16 @@ void ModelInstance::buildTextureSphere(vsg::ref_ptr<vsg::Group> scene, vsg::ref_
         auto gpc_mat = vsg::GraphicsPipelineConfigurator::create(*gpc_mtrgroup[i]);
         auto mat = vsg::PbrMaterialValue::create(mtr_mtrVector->at(i));
         gpc_mat->assignDescriptor("material", mat);//材质在这里修改
-        gpc_mat->assignUniform("transparent", vsg::intValue::create(1));//是否半透明判断
+        auto params = vsg::floatArray::create(3);
+        params->set(0, 1.f);
+        params->set(1, 640.f * 2);
+        params->set(2, 480.f * 2);
+        gpc_mat->assignUniform("customParams", params);//是否半透明判断
         gpc_mat->pipelineStates.push_back(blendState);
         gpc_mat->init();
         gpc_mat->copyTo(mtrStateGroup);
 
-        auto materialShadowStateGroup = vsg::StateGroup::create();
-        materialShadowStateGroup->addChild(drawCommands_mtr);
-        gpc_shadow->copyTo(materialShadowStateGroup);
-
         cadMeshSwitch->addChild(MASK_PBR_FULL, mtrStateGroup);
-        cadMeshSwitch->addChild(MASK_SHADOW_CASTER, materialShadowStateGroup);
 
     }
     top.transform->addChild(cadMeshSwitch);
@@ -881,31 +885,6 @@ void ModelInstance::drawLine(vsg::vec3& begin, vsg::vec3& end, vsg::ref_ptr<vsg:
         positions.push_back(endPoint);
     }
     indices.push_back(positionToIndex[endPoint]);
-}
-// VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_D32_SFLOAT
-vsg::ImageInfoList createImageInfo(vsg::ref_ptr<vsg::Data> in_data, VkFormat type, int width, int height, vsg::ref_ptr<vsg::Context> context){
-    vsg::ref_ptr<vsg::Image> storageImage = vsg::Image::create(in_data);
-    storageImage->imageType = VK_IMAGE_TYPE_2D;
-    storageImage->format = type; //VK_FORMAT_R8G8B8A8_UNORM;
-    storageImage->usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    storageImage->extent.width = width;
-    storageImage->extent.height = height;
-    storageImage->extent.depth = 1;
-    storageImage->mipLevels = 1;
-    storageImage->arrayLayers = 1;
-    storageImage->samples = VK_SAMPLE_COUNT_1_BIT;
-    storageImage->tiling = VK_IMAGE_TILING_OPTIMAL;
-    storageImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    storageImage->flags = 0;
-    storageImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    auto sampler = vsg::Sampler::create();
-    sampler->magFilter = VK_FILTER_NEAREST;
-    sampler->minFilter = VK_FILTER_NEAREST;
-
-    vsg::ref_ptr<vsg::ImageInfo> imageInfosIBL = vsg::ImageInfo::create(sampler, vsg::createImageView(*context, storageImage, VK_IMAGE_ASPECT_COLOR_BIT), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    vsg::ImageInfoList imageInfosListIBL = {imageInfosIBL};
-    return imageInfosListIBL;
 }
 
 void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> pbriblShaderSet, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::Options> options, std::string rendering_path){
@@ -1111,7 +1090,11 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
         gpc_group[i]->assignTexture("diffuseMap", textureImageInfo);
         gpc_group[i]->assignTexture("normalMap", normalTextureImageInfo);
         std::cout << "texture done!";
-        gpc_group[i]->assignUniform("transparent", vsg::intValue::create(1));
+        auto params = vsg::floatArray::create(3);
+        params->set(0, 1.f);
+        params->set(1, 640.f * 2);
+        params->set(2, 480.f * 2);
+        gpc_group[i]->assignUniform("customParams", params);//是否半透明判断
 
         //绑定索引
         vsg::BindVertexBuffers::create(gpc_high_group[i]->baseAttributeBinding, vertexArrays);
@@ -1152,12 +1135,8 @@ void ModelInstance::buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scen
         gpc_group[i]->copyTo(pbr_group[i]);
         gpc_group[i]->pipelineStates.push_back(blendState);
         gpc_group[i]->pipelineStates.push_back(depthState);
-        auto cadMeshShadowStateGroup = vsg::StateGroup::create();
-        cadMeshShadowStateGroup->addChild(drawCommands);
-        gpc_shadow->copyTo(cadMeshShadowStateGroup);
         auto cadMeshSwitch = vsg::Switch::create();
         cadMeshSwitch->addChild(MASK_PBR_FULL, PbrStateGroup);
-        cadMeshSwitch->addChild(MASK_SHADOW_CASTER, cadMeshShadowStateGroup);
         
         for (int j = 0; j < mesh->transformNumVector[i]; j++)
         {

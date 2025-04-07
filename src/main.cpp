@@ -82,8 +82,6 @@ int main(int argc, char** argv){
 
         rendering_server.Update();
         if(rendering_server.vPacket.size() > 0)
-            //std::cout << rendering_server.vPacket[0].size() << std::endl;
-
             rendering_client.Update(rendering_server.vPacket);
         frame++;
         if(frame > 698)

@@ -87,7 +87,7 @@ class vsgRendererServer
     unsigned short * depth_pixels;
     mergeShaderType shader_type;
 
-    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_8_BIT;//多重采样的倍数
+    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_4_BIT;//多重采样的倍数
 
     vsg::ref_ptr<vsg::ShaderSet> buildMergeShaderSet(vsg::ref_ptr<vsg::Options> options) {
         auto vertexShader = vsg::read_cast<vsg::ShaderStage>("shaders/IBL/fullscreenquad.vert", options);
@@ -228,7 +228,16 @@ public:
         }
     }
 
- 
+    vsg::ImageInfoList createImageInfo(vsg::ref_ptr<vsg::Data> in_data){
+        auto sampler = vsg::Sampler::create();
+        sampler->magFilter = VK_FILTER_NEAREST;
+        sampler->minFilter = VK_FILTER_NEAREST;
+
+        vsg::ref_ptr<vsg::ImageInfo> imageInfosIBL = vsg::ImageInfo::create(sampler, in_data);
+        vsg::ImageInfoList imageInfosListIBL = {imageInfosIBL};
+        return imageInfosListIBL;
+    }
+
 
     void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)
     {
@@ -369,9 +378,8 @@ public:
 
         auto rootSwitch = vsg::Switch::create();
         rootSwitch->addChild(MASK_PBR_FULL, modelGroup);
-        rootSwitch->addChild(MASK_SHADOW_CASTER, modelShadowGroup);
         rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowGroup);
-        rootSwitch->addChild(MASK_FAKE_BACKGROUND, envSceneGroup);
+        rootSwitch->addChild(MASK_SKYBOX, envSceneGroup);
         rootSwitch->addChild(MASK_WIREFRAME, wireframeGroup);
         rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraImageNode);
         vsg::ref_ptr<vsg::Group> scenegraph = vsg::Group::create();
@@ -424,11 +432,20 @@ public:
         vsg::Data::Properties vec4ValueProps = {};
 
         auto pbriblShaderSet = IBL::customPbrShaderSet(options);//
+        auto camera_info = createImageInfo(vsg_color_image);
+        auto depth_info = createImageInfo(vsg_depth_image);
         auto gpc_ibl = vsg::GraphicsPipelineConfigurator::create(pbriblShaderSet);
         addVertexAttribute(gpc_ibl, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
         addVertexAttribute(gpc_ibl, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
         addVertexAttribute(gpc_ibl, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, vec2ArrayProps);
         addVertexAttribute(gpc_ibl, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vec4ValueProps);
+        gpc_ibl->assignTexture("cameraImage", camera_info);
+        gpc_ibl->assignTexture("depthImage", depth_info);
+        auto params = vsg::floatArray::create(3);
+        params->set(0, 1.f);
+        params->set(1, 640.f * 2);
+        params->set(2, 480.f * 2);
+        gpc_ibl->assignUniform("customParams", params);//是否半透明判断
         //gpc_ibl->assignDescriptor("material", plane_mat);
         gpc_ibl->init();
 
@@ -441,6 +458,9 @@ public:
         addVertexAttribute(gpc_ibl_wireframe, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
         addVertexAttribute(gpc_ibl_wireframe, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, vec2ArrayProps);
         addVertexAttribute(gpc_ibl_wireframe, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vec4ValueProps);
+        gpc_ibl_wireframe->assignTexture("cameraImage", camera_info);
+        gpc_ibl_wireframe->assignTexture("depthImage", depth_info);
+        gpc_ibl_wireframe->assignUniform("customParams", params);//是否半透明判断
         //gpc_ibl->assignDescriptor("material", plane_mat);
         gpc_ibl_wireframe->init();
 
@@ -453,7 +473,8 @@ public:
         extent_array->set(0, render_width * 1.f);
         extent_array->set(1, render_height * 1.f);
         gpc_shadow->assignDescriptor("extent", extent_array);
-        gpc_shadow->assignTexture("cameraImage", vsg_color_image);
+        gpc_shadow->assignTexture("cameraImage", camera_info);
+        gpc_shadow->assignTexture("depthImage", depth_info);
         gpc_shadow->init();
 
         PlaneData planeData = createTestPlanes();
@@ -530,7 +551,8 @@ public:
    
             if(format == "obj"){
                 ModelInstance* instance_phong = new ModelInstance();
-                instance_phong->buildObjInstanceIBL(transfer_model, scenegraph, pbriblShaderSet, gpc_shadow, model_transforms[i]);
+                instance_phong->context = vsg::Context::create(window->getOrCreateDevice());
+                instance_phong->buildObjInstanceIBL(transfer_model, scenegraph, pbriblShaderSet, model_transforms[i], camera_info, depth_info);
                 //instance_phong->buildObjInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
                 instance_phongs[instance_names[i]] = instance_phong;
                 std::cout << "**************** reading obj ******************" << std::endl;
@@ -571,72 +593,51 @@ public:
         camera = vsg::Camera::create(perspective, lookAt, viewport);
         
         //----------------------------------------------------------------窗口1----------------------------------------------------------//
-        // try
-        // {
-        // create the viewer and assign window(s) to it
-
-
-
-            viewer->addWindow(window);
-            auto view = vsg::View::create(camera, scenegraph);
-            view->features = vsg::RECORD_LIGHTS;
-            view->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_CAMERA_IMAGE | MASK_SHADOW_RECEIVER;
-            view->viewDependentState = CustomViewDependentState::create(view.get(), false);
-            auto renderGraph = vsg::RenderGraph::create(window, view);
-            renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
-            auto commandGraph = vsg::CommandGraph::create(window);
-            commandGraph->addChild(renderGraph);
-            viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
-            viewer->addEventHandler(vsg::Trackball::create(camera));
-            // auto event = vsg::Event::create_if(true, window->getOrCreateDevice());
-            // screenshotHandler = IBLScreenshot::ScreenshotHandler::create(event);
-            // viewer_IBL->addEventHandler(screenshotHandler);
-        // }
-        // catch (const vsg::Exception& ve)
-        // {
-        //     vsg::debug("CompileManager::compile() exception caught : ", ve.message);
-        //     std::cout << ve.message;
-        //     std::cout << "done!1" << std::endl;
-        // }
-        // catch (...)
-        // {
-        //     vsg::debug("CompileManager::compile() exception caught");
-        //     std::cout << "done!2" << std::endl;
-        // }
+        viewer->addWindow(window);
+        auto view = vsg::View::create(camera, scenegraph);
+        view->features = vsg::RECORD_LIGHTS;
+        view->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_CAMERA_IMAGE | MASK_SHADOW_RECEIVER;
+        view->viewDependentState = CustomViewDependentState::create(view.get(), false);
+        auto renderGraph = vsg::RenderGraph::create(window, view);
+        renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
+        auto commandGraph = vsg::CommandGraph::create(window);
+        commandGraph->addChild(renderGraph);
+        viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
+        viewer->addEventHandler(vsg::Trackball::create(camera));
         //----------------------------------------------------------------窗口2----------------------------------------------------------//
         //   // create the viewer and assign window(s) to it
         // envWindowTraits->device = window->getOrCreateDevice(); 
-        env_window = vsg::Window::create(envWindowTraits);
-        viewer->addWindow(env_window);
-        auto env_view = vsg::View::create(camera, scenegraph);              //共用一个camera，改变一个window的视角，另一个window视角也会改变
-        env_view->mask = MASK_FAKE_BACKGROUND | MASK_PBR_FULL;
-        env_view->features = vsg::RECORD_LIGHTS;
-        auto env_renderGraph = vsg::RenderGraph::create(env_window, env_view); //如果用Env_window会报错
-        env_renderGraph->clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
+        // env_window = vsg::Window::create(envWindowTraits);
+        // viewer->addWindow(env_window);
+        // auto env_view = vsg::View::create(camera, scenegraph);              //共用一个camera，改变一个window的视角，另一个window视角也会改变
+        // env_view->mask = MASK_FAKE_BACKGROUND | MASK_PBR_FULL;
+        // env_view->features = vsg::RECORD_LIGHTS;
+        // auto env_renderGraph = vsg::RenderGraph::create(env_window, env_view); //如果用Env_window会报错
+        // env_renderGraph->clearValues[0].color = {{0.f, 0.f, 0.f, 1.f}};
 
-        auto env_commandGraph = vsg::CommandGraph::create(env_window); //如果用Env_window会报错
-        env_commandGraph->addChild(env_renderGraph);
+        // auto env_commandGraph = vsg::CommandGraph::create(env_window); //如果用Env_window会报错
+        // env_commandGraph->addChild(env_renderGraph);
 
-        std::cout << "Env Window" << std::endl;
+        // std::cout << "Env Window" << std::endl;
 
-        //----------------------------------------------------------------窗口3----------------------------------------------------------//
-        //shadowWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
-        shadow_window = vsg::Window::create(shadowWindowTraits);
-        viewer->addWindow(shadow_window);
-        auto Shadow_view = vsg::View::create(camera, scenegraph);                 //共用一个camera，改变一个window的视角，另一个window视角也会改变
+        // //----------------------------------------------------------------窗口3----------------------------------------------------------//
+        // //shadowWindowTraits->device = window->getOrCreateDevice(); //共享设备 不加这句Env_window->getOrCreateDevice()就报错 一个bug de几天
+        // shadow_window = vsg::Window::create(shadowWindowTraits);
+        // viewer->addWindow(shadow_window);
+        // auto Shadow_view = vsg::View::create(camera, scenegraph);                 //共用一个camera，改变一个window的视角，另一个window视角也会改变
         
-        Shadow_view->mask = MASK_SHADOW_CASTER | MASK_SHADOW_RECEIVER;
-        Shadow_view->features = vsg::RECORD_SHADOW_MAPS;
-        Shadow_view->viewDependentState = CustomViewDependentState::create(Shadow_view.get());
-        env_view->viewDependentState = Shadow_view->viewDependentState;
+        // Shadow_view->mask = MASK_SHADOW_CASTER | MASK_SHADOW_RECEIVER;
+        // Shadow_view->features = vsg::RECORD_SHADOW_MAPS;
+        // Shadow_view->viewDependentState = CustomViewDependentState::create(Shadow_view.get());
+        // env_view->viewDependentState = Shadow_view->viewDependentState;
 
-        auto Shadow_renderGraph = vsg::RenderGraph::create(shadow_window, Shadow_view); //如果用Env_window会报错
-        Shadow_renderGraph->clearValues[0].color = {{1.f, 1.f, 1.f, 1.f}};
-        auto Shadow_commandGraph = vsg::CommandGraph::create(shadow_window); //如果用Env_window会报错
-        Shadow_commandGraph->addChild(Shadow_renderGraph);
+        // auto Shadow_renderGraph = vsg::RenderGraph::create(shadow_window, Shadow_view); //如果用Env_window会报错
+        // Shadow_renderGraph->clearValues[0].color = {{1.f, 1.f, 1.f, 1.f}};
+        // auto Shadow_commandGraph = vsg::CommandGraph::create(shadow_window); //如果用Env_window会报错
+        // Shadow_commandGraph->addChild(Shadow_renderGraph);
 
         std::cout << "Shadow Window" << std::endl;
-        viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph, Shadow_commandGraph, env_commandGraph});
+        viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
         // std::cout << "4" << std::endl;
 
@@ -693,38 +694,16 @@ public:
             uint16_t* vsg_depth_image_beginPointer = static_cast<uint16_t*>(vsg_depth_image->dataPointer(0));
             std::copy(depth_pixels, depth_pixels + width * height, vsg_depth_image_beginPointer);
             
-            // depth fit 
-            // for(int iterate_num = 0; iterate_num < 30; iterate_num++){
-            //     for(int i = 0; i < height; i++){
-            //         for(int j = 0; j < width; j++){
-            //             uint16_t* depth_pixel = static_cast<uint16_t*>(vsg_depth_image->dataPointer(width * i + j));
-            //             if(*depth_pixel < 100){
-            //                 for(int m = -1; m <= 1; m ++){ //height
-            //                     for(int n = -1; n <= 1; n ++){ //width
-            //                         if((i + m) >= 0 && (i + m) < height && (j + n) >= 0 && (j + n) < width){
-            //                             uint16_t* neighbor_pixel = static_cast<uint16_t*>(vsg_depth_image->dataPointer(width * (i + m) + (j + n)));
-                                        
-            //                             if(*neighbor_pixel > 100)
-            //                                 *depth_pixel = *neighbor_pixel;
-            //                         }
-            //                     }
-            //                 }
-            //             }
-            //         }
-            //     }
-            // }
-
             vsg_color_image->dirty();
             vsg_depth_image->dirty();
             IBL::textures.params->dirty();
 
             //------------------------------------------------------窗口123-----------------------------------------------------//
             // pass any events into EventHandlers assigned to the Viewer
-            viewer->compile();
+            // viewer->compile();
             viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
             viewer->update();
             viewer->recordAndSubmit(); //于记录和提交命令图。它会遍历`RecordAndSubmitTasks`列表中的任务，并对每个任务执行记录和提交操作。 修改颜色报错了555
-            // std::cout<<"test"<<std::endl;
             viewer->present();
             return true;
         }

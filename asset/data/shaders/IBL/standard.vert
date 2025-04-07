@@ -9,7 +9,7 @@ layout(push_constant) uniform PushConstants {
 } pc;
 
 #ifdef VSG_DISPLACEMENT_MAP
-layout(binding = 6) uniform sampler2D displacementMap;
+layout(binding = o) uniform sampler2D displacementMap;
 #endif
 
 layout(location = 0) in vec3 vsg_Vertex;
@@ -32,6 +32,7 @@ layout(location = 5) out vec3 viewDir;
 
 layout(location = 6) out vec3 worldNormal;
 layout(location = 7) out vec3 worldViewDir;
+layout(location = 8) out mat4 project;
 
 #define VIEW_DESCRIPTOR_SET 1
 // ViewDependentState
@@ -124,7 +125,7 @@ void main()
     mat4 model = viewMatrixData.invView * mv;
     worldNormal = mat3(model) * normal.xyz;
     worldViewDir = (model * vertex).xyz;
-    
+    project = pc.projection;
     vertexColor = vsg_Color;
     texCoord0 = vsg_TexCoord0;
 }

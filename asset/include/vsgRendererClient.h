@@ -79,7 +79,7 @@ public:
 
     bool render(std::vector<std::vector<uint8_t>> &vPacket){
         //--------------------------------------------------------------渲染循环----------------------------------------------------------//
-        if (decode_viewer->advanceToNextFrame())
+        while (decode_viewer->advanceToNextFrame())
         {
             decode_screenshotHandler->decodeImage(decode_window, vPacket);
 
@@ -89,9 +89,7 @@ public:
             decode_viewer->present();
             return true;
         }
-        else{
-            return false;
-        }
+        return false;
     }
 
     void getWindowImage(uint8_t* color){

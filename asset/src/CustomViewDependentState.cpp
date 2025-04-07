@@ -68,7 +68,7 @@ void CustomViewDependentState::init(ResourceRequirements& requirements)
     auto tcon = TraverseChildrenOfNode::create(view);
     compute_bound_view->addChild(tcon);
     vsg::ComputeBounds computeSceneBounds;
-    computeSceneBounds.traversalMask = MASK_ALL & (~MASK_SKYBOX);
+    computeSceneBounds.traversalMask = MASK_PBR_FULL;
     view->accept(computeSceneBounds);
     //auto ws_bounds = computeFrustumBounds(clip_near_z, clip_far_z, clipToWorld);
     scene_bound_ws = computeSceneBounds.bounds;
@@ -251,7 +251,7 @@ void CustomViewDependentState::traverse(RecordTraversal& rt) const
             ortho->bottom = ls_bounds.min.y;
             ortho->top = ls_bounds.max.y;
             ortho->nearDistance = -ls_bounds.max.z;
-            ortho->farDistance = -ls_bounds.min.z;
+            ortho->farDistance = -ls_bounds.max.z + 5;
 
             dmat4 shadowMapProjView = camera->projectionMatrix->transform() * camera->viewMatrix->transform();
 
@@ -330,7 +330,7 @@ void CustomViewDependentState::traverse(RecordTraversal& rt) const
     if (disableShadowMap) requiresPerRenderShadowMaps = false;
 
     Mask originalMask = rt.traversalMask;
-    rt.traversalMask = MASK_SHADOW_CASTER; // Hardcoded for now.
+    rt.traversalMask = MASK_PBR_FULL | MASK_SHADOW_RECEIVER; // Hardcoded for now.
     if (requiresPerRenderShadowMaps && preRenderCommandGraph)
     {
         // info("ViewDependentState::traverse(RecordTraversal&) doing pre render command graph. shadowMapIndex = ", shadowMapIndex);
