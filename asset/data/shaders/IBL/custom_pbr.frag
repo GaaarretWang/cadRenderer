@@ -743,7 +743,43 @@ void main()
     // color.xy *= step(-2000.0, worldPos.y) * step(worldPos.y, 2000.0);
     // color.z = 0;
     float scene_brightness;
-    scene_brightness = 0.5;
+    if (numDirectionalLights>0){
+        int shadowMapIndex = 0;
+        float totalBrigtness = 0.0f;
+        float totalRealBrightness = 0.0f;
+        for(int i = 0; i<numDirectionalLights; ++i){
+            vec4 lightColor = lightData.values[index++];
+            vec3 direction = -lightData.values[index++].xyz;
+            vec4 shadowMapSettings = lightData.values[index++];
+
+            float brightness = lightColor.a;
+            totalBrigtness += brightness;
+            bool matched = false;
+            float visibility = 0.0f;
+            
+            while ((shadowMapSettings.r > 0.0 && brightness > brightnessCutoff) && !matched)
+            {
+                mat4 sm_matrix = mat4(lightData.values[index++],
+                                      lightData.values[index++],
+                                      lightData.values[index++],
+                                      lightData.values[index++]);
+                vec4 sm_tc = (sm_matrix) * vec4(eyePos, 1.0);
+                if (sm_tc.x >= 0.0 && sm_tc.x <= 1.0 && sm_tc.y >= 0.0 && sm_tc.y <= 1.0 && sm_tc.z >= 0.0)
+                {
+                    matched = true;
+                    visibility = 1 - PCF(shadowMaps,sm_tc,shadowMapIndex);
+
+                }else{
+                  visibility = 1.0;
+                }
+                ++shadowMapIndex;
+                shadowMapSettings.r -= 1.0;
+            }
+            totalRealBrightness += brightness * visibility;
+        }
+        scene_brightness = totalRealBrightness / totalBrigtness;
+    }
+    scene_brightness = scene_brightness * 0.5 + 0.5;
 
 
     float exposure = 3.0f;

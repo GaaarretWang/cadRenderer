@@ -21,8 +21,8 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D aoMap;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D emissiveMap;
 #endif
 
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D cameraImageSampler;
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 6) uniform sampler2D depthImageSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D cameraImage;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 6) uniform sampler2D depthImage;
 
 layout (set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform Params {
 	float width;
@@ -282,6 +282,14 @@ float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex){
 
 void main()
 {
+    float cadDepth = -eyePos.z / 65.535;
+    vec2 screen_uv = vec2(gl_FragCoord.x / extentParams.width, gl_FragCoord.y / extentParams.height);
+    float cameraDepth = texture(depthImage, screen_uv).r;
+    if(cadDepth > cameraDepth){
+        outColor = texture(cameraImage, screen_uv);
+        return;
+    }
+
     float brightnessCutoff = 0.0001;
     vec4 diffuseColor = vertexColor * material.diffuseColor;
 
@@ -350,7 +358,6 @@ void main()
 
     //----------------------------------------ɫ----------------------------------------//
     //outColor.rgb = (color * ambientOcclusion) + emissiveColor.rgb; //ambientOcclusionڱ ɼ
-    vec2 screen_uv = vec2(gl_FragCoord.x / extentParams.width, gl_FragCoord.y / extentParams.height);
-	  outColor.rgb = texture(cameraImageSampler, screen_uv).rgb * color;
+	  outColor.rgb = texture(cameraImage, screen_uv).rgb * color;
     outColor.a = diffuseColor.a;
 }
