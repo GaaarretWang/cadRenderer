@@ -9,14 +9,18 @@ layout(push_constant) uniform PushConstants {
 } pc;
 
 #ifdef VSG_DISPLACEMENT_MAP
-layout(binding = o) uniform sampler2D displacementMap;
+layout(binding = 6) uniform sampler2D displacementMap;
 #endif
+
+#define MATERIAL_DESCRIPTOR_SET 2
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 11) uniform InstanceMatrices {
+    mat4 instanceModelMatrix[100];
+}instanceMatrices;
 
 layout(location = 0) in vec3 vsg_Vertex;
 layout(location = 1) in vec3 vsg_Normal;
 layout(location = 2) in vec2 vsg_TexCoord0;
 layout(location = 3) in vec4 vsg_Color;
-
 
 #ifdef VSG_BILLBOARD
 layout(location = 4) in vec4 vsg_position_scaleDistance;
@@ -35,13 +39,11 @@ layout(location = 7) out vec3 worldViewDir;
 layout(location = 8) out mat4 project;
 
 #define VIEW_DESCRIPTOR_SET 1
-// ViewDependentState
 layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
 {
     vec4 values[2048];
 } lightData;
-
-layout(set = VIEW_DESCRIPTOR_SET, binding = 1) uniform ViewMatrixData{
+layout(set = VIEW_DESCRIPTOR_SET, binding = 3) uniform ViewMatrixData{
     mat4 view;
     mat4 invView;
     mat4 unused[2];
@@ -71,6 +73,7 @@ mat4 computeBillboadMatrix(vec4 center_eye, float autoScaleDistance)
 void main()
 {
     vec4 vertex = vec4(vsg_Vertex, 1.0);
+    vertex = instanceMatrices.instanceModelMatrix[gl_InstanceIndex * 2 + 1] * instanceMatrices.instanceModelMatrix[gl_InstanceIndex * 2] * vertex;
     vec4 normal = vec4(vsg_Normal, 0.0);
 
 #ifdef VSG_DISPLACEMENT_MAP

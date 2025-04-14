@@ -137,7 +137,7 @@ public:
         NV_ENC_INITIALIZE_PARAMS initializeParams = { NV_ENC_INITIALIZE_PARAMS_VER };
         NV_ENC_CONFIG encodeConfig = { NV_ENC_CONFIG_VER };
         initializeParams.encodeConfig = &encodeConfig;
-        enc->CreateDefaultEncoderParams(&initializeParams, NV_ENC_CODEC_H264_GUID, NV_ENC_PRESET_P3_GUID,
+        enc->CreateDefaultEncoderParams(&initializeParams, NV_ENC_CODEC_H264_GUID, NV_ENC_PRESET_P1_GUID,
                     NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY);
         initializeParams.encodeWidth = extent.width;                     /**< [in]: Specifies the encode width. If not set ::NvEncInitializeEncoder() API will fail. */
         initializeParams.encodeHeight = extent.height;                    /**< [in]: Specifies the encode height. If not set ::NvEncInitializeEncoder() API will fail. */
@@ -146,11 +146,11 @@ public:
         encodeConfig.frameIntervalP = 1;
         encodeConfig.encodeCodecConfig.h264Config.idrPeriod = NVENC_INFINITE_GOPLENGTH;
         encodeConfig.rcParams.rateControlMode = NV_ENC_PARAMS_RC_CBR;
-        encodeConfig.rcParams.multiPass = NV_ENC_TWO_PASS_FULL_RESOLUTION;
-        // encodeConfig.rcParams.averageBitRate = (static_cast<unsigned int>(5.0f * initializeParams.encodeWidth * initializeParams.encodeHeight) / (1280 * 720)) * 100000;
+        encodeConfig.rcParams.multiPass = NV_ENC_MULTI_PASS_DISABLED;
+        encodeConfig.rcParams.averageBitRate = static_cast<unsigned int>(3.0 * 1024 * 1024);
         // encodeConfig.rcParams.vbvBufferSize = (encodeConfig.rcParams.averageBitRate * initializeParams.frameRateDen / initializeParams.frameRateNum) * 5;
         encodeConfig.rcParams.maxBitRate = encodeConfig.rcParams.averageBitRate;
-        encodeConfig.rcParams.vbvInitialDelay = encodeConfig.rcParams.vbvBufferSize;
+        // encodeConfig.rcParams.vbvInitialDelay = encodeConfig.rcParams.vbvBufferSize;
         // pEncodeCLIOptions->SetInitParams(&initializeParams, eFormat);
         enc->CreateEncoder(&initializeParams);
 

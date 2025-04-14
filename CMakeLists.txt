@@ -18,6 +18,8 @@ find_package(vsgXchange REQUIRED)
 
 find_package(assimp REQUIRED)
 
+find_package(vsgImGui REQUIRED)
+
 # set the use of C++17 globally as all examples require it
 set(CMAKE_CXX_STANDARD 17)
 aux_source_directory(src SRCS)
@@ -39,6 +41,7 @@ target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdPa
 
 target_link_libraries(Rendering 
     vsg::vsg
+    vsgImGui::vsgImGui
     vsgXchange::vsgXchange
     flatbuffers
     vsgRenderer

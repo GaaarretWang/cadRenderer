@@ -71,6 +71,7 @@ int main(int argc, char** argv){
         {
             // 计算 FPS
             float fps = frameCount / elapsedTime.count();
+            gui::global_params->currentFps = fps;
 
             // 将FPS输出到控制台
             std::cout << "FPS: " << fps << std::endl;

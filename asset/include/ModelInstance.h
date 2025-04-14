@@ -48,10 +48,10 @@ public:
     void buildObjInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
     void buildFbInstance(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> pbriblShaderSet, 
         vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::Options> options, std::string rendering_path);
-    void buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> pbriblShaderSet, 
-        const vsg::dmat4& modelMatrix, vsg::ImageInfoList camera_info, vsg::ImageInfoList depth_info);
+    void buildObjInstanceIBL(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, 
+        const vsg::dmat4& modelMatrix, vsg::ImageInfoList camera_info, vsg::ImageInfoList depth_info, vsg::ref_ptr<vsg::floatArray> params);
     void buildObjInstanceShadow(CADMesh* mesh, vsg::ref_ptr<vsg::Group> scene, 
-        vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix);
+        vsg::ref_ptr<vsg::ShaderSet> pbr_shaderset, const vsg::dmat4& modelMatrix, vsg::ImageInfoList camera_info, vsg::ImageInfoList depth_info, vsg::ref_ptr<vsg::floatArray> params);
     void buildTextureSphere(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_ibl, 
         vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc_shadow, const vsg::dmat4& modelMatrix);
     void drawLine(vsg::vec3& begin, vsg::vec3& end, vsg::ref_ptr<vsg::Group> scene);

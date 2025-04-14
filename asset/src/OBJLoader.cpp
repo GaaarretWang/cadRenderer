@@ -58,20 +58,16 @@ void OBJLoader::components_to_vec3s(std::vector<float> components, vsg::ref_ptr<
     }
 }
 
-void OBJLoader::load_materials(const std::vector<tinyobj::material_t>& objmaterials,vsg::ref_ptr<vsg::PbrMaterialArray>& mat_val, std::vector<std::vector<std::string>>& textures){
+void OBJLoader::load_materials(const std::vector<tinyobj::material_t>& objmaterials,std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>>& mat_val, std::vector<std::vector<std::string>>& textures){
     int i = 0;
     for(auto mat = objmaterials.begin(); mat < objmaterials.end(); ++mat) {
         size_t index = std::distance(objmaterials.begin(), mat);
-        mat_val->set(i,
-            vsg::PbrMaterial{
-                vsg::vec4{mat->diffuse[0], mat->diffuse[1], mat->diffuse[2], 1.0f},
-                vsg::vec4{mat->ambient[0], mat->ambient[1], mat->ambient[2], 1.0f},
-                vsg::vec4{0.9f, 0.9f, 0.9f, 1.0f},
-                vsg::vec4{mat->specular[0], mat->specular[1], mat->specular[2], 1.0f},
-                1.0f,
-                (1.0f - (mat->shininess / 64.0f))
-            }
-        );
+        auto material = vsg::PbrMaterialValue::create();
+        material->value().roughnessFactor = 1.f;
+        material->value().metallicFactor = 0.8f;
+        material->value().baseColorFactor = vsg::vec4{1.f, 1.f, 1.f, 1.0f};
+        material->value().specularFactor = vsg::vec4{mat->specular[0], mat->specular[1], mat->specular[2], 1.0f};
+        mat_val.push_back(material);
         std::cout << mat->diffuse_texname << std::endl;
         textures.push_back({mat->diffuse_texname, mat->normal_texname, mat->metallic_texname, mat->roughness_texname});
         i++;
@@ -80,7 +76,7 @@ void OBJLoader::load_materials(const std::vector<tinyobj::material_t>& objmateri
 
 void OBJLoader::load_obj(const char* filename, const char* materials_path, vsg::ref_ptr<vsg::vec3Array>& vertices,
                          vsg::ref_ptr<vsg::vec3Array>& vertnormals, vsg::ref_ptr<vsg::vec2Array>& vertuvs,
-                         vsg::ref_ptr<vsg::vec3Array>& colors, vsg::ref_ptr<vsg::PbrMaterialArray>& materials,
+                         vsg::ref_ptr<vsg::vec3Array>& colors, std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>>& materials,
                          std::vector<std::vector<vsg::ref_ptr<vsg::uintArray>>>& indices, std::vector<std::vector<std::string>>& textures, std::vector<int>& mtr_ids)
 {
     tinyobj::attrib_t attrib;

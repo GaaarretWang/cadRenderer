@@ -7,7 +7,7 @@
 #include "convertPng.h"
 #include "ConfigShader.h"
 #include "ModelInstance.h"
-
+#include "ImGui.h"
 #ifdef vsgXchange_FOUND
 #    include <vsgXchange/all.h>
 #endif
@@ -37,6 +37,7 @@ class vsgRendererServer
     std::unordered_map<std::string, ModelInstance*> instance_phongs; //path, mesh*
 
     vsg::ref_ptr<vsg::ShaderSet> shadow_shader;
+    vsg::ref_ptr<vsg::ShaderSet> model_shader;
 
     vsg::ref_ptr<ScreenshotHandler> final_screenshotHandler;
     vsg::ref_ptr<ScreenshotHandler> screenshotHandler;
@@ -81,6 +82,8 @@ class vsgRendererServer
     ConvertImage *convert_image;
     vsg::ref_ptr<vsg::Data> vsg_color_image;
     vsg::ref_ptr<vsg::Data> vsg_depth_image;
+    vsg::ImageInfoList camera_info;
+    vsg::ImageInfoList depth_info;
 
     //every frame's real color and depth
     unsigned char * color_pixels;
@@ -171,7 +174,8 @@ public:
     void setUpShader(std::string project_path){
         //-----------------------------------------设置shader------------------------------------//
         ConfigShader config_shader;
-        shadow_shader = config_shader.buildShader(project_path + "asset/data/shaders/IBL/shadow.vert", project_path + "asset/data/shaders/IBL/shadow.frag");
+        shadow_shader = config_shader.buildShadowShader(project_path + "asset/data/shaders/shadow.vert", project_path + "asset/data/shaders/shadow.frag");
+        model_shader = config_shader.buildModelShader(project_path + "asset/data/shaders/model.vert", project_path + "asset/data/shaders/model.frag");
     }
 
     void preprocessEnvMap(){
@@ -194,7 +198,7 @@ public:
         }
 
         IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
-        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, vsg_color_image);
+        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, camera_info);
     }
 
     void update_directional_lights(){
@@ -236,6 +240,60 @@ public:
         vsg::ref_ptr<vsg::ImageInfo> imageInfosIBL = vsg::ImageInfo::create(sampler, in_data);
         vsg::ImageInfoList imageInfosListIBL = {imageInfosIBL};
         return imageInfosListIBL;
+    }
+
+    vsg::ref_ptr<vsg::ShaderSet> pbr_ShaderSet(vsg::ref_ptr<const vsg::Options> options)
+    {
+        vsg::info("Local pbr_ShaderSet(",options,")");
+
+        auto vertexShader = vsg::read_cast<vsg::ShaderStage>("/home/wanggaoyuan/2025cadrenderer/cadRenderer/asset/data/shaders/standard.vert", options);
+        auto fragmentShader = vsg::read_cast<vsg::ShaderStage>("/home/wanggaoyuan/2025cadrenderer/cadRenderer/asset/data/shaders/standard_pbr.frag", options);
+
+        if (!vertexShader || !fragmentShader)
+        {
+            vsg::error("pbr_ShaderSet(...) could not find shaders.");
+            return {};
+        }
+
+        auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
+
+        #define VIEW_DESCRIPTOR_SET 0
+        #define MATERIAL_DESCRIPTOR_SET 1
+
+        shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
+        shaderSet->addAttributeBinding("vsg_Normal", "", 1, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
+        shaderSet->addAttributeBinding("vsg_TexCoord0", "", 2, VK_FORMAT_R32G32_SFLOAT, vsg::vec2Array::create(1));
+        shaderSet->addAttributeBinding("vsg_Color", "", 3, VK_FORMAT_R32G32B32A32_SFLOAT, vsg::vec4Array::create(1));
+
+        shaderSet->addAttributeBinding("vsg_position", "VSG_INSTANCE_POSITIONS", 4, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
+        shaderSet->addAttributeBinding("vsg_position_scaleDistance", "VSG_BILLBOARD", 4, VK_FORMAT_R32G32B32A32_SFLOAT, vsg::vec4Array::create(1));
+
+        shaderSet->addDescriptorBinding("displacementMap", "VSG_DISPLACEMENT_MAP", MATERIAL_DESCRIPTOR_SET, 6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT, vsg::floatArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
+        shaderSet->addDescriptorBinding("diffuseMap", "VSG_DIFFUSE_MAP", MATERIAL_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
+        shaderSet->addDescriptorBinding("mrMap", "VSG_METALLROUGHNESS_MAP", MATERIAL_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec2Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32G32_SFLOAT}));
+        shaderSet->addDescriptorBinding("normalMap", "VSG_NORMAL_MAP", MATERIAL_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec3Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32G32B32_SFLOAT}));
+        shaderSet->addDescriptorBinding("aoMap", "VSG_LIGHTMAP_MAP", MATERIAL_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
+        shaderSet->addDescriptorBinding("emissiveMap", "VSG_EMISSIVE_MAP", MATERIAL_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
+        shaderSet->addDescriptorBinding("specularMap", "VSG_SPECULAR_MAP", MATERIAL_DESCRIPTOR_SET, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
+        shaderSet->addDescriptorBinding("material", "", MATERIAL_DESCRIPTOR_SET, 10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::PbrMaterialValue::create());
+
+        shaderSet->addDescriptorBinding("lightData", "", VIEW_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array::create(64));
+        shaderSet->addDescriptorBinding("viewportData", "", VIEW_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Value::create(0,0, 1280, 1024));
+        shaderSet->addDescriptorBinding("shadowMaps", "", VIEW_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
+
+        // additional defines
+        shaderSet->optionalDefines = {"VSG_GREYSCALE_DIFFUSE_MAP", "VSG_TWO_SIDED_LIGHTING", "VSG_WORKFLOW_SPECGLOSS"};
+
+        shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT, 0, 128);
+
+        shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_INSTANCE_POSITIONS", "VSG_DISPLACEMENT_MAP"}, vsg::PositionAndDisplacementMapArrayState::create()});
+        shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_INSTANCE_POSITIONS"}, vsg::PositionArrayState::create()});
+        shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_DISPLACEMENT_MAP"}, vsg::DisplacementMapArrayState::create()});
+        shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_BILLBOARD"}, vsg::BillboardArrayState::create()});
+
+        shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(VIEW_DESCRIPTOR_SET));
+
+        return shaderSet;
     }
 
 
@@ -286,6 +344,8 @@ public:
         vsg_color_image->properties.dataVariance = vsg::DYNAMIC_DATA;
         vsg_depth_image->properties.format = VK_FORMAT_R16_UNORM;
         vsg_depth_image->properties.dataVariance = vsg::DYNAMIC_DATA;
+        camera_info = createImageInfo(vsg_color_image);
+        depth_info = createImageInfo(vsg_depth_image);
 
 
         vsg::ref_ptr<vsg::Instance> instance;
@@ -377,15 +437,15 @@ public:
         auto wireframeGroup = vsg::Group::create();
 
         auto rootSwitch = vsg::Switch::create();
+        rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraImageNode);
+        rootSwitch->addChild(MASK_SKYBOX, drawSkyboxNode);
         rootSwitch->addChild(MASK_PBR_FULL, modelGroup);
         rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowGroup);
-        rootSwitch->addChild(MASK_SKYBOX, envSceneGroup);
-        rootSwitch->addChild(MASK_WIREFRAME, wireframeGroup);
-        rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraImageNode);
-        vsg::ref_ptr<vsg::Group> scenegraph = vsg::Group::create();
-        scenegraph->addChild(rootSwitch);
-
-        envSceneGroup->addChild(drawSkyboxNode);
+        // rootSwitch->addChild(MASK_SKYBOX, envSceneGroup);
+        // rootSwitch->addChild(MASK_WIREFRAME, wireframeGroup);
+        
+        vsg::ref_ptr<vsg::Group> scenegraph_safe = vsg::Group::create();
+        scenegraph_safe->addChild(rootSwitch);
         std::cout << "1" << std::endl;
         vsg::ref_ptr<vsg::PbrMaterialValue> objectMaterial;
         
@@ -425,6 +485,19 @@ public:
             return false;
         };
 
+        // -----------------------设置相机参数------------------------------//
+        double radius = 2000.0; // 固定观察距离
+        auto viewport = vsg::ViewportState::create(0, 0, cadWindowTraits->width, cadWindowTraits->height);
+        // auto perspective = vsg::Perspective::create(60.0, static_cast<double>(640) / static_cast<double>(480), nearFarRatio * radius, radius * 10.0);
+        auto perspective = vsg::Perspective::create(fx, fy, cx, cy, width, height, near_plane, far_plane);
+
+        vsg::dvec3 centre = {0.0, 0.0, 1.0};                    // 固定观察点
+        vsg::dvec3 eye = vsg::dvec3(0.0, 0.0, 0.0); // 固定相机位置
+        vsg::dvec3 up = {0.0, -1.0, 0.0};                        // 固定观察方向
+        auto lookAt = vsg::LookAt::create(eye, centre, up);
+        camera = vsg::Camera::create(perspective, lookAt, viewport);
+
+
         vsg::Data::Properties vec2ArrayProps = {};
         vec2ArrayProps.stride = sizeof(vsg::vec2);
         vsg::Data::Properties vec3ArrayProps = {};
@@ -432,8 +505,6 @@ public:
         vsg::Data::Properties vec4ValueProps = {};
 
         auto pbriblShaderSet = IBL::customPbrShaderSet(options);//
-        auto camera_info = createImageInfo(vsg_color_image);
-        auto depth_info = createImageInfo(vsg_depth_image);
         auto gpc_ibl = vsg::GraphicsPipelineConfigurator::create(pbriblShaderSet);
         addVertexAttribute(gpc_ibl, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
         addVertexAttribute(gpc_ibl, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
@@ -441,11 +512,11 @@ public:
         addVertexAttribute(gpc_ibl, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vec4ValueProps);
         gpc_ibl->assignTexture("cameraImage", camera_info);
         gpc_ibl->assignTexture("depthImage", depth_info);
-        auto params = vsg::floatArray::create(3);
-        params->set(0, 1.f);
-        params->set(1, 640.f * 2);
-        params->set(2, 480.f * 2);
-        gpc_ibl->assignUniform("customParams", params);//是否半透明判断
+        // auto params = vsg::floatArray::create(3);
+        // params->set(0, 1.f);
+        // params->set(1, 640.f * 2);
+        // params->set(2, 480.f * 2);
+        // gpc_ibl->assignUniform("customParams", params);//是否半透明判断
         //gpc_ibl->assignDescriptor("material", plane_mat);
         gpc_ibl->init();
 
@@ -458,24 +529,30 @@ public:
         addVertexAttribute(gpc_ibl_wireframe, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
         addVertexAttribute(gpc_ibl_wireframe, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, vec2ArrayProps);
         addVertexAttribute(gpc_ibl_wireframe, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vec4ValueProps);
-        gpc_ibl_wireframe->assignTexture("cameraImage", camera_info);
-        gpc_ibl_wireframe->assignTexture("depthImage", depth_info);
-        gpc_ibl_wireframe->assignUniform("customParams", params);//是否半透明判断
+        // gpc_ibl_wireframe->assignTexture("cameraImage", camera_info);
+        // gpc_ibl_wireframe->assignTexture("depthImage", depth_info);
+        // gpc_ibl_wireframe->assignUniform("customParams", params);//是否半透明判断
         //gpc_ibl->assignDescriptor("material", plane_mat);
         gpc_ibl_wireframe->init();
 
-        auto gpc_shadow = vsg::GraphicsPipelineConfigurator::create(shadow_shader);
-        addVertexAttribute(gpc_shadow, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
-        addVertexAttribute(gpc_shadow, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
-        addVertexAttribute(gpc_shadow, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, vec2ArrayProps);
-        addVertexAttribute(gpc_shadow, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vec4ValueProps);
-        auto extent_array = vsg::floatArray::create(2);
-        extent_array->set(0, render_width * 1.f);
-        extent_array->set(1, render_height * 1.f);
-        gpc_shadow->assignDescriptor("extent", extent_array);
-        gpc_shadow->assignTexture("cameraImage", camera_info);
-        gpc_shadow->assignTexture("depthImage", depth_info);
-        gpc_shadow->init();
+        // auto gpc_shadow = vsg::GraphicsPipelineConfigurator::create(shadow_shader);
+        // addVertexAttribute(gpc_shadow, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
+        // addVertexAttribute(gpc_shadow, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
+        // addVertexAttribute(gpc_shadow, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, vec2ArrayProps);
+        // addVertexAttribute(gpc_shadow, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vec4ValueProps);
+        // auto extent_array = vsg::floatArray::create(2);
+        // extent_array->set(0, render_width * 1.f);
+        // extent_array->set(1, render_height * 1.f);
+        // gpc_shadow->assignDescriptor("extent", extent_array);
+        // gpc_shadow->assignTexture("cameraImage", camera_info);
+        // gpc_shadow->assignTexture("depthImage", depth_info);
+        // gpc_shadow->init();
+
+
+        auto params = vsg::floatArray::create(3);
+        params->set(0, render_width * 1.f);
+        params->set(1, render_height * 1.f);
+        params->set(2, 65.535);
 
         PlaneData planeData = createTestPlanes();
         float subdivisions = 0.1;
@@ -483,6 +560,7 @@ public:
 
         MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
 
+        auto pbr_shaderset = vsg::createPhysicsBasedRenderingShaderSet(options);
         {
             vsg::ref_ptr<vsg::Geometry> reconstructDrawCmd = vsg::Geometry::create();
             reconstructDrawCmd->assignArrays({mesh.vertices,
@@ -505,27 +583,34 @@ public:
             // gpc_shadow->copyTo(shadowStateGroup);
             // shadowStateGroup->addChild(reconstructDrawCmd);
 
-            rootSwitch->addChild(MASK_WIREFRAME, wireframeStateGroup);
+            // rootSwitch->addChild(MASK_WIREFRAME, wireframeStateGroup);
             // rootSwitch->addChild(MASK_PBR_FULL, pbrStateGroup);
             // rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowStateGroup);
         }
-
+        auto params1 = vsg::floatArray::create(4);
+        params1->set(0, 1);
+        params1->set(1, render_width * 1.f);
+        params1->set(2, render_height * 1.f);
+        params1->set(3, 65.535);
+        CADMesh::camera_info = camera_info;
+        CADMesh::depth_info = depth_info;
+        CADMesh::params = params1;
         if(shadow_recevier_path != "")
         {
             CADMesh* shadow_recevier_mesh = new CADMesh();
             // string texture = engine_path + "asset/data/obj/Medieval_building";
             string texture = engine_path + "asset/data/obj/helicopter-engine";
-            shadow_recevier_mesh->buildObjNode(shadow_recevier_path.c_str(), texture.c_str(), shadow_recevier_transform);
-            ModelInstance* shadow_recevier_instance = new ModelInstance();
-            shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, scenegraph, gpc_shadow, shadow_recevier_transform);
+            shadow_recevier_mesh->preprocessProtoData(shadow_recevier_path.c_str(), texture.c_str(), shadow_recevier_transform, shadow_shader, shadowGroup);
+            // ModelInstance* shadow_recevier_instance = new ModelInstance();
+            // shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, shadowGroup, shadow_shader, shadow_recevier_transform, camera_info, depth_info, params);
             // scenegraph->addChild(shadowStateGroup);
             // ModelInstance* ibl_shadow_recevier_instance = new ModelInstance();
             // auto iblStateGroup = vsg::StateGroup::create();
             // ibl_shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, iblStateGroup, gpc_ibl, gpc_shadow, shadow_recevier_transform, false);
             // rootSwitch->addChild(MASK_FAKE_BACKGROUND, iblStateGroup);
         }
-
         bool fullNormal = true;
+        CADMesh::CreateDefaultMaterials();
         //---------------------------------------读取CAD模型------------------------------------------//
         for(int i = 0; i < model_paths.size(); i ++){
             std::string &path_i = model_paths[i];
@@ -537,71 +622,65 @@ public:
                 transfer_model = transfered_meshes[path_i];
             }else{
                 transfer_model = new CADMesh();
-                if(format == "obj")
-                {
-                    transfer_model->buildObjNode(path_i.c_str(), texture_path_i.c_str(), model_transforms[i]); //读取obj文件
-                }
-                else if(format == "fb")
-                {
-                    //transfer_model->transferModel(model_paths[i], fullNormal, model_transforms[i]);
-                    transfer_model->buildNewNode(model_paths[i], fullNormal, scenegraph);
-                }
                 transfered_meshes[path_i] = transfer_model;
             }
-   
-            if(format == "obj"){
-                ModelInstance* instance_phong = new ModelInstance();
-                instance_phong->context = vsg::Context::create(window->getOrCreateDevice());
-                instance_phong->buildObjInstanceIBL(transfer_model, scenegraph, pbriblShaderSet, model_transforms[i], camera_info, depth_info);
-                //instance_phong->buildObjInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
-                instance_phongs[instance_names[i]] = instance_phong;
-                std::cout << "**************** reading obj ******************" << std::endl;
-            }
-            else if(format == "fb"){
-                ModelInstance* instance_phong = new ModelInstance();
-                instance_phong->context = vsg::Context::create(window->getOrCreateDevice());
-                //instance_phong->buildInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
-                instance_phong->buildFbInstance(transfer_model, scenegraph, pbriblShaderSet, gpc_shadow, model_transforms[i], options, engine_path);
-                //instance_phong->buildInstanceIBL(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
-                instance_phongs[instance_names[i]] = instance_phong;
-                std::cout << "**************** reading fb ******************" << std::endl;
-            }
-            else if(format == "texture")
+            if(format == "obj")
             {
-                ModelInstance* instance_phong = new ModelInstance();
-                instance_phong->buildTextureSphere(scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
+                transfer_model->preprocessProtoData(path_i.c_str(), texture_path_i.c_str(), model_transforms[i], pbriblShaderSet, modelGroup); //读取obj文件
             }
+            else if(format == "fb")
+            {
+                //transfer_model->transferModel(model_paths[i], fullNormal, model_transforms[i]);
+                transfer_model->preprocessFBProtoData(path_i, texture_path_i.c_str(), model_transforms[i], pbriblShaderSet, modelGroup);
+            }
+
+
+
+            // if(format == "obj"){
+            //     ModelInstance* instance_phong = new ModelInstance();
+            //     instance_phong->context = vsg::Context::create(window->getOrCreateDevice());
+            //     // instance_phong->buildObjInstanceIBL(transfer_model, modelGroup, pbriblShaderSet, model_transforms[i], camera_info, depth_info, params1);
+            //     //instance_phong->buildObjInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
+            //     instance_phongs[instance_names[i]] = instance_phong;
+            //     std::cout << "**************** reading obj ******************" << std::endl;
+            // }
+            // else if(format == "fb"){
+            //     ModelInstance* instance_phong = new ModelInstance();
+            //     instance_phong->context = vsg::Context::create(window->getOrCreateDevice());
+            //     //instance_phong->buildInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
+            //     instance_phong->buildFbInstance(transfer_model, scenegraph, pbriblShaderSet, gpc_ibl, model_transforms[i], options, engine_path);
+            //     //instance_phong->buildInstanceIBL(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
+            //     instance_phongs[instance_names[i]] = instance_phong;
+            //     std::cout << "**************** reading fb ******************" << std::endl;
+            // }
+            // else if(format == "texture")
+            // {
+            //     ModelInstance* instance_phong = new ModelInstance();
+            //     instance_phong->buildTextureSphere(scenegraph, gpc_ibl, gpc_ibl, model_transforms[i]);
+            // }
         }
+        CADMesh::buildDrawData(pbriblShaderSet, modelGroup); //读取obj文件
 
         std::cout << "model processing done" << std::endl;
 
         // HDR环境光采样
 
         update_directional_lights();
-        scenegraph->addChild(lightGroup);
-
-        // -----------------------设置相机参数------------------------------//
-        double radius = 2000.0; // 固定观察距离
-        auto viewport = vsg::ViewportState::create(0, 0, cadWindowTraits->width, cadWindowTraits->height);
-        // auto perspective = vsg::Perspective::create(60.0, static_cast<double>(640) / static_cast<double>(480), nearFarRatio * radius, radius * 10.0);
-        auto perspective = vsg::Perspective::create(fx, fy, cx, cy, width, height, near_plane, far_plane);
-
-        vsg::dvec3 centre = {0.0, 0.0, 1.0};                    // 固定观察点
-        vsg::dvec3 eye = vsg::dvec3(0.0, 0.0, 0.0); // 固定相机位置
-        vsg::dvec3 up = {0.0, -1.0, 0.0};                        // 固定观察方向
-        auto lookAt = vsg::LookAt::create(eye, centre, up);
-        camera = vsg::Camera::create(perspective, lookAt, viewport);
+        scenegraph_safe->addChild(lightGroup);
         
         //----------------------------------------------------------------窗口1----------------------------------------------------------//
         viewer->addWindow(window);
-        auto view = vsg::View::create(camera, scenegraph);
-        view->features = vsg::RECORD_LIGHTS;
-        view->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_CAMERA_IMAGE | MASK_SHADOW_RECEIVER;
-        view->viewDependentState = CustomViewDependentState::create(view.get(), false);
+        auto view = vsg::View::create(camera, scenegraph_safe);
+        // view->features = vsg::RECORD_LIGHTS;
+        view->mask = MASK_SKYBOX | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
+        view->viewDependentState = CustomViewDependentState::create(view.get());
         auto renderGraph = vsg::RenderGraph::create(window, view);
         renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
+        auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
+        renderGraph->addChild(renderImGui);
         auto commandGraph = vsg::CommandGraph::create(window);
         commandGraph->addChild(renderGraph);
+        viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
         viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
         viewer->addEventHandler(vsg::Trackball::create(camera));
         //----------------------------------------------------------------窗口2----------------------------------------------------------//
@@ -638,6 +717,7 @@ public:
 
         std::cout << "Shadow Window" << std::endl;
         viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
+        viewer->setupThreading();
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
         // std::cout << "4" << std::endl;
 
@@ -680,31 +760,50 @@ public:
     void updateEnvLighting(){
         preprocessEnvMap();
         update_directional_lights();
+        IBL::textures.params->dirty();
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
     }
 
 
-    bool render(){
-        //--------------------------------------------------------------渲染循环----------------------------------------------------------//
-        while (viewer->advanceToNextFrame())
-        {
+    bool render() {
+        auto t0 = std::chrono::high_resolution_clock::now();
+        while (viewer->advanceToNextFrame()) {
+            auto t1 = std::chrono::high_resolution_clock::now();
             fix_depth(width, height, depth_pixels);
+
+            auto t2 = std::chrono::high_resolution_clock::now();
             uint8_t* vsg_color_image_beginPointer = static_cast<uint8_t*>(vsg_color_image->dataPointer(0));
             std::copy(color_pixels, color_pixels + width * height * 3, vsg_color_image_beginPointer);
             uint16_t* vsg_depth_image_beginPointer = static_cast<uint16_t*>(vsg_depth_image->dataPointer(0));
             std::copy(depth_pixels, depth_pixels + width * height, vsg_depth_image_beginPointer);
-            
+
+            auto t3 = std::chrono::high_resolution_clock::now();
             vsg_color_image->dirty();
             vsg_depth_image->dirty();
-            IBL::textures.params->dirty();
 
-            //------------------------------------------------------窗口123-----------------------------------------------------//
-            // pass any events into EventHandlers assigned to the Viewer
-            // viewer->compile();
-            viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
+            auto t4 = std::chrono::high_resolution_clock::now();
+            viewer->handleEvents();
+
+            auto t5 = std::chrono::high_resolution_clock::now();
             viewer->update();
-            viewer->recordAndSubmit(); //于记录和提交命令图。它会遍历`RecordAndSubmitTasks`列表中的任务，并对每个任务执行记录和提交操作。 修改颜色报错了555
+
+            auto t6 = std::chrono::high_resolution_clock::now();
+            viewer->recordAndSubmit();
+
+            auto t7 = std::chrono::high_resolution_clock::now();
             viewer->present();
+
+            auto t8 = std::chrono::high_resolution_clock::now();
+
+            gui::global_params->render_func_times[0] = std::chrono::duration<double, std::milli>(t1 - t0).count();
+            gui::global_params->render_func_times[1] = std::chrono::duration<double, std::milli>(t2 - t1).count();
+            gui::global_params->render_func_times[2] = std::chrono::duration<double, std::milli>(t3 - t2).count();
+            gui::global_params->render_func_times[3] = std::chrono::duration<double, std::milli>(t4 - t3).count();
+            gui::global_params->render_func_times[4] = std::chrono::duration<double, std::milli>(t5 - t4).count();
+            gui::global_params->render_func_times[5] = std::chrono::duration<double, std::milli>(t6 - t5).count();
+            gui::global_params->render_func_times[6] = std::chrono::duration<double, std::milli>(t7 - t6).count();
+            gui::global_params->render_func_times[7] = std::chrono::duration<double, std::milli>(t8 - t7).count();
+
             return true;
         }
         return false;

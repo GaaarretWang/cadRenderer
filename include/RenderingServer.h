@@ -1,4 +1,5 @@
 #include <vsgRendererServer.h>
+#include <chrono>
 
 class RenderingServer {
 public:
@@ -6,7 +7,7 @@ public:
     int width = 640;
     int height = 480;
     bool cameara_pos_bool = true;
-    bool stop_cameara_pos = false;
+    bool stop_cameara_pos = true;
     bool use_png = true;
     mergeShaderType shader_type = FULL_MODEL;
 

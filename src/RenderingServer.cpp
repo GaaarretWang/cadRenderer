@@ -17,18 +17,32 @@ int RenderingServer::Init(int argc, char** argv){
                                     0, 20, 0, 0, 
                                     0, 0, 20, 0, 
                                     0, 0, 0, 1));
+    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
+                               * vsg::dmat4(
+                                    20, 0, 0, 0, 
+                                    0, 20, 0, 0, 
+                                    0, 0, 20, 0, 
+                                    0, 0, 0, 1));
+    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
+                               * vsg::dmat4(
+                                    20, 0, 0, 0, 
+                                    0, 20, 0, 0, 
+                                    0, 0, 20, 0, 
+                                    0, 0, 0, 1));
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.991005, 1) * init_model_transforms[1]);
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.491005, 1) * init_model_transforms[1] * mat);
     // model_paths.push_back(rendering_dir + "asset/data/geos/大舱壁-ASM(PMI).fb");
-    model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
+    // model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
+    // model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
     // model_paths.push_back(rendering_dir + "asset/data/obj/Medieval_building/output.obj");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
+    model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
     // model_paths.push_back(rendering_dir + "asset/data/obj/小舱壁-ASM-修改焊接后.obj");
     // instance_names.push_back("大舱壁-ASM(PMI)");
     // instance_names.push_back("小舱壁-ASM-修改焊接后0");
     // instance_names.push_back("大舱壁-ASM(PMI)");
-    instance_names.push_back("Medieval_building");
-    // instance_names.push_back("YIBIAOPAN");
+    // instance_names.push_back("Medieval_building");
+    // instance_names.push_back("Medieval_building1");
+    instance_names.push_back("YIBIAOPAN");
     // instance_names.push_back("texture");
 
     vsg::CommandLine arguments(&argc, argv);
@@ -48,10 +62,10 @@ int RenderingServer::Init(int argc, char** argv){
 }
 
 int RenderingServer::Update(){
-    if(frame_count == 1000){
-        renderer.hdr_image_num = 0;
-        renderer.updateEnvLighting();
-    }
+    // if(frame_count == 1000){
+    //     renderer.hdr_image_num = 0;
+    //     renderer.updateEnvLighting();
+    // }
     //model_transforms[2][3][2] += 0.005;
     // if(model_transforms[2][3][2] > -0.45)
     //     model_transforms[2][3][2] = -0.679909;
@@ -100,8 +114,17 @@ int RenderingServer::Update(){
     }
 
 
+    auto startRender = std::chrono::high_resolution_clock::now();
     renderer.render();
+    auto endRender = std::chrono::high_resolution_clock::now();
+    gui::global_params->render_server_times[0] = std::chrono::duration<double, std::milli>(endRender - startRender).count();
+
+    auto startEncode = std::chrono::high_resolution_clock::now();
     renderer.getEncodeImage(vPacket);
+    auto endEncode = std::chrono::high_resolution_clock::now();
+    gui::global_params->render_server_times[1] = std::chrono::duration<double, std::milli>(endEncode - startEncode).count();
+    
     frame_count ++;
+    // std::cout << "frame_count " << frame_count << std::endl;
     return 0;
 }

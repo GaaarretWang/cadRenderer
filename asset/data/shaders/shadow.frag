@@ -1,12 +1,22 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
-#pragma import_defines (VSG_POINT_SPRITE, VSG_DIFFUSE_MAP, VSG_GREYSCALE_DIFFUSE_MAP, VSG_EMISSIVE_MAP, VSG_LIGHTMAP_MAP, VSG_NORMAL_MAP, VSG_SPECULAR_MAP, VSG_TWO_SIDED_LIGHTING, SHADOWMAP_DEBUG)
+#pragma import_defines (VSG_DIFFUSE_MAP, VSG_GREYSCALE_DIFFUSE_MAP, VSG_EMISSIVE_MAP, VSG_LIGHTMAP_MAP, VSG_NORMAL_MAP, VSG_METALLROUGHNESS_MAP, VSG_SPECULAR_MAP, VSG_TWO_SIDED_LIGHTING, VSG_WORKFLOW_SPECGLOSS, SHADOWMAP_DEBUG)
 
 #define VIEW_DESCRIPTOR_SET 0
 #define MATERIAL_DESCRIPTOR_SET 1
 
+const float PI = 3.14159265359;
+const float RECIPROCAL_PI = 0.31830988618;
+const float RECIPROCAL_PI2 = 0.15915494;
+const float EPSILON = 1e-6;
+const float c_MinRoughness = 0.04;
+
 #ifdef VSG_DIFFUSE_MAP
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2D diffuseMap;
+#endif
+
+#ifdef VSG_METALLROUGHNESS_MAP
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D mrMap;
 #endif
 
 #ifdef VSG_NORMAL_MAP
@@ -25,305 +35,213 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D emissiveMap
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap;
 #endif
 
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform MaterialData
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform sampler2D cameraImage;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
+
+layout (set = MATERIAL_DESCRIPTOR_SET, binding = 9) uniform params {
+	float semitransparent;
+	float width;
+	float height;
+    float z_far;
+} extraParams;
+
+
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
 {
-    vec4 ambientColor;
-    vec4 diffuseColor;
-    vec4 specularColor;
-    vec4 emissiveColor;
-    float shininess;
+    vec4 baseColorFactor;
+    vec4 emissiveFactor;
+    vec4 diffuseFactor;
+    vec4 specularFactor;
+    float metallicFactor;
+    float roughnessFactor;
     float alphaMask;
     float alphaMaskCutoff;
-} material;
+} pbr;
 
+// ViewDependentState
 layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
 {
     vec4 values[2048];
 } lightData;
 
-
-layout(set = VIEW_DESCRIPTOR_SET, binding = 2) uniform sampler2DArrayShadow shadowMaps; //ÓÃÓÚÖ¸¶¨×ÅÉ«Æ÷×ÊÔ´µÄÃèÊö¼¯Ë÷ÒıºÍ°ó¶¨Ë÷Òı
-//layout(set = 1, binding = 2) uniform sampler2D shadowMap; //ÉùÃ÷²ÉÑùÆ÷£¿£¿£¿
+layout(set = VIEW_DESCRIPTOR_SET, binding = 2) uniform sampler2DArrayShadow shadowMaps;
 
 layout(location = 0) in vec3 eyePos;
 layout(location = 1) in vec3 normalDir;
 layout(location = 2) in vec4 vertexColor;
-#ifndef VSG_POINT_SPRITE
 layout(location = 3) in vec2 texCoord0;
-#endif
 layout(location = 5) in vec3 viewDir;
 
 layout(location = 0) out vec4 outColor;
 
-#define NUM_SAMPLES 200 //Ñù±¾ÊıÁ¿£¬¾ö¶¨ÁËfilterµÄ´óĞ¡¡£Ô½´ó²ÎÓë¼ÆËãµÄ²ÎÊıÔ½¶à£¬ÒõÓ°ÈáºÍĞ§¹ûÔ½Ã÷ÏÔ
+
+// Encapsulate the various inputs used by the various functions in the shading equation
+// We store values in this struct to simplify the integration of alternative implementations
+// of the shading terms, outlined in the Readme.MD Appendix.
+struct PBRInfo
+{
+    float NdotL;                  // cos angle between normal and light direction
+    float NdotV;                  // cos angle between normal and view direction
+    float NdotH;                  // cos angle between normal and half vector
+    float LdotH;                  // cos angle between light direction and half vector
+    float VdotH;                  // cos angle between view direction and half vector
+    float VdotL;                  // cos angle between view direction and light direction
+    float perceptualRoughness;    // roughness value, as authored by the model creator (input to shader)
+    float metalness;              // metallic value at the surface
+    vec3 reflectance0;            // full reflectance color (normal incidence angle)
+    vec3 reflectance90;           // reflectance color at grazing angle
+    float alphaRoughness;         // roughness mapped to a more linear change in the roughness (proposed by [2])
+    vec3 diffuseColor;            // color contribution from diffuse lighting
+    vec3 specularColor;           // color contribution from specular lighting
+};
+
+
+#define NUM_SAMPLES 32 
 #define BLOCKER_SEARCH_NUM_SAMPLES NUM_SAMPLES
 #define PCF_NUM_SAMPLES NUM_SAMPLES
 #define NUM_RINGS 10
 
-#define EPS 1e-2  //¶ÔÄ£ĞÍÉÏÒõÓ°ÅĞ¶ÏĞ§¹ûÓĞºÜ´óµÄÓ°Ïì
+#define EPS 1e-2 
 #define PI 3.141592653589793
 #define PI2 6.283185307179586
 
-// Find the normal for this fragment, pulling either from a predefined normal map
-// or from the interpolated mesh normal and tangent attributes.
-vec3 getNormal()
-{
-    vec3 result;
-#ifdef VSG_NORMAL_MAP
-    // Perturb normal, see http://www.thetenthplanet.de/archives/1180
-    vec3 tangentNormal = texture(normalMap, texCoord0).xyz * 2.0 - 1.0;
-
-    //tangentNormal *= vec3(2,2,1);
-
-    vec3 q1 = dFdx(eyePos);
-    vec3 q2 = dFdy(eyePos);
-    vec2 st1 = dFdx(texCoord0);
-    vec2 st2 = dFdy(texCoord0);
-
-    vec3 N = normalize(normalDir);
-    vec3 T = normalize(q1 * st2.t - q2 * st1.t);
-    vec3 B = -normalize(cross(N, T));
-    mat3 TBN = mat3(T, B, N);
-
-    result = normalize(TBN * tangentNormal);
-#else
-    result = normalize(normalDir);
-#endif
-
-#ifdef VSG_TWO_SIDED_LIGHTING
-    if (!gl_FrontFacing)
-        result = -result;
-#endif
-
-    return result;
-}
-
-vec3 computeLighting(vec3 ambientColor, vec3 diffuseColor, vec3 specularColor, vec3 emissiveColor, float shininess, float ambientOcclusion, vec3 ld, vec3 nd, vec3 vd)
-{
-    vec3 color = vec3(0.0);
-    color.rgb += ambientColor;
-
-    float diff = max(dot(ld, nd), 0.0);
-    color.rgb += diffuseColor * diff;
-
-    if (diff > 0.0)
-    {
-        vec3 halfDir = normalize(ld + vd);
-        color.rgb += specularColor * pow(max(dot(halfDir, nd), 0.0), shininess);
-    }
-
-    vec3 result = color + emissiveColor;
-    result *= ambientOcclusion;
-
-    return result;
-}
-
-highp float rand_1to1(highp float x ) {                              //¡Ì
-  // ´ÓfloatÀàĞÍµÄÒ»Î¬Ëæ»ú±äÁ¿x²úÉúÒ»¸ö[-1,1]·¶Î§µÄfloat 
-  // -1 -1
+highp float rand_1to1(highp float x ) {         
   return fract(sin(x)*10000.0);
 }
 
-highp float rand_2to1(vec2 uv ) {                              //¡Ì
-  // ´ÓÒ»¸ö¶şÎ¬Ëæ»ú±äÁ¿uvËæ»ú²úÉúÒ»¸ö·¶Î§[0,1]µÄfloat±äÁ¿
-  // 0 - 1
+highp float rand_2to1(vec2 uv ) {       
 	const highp float a = 12.9898, b = 78.233, c = 43758.5453;
 	highp float dt = dot( uv.xy, vec2( a,b ) ), sn = mod( dt, PI );
 	return fract(sin(sn) * c);
 }
 
-float unpack(vec4 rgbaDepth) {                             //¡Ì
-    //ÊµÏÖÑÕÉ«Öµµ½Éî¶ÈÖµµÄÓ³Éä
-    //Õâ¸öunpack()¿ÉÒÔ¿´³ÉÊÇshadowFragment.glslÖĞµÄpack()µÄ·´×ª
-    // ½«ÎÆÀíµÄRGBAÖµ×ª»»³É[0,1]µÄ¸¡µãÊı
+float unpack(vec4 rgbaDepth) {       
     const vec4 bitShift = vec4(1.0, 1.0/256.0, 1.0/(256.0*256.0), 1.0/(256.0*256.0*256.0));
     return dot(rgbaDepth, bitShift);
 }
 
 vec2 poissonDisk[NUM_SAMPLES];
-void uniformDiskSamples( const in vec2 randomSeed ) {                              //¡Ì
-  //¾ùÔÈÔ²ÅÌ²ÉÑù
+void uniformDiskSamples( const in vec2 randomSeed ) {     
+    float randNum = rand_2to1(randomSeed);
+    float sampleX = rand_1to1( randNum ) ;
+    float sampleY = rand_1to1( sampleX ) ;
 
-  float randNum = rand_2to1(randomSeed);
-  float sampleX = rand_1to1( randNum ) ;
-  float sampleY = rand_1to1( sampleX ) ;
+    float angle = sampleX * PI2;
+    float radius = sqrt(sampleY);
 
-  float angle = sampleX * PI2;
-  float radius = sqrt(sampleY);
+    for( int i = 0; i < NUM_SAMPLES; i ++ ) {
+        poissonDisk[i] = vec2( radius * cos(angle) , radius * sin(angle)  );
 
-  for( int i = 0; i < NUM_SAMPLES; i ++ ) {
-    poissonDisk[i] = vec2( radius * cos(angle) , radius * sin(angle)  );
+        sampleX = rand_1to1( sampleY ) ;
+        sampleY = rand_1to1( sampleX ) ;
 
-    sampleX = rand_1to1( sampleY ) ;
-    sampleY = rand_1to1( sampleX ) ;
-
-    angle = sampleX * PI2;
-    radius = sqrt(sampleY);
-  }
+        angle = sampleX * PI2;
+        radius = sqrt(sampleY);
+    }
 }
 
-void poissonDiskSamples( const in vec2 randomSeed ) {                              //¡Ì
-  //²´ËÉÔ²ÅÌ²ÉÑù
+void poissonDiskSamples( const in vec2 randomSeed ) {         
+    float ANGLE_STEP = PI2 * float( NUM_RINGS ) / float( NUM_SAMPLES );
+    float INV_NUM_SAMPLES = 1.0 / float( NUM_SAMPLES );
 
-  float ANGLE_STEP = PI2 * float( NUM_RINGS ) / float( NUM_SAMPLES );
-  float INV_NUM_SAMPLES = 1.0 / float( NUM_SAMPLES );
+    float angle = rand_2to1( randomSeed ) * PI2;
+    float radius = INV_NUM_SAMPLES;
+    float radiusStep = radius;
 
-  float angle = rand_2to1( randomSeed ) * PI2;
-  float radius = INV_NUM_SAMPLES;
-  float radiusStep = radius;
-
-  for( int i = 0; i < NUM_SAMPLES; i ++ ) {
-    poissonDisk[i] = vec2( cos( angle ), sin( angle ) ) * pow( radius, 0.75 );
-    radius += radiusStep;
-    angle += ANGLE_STEP;
-  }
+    for( int i = 0; i < NUM_SAMPLES; i ++ ) {
+        poissonDisk[i] = vec2( cos( angle ), sin( angle ) ) * pow( radius, 0.75 );
+        radius += radiusStep;
+        angle += ANGLE_STEP;
+    }
 }
 
-float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex) {                              //¡Ì
-  //1.¸ø¶¨²½³¤Stride¡¢shadow map·Ö±æÂÊ¡¢³õÊ¼Êä³öÖµ¡¢¾í»ı·¶Î§µ±Ç°µÄÉî¶È
-  //StrideÔ½´ó£¬±ßÔµÔ½Ä£ºı
-  float Stride = 20.0; //ÂË²¨µÄ²½³¤£¬Ã¿´Î¾í»ıºĞ»¥¶¯µÄĞĞÊı/ÁĞÊı
-  float shadowmapSize = 2048.; //shadow mapµÄ´óĞ¡
-  float visibility = 0.0;
-  float cur_depth = coords.z;
-  
-  //2.²´ËÉÔ²ÅÌ²ÉÑùµÃµ½²ÉÑùµã
-  poissonDiskSamples(coords.xy);
+float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex) {          
+    float Stride = 10.0; 
+    float shadowmapSize = 2048.;
+    float visibility = 0.0;
+    float cur_depth = coords.z;
+    
+    poissonDiskSamples(coords.xy);
 
-  //2.¾ùÔÈÔ²ÅÌ²ÉÑùµÃµ½²ÉÑùµã
-  //uniformDiskSamples(coords.xy);
+    //uniformDiskSamples(coords.xy);
 
-  //3.¶ÔÃ¿¸öµã½øĞĞ±È½ÏÉî¶ÈÖµ²¢ÀÛ¼Ó  NUM_SAMPLESÔÚ¿ªÍ·³õÊ¼»¯Îª20
-  float ctrl = 1.0;
-     
-  for(int i =0 ; i < NUM_SAMPLES; i++)
-  {
-    //vec4 shadow_color = texture2D(shadowMap, coords.xy + poissonDisk[i] * Stride / shadowmapSize); 
-    //float shadow_depth = unpack(shadow_color);
-    //float res = cur_depth < shadow_depth + EPS ? 1. : 0. ;//Ã»ÓĞ½â¾ö×ÔÕÚµ²£¬¿ÉÒÔ¸üºÃµØ¹Û²ìÒõÓ°Çé¿ö£¨°üÀ¨½Å²¿£©
-    //visibility += res;
-     float res  = texture(shadowMap, vec4(coords.xy + poissonDisk[i] * Stride / shadowmapSize, shadowMapIndex, coords.z)).r;
-     visibility += res;
-  }
+    float ctrl = 1.0;
+        
+    for(int i =0 ; i < NUM_SAMPLES; i++)
+    {
+        //vec4 shadow_color = texture2D(shadowMap, coords.xy + poissonDisk[i] * Stride / shadowmapSize); 
+        //float shadow_depth = unpack(shadow_color);
+        //float res = cur_depth < shadow_depth + EPS ? 1. : 0. ;
+        //visibility += res;
+        float res  = texture(shadowMap, vec4(coords.xy + poissonDisk[i] * Stride / shadowmapSize, shadowMapIndex, coords.z)).r;
+        visibility += res;
+    }
 
-  //4.·µ»Ø¾ùÖµ
-  return visibility / float(NUM_SAMPLES);
+    return visibility / float(NUM_SAMPLES);
 }
 
 float findBlocker(sampler2DArrayShadow shadowMap,  vec4 coords, int shadowMapIndex) {
-  //1.¸ø¶¨²ÎÊı
-  int blockerNum = 0;
-  float block_depth = 0.;
-  float shadowmapSize = 2048.;
-  float Stride = 20.;
+    int blockerNum = 0;
+    float block_depth = 0.;
+    float shadowmapSize = 2048.;
+    float Stride = 20.;
 
-  //2.²´ËÉ²ÉÑùµÃµ½µã
-  poissonDiskSamples(coords.xy);
+    poissonDiskSamples(coords.xy);
 
-  //3.ÅĞ¶Ï»á·ñÊÇblocker²¢ÀÛ¼Ó
-  for(int i = 0; i < NUM_SAMPLES; i++){ //±Æ¼±ÁË°æ±¾
-      vec2 xy=vec2(coords.xy + poissonDisk[i] * Stride / shadowmapSize);
-	  float dp = 1.0; //²âÊÔÉî¶È
-	  while (texture(shadowMap, vec4(xy, shadowMapIndex, dp)).r < 1.0 && dp>=0.0)
-		{
-			dp -= 0.01;
-		}
-		if (dp >=0.0) {
-			blockerNum++;
-			block_depth += dp;
-		}
-  }
-  //Èç¹ûshading pointÔÚ³¡¾°±»¹âÕÕµ½µÄµØ·½£¬ĞèÒªÒ²¸øÒ»¸ö·µ»ØÖµ£¬²»È»»·¾³ÊÇÈ«ºÚµÄ
-  //±ÜÃâ/0±¨´í ·µ»Ø×î´óÖµ£¬ÔòËùÓĞµã¶¼<Ëü£¬¶¼²»ÔÚÒõÓ°Àï
-  if(blockerNum == 0){
-    return 1.;
-  }
-  return float(block_depth) / float(blockerNum);
+    for(int i = 0; i < NUM_SAMPLES; i++){ //Æ¼Ë°æ±¾
+        vec2 xy=vec2(coords.xy + poissonDisk[i] * Stride / shadowmapSize);
+        float dp = 1.0; //
+        while (texture(shadowMap, vec4(xy, shadowMapIndex, dp)).r < 1.0 && dp>=0.0)
+            {
+                dp -= 0.01;
+            }
+            if (dp >=0.0) {
+                blockerNum++;
+                block_depth += dp;
+            }
+    }
+    if(blockerNum == 0){
+        return 1.;
+    }
+    return float(block_depth) / float(blockerNum);
 }
 
 float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex){
+    float d_Blocker = findBlocker(shadowMap, coords,shadowMapIndex);
+    float w_Light = 1.; 
+    float d_Receiver = coords.z;
 
-  // STEP 1: avgblocker depth
-  float d_Blocker = findBlocker(shadowMap, coords,shadowMapIndex);
-  float w_Light = 1.; // ¹âÔ´´óĞ¡£¬²»×ö¿¼ÂÇ£¬Ö±½Ó¿´×÷µã¹âÔ´£¨£¿£©
-  float d_Receiver = coords.z;
+    float w_penumbra = w_Light * (d_Receiver - d_Blocker) / d_Blocker;
 
-  // STEP 2: penumbra size
-  //¸ù¾İ¹«Ê½£¨ÏàËÆĞÔÈı½ÇĞÎ£©¼ÆËãwpenumbra°ëÓ°·¶Î§
-  float w_penumbra = w_Light * (d_Receiver - d_Blocker) / d_Blocker;
+    float Stride = 20.;
+    float shadowmapSize = 2048.;
+    float visibility = 0.;
+    float cur_depth = coords.z;
 
-  // STEP 3: filtering
-  //ÕâÆäÊµÓÖÊÇÒ»´ÎPCF£¬Ö»²»¹ı±ÈPCF¶àÁËÒ»ÖØw_penumbra¼ÓÈëÁËd_ReceiberµÄÓ°Ïì
-  //1
-  float Stride = 40.;
-  float shadowmapSize = 2048.;
-  float visibility = 0.;
-  float cur_depth = coords.z;
+    //poissonDiskSamples(coords.xy); 
 
-  //2 ²ÉÑù
-  //poissonDiskSamples(coords.xy); findBlockerÒÑ¾­½øĞĞÁË
+    //float ctrl = 1.0;
+    //float bias = getBias(ctrl);
 
-  //3
-  //float ctrl = 1.0;
-  //float bias = getBias(ctrl);//ÈôÒÔ´Ë½â¾ö×ÔÕÚµ²ÎÊÌâ£¬ÔòÍ¬Ñùµ¼ÖÂ²¿·ÖÒõÓ°ÏûÊ§ÏÖÏó
+    for(int i = 0; i < NUM_SAMPLES; i++){
+        float res  = texture(shadowMap, vec4(coords.xy + poissonDisk[i] * Stride / shadowmapSize* w_penumbra, shadowMapIndex, coords.z)).r;
+        visibility += res;
+    }
 
-  for(int i = 0; i < NUM_SAMPLES; i++){
-     float res  = texture(shadowMap, vec4(coords.xy + poissonDisk[i] * Stride / shadowmapSize* w_penumbra, shadowMapIndex, coords.z)).r;
-     visibility += res;
-  }
-
-  //4.·µ»Ø¾ùÖµ
-  return visibility / float(NUM_SAMPLES);
+    return visibility / float(NUM_SAMPLES);
 }
 
 void main()
 {
-    float brightnessCutoff = 0.0001;
-
-#ifdef VSG_POINT_SPRITE
-    vec2 texCoord0 = gl_PointCoord.xy;
-#endif
-
-    vec4 diffuseColor = vertexColor * material.diffuseColor;
-
-#ifdef VSG_DIFFUSE_MAP
-    #ifdef VSG_GREYSCALE_DIFFUSE_MAP
-        float v = texture(diffuseMap, texCoord0.st).s;
-        diffuseColor *= vec4(v, v, v, 1.0);
-    #else
-        diffuseColor *= texture(diffuseMap, texCoord0.st);
-    #endif
-#endif
-
-    vec4 ambientColor = diffuseColor * material.ambientColor * material.ambientColor.a; //¸ß¹â
-    vec4 specularColor = material.specularColor; //¸ß¹â
-    vec4 emissiveColor = material.emissiveColor; //×Ô·¢¹â
-    float shininess = material.shininess; //¹â»¬¶È
-    float ambientOcclusion = 1.0; //--------------------»·¾³¹âÕÚ±Î----------------------//
-
-    if (material.alphaMask == 1.0f) //Í¸Ã÷¶È¼ôÇĞ
-    {
-        if (diffuseColor.a < material.alphaMaskCutoff)
-            discard;
+    float cadDepth = -eyePos.z / extraParams.z_far;
+    vec2 screen_uv = vec2(gl_FragCoord.x / extraParams.width, gl_FragCoord.y / extraParams.height);
+    float cameraDepth = texture(depthImage, screen_uv).r;
+    if(cadDepth > cameraDepth){
+        outColor = texture(cameraImage, screen_uv);
+        return;
     }
 
-#ifdef VSG_EMISSIVE_MAP
-    emissiveColor *= texture(emissiveMap, texCoord0.st);
-#endif
-
-#ifdef VSG_LIGHTMAP_MAP
-    ambientOcclusion *= texture(aoMap, texCoord0.st).r; //Î´Ö´ĞĞ
-#endif
-
-#ifdef VSG_SPECULAR_MAP
-    specularColor *= texture(specularMap, texCoord0.st);
-#endif
-
-    vec3 nd = getNormal();
-    vec3 vd = normalize(viewDir);
-
-    vec3 color = vec3(0.0, 0.0, 0.0); //×îÖÕÊä³öÑÕÉ« ³õÊ¼Îª0 ÇÒ¶¼Îª¸¡µãÊıĞÎÊ½
-    float visibility=0.0f;
+    float brightnessCutoff = 0.001;
 
     vec4 lightNums = lightData.values[0];
     int numAmbientLights = int(lightNums[0]);
@@ -332,88 +250,62 @@ void main()
     int numSpotLights = int(lightNums[3]);
     int index = 1;
 
-    //--------------------------»·¾³¹â----------------------------//
-    if (numAmbientLights>0 )
-    {
-        // ambient lights
-        for(int i = 0; i<numAmbientLights; ++i)
-        {
-            vec4 lightColor = lightData.values[index++];
-            color += (ambientColor.rgb * lightColor.rgb) * (lightColor.a);
-        }
-    }
-
+    float scene_brightness;
     // index used to step through the shadowMaps array
     int shadowMapIndex = 0;
-
-    //--------------------------¶¨Ïò¹â----------------------------//
-
- if (numDirectionalLights>0)
+    if (numDirectionalLights>0)
     {
+        float totalBrigtness = 0.0f;
+        float totalRealBrightness = 0.0f;
         // directional lights
         for(int i = 0; i<numDirectionalLights; ++i)
         {
-            vec4 lightColor = lightData.values[index++]; //»ñÈ¡¹âÔ´µÄÑÕÉ«Öµ
-            vec3 direction = -lightData.values[index++].xyz; //»ñÈ¡¹âÔ´·½ÏòÏòÁ¿
-            vec4 shadowMapSettings = lightData.values[index++]; //»ñÈ¡ÒõÓ°ÌùÍ¼µÄÉèÖÃ²ÎÊı
+            vec4 lightColor = lightData.values[index++];
+            vec3 direction = -lightData.values[index++].xyz;
+            vec4 shadowMapSettings = lightData.values[index++];
 
-            float brightness = lightColor.a; //´Ó¹âÔ´ÑÕÉ«ÖĞÌáÈ¡ÁÁ¶ÈÖµ
+            float brightness = lightColor.a;
+            totalBrigtness += brightness;
+            float visibility = 0.0f;
 
             // check shadow maps if required
             bool matched = false;
             while ((shadowMapSettings.r > 0.0 && brightness > brightnessCutoff) && !matched)
-            {//¼ì²éÊÇ·ñĞèÒª½øĞĞÒõÓ°ÌùÍ¼µÄ´¦Àí£¬ÒÔ¼°ÊÇ·ñÒÑÕÒµ½Æ¥ÅäµÄÒõÓ°ÌùÍ¼¡£
+            {
                 mat4 sm_matrix = mat4(lightData.values[index++],
                                       lightData.values[index++],
                                       lightData.values[index++],
-                                      lightData.values[index++]); //»ñÈ¡ÒõÓ°ÌùÍ¼µÄ±ä»»¾ØÕó
+                                      lightData.values[index++]);
 
-                vec4 sm_tc = (sm_matrix) * vec4(eyePos, 1.0); //´ÓÊÀ½ç¿Õ¼äµ½¹âÔ´¿Õ¼äµÄ±ä»»£¬ÒÔ±ã½«ÒõÓ°ÌùÍ¼µÄÎÆÀí×ø±êÓë³¡¾°ÖĞµÄµã¶ÔÓ¦ÆğÀ´¡£
+                vec4 sm_tc = (sm_matrix) * vec4(eyePos, 1.0);
 
                 if (sm_tc.x >= 0.0 && sm_tc.x <= 1.0 && sm_tc.y >= 0.0 && sm_tc.y <= 1.0 && sm_tc.z >= 0.0 /* && sm_tc.z <= 1.0*/)
-                {//¼ì²éÎÆÀí×ø±êÊÇ·ñÔÚÓĞĞ§·¶Î§ÄÚ
-                    matched = true;
+                {
+                    //visibility = 1 - texture(shadowMaps, vec4(sm_tc.st, shadowMapIndex, sm_tc.z)).r; //ï¿½ï¿½ï¿½ï¿½Ç°Æ¬ï¿½Îµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó°ï¿½ï¿½Í¼ï¿½Ğµï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½Ğ±È½ï¿½ ï¿½ï¿½ï¿½ï¿½Ó°0 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó°1
 
-                    //ÆäÖĞÇ°Á½¸ö·ÖÁ¿ÊÇÎÆÀí×ø±ê£¬µÚÈı¸ö·ÖÁ¿ÊÇÒõÓ°ÌùÍ¼Ë÷Òı£¬µÚËÄ¸ö·ÖÁ¿ÊÇÆäËûÎÆÀí×ø±ê·ÖÁ¿,Í¨³£ÓÃÓÚ½øĞĞÍ¸Ã÷¶È¡£
-                    //float coverage = texture(shadowMaps, vec4(sm_tc.st, shadowMapIndex, sm_tc.z)).r; //½«µ±Ç°Æ¬¶ÎµÄÎÆÀí×ø±êÓëÒõÓ°ÌùÍ¼ÖĞµÄÉî¶ÈÖµ½øĞĞ±È½Ï ÔÚÒõÓ°0 ²»ÔÚÒõÓ°1
-                    //brightness *= (1.0-coverage); //¸ù¾İÒõÓ°ÌùÍ¼µÄ¸²¸ÇÂÊµ÷ÕûÁÁ¶ÈÖµ¡£
-                    visibility = PCF(shadowMaps,sm_tc,shadowMapIndex);
-                    //float visibility = PCSS(shadowMaps,sm_tc,shadowMapIndex);
-                    //float d_Blocker = findBlocker(shadowMaps, sm_tc,shadowMapIndex);
-                    //brightness *= (1.0-visibility);
-                    brightness=1-visibility;
+                    matched = true;
+                    visibility = 1 - PCF(shadowMaps,sm_tc,shadowMapIndex);
+                }else{
+                    visibility = 1.0;
                 }
 
                 ++shadowMapIndex;
-                shadowMapSettings.r -= 1.0; //¸üĞÂÒõÓ°ÌùÍ¼Ë÷ÒıºÍÉèÖÃ²ÎÊı
+                shadowMapSettings.r -= 1.0;
             }
 
-            if (shadowMapSettings.r > 0.0) //¼ì²éÊÇ·ñ»¹ÓĞÎ´·ÃÎÊµÄÒõÓ°ÌùÍ¼
-            { 
+            if (shadowMapSettings.r > 0.0)
+            {
                 // skip lightData and shadowMap entries for shadow maps that we haven't visited for this light
                 // so subsequent light pointions are correct.
-                index += 4 * int(shadowMapSettings.r); //Ìø¹ıÎ´·ÃÎÊµÄ¹âÔ´Êı¾İºÍÒõÓ°ÌùÍ¼µÄÌõÄ¿£¬ÒÔ±£Ö¤ÏÂÒ»¸ö¹âÔ´µÄÎ»ÖÃÊÇÕıÈ·µÄ¡£
-                shadowMapIndex += int(shadowMapSettings.r); //¸üĞÂÒõÓ°ÌùÍ¼µÄË÷Òı
+                index += 4 * int(shadowMapSettings.r);
+                shadowMapIndex += int(shadowMapSettings.r);
             }
 
-            // if light is too dim/shadowed to effect the rendering skip it Èç¹û¹âÔ´µÄÁÁ¶ÈÖµĞ¡ÓÚµÈÓÚÁÁ¶ÈãĞÖµ£¬ÔòÌø¹ıµ±Ç°¹âÔ´µÄ¼ÆËãºÍäÖÈ¾¡£
-            if (brightness >= brightnessCutoff ) discard; //******************
-
-            float unclamped_LdotN = dot(direction, nd); //¼ÆËã¹âÔ´·½ÏòÏòÁ¿Óë·¨ÏßÏòÁ¿µÄµã»ı
-
-            float diff = max(unclamped_LdotN, 0.0); //¼ÆËãÂş·´Éä¹âÕÕÇ¿¶È
-            color.rgb += (diffuseColor.rgb * lightColor.rgb) * (diff * brightness); //¸ù¾İÂş·´Éä¹âÕÕÇ¿¶È¡¢¹âÔ´ÑÕÉ«ºÍÁÁ¶ÈÖµ¼ÆËã×îÖÕµÄÑÕÉ«
-
-            if (shininess > 0.0 && diff > 0.0) //¼ì²éÊÇ·ñ´æÔÚ¸ß¹â·´Éä£¬²¢ÇÒÂş·´Éä¹âÕÕÇ¿¶È´óÓÚÁã¡£
-            { //¼ÆËã°ëÏòÁ¿
-                vec3 halfDir = normalize(direction + vd);
-                color.rgb += specularColor.rgb * (pow(max(dot(halfDir, nd), 0.0), shininess) * brightness); //¸ù¾İ¸ß¹â·´ÉäµÄ¼ÆËã¹«Ê½£¬¼ÆËã×îÖÕµÄÑÕÉ«¡£
-            }
+            totalRealBrightness += brightness * visibility;
         }
+        scene_brightness = totalRealBrightness / totalBrigtness;
     }
-
-    //----------------------------------------Êä³öÑÕÉ«----------------------------------------//
-    //outColor.rgb = (color * ambientOcclusion) + emissiveColor.rgb; //ambientOcclusion»·¾³ÕÚ±Î ´ú±í¿É¼ûĞÔ
-    outColor.rgb = color; //ambientOcclusion»·¾³ÕÚ±Î ´ú±í¿É¼ûĞÔ
-    outColor.a = diffuseColor.a;
+    vec3 color = vec3(scene_brightness * 0.5 + 0.5);
+    outColor.rgb = texture(cameraImage, screen_uv).rgb * color;
+    outColor.a = 1;
 }

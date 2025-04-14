@@ -9,15 +9,13 @@
 class CustomViewDependentState : public vsg::Inherit<vsg::ViewDependentState, CustomViewDependentState>
 {
 public:
-    static const uint32_t MAX_MATRIX_COUNT = 4;
     vsg::ref_ptr<vsg::mat4Array> viewMatrixData;
     vsg::ref_ptr<vsg::BufferInfo> viewMatrixDataBufferInfo;
-    bool disableShadowMap;
-    vsg::dbox virtual_bound_ws;
-    vsg::dbox scene_bound_ws;
+    vsg::dbox scene_bound_ws_virtual;
+    vsg::dbox scene_bound_ws_real;
 
-    CustomViewDependentState(vsg::View* in_view, bool in_disableShadowMap = false) :
-        vsg::Inherit<vsg::ViewDependentState, CustomViewDependentState>(in_view), disableShadowMap(in_disableShadowMap) {}
+    CustomViewDependentState(vsg::View* in_view) :
+        vsg::Inherit<vsg::ViewDependentState, CustomViewDependentState>(in_view){}
 
     // to override descriptorset layout
     virtual void init(vsg::ResourceRequirements& requirements) override;

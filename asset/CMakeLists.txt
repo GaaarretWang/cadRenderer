@@ -12,6 +12,7 @@ if(UNIX)
     target_link_libraries(vsgRenderer
         flatbuffers
         vsg::vsg
+        vsgImGui::vsgImGui
         libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY} ${ASSIMP_LIBRARIES}
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/CADDataManager/lib/cadDataManager.a 
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/CADDataManager/lib/libcurl.a

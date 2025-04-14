@@ -75,6 +75,24 @@ struct treeNode
     vsg::dbox bounds;
 };
 
+struct ProtoData
+{
+    vsg::dbox bouding_box;
+    vsg::ref_ptr<vsg::vec3Array> vertices;
+    vsg::ref_ptr<vsg::vec3Array> normals;
+    vsg::ref_ptr<vsg::vec2Array> uvs;
+    vsg::ref_ptr<vsg::uintArray> indices;
+    std::string diffuse_path = "";
+    std::string normal_path = "";
+    std::string mr_path = "";
+    vsg::ref_ptr<vsg::PbrMaterialValue> material;
+    vsg::ref_ptr<vsg::mat4Array> instance_buffer;
+    std::vector<std::string> instance_id;
+    std::vector<vsg::dmat4> instance_matrix;
+    vsg::ref_ptr<vsg::ShaderSet> shaderset;
+    vsg::ref_ptr<vsg::Group> scene;
+};
+
 namespace std
 {
     template<typename T>
@@ -195,17 +213,20 @@ public:
     std::vector<uint32_t> indices;
 
     vsg::ref_ptr<vsg::StateGroup> stateGroup_total = vsg::StateGroup::create();
-        
-        
-    //����ģ��
-    // void buildnode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
-    void buildIntgNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, vsg::ref_ptr<vsg::ImageInfo>* imageInfos, vsg::ref_ptr<vsg::Data> real_color, vsg::ref_ptr<vsg::Data> real_depth);
-    void buildNewNode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene);
-    void buildPlaneNode(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
-    void buildObjNode(const char* path, const char* material_path, const vsg::dmat4& modelMatrix);
-    void transferModel(const std::string& path, bool fullNormal, const vsg::dmat4& modelMatrix);
-    // void buildInstance(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ShaderSet> shader, const vsg::dmat4& modelMatrix);
+    
+    static vsg::ImageInfoList camera_info;
+    static vsg::ImageInfoList depth_info;
+    static vsg::ref_ptr<vsg::floatArray> params;
+    static std::unordered_map<std::string, vsg::ImageInfoList> texture_name_to_image_map;
+    static std::unordered_map<std::string, ProtoData*> proto_id_to_data_map;
+    static std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> materials;
+    std::vector<std::string> proto_ids;
 
-    // void explode();
-    // void recover();
+    //����ģ��
+    void buildNewNode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene);
+    void buildObjNode(const char* path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene);
+    static void CreateDefaultMaterials();
+    void preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene);
+    void preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene);
+    static void buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene);
 };

@@ -25,6 +25,7 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D cameraImage
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 6) uniform sampler2D depthImage;
 
 layout (set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform Params {
+	float semitransparent;
 	float width;
 	float height;
 } extentParams;

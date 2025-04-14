@@ -48,10 +48,11 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform sampler2D cameraImage;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
 
-layout (set = MATERIAL_DESCRIPTOR_SET, binding = 6) uniform customParams {
+layout (set = MATERIAL_DESCRIPTOR_SET, binding = 9) uniform customParams {
 	float semitransparent;
-    float width;
+	float width;
 	float height;
+    float z_far;
 } extraParams;
 
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
@@ -72,7 +73,7 @@ layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
     vec4 values[2048];
 } lightData;
 
-layout(set = VIEW_DESCRIPTOR_SET, binding = 1) uniform ViewMatrixData{
+layout(set = VIEW_DESCRIPTOR_SET, binding = 3) uniform ViewMatrixData{
     mat4 view;
     mat4 invView;
     mat4 unused[2];
@@ -782,7 +783,7 @@ void main()
     scene_brightness = scene_brightness * 0.5 + 0.5;
 
 
-    float exposure = 3.0f;
+    float exposure = 1.0f;
     color = Uncharted2Tonemap(color * scene_brightness * exposure);
 	color = color * (vec3(1.0f) / Uncharted2Tonemap(vec3(11.2f)));
     outColor = LINEARtoSRGB(vec4(color, baseColor.a * extraParams.semitransparent));
