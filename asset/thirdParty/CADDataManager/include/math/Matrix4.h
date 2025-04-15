@@ -60,6 +60,9 @@ namespace cadDataManager {
 
 		float* getElements() const;
 
+		Matrix4& fromVector(const std::vector<float>& vector, int offset = 0);
+
+
 		std::vector<float> toVector(std::vector<float>& vector, int offset);
 
 		std::vector<float> toVector();

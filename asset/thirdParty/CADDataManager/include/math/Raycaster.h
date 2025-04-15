@@ -2,6 +2,8 @@
 #include "global/baseDef.h"
 #include "math/Ray.h"
 #include "math/Layers.h"
+#include "manager/assemblyManager.h"
+
 namespace cadDataManager {
 	struct ThresholdParams {
 		float Mesh_threshold = 0.f;
@@ -29,7 +31,10 @@ namespace cadDataManager {
 		Vector3 mPoint;
 		int mIndex;
 		int mFaceIndex;
-		IntersectionFace::Ptr mFace;
+		InstanceInfo::Ptr mInstanceInfo { nullptr };
+		ElementInfo::Ptr mElementInfo { nullptr };
+		Instance::Ptr mInstance { nullptr };
+		IntersectionFace::Ptr mFace { nullptr };
 	};
 
 	class Raycaster : public std::enable_shared_from_this<Raycaster> {
@@ -44,6 +49,8 @@ namespace cadDataManager {
 		Raycaster(const Ray::Ptr r);
 
 		~Raycaster() = default;
+
+		void setRay(Ray::Ptr ray) { mRay = ray; };
 
 		Ray::Ptr getRay() const;
 
@@ -61,14 +68,18 @@ namespace cadDataManager {
 
 		Raycaster& set(Vector3 origin, Vector3 direction);
 
-		std::vector<Intersection::Ptr> intersectObject();
+		Intersection::Ptr pickMesh(bool needPickElement = false);
 
-	private:
+		Intersection::Ptr checkBufferGeometryIntersection(std::vector<float> position, int a, int b, int c, InstanceInfo::Ptr instanceInfo, ElementInfo::Ptr elementInfo);
+
+		Intersection::Ptr checkIntersection(Vector3 pA, Vector3 pB, Vector3 pC, Vector3 point, InstanceInfo::Ptr instanceInfo, ElementInfo::Ptr elementInfo);
+
+	public:
 		Ray::Ptr mRay = Ray::create();
 		float mNear = 0;
-		float mFar = std::numeric_limits<float>::max();
+		//float mFar = std::numeric_limits<float>::max();
+		float mFar = 10e9;
 		Layers mLayers;
-
 		volatile ThresholdParams mThresholdParams;
 	};
 }

@@ -23,6 +23,14 @@ namespace cadDataManager {
 		std::string getMaterialName() { return mMaterialName; }
 		float getMetalness() { return mMetalness; }
 		float getRoughness() { return mRoughness; }
+		bool isDefault() {
+			if (mColor == "" && mMaterialName == "" && mMetalness == -1 && mRoughness == -1) {
+				return true;
+			}
+			else {
+				return false;
+			}
+		}
 
 	public:
 		std::string				mColor{ "" };

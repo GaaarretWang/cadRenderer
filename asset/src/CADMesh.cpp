@@ -637,23 +637,18 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                 int Nodenumber = mVertices.size();   //顶点、法向、UV个数
                 int Indicesnumber = mIndices.size(); //索引个数
 
-                vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(Nodenumber); //分配数组空间
-                vsg::ref_ptr<vsg::vec3Array> normals = vsg::vec3Array::create(Nodenumber);
-                vsg::ref_ptr<vsg::vec2Array> uvs = vsg::vec2Array::create(Nodenumber);
-                vsg::ref_ptr<vsg::uintArray> indices = vsg::uintArray::create(Indicesnumber);
-
-                //读取顶点，保存成vsg数组形式
-                for (int i = 0; i < Nodenumber; i++)
-                {
-                    vertices->at(i) = vsg::vec3(mVertices[i].pos);
-                    normals->at(i) = vsg::vec3(mVertices[i].normal);
-                    uvs->at(i) = vsg::vec2(mVertices[i].uv);
-                }
-                //读取索引
-                for (int i = 0; i < Indicesnumber; i++)
-                {
-                    indices->at(i) = mIndices[i];
-                }
+                vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(position.size() / 3); //分配数组空间
+                vsg::ref_ptr<vsg::vec3Array> normals = vsg::vec3Array::create(normal.size() / 3);
+                vsg::ref_ptr<vsg::vec2Array> uvs = vsg::vec2Array::create(uv.size() / 2);
+                vsg::ref_ptr<vsg::uintArray> indices = vsg::uintArray::create(modelIndex.size());
+                float* position_beginPointer = static_cast<float*>(vertices->dataPointer(0));
+                std::copy(position.begin(), position.end(), position_beginPointer);
+                float* normal_beginPointer = static_cast<float*>(normals->dataPointer(0));
+                std::copy(normal.begin(), normal.end(), normal_beginPointer);
+                float* uvs_beginPointer = static_cast<float*>(uvs->dataPointer(0));
+                std::copy(uv.begin(), uv.end(), uvs_beginPointer);
+                int* indices_beginPointer = static_cast<int*>(indices->dataPointer(0));
+                std::copy(modelIndex.begin(), modelIndex.end(), indices_beginPointer);
 
                 ProtoData* proto_data;
                 std::string proto_id = modelfbs.protoId + std::to_string(o);

@@ -12,6 +12,7 @@
 #include "communication/request.h"
 #include "communication/dataStructure.h"
 #include <json.hpp>
+#include "math/Raycaster.h"
 
 #ifdef _WIN32
 #include <WinSock2.h>
@@ -174,5 +175,11 @@ namespace cadDataManager {
 
 		//获取材质参数原始JSON数据
 		static std::string getMaterialJsonStr(std::string filePath = "");
+
+
+
+		
+		//-----------------------------------------拾取-----------------------------------------------
+		static Intersection::Ptr pickInstance(std::vector<float> origin, std::vector<float> direction);
 	};
 }

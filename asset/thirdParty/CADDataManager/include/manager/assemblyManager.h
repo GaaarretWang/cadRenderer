@@ -32,6 +32,7 @@ namespace cadDataManager {
 
 		void buildInstanceInfoMap();
 		void updateInstanceInfoMap();
+		void updateInstanceInfo(Instance::Ptr instance);
 
 		std::unordered_map<std::string, InstanceInfo::Ptr> getInstanceInfoMap();
 

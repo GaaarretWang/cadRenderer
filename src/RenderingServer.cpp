@@ -19,15 +19,21 @@ int RenderingServer::Init(int argc, char** argv){
                                     0, 0, 0, 1));
     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
                                * vsg::dmat4(
-                                    20, 0, 0, 0, 
-                                    0, 20, 0, 0, 
-                                    0, 0, 20, 0, 
+                                    0.2, 0, 0, 0, 
+                                    0, 0.2, 0, 0, 
+                                    0, 0, 0.2, 0, 
                                     0, 0, 0, 1));
     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
                                * vsg::dmat4(
-                                    20, 0, 0, 0, 
-                                    0, 20, 0, 0, 
-                                    0, 0, 20, 0, 
+                                    0.2, 0, 0, 0, 
+                                    0, 0.2, 0, 0, 
+                                    0, 0, 0.2, 0, 
+                                    0, 0, 0, 1));
+    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
+                               * vsg::dmat4(
+                                    0.2, 0, 0, 0, 
+                                    0, 0.2, 0, 0, 
+                                    0, 0, 0.2, 0, 
                                     0, 0, 0, 1));
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.991005, 1) * init_model_transforms[1]);
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.491005, 1) * init_model_transforms[1] * mat);
@@ -36,13 +42,20 @@ int RenderingServer::Init(int argc, char** argv){
     // model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
     // model_paths.push_back(rendering_dir + "asset/data/obj/Medieval_building/output.obj");
     model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/SeatPart.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/LandingGear.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/airplaneBody.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/Engine.fb");
     // model_paths.push_back(rendering_dir + "asset/data/obj/小舱壁-ASM-修改焊接后.obj");
     // instance_names.push_back("大舱壁-ASM(PMI)");
     // instance_names.push_back("小舱壁-ASM-修改焊接后0");
     // instance_names.push_back("大舱壁-ASM(PMI)");
     // instance_names.push_back("Medieval_building");
     // instance_names.push_back("Medieval_building1");
-    instance_names.push_back("YIBIAOPAN");
+    instance_names.push_back("YIBIAOPAN1");
+    // instance_names.push_back("YIBIAOPAN2");
+    // instance_names.push_back("YIBIAOPAN3");
+    // instance_names.push_back("YIBIAOPAN4");
     // instance_names.push_back("texture");
 
     vsg::CommandLine arguments(&argc, argv);

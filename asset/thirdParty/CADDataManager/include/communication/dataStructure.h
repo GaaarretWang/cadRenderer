@@ -28,8 +28,8 @@ namespace cadDataManager {
 		ElementType type;
 		std::vector<Geometry::Ptr> geometries;
 
-		Box3 mGeometryBox; //å‡ ä½•çš„OOBBå¼åŒ…å›´ç›’
-		std::vector<float> mGeometryBoxCenter; //å‡ ä½•çš„åŒ…å›´ç›’ä¸­å¿ƒ
+		Box3 mGeometryBox; //¼¸ºÎµÄOOBBÊ½°üÎ§ºĞ
+		std::vector<float> mGeometryBoxCenter; //¼¸ºÎµÄ°üÎ§ºĞÖĞĞÄ
 
 		void buildBoxInfo() {
 			Box3 protoGeometryBox;
@@ -51,21 +51,22 @@ namespace cadDataManager {
 		ElementType mType;
 		GeomType mGeometryType;
 		Geometry::Ptr mGeometry;
+		Box3 mGeometryBox; //¼¸ºÎµÄOOBBÊ½°üÎ§ºĞ
 
-		//TODO å…³é”®å‡ ä½•ä¿¡æ¯ï¼š
+		//TODO ¹Ø¼ü¼¸ºÎĞÅÏ¢£º
 		/*
-			1.æ™®é€šå¹³é¢ï¼šæ³•å‘ã€‚å¯è®¡ç®—
-			2.åœ†å‹å¹³é¢ï¼šæ³•å‘ã€åŠå¾„ã€åœ†å¿ƒã€‚æš‚æ— 
-			3.æŸ±é¢ï¼šè½´å‘ã€åŠå¾„ã€ä¸Šé¡¶é¢åœ†å¿ƒã€ä¸‹é¡¶é¢åœ†å¿ƒã€‚æš‚æ— 
-			4.çƒé¢ï¼šçƒå¿ƒã€åŠå¾„ã€‚æš‚æ— 
-			5.æ™®é€šæ›²é¢ï¼šæ— ã€‚
+			1.ÆÕÍ¨Æ½Ãæ£º·¨Ïò¡£¿É¼ÆËã
+			2.Ô²ĞÍÆ½Ãæ£º·¨Ïò¡¢°ë¾¶¡¢Ô²ĞÄ¡£ÔİÎŞ
+			3.ÖùÃæ£ºÖáÏò¡¢°ë¾¶¡¢ÉÏ¶¥ÃæÔ²ĞÄ¡¢ÏÂ¶¥ÃæÔ²ĞÄ¡£ÔİÎŞ
+			4.ÇòÃæ£ºÇòĞÄ¡¢°ë¾¶¡£ÔİÎŞ
+			5.ÆÕÍ¨ÇúÃæ£ºÎŞ¡£
 
-			1.ç›´çº¿ï¼šèµ·å§‹ç‚¹ã€ç»ˆæ­¢ç‚¹ã€é•¿åº¦ã€‚
-			2.åœ†ä¸åœ†å¼§çº¿ï¼šæ³•å‘ï¼ˆå¯è®¡ç®—ï¼‰ã€åœ†å¿ƒã€åŠå¾„ã€‚
+			1.Ö±Ïß£ºÆğÊ¼µã¡¢ÖÕÖ¹µã¡¢³¤¶È¡£
+			2.Ô²ÓëÔ²»¡Ïß£º·¨Ïò£¨¿É¼ÆËã£©¡¢Ô²ĞÄ¡¢°ë¾¶¡£
 
-			é…åˆä¸­æš‚æ—¶æ²¡æœ‰æœ‰æ•ˆä¿¡æ¯:åªæœ‰å…³è”Elementä¸å…³è”Instanceçš„IDï¼Œçº¿ä¸çº¿ä¹‹é—´çš„é…åˆå¯ä»¥é€šè¿‡Elementæœ¬èº«çš„ä¿¡æ¯å–åˆ°ã€‚
+			ÅäºÏÖĞÔİÊ±Ã»ÓĞÓĞĞ§ĞÅÏ¢:Ö»ÓĞ¹ØÁªElementÓë¹ØÁªInstanceµÄID£¬ÏßÓëÏßÖ®¼äµÄÅäºÏ¿ÉÒÔÍ¨¹ıElement±¾ÉíµÄĞÅÏ¢È¡µ½¡£
 
-			åŠ¨ç”»çš„ä¿¡æ¯æ”¾åœ¨å†…æ ¸
+			¶¯»­µÄĞÅÏ¢·ÅÔÚÄÚºË
 		*/
 
 	public:
@@ -76,6 +77,11 @@ namespace cadDataManager {
 
 		ElementInfo() = default;
 		~ElementInfo() = default;
+
+		void buildBoxInfo() {
+			std::vector<float> positionArray = mGeometry->getPosition();
+			mGeometryBox.setFromVector(positionArray);
+		}
 	};
 
 
@@ -83,7 +89,7 @@ namespace cadDataManager {
 	public:
 		std::string mInstanceId;
 		std::string mProtoId;
-		std::string mType; //instanceç±»å‹ï¼š é›¶ä»¶ or è£…é…
+		std::string mType; //instanceÀàĞÍ£º Áã¼ş or ×°Åä
 		std::string mParentId;
 		std::vector<std::string> mChildIds;
 		std::vector<GeometryInfo::Ptr> mGeometryInfos;
@@ -103,27 +109,27 @@ namespace cadDataManager {
 
 	struct RenderInfo
 	{
-		AppearanceParams::Ptr params; //å¤–è§‚ç±»
-		Geometry::Ptr geo; //å‡ ä½•ä¿¡æ¯
-		int matrixNum; //çŸ©é˜µä¸ªæ•°
-		std::vector<float> matrix; //çŸ©é˜µ
-		std::string type; //å‡ ä½•ç±»å‹ face edge
+		AppearanceParams::Ptr params; //Íâ¹ÛÀà
+		Geometry::Ptr geo; //¼¸ºÎĞÅÏ¢
+		int matrixNum; //¾ØÕó¸öÊı
+		std::vector<float> matrix; //¾ØÕó
+		std::string type; //¼¸ºÎÀàĞÍ face edge
 		std::string protoId;
 		std::vector<std::string> instanceIds;
 
 		void console() const {
-			//TODO: å‡ ä½•é¡¶ç‚¹æ•°é‡ã€ä¸‰è§’é¢ç‰‡æ•°é‡ã€é¢œè‰²ã€é€æ˜åº¦
+			//TODO: ¼¸ºÎ¶¥µãÊıÁ¿¡¢Èı½ÇÃæÆ¬ÊıÁ¿¡¢ÑÕÉ«¡¢Í¸Ã÷¶È
 			std::vector<float> position = this->geo->getPosition();
 			std::vector<int> index = this->geo->getIndex();
-			std::cout << "æ¨¡å‹å‡ ä½•ç±»å‹ï¼š" << this->type << std::endl;
+			std::cout << "Ä£ĞÍ¼¸ºÎÀàĞÍ£º" << this->type << std::endl;
 			if (this->type == "face") {
-				std::cout << "åŸå‹ç½‘æ ¼çš„é¡¶ç‚¹æ•°é‡ï¼š" << position.size() / 3 << std::endl;
-				std::cout << "åŸå‹ç½‘æ ¼çš„é¢ç‰‡æ•°é‡ï¼š" << index.size() / 3 << std::endl;
-				std::cout << "æ¨¡å‹é¢œè‰²ï¼š" << this->params->getColor() << std::endl;
+				std::cout << "Ô­ĞÍÍø¸ñµÄ¶¥µãÊıÁ¿£º" << position.size() / 3 << std::endl;
+				std::cout << "Ô­ĞÍÍø¸ñµÄÃæÆ¬ÊıÁ¿£º" << index.size() / 3 << std::endl;
+				std::cout << "Ä£ĞÍÑÕÉ«£º" << this->params->getColor() << std::endl;
 			}
-			//TODO: æ˜¯å¦æ‰“å°çš„æ§åˆ¶å™¨
-			std::cout << "çŸ©é˜µæ•°é‡ï¼š" << this->matrixNum << std::endl;
-			std::cout << "çŸ©é˜µæ•°ç»„ï¼š" << std::endl;
+			//TODO: ÊÇ·ñ´òÓ¡µÄ¿ØÖÆÆ÷
+			std::cout << "¾ØÕóÊıÁ¿£º" << this->matrixNum << std::endl;
+			std::cout << "¾ØÕóÊı×é£º" << std::endl;
 			int flag = 0;
 			for (auto it = this->matrix.begin(); it != this->matrix.end(); ++it) {
 				std::cout << *it << ' ';
