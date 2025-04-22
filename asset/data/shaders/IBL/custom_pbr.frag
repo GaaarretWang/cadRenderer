@@ -50,9 +50,10 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
 
 layout (set = MATERIAL_DESCRIPTOR_SET, binding = 9) uniform customParams {
 	float semitransparent;
-	float width;
-	float height;
+	int width;
+	int height;
     float z_far;
+    int shader_type;
 } extraParams;
 
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
@@ -585,7 +586,7 @@ vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specula
     // N.xz *= -1.0f;
     // vec3 lutR = fixCubeDir(R);
     vec3 lutR = R;
-    // lutR.y *= -1.0f;
+    lutR.y *= -1.0f;
 	vec3 irradiance = texture(samplerIrradiance, N).rgb;
     color += irradiance * diffuseColor;
 	vec3 reflection = prefilteredReflection(lutR, perceptualRoughness).rgb;	
@@ -602,12 +603,14 @@ vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specula
 
 void main()
 {
-    float cadDepth = -eyePos.z / 65.535;
-    vec2 screen_uv = vec2(gl_FragCoord.x / 1280.0, gl_FragCoord.y / 960.0);
-    float cameraDepth = texture(depthImage, screen_uv).r;
-    if(cadDepth > cameraDepth){
-        outColor = texture(cameraImage, screen_uv);
-        return;
+    if(extraParams.shader_type == 1){
+        float cadDepth = -eyePos.z / 65.535;
+        vec2 screen_uv = vec2(gl_FragCoord.x / 1280.0, gl_FragCoord.y / 960.0);
+        float cameraDepth = texture(depthImage, screen_uv).r;
+        if(cadDepth > cameraDepth){
+            outColor = texture(cameraImage, screen_uv);
+            return;
+        }
     }
 
     float brightnessCutoff = 0.001;
@@ -783,7 +786,7 @@ void main()
     scene_brightness = scene_brightness * 0.5 + 0.5;
 
 
-    float exposure = 1.0f;
+    float exposure = 3.0f;
     color = Uncharted2Tonemap(color * scene_brightness * exposure);
 	color = color * (vec3(1.0f) / Uncharted2Tonemap(vec3(11.2f)));
     outColor = LINEARtoSRGB(vec4(color, baseColor.a * extraParams.semitransparent));

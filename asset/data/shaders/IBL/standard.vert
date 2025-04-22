@@ -1,5 +1,6 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
+#extension GL_EXT_nonuniform_qualifier : enable
 
 #pragma import_defines (VSG_INSTANCE_POSITIONS, VSG_BILLBOARD, VSG_DISPLACEMENT_MAP)
 
@@ -12,9 +13,15 @@ layout(push_constant) uniform PushConstants {
 layout(binding = 6) uniform sampler2D displacementMap;
 #endif
 
+struct InstanceData {
+    mat4 protoMatrix;
+    mat4 modelMatrix;
+};
+
+
 #define MATERIAL_DESCRIPTOR_SET 2
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 11) uniform InstanceMatrices {
-    mat4 instanceModelMatrix[100];
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 11) buffer InstanceMatrices {
+    InstanceData instanceModelMatrix[];
 }instanceMatrices;
 
 layout(location = 0) in vec3 vsg_Vertex;
@@ -73,7 +80,7 @@ mat4 computeBillboadMatrix(vec4 center_eye, float autoScaleDistance)
 void main()
 {
     vec4 vertex = vec4(vsg_Vertex, 1.0);
-    vertex = instanceMatrices.instanceModelMatrix[gl_InstanceIndex * 2 + 1] * instanceMatrices.instanceModelMatrix[gl_InstanceIndex * 2] * vertex;
+    vertex = instanceMatrices.instanceModelMatrix[gl_InstanceIndex].modelMatrix * instanceMatrices.instanceModelMatrix[gl_InstanceIndex].protoMatrix * vertex;
     vec4 normal = vec4(vsg_Normal, 0.0);
 
 #ifdef VSG_DISPLACEMENT_MAP

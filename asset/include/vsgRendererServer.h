@@ -242,61 +242,6 @@ public:
         return imageInfosListIBL;
     }
 
-    vsg::ref_ptr<vsg::ShaderSet> pbr_ShaderSet(vsg::ref_ptr<const vsg::Options> options)
-    {
-        vsg::info("Local pbr_ShaderSet(",options,")");
-
-        auto vertexShader = vsg::read_cast<vsg::ShaderStage>("/home/wanggaoyuan/2025cadrenderer/cadRenderer/asset/data/shaders/standard.vert", options);
-        auto fragmentShader = vsg::read_cast<vsg::ShaderStage>("/home/wanggaoyuan/2025cadrenderer/cadRenderer/asset/data/shaders/standard_pbr.frag", options);
-
-        if (!vertexShader || !fragmentShader)
-        {
-            vsg::error("pbr_ShaderSet(...) could not find shaders.");
-            return {};
-        }
-
-        auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
-
-        #define VIEW_DESCRIPTOR_SET 0
-        #define MATERIAL_DESCRIPTOR_SET 1
-
-        shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
-        shaderSet->addAttributeBinding("vsg_Normal", "", 1, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
-        shaderSet->addAttributeBinding("vsg_TexCoord0", "", 2, VK_FORMAT_R32G32_SFLOAT, vsg::vec2Array::create(1));
-        shaderSet->addAttributeBinding("vsg_Color", "", 3, VK_FORMAT_R32G32B32A32_SFLOAT, vsg::vec4Array::create(1));
-
-        shaderSet->addAttributeBinding("vsg_position", "VSG_INSTANCE_POSITIONS", 4, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
-        shaderSet->addAttributeBinding("vsg_position_scaleDistance", "VSG_BILLBOARD", 4, VK_FORMAT_R32G32B32A32_SFLOAT, vsg::vec4Array::create(1));
-
-        shaderSet->addDescriptorBinding("displacementMap", "VSG_DISPLACEMENT_MAP", MATERIAL_DESCRIPTOR_SET, 6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT, vsg::floatArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
-        shaderSet->addDescriptorBinding("diffuseMap", "VSG_DIFFUSE_MAP", MATERIAL_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
-        shaderSet->addDescriptorBinding("mrMap", "VSG_METALLROUGHNESS_MAP", MATERIAL_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec2Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32G32_SFLOAT}));
-        shaderSet->addDescriptorBinding("normalMap", "VSG_NORMAL_MAP", MATERIAL_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec3Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32G32B32_SFLOAT}));
-        shaderSet->addDescriptorBinding("aoMap", "VSG_LIGHTMAP_MAP", MATERIAL_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
-        shaderSet->addDescriptorBinding("emissiveMap", "VSG_EMISSIVE_MAP", MATERIAL_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
-        shaderSet->addDescriptorBinding("specularMap", "VSG_SPECULAR_MAP", MATERIAL_DESCRIPTOR_SET, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
-        shaderSet->addDescriptorBinding("material", "", MATERIAL_DESCRIPTOR_SET, 10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::PbrMaterialValue::create());
-
-        shaderSet->addDescriptorBinding("lightData", "", VIEW_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array::create(64));
-        shaderSet->addDescriptorBinding("viewportData", "", VIEW_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Value::create(0,0, 1280, 1024));
-        shaderSet->addDescriptorBinding("shadowMaps", "", VIEW_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
-
-        // additional defines
-        shaderSet->optionalDefines = {"VSG_GREYSCALE_DIFFUSE_MAP", "VSG_TWO_SIDED_LIGHTING", "VSG_WORKFLOW_SPECGLOSS"};
-
-        shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT, 0, 128);
-
-        shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_INSTANCE_POSITIONS", "VSG_DISPLACEMENT_MAP"}, vsg::PositionAndDisplacementMapArrayState::create()});
-        shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_INSTANCE_POSITIONS"}, vsg::PositionArrayState::create()});
-        shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_DISPLACEMENT_MAP"}, vsg::DisplacementMapArrayState::create()});
-        shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_BILLBOARD"}, vsg::BillboardArrayState::create()});
-
-        shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(VIEW_DESCRIPTOR_SET));
-
-        return shaderSet;
-    }
-
-
     void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)
     {
         // project_path = engine_path.append("Rendering/");
@@ -548,11 +493,22 @@ public:
         // gpc_shadow->assignTexture("depthImage", depth_info);
         // gpc_shadow->init();
 
-
-        auto params = vsg::floatArray::create(3);
-        params->set(0, render_width * 1.f);
-        params->set(1, render_height * 1.f);
-        params->set(2, 65.535);
+        struct MyParams
+        {
+            float semi_transparent;
+            int width;
+            int height;
+            float far;
+            int shader_type;
+        };
+        
+        auto params = vsg::ubyteArray::create(sizeof(MyParams));
+        auto* params_ptr = reinterpret_cast<MyParams*>(params->dataPointer());
+        params_ptr->semi_transparent = 1;
+        params_ptr->width = render_width;
+        params_ptr->height = render_height;
+        params_ptr->far = 65.535;
+        params_ptr->shader_type = shader_type;
 
         PlaneData planeData = createTestPlanes();
         float subdivisions = 0.1;
@@ -587,20 +543,20 @@ public:
             // rootSwitch->addChild(MASK_PBR_FULL, pbrStateGroup);
             // rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowStateGroup);
         }
-        auto params1 = vsg::floatArray::create(4);
-        params1->set(0, 1);
-        params1->set(1, render_width * 1.f);
-        params1->set(2, render_height * 1.f);
-        params1->set(3, 65.535);
+        // auto params1 = vsg::floatArray::create(4);
+        // params1->set(0, 1);
+        // params1->set(1, render_width * 1.f);
+        // params1->set(2, render_height * 1.f);
+        // params1->set(3, 65.535);
         CADMesh::camera_info = camera_info;
         CADMesh::depth_info = depth_info;
-        CADMesh::params = params1;
+        CADMesh::params = params;
         if(shadow_recevier_path != "")
         {
             CADMesh* shadow_recevier_mesh = new CADMesh();
             // string texture = engine_path + "asset/data/obj/Medieval_building";
             string texture = engine_path + "asset/data/obj/helicopter-engine";
-            shadow_recevier_mesh->preprocessProtoData(shadow_recevier_path.c_str(), texture.c_str(), shadow_recevier_transform, shadow_shader, shadowGroup);
+            shadow_recevier_mesh->preprocessProtoData(shadow_recevier_path.c_str(), texture.c_str(), shadow_recevier_transform, shadow_shader, shadowGroup, "shadow_receiver");
             // ModelInstance* shadow_recevier_instance = new ModelInstance();
             // shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, shadowGroup, shadow_shader, shadow_recevier_transform, camera_info, depth_info, params);
             // scenegraph->addChild(shadowStateGroup);
@@ -626,12 +582,12 @@ public:
             }
             if(format == "obj")
             {
-                transfer_model->preprocessProtoData(path_i.c_str(), texture_path_i.c_str(), model_transforms[i], pbriblShaderSet, modelGroup); //读取obj文件
+                transfer_model->preprocessProtoData(path_i.c_str(), texture_path_i.c_str(), model_transforms[i], pbriblShaderSet, modelGroup, instance_names[i]); //读取obj文件
             }
             else if(format == "fb")
             {
                 //transfer_model->transferModel(model_paths[i], fullNormal, model_transforms[i]);
-                transfer_model->preprocessFBProtoData(path_i, texture_path_i.c_str(), model_transforms[i], pbriblShaderSet, modelGroup);
+                transfer_model->preprocessFBProtoData(path_i, texture_path_i.c_str(), model_transforms[i], pbriblShaderSet, modelGroup, instance_names[i]);
             }
 
 
@@ -672,14 +628,42 @@ public:
         viewer->addWindow(window);
         auto view = vsg::View::create(camera, scenegraph_safe);
         // view->features = vsg::RECORD_LIGHTS;
-        view->mask = MASK_SKYBOX | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
+        view->mask = MASK_CAMERA_IMAGE | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
         view->viewDependentState = CustomViewDependentState::create(view.get());
         auto renderGraph = vsg::RenderGraph::create(window, view);
         renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
         auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
         renderGraph->addChild(renderImGui);
         auto commandGraph = vsg::CommandGraph::create(window);
+
+        // create the compute graph to compute the positions of the vertices
+        // to use a different queue family, we need to use VK_SHARING_MODE_CONCURRENT with queueFamilyIndices for VkBuffer, or implement a queue family ownership transfer with a BufferMemoryBarrier
+        //auto computeQueueFamily = physicalDevice->getQueueFamily(VK_QUEUE_COMPUTE_BIT);
+        auto computeQueueFamily = commandGraph->queueFamily;
+        auto computeCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily);
+        {
+            vsg::DescriptorSetLayoutBindings descriptorBindings{
+                {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr} // ClipSettings uniform
+            };
+            auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
+            auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
+            auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex.comp", options);
+            auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
+            auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
+            computeCommandGraph->addChild(bindPipeline);
+
+            for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
+                ProtoData* proto_data = proto_data_itr.second;
+                auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                auto descriptorSet = vsg::DescriptorSet::create( descriptorSetLayout, vsg::Descriptors{storageBuffer});
+                auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
+                computeCommandGraph->addChild(bindDescriptorSet);
+                computeCommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
+            }
+        }
+
         commandGraph->addChild(renderGraph);
+
         viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
         viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
         viewer->addEventHandler(vsg::Trackball::create(camera));
@@ -716,7 +700,7 @@ public:
         // Shadow_commandGraph->addChild(Shadow_renderGraph);
 
         std::cout << "Shadow Window" << std::endl;
-        viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
+        viewer->assignRecordAndSubmitTaskAndPresentation({computeCommandGraph, commandGraph});
         viewer->setupThreading();
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
         // std::cout << "4" << std::endl;
@@ -754,7 +738,14 @@ public:
     }
     
     void updateObjectPose(std::string instance_name, vsg::dmat4 model_matrix){
-        instance_phongs[instance_name]->nodePtr[""].transform->matrix = model_matrix;
+        auto& matrix_index = CADMesh::id_to_matrix_index_map[instance_name];
+
+        for(int i = 0; i < matrix_index.size(); i ++){
+            auto proto = matrix_index[i].proto_data;
+            auto index = matrix_index[i].index;
+            proto->instance_buffer->set(index, vsg::mat4(model_matrix));
+            proto->instance_buffer->dirty();
+        }
     }
 
     void updateEnvLighting(){

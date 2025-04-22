@@ -1,23 +1,30 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
-layout(std140, binding = 0) buffer Positions
-{
-  vec4 positions[];
-};
+layout(set = 0, binding = 0) buffer ComputeScale {
+  	uint indexCount;
+  	uint instanceCount;
+  	uint firstIndex;
+  	int vertexOffset;
+  	uint firstInstance;
+}computeScale;
 
-layout(set = 0, binding = 1) uniform ComputeScale {
-    vec4 scale;
-};
-
-layout (local_size_x = 256) in;
+layout (local_size_x = 32) in;
 
 void main()
 {
-  uint i = gl_GlobalInvocationID.x % 16;
-  uint j = gl_GlobalInvocationID.x / 16;
-  float x = 1.0 / 15 * i - 0.5;
-  float y = 1.0 / 15 * j - 0.5;
-  float z = (0.25 * sin(2.0 * 3.14 * x) + 0.25 * cos(2.0 * 3.14 * y));
-  positions[gl_GlobalInvocationID.x] = vec4(x, y, z, 1) * scale;
+	//if(computeScale.indexCount < 0 || computeScale.indexCount % 3 != 0)
+	//	computeScale.indexCount = 0;
+	//else
+	//	computeScale.indexCount += 30;
+
+    //if (gl_LocalInvocationID.x == 0 && gl_WorkGroupID.x == 0) {
+    //    atomicExchange(computeScale.instanceCount, 0);
+    //}
+	//memoryBarrierBuffer(); // 确保清空操作对其他线程可见
+
+  	//computeScale.instanceCount += 1;
+  	computeScale.firstIndex = 0;
+  	computeScale.vertexOffset = 0;
+  	computeScale.firstInstance = 0;
 }

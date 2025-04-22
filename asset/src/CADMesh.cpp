@@ -6,10 +6,12 @@
 
 vsg::ImageInfoList CADMesh::camera_info;
 vsg::ImageInfoList CADMesh::depth_info;
-vsg::ref_ptr<vsg::floatArray> CADMesh::params;
+vsg::ref_ptr<vsg::Data> CADMesh::params;
 std::unordered_map<std::string, vsg::ImageInfoList> CADMesh::texture_name_to_image_map;
 std::unordered_map<std::string, ProtoData*> CADMesh::proto_id_to_data_map;
 std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> CADMesh::materials;
+
+std::unordered_map<std::string, std::vector<MatrixIndex>> CADMesh::id_to_matrix_index_map;
 
 template<typename T>
 vsg::vec3 CADMesh::toVec3(const flatbuffers::Vector<T>* flat_vector, int begin)
@@ -458,33 +460,42 @@ void CADMesh::CreateDefaultMaterials(){
     vsg::ref_ptr<vsg::PbrMaterialValue> default_material0 = vsg::PbrMaterialValue::create();
     default_material0->value().baseColorFactor.set(0, 0, 0, 1);
     default_material0->value().metallicFactor = 0.392f;
-    default_material0->value().roughnessFactor = 0.259f;
+    default_material0->value().roughnessFactor = 0.651;
     CADMesh::materials.push_back(default_material0);
     vsg::ref_ptr<vsg::PbrMaterialValue> default_material1 = vsg::PbrMaterialValue::create();
-    default_material1->value().baseColorFactor.set(0.2, 0.2, 0.2, 1);
+    default_material1->value().baseColorFactor.set(0.176, 0.2, 0.151, 1);
     default_material1->value().metallicFactor = 0.909f;
-    default_material1->value().roughnessFactor = 1.0f;
+    default_material1->value().roughnessFactor = 0.899f;
     CADMesh::materials.push_back(default_material1);
     vsg::ref_ptr<vsg::PbrMaterialValue> default_material2 = vsg::PbrMaterialValue::create();
-    default_material2->value().baseColorFactor.set(0.927, 0, 0, 1);
-    default_material2->value().metallicFactor = 0.619f;
-    default_material2->value().roughnessFactor = 0.696f;
+    default_material2->value().baseColorFactor.set(0.439, 0, 0, 1);
+    default_material2->value().metallicFactor = 0.522f;
+    default_material2->value().roughnessFactor = 1.f;
     CADMesh::materials.push_back(default_material2);
     vsg::ref_ptr<vsg::PbrMaterialValue> default_material3 = vsg::PbrMaterialValue::create();
-    default_material3->value().baseColorFactor.set(1, 0.659, 0, 1);
+    default_material3->value().baseColorFactor.set(0.780, 0.402, 0.013, 1);
     default_material3->value().metallicFactor = 0.384f;
-    default_material3->value().roughnessFactor = 0.829f;
+    default_material3->value().roughnessFactor = 0.273;
     CADMesh::materials.push_back(default_material3);
 }
 
-void CADMesh::preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene)
+void CADMesh::preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)
 {
-    // if(proto_ids.size() > 0){
-    //     for(auto& id: proto_ids){
-    //         proto_id_to_data_map[id]->instance_matrix.push_back(modelMatrix);
-    //     }
-    //     return;
-    // }
+    if(proto_ids.size() > 0){
+        for(auto& id: proto_ids){
+            for(int i = 0; i < proto_id_default_matrix_map[id].size(); i ++){
+                auto matrix = proto_id_default_matrix_map[id][i];
+                auto proto_instance_name = proto_id_instance_name_map[id][i];
+                proto_id_to_data_map[id]->instance_matrix.push_back(matrix);
+                proto_id_to_data_map[id]->instance_matrix.push_back(modelMatrix);
+
+                auto proto_data = proto_id_to_data_map[id];
+                id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[id][i]].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 2));
+                id_to_matrix_index_map[model_instance_name].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
+            }
+        }
+        return;
+    }
 
     bool LoadByJson = false; 
 	//执行接口的init方法：包含Json文件读取等一些初始化操作
@@ -571,6 +582,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
             int num = modelfbs.matrixNum;
             auto matrix = modelfbs.matrix;
             auto type = modelfbs.type;
+            auto protoId = modelfbs.protoId;
             auto modelGeo = modelfbs.geo;
             auto modelIndex = modelGeo->getIndex();
             auto position = modelGeo->getPosition();
@@ -587,7 +599,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
             auto roughness = modelPar->mRoughness;
             auto transmission = modelPar->mTransmission;
             auto material = modelPar->getMaterialName();//这里得到材质的名称(未生效)
-
+            auto proto_instance_ids = modelfbs.instanceIds;
             std::string testcolor = color.substr(1);
             // std::cout << testcolor << std::endl;
             // // 将 hex 转换为 RGB
@@ -651,7 +663,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                 std::copy(modelIndex.begin(), modelIndex.end(), indices_beginPointer);
 
                 ProtoData* proto_data;
-                std::string proto_id = modelfbs.protoId + std::to_string(o);
+                std::string proto_id = model_path + modelfbs.protoId + std::to_string(o);
                 proto_ids.push_back(proto_id);
                 {
                     proto_data = new ProtoData();
@@ -659,6 +671,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     proto_data->normals = normals;
                     proto_data->uvs = uvs;
                     proto_data->indices = indices;
+                    proto_data->proto_id = protoId;
                     // if(i < mtr_ids.size() && textures.size() > mtr_ids[i]){
                     //     proto_data->diffuse_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][0];
                     //     proto_data->normal_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][1];
@@ -674,15 +687,30 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     proto_data->scene = scene;
                     proto_id_to_data_map[proto_id] = proto_data;
                 }
+                proto_id_default_matrix_map[proto_id] = std::vector<vsg::dmat4>();
+                proto_id_instance_name_map[proto_id] = std::vector<std::string>();
                 for(int m_i = 0; m_i < matrix.size() / 16; m_i++){
                     vsg::dmat4 transforms_matrix;
                     for (int m = 0; m < 4; m++)
                         for (int n = 0; n < 4; n++)
                             transforms_matrix[m][n] = matrix[m_i * 16 + m * 4 + n];
+
+                    proto_id_default_matrix_map[proto_id].push_back(transforms_matrix);
+                    proto_id_instance_name_map[proto_id].push_back(proto_instance_ids[m_i]);
+
                     proto_data->instance_matrix.push_back(transforms_matrix);
                     proto_data->instance_matrix.push_back(modelMatrix);
-                }
 
+                    std::cout << "proto_instance_ids[m_i] " << model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i] << std::endl;
+                    if(id_to_matrix_index_map.find(model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i]) == id_to_matrix_index_map.end())
+                        id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i]] = std::vector<MatrixIndex>();
+                    id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i]].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 2));
+
+                    if(id_to_matrix_index_map.find(model_instance_name) == id_to_matrix_index_map.end())
+                        id_to_matrix_index_map[model_instance_name] = std::vector<MatrixIndex>();
+                    id_to_matrix_index_map[model_instance_name].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
+                }
+                std::cout << std::endl;
 
 
                 // //以零件为单位来进行绘制，每个零件都有单独的数据
@@ -719,7 +747,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
     // }
 }
 
-void CADMesh::preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene)
+void CADMesh::preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)
 {
     if(proto_ids.size() > 0){
         for(auto& id: proto_ids){
@@ -756,13 +784,14 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
     std::vector<int> mtr_ids;
     std::cout << material_path << std::endl;
     objLoader.load_obj(model_path, material_path, vertices, normals, verticesUV, colors, materials, indices, textures, mtr_ids);
-    //std::cout <<"success Loading obj "<<material_path<<std::endl;
-
+    std::cout <<"success Loading obj "<<material_path<<std::endl;
+    std::cout << "indices.size()" << indices.size() << std::endl;
     for (int i = 0; i < indices.size(); i += 1)
     {
         std::unordered_map<TinyModelVertex, uint32_t> uniqueVertices; //存储点信息，相同点只存一份
         std::vector<TinyModelVertex> mVertices;
         std::vector<uint32_t> mIndices;
+        std::cout << "indices[i][0]->size()" << indices[i][0]->size() << std::endl;
         for(int j = 0; j < indices[i][0]->size(); j ++){
             TinyModelVertex vertex;
             int index_pos = indices[i][0]->at(j);
@@ -770,7 +799,8 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
             int index_normal = indices[i][1]->at(j);
             vertex.normal = normals->at(index_normal);
             int index_coord = indices[i][2]->at(j);
-            vertex.uv = verticesUV->at(index_coord);    
+            if(index_coord < verticesUV->size())
+                vertex.uv = verticesUV->at(index_coord);    
             if (uniqueVertices.count(vertex) == 0) //if unique 唯一
             {                                      //push进数组。记录位置
                 uniqueVertices[vertex] = static_cast<uint32_t>(mVertices.size());
@@ -790,7 +820,6 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
         for(int m = 0; m < mIndices.size(); m ++){
             indices_i->at(m) = mIndices[m];
         }
-
         ProtoData* proto_data;
         std::string proto_id = model_path + std::to_string(i);
         proto_ids.push_back(proto_id);
@@ -852,6 +881,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
         ProtoData* proto_data = proto_data_itr.second;
         auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(proto_data->shaderset);
         proto_data->instance_buffer = vsg::mat4Array::create(proto_data->instance_matrix.size());
+        proto_data->instance_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
         for(int i = 0; i < proto_data->instance_matrix.size(); i ++){
             proto_data->instance_buffer->set(i, vsg::mat4(proto_data->instance_matrix[i]));
         }
@@ -884,9 +914,34 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
         auto drawCommands = vsg::Commands::create();
         drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
         drawCommands->addChild(vsg::BindIndexBuffer::create(proto_data->indices));
-        auto draw_indexed = vsg::DrawIndexed::create(proto_data->indices->size(), proto_data->instance_matrix.size() / 2, 0, 0, 0);
-        draw_indexed->instanceMatrix = proto_data->instance_buffer;
-        drawCommands->addChild(draw_indexed);
+
+        for (uint32_t i = 0; i < proto_data->indices->size(); ++i)
+        {
+            proto_data->bounds.add(proto_data->vertices->at(proto_data->indices->at(i)));
+        }
+
+
+        VkDrawIndexedIndirectCommand cmd = {
+            .indexCount = proto_data->indices->size(),      // 例如：3000 个三角形 × 3
+            .instanceCount = proto_data->instance_matrix.size() / 2,     // 绘制 10 个实例
+            .firstIndex = 0,         // 从索引 0 开始
+            .vertexOffset = 0,       // 无顶点偏移
+            .firstInstance = 0       // 实例 ID 从 0 开始
+        };
+        auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
+        indirectBuffer->set(0, cmd);
+        auto draw_indirect = vsg::DrawIndexedIndirect::create(
+            indirectBuffer,  // 间接命令缓冲区
+            1,              // 绘制命令数量
+            sizeof(VkDrawIndexedIndirectCommand) // 命令步长
+        );
+        draw_indirect->instanceMatrix = proto_data->instance_buffer;
+        proto_data->draw_indirect = draw_indirect;
+        proto_data->full_buffer = vsg::BufferInfo::create();
+        drawCommands->addChild(draw_indirect);
+        // auto draw_indexed = vsg::DrawIndexed::create(proto_data->indices->size(), proto_data->instance_matrix.size() / 2, 0, 0, 0);
+        // draw_indexed->instanceMatrix = proto_data->instance_buffer;
+        // drawCommands->addChild(draw_indexed);
         graphicsPipelineConfig->init();
         auto stateGroup = vsg::StateGroup::create();
         graphicsPipelineConfig->copyTo(stateGroup);

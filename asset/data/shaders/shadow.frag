@@ -40,9 +40,10 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
 
 layout (set = MATERIAL_DESCRIPTOR_SET, binding = 9) uniform params {
 	float semitransparent;
-	float width;
-	float height;
+	int width;
+	int height;
     float z_far;
+    int shader_type;
 } extraParams;
 
 
@@ -233,12 +234,17 @@ float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex){
 
 void main()
 {
-    float cadDepth = -eyePos.z / extraParams.z_far;
     vec2 screen_uv = vec2(gl_FragCoord.x / extraParams.width, gl_FragCoord.y / extraParams.height);
-    float cameraDepth = texture(depthImage, screen_uv).r;
-    if(cadDepth > cameraDepth){
+    if(extraParams.shader_type == 0){
         outColor = texture(cameraImage, screen_uv);
         return;
+    }else{
+        float cadDepth = -eyePos.z / extraParams.z_far;
+        float cameraDepth = texture(depthImage, screen_uv).r;
+        if(cadDepth > cameraDepth){
+            outColor = texture(cameraImage, screen_uv);
+            return;
+        }
     }
 
     float brightnessCutoff = 0.001;

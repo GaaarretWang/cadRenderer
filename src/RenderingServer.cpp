@@ -17,43 +17,58 @@ int RenderingServer::Init(int argc, char** argv){
                                     0, 20, 0, 0, 
                                     0, 0, 20, 0, 
                                     0, 0, 0, 1));
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
+    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.0, 1) * init_model_transforms[0]
                                * vsg::dmat4(
-                                    0.2, 0, 0, 0, 
-                                    0, 0.2, 0, 0, 
-                                    0, 0, 0.2, 0, 
+                                    20, 0, 0, 0, 
+                                    0, 20, 0, 0, 
+                                    0, 0, 20, 0, 
                                     0, 0, 0, 1));
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
-                               * vsg::dmat4(
-                                    0.2, 0, 0, 0, 
-                                    0, 0.2, 0, 0, 
-                                    0, 0, 0.2, 0, 
-                                    0, 0, 0, 1));
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
-                               * vsg::dmat4(
-                                    0.2, 0, 0, 0, 
-                                    0, 0.2, 0, 0, 
-                                    0, 0, 0.2, 0, 
-                                    0, 0, 0, 1));
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
+    //                            * vsg::dmat4(
+    //                                 0.2, 0, 0, 0, 
+    //                                 0, 0.2, 0, 0, 
+    //                                 0, 0, 0.2, 0, 
+    //                                 0, 0, 0, 1));
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
+    //                            * vsg::dmat4(
+    //                                 0.2, 0, 0, 0, 
+    //                                 0, 0.2, 0, 0, 
+    //                                 0, 0, 0.2, 0, 
+    //                                 0, 0, 0, 1));
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
+    //                            * vsg::dmat4(
+    //                                 0.2, 0, 0, 0, 
+    //                                 0, 0.2, 0, 0, 
+    //                                 0, 0, 0.2, 0, 
+    //                                 0, 0, 0, 1));
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
+    //                            * vsg::dmat4(
+    //                                 0.2, 0, 0, 0, 
+    //                                 0, 0.2, 0, 0, 
+    //                                 0, 0, 0.2, 0, 
+    //                                 0, 0, 0, 1));
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.991005, 1) * init_model_transforms[1]);
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.491005, 1) * init_model_transforms[1] * mat);
+    // model_paths.push_back(rendering_dir + "asset/data/obj/Standtube.obj");
     // model_paths.push_back(rendering_dir + "asset/data/geos/大舱壁-ASM(PMI).fb");
     // model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
     // model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
     // model_paths.push_back(rendering_dir + "asset/data/obj/Medieval_building/output.obj");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/handNode_0.fb");
     model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
+    model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/zhijiaC.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/SeatPart.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/LandingGear.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/airplaneBody.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/Engine.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/obj/小舱壁-ASM-修改焊接后.obj");
     // instance_names.push_back("大舱壁-ASM(PMI)");
     // instance_names.push_back("小舱壁-ASM-修改焊接后0");
     // instance_names.push_back("大舱壁-ASM(PMI)");
     // instance_names.push_back("Medieval_building");
     // instance_names.push_back("Medieval_building1");
     instance_names.push_back("YIBIAOPAN1");
-    // instance_names.push_back("YIBIAOPAN2");
+    instance_names.push_back("YIBIAOPAN2");
     // instance_names.push_back("YIBIAOPAN3");
     // instance_names.push_back("YIBIAOPAN4");
     // instance_names.push_back("texture");
@@ -79,11 +94,23 @@ int RenderingServer::Update(){
     //     renderer.hdr_image_num = 0;
     //     renderer.updateEnvLighting();
     // }
-    //model_transforms[2][3][2] += 0.005;
-    // if(model_transforms[2][3][2] > -0.45)
-    //     model_transforms[2][3][2] = -0.679909;
 
-    // renderer.updateObjectPose("YIBIAOPAN", model_transforms[1]);
+    // model_transforms[0][3][2] += 0.005;
+    // if(model_transforms[0][3][2] > -0.45)
+    //     model_transforms[0][3][2] = -0.679909;
+    // renderer.updateObjectPose("YIBIAOPAN1", model_transforms[0]);
+
+    // a proto instance movement
+    // vsg::dmat4 matrix = vsg::dmat4(0.173648, 0, 0, 0,
+    //                                0.984808, 0, -0.173648, 0,
+    //                                0, 1, 0, 0,
+    //                                -238.327, -215.6, 22.5233, 1);
+    // static double z_offset = 0.0;
+    // z_offset += 0.5;
+    // if(z_offset > 20)
+    //     z_offset = 0;
+    // matrix[3][2] += z_offset;
+    // renderer.updateObjectPose("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", matrix);
 
     // if(frame_count % 64 == 31)
     // {

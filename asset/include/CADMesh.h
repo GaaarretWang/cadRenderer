@@ -77,7 +77,8 @@ struct treeNode
 
 struct ProtoData
 {
-    vsg::dbox bouding_box;
+    vsg::dbox bounds;
+    std::string proto_id = "";
     vsg::ref_ptr<vsg::vec3Array> vertices;
     vsg::ref_ptr<vsg::vec3Array> normals;
     vsg::ref_ptr<vsg::vec2Array> uvs;
@@ -91,6 +92,16 @@ struct ProtoData
     std::vector<vsg::dmat4> instance_matrix;
     vsg::ref_ptr<vsg::ShaderSet> shaderset;
     vsg::ref_ptr<vsg::Group> scene;
+    vsg::ref_ptr<vsg::DrawIndexedIndirect> draw_indirect;
+    vsg::ref_ptr<vsg::BufferInfo> full_buffer;
+};
+
+struct MatrixIndex
+{
+    ProtoData* proto_data;
+    int index;
+
+    MatrixIndex(ProtoData* proto_data, int index): proto_data(proto_data), index(index){}
 };
 
 namespace std
@@ -216,17 +227,23 @@ public:
     
     static vsg::ImageInfoList camera_info;
     static vsg::ImageInfoList depth_info;
-    static vsg::ref_ptr<vsg::floatArray> params;
+    static vsg::ref_ptr<vsg::Data> params;
     static std::unordered_map<std::string, vsg::ImageInfoList> texture_name_to_image_map;
     static std::unordered_map<std::string, ProtoData*> proto_id_to_data_map;
     static std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> materials;
+
+    static std::unordered_map<std::string, std::vector<MatrixIndex>> id_to_matrix_index_map;
+
     std::vector<std::string> proto_ids;
+    std::unordered_map<std::string, std::vector<vsg::dmat4>> proto_id_default_matrix_map;
+    std::unordered_map<std::string, std::vector<std::string>> proto_id_instance_name_map;
+
 
     //����ģ��
     void buildNewNode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene);
     void buildObjNode(const char* path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene);
     static void CreateDefaultMaterials();
-    void preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene);
-    void preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene);
+    void preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string instance_name);
+    void preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string instance_name);
     static void buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene);
 };
