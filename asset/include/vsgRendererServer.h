@@ -640,19 +640,20 @@ public:
         view->viewDependentState = CustomViewDependentState::create(view.get());
         auto renderGraph = vsg::RenderGraph::create(window, view);
         renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
-        auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
-        renderGraph->addChild(renderImGui);
+        // auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
+        // renderGraph->addChild(renderImGui);
         auto commandGraph = vsg::CommandGraph::create(window);
+        auto commandGraph1 = vsg::CommandGraph::create(window);
 
         auto view1 = vsg::View::create(camera, scenegraph_safe);
         // view->features = vsg::RECORD_LIGHTS;
-        view1->mask = MASK_CAMERA_IMAGE | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
+        view1->mask = MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
         view1->viewDependentState = CustomViewDependentState::create(view1.get());
         auto renderGraph1 = vsg::RenderGraph::create(window, view1);
         // renderGraph1->getRenderPass()->attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
         renderGraph1->clearValues[0].color = {{0.f, 0.f, 0.f, 0.f}};
-        // auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
-        // renderGraph1->addChild(renderImGui);
+        auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
+        renderGraph1->addChild(renderImGui);
 
         // create the compute graph to compute the positions of the vertices
         // to use a different queue family, we need to use VK_SHARING_MODE_CONCURRENT with queueFamilyIndices for VkBuffer, or implement a queue family ownership transfer with a BufferMemoryBarrier
@@ -796,17 +797,17 @@ public:
             VK_QUEUE_FAMILY_IGNORED
         );
 
-        // commandGraph->addChild(computeCommandGraph);
-        // commandGraph->addChild(pipelineBarrier_compute_to_render);
-        // commandGraph->addChild(renderGraph);
-        // commandGraph->addChild(pipelineBarrier_render0_to_compute1);
-        commandGraph->addChild(computeCommandGraph1);
-        // commandGraph->addChild(pipelineBarrier_compute_to_render);
-        commandGraph->addChild(renderGraph1);
+        commandGraph->addChild(computeCommandGraph);
+        commandGraph->addChild(pipelineBarrier_compute_to_render);
+        commandGraph->addChild(renderGraph);
+        commandGraph1->addChild(pipelineBarrier_render0_to_compute1);
+        commandGraph1->addChild(computeCommandGraph1);
+        commandGraph1->addChild(pipelineBarrier_compute_to_render);
+        commandGraph1->addChild(renderGraph1);
 
         std::cout << "Shadow Window" << std::endl;
-        viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
-        viewer->setupThreading();
+        viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph, commandGraph1});
+        // viewer->setupThreading();
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
         // std::cout << "4" << std::endl;
 
@@ -882,7 +883,8 @@ public:
         camera_matrix->dirty();
         auto t0 = std::chrono::high_resolution_clock::now();
         while (viewer->advanceToNextFrame()) {
-            // colorImageBarrier->image = window->imageView(window->imageIndex())->image;
+            colorImageBarrier->image = window->imageView(window->imageIndex())->image;
+            
             auto t1 = std::chrono::high_resolution_clock::now();
             fix_depth(width, height, depth_pixels);
 
