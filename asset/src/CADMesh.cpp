@@ -885,7 +885,11 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
         for(int i = 0; i < proto_data->instance_matrix.size(); i ++){
             proto_data->instance_buffer->set(i, vsg::mat4(proto_data->instance_matrix[i]));
         }
-        graphicsPipelineConfig->assignUniform("instanceModelMatrix", proto_data->instance_buffer);
+        proto_data->input_instance_buffer_info = vsg::BufferInfo::create(proto_data->instance_buffer);
+        proto_data->output_instance_buffer_info = vsg::BufferInfo::create(proto_data->instance_buffer);
+
+        vsg::BufferInfoList info_list = {proto_data->output_instance_buffer_info};
+        graphicsPipelineConfig->assignDescriptor("instanceModelMatrix", info_list);
         if(proto_data->diffuse_path != ""){
             graphicsPipelineConfig->assignTexture("diffuseMap", texture_name_to_image_map[proto_data->diffuse_path]);
         }
@@ -905,6 +909,13 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
         }
         else
             graphicsPipelineConfig->assignDescriptor("material", mat);
+
+        vsg::box bounds;
+        for (uint32_t i = 0; i < proto_data->indices->size(); ++i)
+        {
+            bounds.add(proto_data->vertices->at(proto_data->indices->at(i)));
+        }
+        
         auto colors = vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f});
         vsg::DataList vertexArrays;
         graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->vertices);
@@ -915,11 +926,11 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
         drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
         drawCommands->addChild(vsg::BindIndexBuffer::create(proto_data->indices));
 
-        for (uint32_t i = 0; i < proto_data->indices->size(); ++i)
-        {
-            proto_data->bounds.add(proto_data->vertices->at(proto_data->indices->at(i)));
-        }
-
+        proto_data->bounds_data = vsg::vec4Array::create(2);
+        proto_data->bounds_data->set(0, vsg::vec4(bounds.min.x, bounds.min.y, bounds.min.z, 1));
+        proto_data->bounds_data->set(1, vsg::vec4(bounds.max.x, bounds.max.y, bounds.max.z, 1));
+        proto_data->bounds_data->properties.dataVariance = vsg::DYNAMIC_DATA;
+        proto_data->bounds_buffer_info = vsg::BufferInfo::create(proto_data->bounds_data);
 
         VkDrawIndexedIndirectCommand cmd = {
             .indexCount = proto_data->indices->size(),      // 例如：3000 个三角形 × 3
@@ -928,6 +939,11 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
             .vertexOffset = 0,       // 无顶点偏移
             .firstInstance = 0       // 实例 ID 从 0 开始
         };
+        auto indirect_full_buffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
+        indirect_full_buffer->set(0, cmd);
+        auto indirect_full_buffer_info = vsg::BufferInfo::create(indirect_full_buffer);
+        proto_data->indirect_full_buffer_info = indirect_full_buffer_info;
+
         auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
         indirectBuffer->set(0, cmd);
         auto draw_indirect = vsg::DrawIndexedIndirect::create(
@@ -937,7 +953,6 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
         );
         draw_indirect->instanceMatrix = proto_data->instance_buffer;
         proto_data->draw_indirect = draw_indirect;
-        proto_data->full_buffer = vsg::BufferInfo::create();
         drawCommands->addChild(draw_indirect);
         // auto draw_indexed = vsg::DrawIndexed::create(proto_data->indices->size(), proto_data->instance_matrix.size() / 2, 0, 0, 0);
         // draw_indexed->instanceMatrix = proto_data->instance_buffer;

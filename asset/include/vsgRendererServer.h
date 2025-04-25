@@ -67,6 +67,12 @@ class vsgRendererServer
     std::string texture_path = "asset/data/obj/helicopter-engine";
     // std::string texture_path = "asset/data/obj/Medieval_building";
 
+    struct CameraPlaneInfo{
+        vsg::vec4 n[6];
+    };
+    CameraPlaneInfo camera_plane_info;
+
+
     float fx = 386.52199190267083;//焦距(x轴上)
     float fy = 387.32300428823663;//焦距(y轴上)
     float cx = 326.5103569741365;//图像中心点(x轴)
@@ -84,10 +90,12 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::Data> vsg_depth_image;
     vsg::ImageInfoList camera_info;
     vsg::ImageInfoList depth_info;
+    vsg::ref_ptr<vsg::mat4Array> camera_matrix = vsg::mat4Array::create(1);
+    vsg::ref_ptr<vsg::BufferInfo> camera_matrix_buffer_info;
 
     //every frame's real color and depth
-    unsigned char * color_pixels;
-    unsigned short * depth_pixels;
+    unsigned char * color_pixels = nullptr;
+    unsigned short * depth_pixels = nullptr;
     mergeShaderType shader_type;
 
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_4_BIT;//多重采样的倍数
@@ -628,7 +636,7 @@ public:
         viewer->addWindow(window);
         auto view = vsg::View::create(camera, scenegraph_safe);
         // view->features = vsg::RECORD_LIGHTS;
-        view->mask = MASK_CAMERA_IMAGE | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
+        view->mask = MASK_CAMERA_IMAGE | MASK_PBR_FULL;
         view->viewDependentState = CustomViewDependentState::create(view.get());
         auto renderGraph = vsg::RenderGraph::create(window, view);
         renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
@@ -636,33 +644,85 @@ public:
         renderGraph->addChild(renderImGui);
         auto commandGraph = vsg::CommandGraph::create(window);
 
+        auto view1 = vsg::View::create(camera, scenegraph_safe);
+        // view->features = vsg::RECORD_LIGHTS;
+        view1->mask = MASK_CAMERA_IMAGE | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
+        view1->viewDependentState = CustomViewDependentState::create(view1.get());
+        auto renderGraph1 = vsg::RenderGraph::create(window, view1);
+        // renderGraph1->getRenderPass()->attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        renderGraph1->clearValues[0].color = {{0.f, 0.f, 0.f, 0.f}};
+        // auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
+        // renderGraph1->addChild(renderImGui);
+
         // create the compute graph to compute the positions of the vertices
         // to use a different queue family, we need to use VK_SHARING_MODE_CONCURRENT with queueFamilyIndices for VkBuffer, or implement a queue family ownership transfer with a BufferMemoryBarrier
         //auto computeQueueFamily = physicalDevice->getQueueFamily(VK_QUEUE_COMPUTE_BIT);
         auto computeQueueFamily = commandGraph->queueFamily;
         auto computeCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily);
+        auto computeCommandGraph1 = vsg::CommandGraph::create(device, computeQueueFamily);
         {
+            camera_plane_info.n[0] = vsg::normalize(vsg::vec4(0, 0, -1, -near_plane));
+            camera_plane_info.n[1] = vsg::normalize(vsg::vec4(0, 0, 1, far_plane));
+            camera_plane_info.n[2] = vsg::normalize(vsg::vec4(2*fx/width, 0, -2*cx/width, 0));
+            camera_plane_info.n[3] = vsg::normalize(vsg::vec4(-2*fx/width, 0, -2+2*cx/width, 0));
+            camera_plane_info.n[4] = vsg::normalize(vsg::vec4(0, 2*fy/height, -2+2*cy/height, 0));
+            camera_plane_info.n[5] = vsg::normalize(vsg::vec4(0, -2*fy/height, -2*cy/height, 0));
+
+            vsg::ref_ptr<vsg::Array<CameraPlaneInfo>> camera_plane_info_buffer = vsg::Array<CameraPlaneInfo>::create(1);
+            camera_plane_info_buffer->set(0, camera_plane_info);
+            auto camera_plane_info_buffer_info = vsg::BufferInfo::create(camera_plane_info_buffer);
+            camera_matrix->set(0, vsg::mat4(camera->viewMatrix->transform()));
+            camera_matrix_buffer_info = vsg::BufferInfo::create(camera_matrix);
+            camera_matrix->properties.dataVariance = vsg::DYNAMIC_DATA;
             vsg::DescriptorSetLayoutBindings descriptorBindings{
-                {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr} // ClipSettings uniform
+                {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+                {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+                {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+                {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+                {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+                {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+                {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
             };
             auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
             auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
-            auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex.comp", options);
-            auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
-            auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
-            computeCommandGraph->addChild(bindPipeline);
+            {
+                auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex.comp", options);
+                auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
+                auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
+                computeCommandGraph->addChild(bindPipeline);
 
-            for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
-                ProtoData* proto_data = proto_data_itr.second;
-                auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-                auto descriptorSet = vsg::DescriptorSet::create( descriptorSetLayout, vsg::Descriptors{storageBuffer});
-                auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
-                computeCommandGraph->addChild(bindDescriptorSet);
-                computeCommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
+                for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
+                    ProtoData* proto_data = proto_data_itr.second;
+                    auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
+                                                                                        proto_data->input_instance_buffer_info, proto_data->output_instance_buffer_info,
+                                                                                        camera_plane_info_buffer_info, proto_data->bounds_buffer_info,
+                                                                                        camera_matrix_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                    auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer});
+                    auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
+                    computeCommandGraph->addChild(bindDescriptorSet);
+                    computeCommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
+                }
+            }
+            {
+                auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex1.comp", options);
+                auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
+                auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
+                computeCommandGraph1->addChild(bindPipeline);
+
+                for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
+                    ProtoData* proto_data = proto_data_itr.second;
+                    auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
+                                                                                        proto_data->input_instance_buffer_info, proto_data->output_instance_buffer_info,
+                                                                                        camera_plane_info_buffer_info, proto_data->bounds_buffer_info,
+                                                                                        camera_matrix_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                    auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer});
+                    auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
+                    computeCommandGraph1->addChild(bindDescriptorSet);
+                    computeCommandGraph1->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
+                }
             }
         }
 
-        commandGraph->addChild(renderGraph);
 
         viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
         viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
@@ -698,9 +758,54 @@ public:
         // Shadow_renderGraph->clearValues[0].color = {{1.f, 1.f, 1.f, 1.f}};
         // auto Shadow_commandGraph = vsg::CommandGraph::create(shadow_window); //如果用Env_window会报错
         // Shadow_commandGraph->addChild(Shadow_renderGraph);
+        auto pipelineBarrier_compute_to_render = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+            0
+        );
+
+        // 遍历所有实例化数据 Buffer
+        for(auto& proto_data_itr : CADMesh::proto_id_to_data_map)
+        {
+            ProtoData* proto_data = proto_data_itr.second;
+            auto barrier = vsg::BufferMemoryBarrier::create(
+                VK_ACCESS_SHADER_WRITE_BIT,      // Compute Shader 写入
+                VK_ACCESS_INDIRECT_COMMAND_READ_BIT, // 顶点输入读取
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                proto_data->draw_indirect->bufferInfo->buffer,                  // 当前 Buffer
+                0,                               // 偏移量
+                VK_WHOLE_SIZE                    // 整个 Buffer
+            );
+            pipelineBarrier_compute_to_render->add(barrier);
+        }
+
+
+        auto pipelineBarrier_render0_to_compute1 = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // 源阶段
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,          // 目标阶段
+            0                                              // 依赖标志
+        );
+
+        colorImageBarrier = vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, // Render0 写入
+            VK_ACCESS_SHADER_READ_BIT, // Compute1 读取
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // 旧布局
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // 新布局
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED
+        );
+
+        // commandGraph->addChild(computeCommandGraph);
+        // commandGraph->addChild(pipelineBarrier_compute_to_render);
+        // commandGraph->addChild(renderGraph);
+        // commandGraph->addChild(pipelineBarrier_render0_to_compute1);
+        commandGraph->addChild(computeCommandGraph1);
+        // commandGraph->addChild(pipelineBarrier_compute_to_render);
+        commandGraph->addChild(renderGraph1);
 
         std::cout << "Shadow Window" << std::endl;
-        viewer->assignRecordAndSubmitTaskAndPresentation({computeCommandGraph, commandGraph});
+        viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
         viewer->setupThreading();
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
         // std::cout << "4" << std::endl;
@@ -715,13 +820,30 @@ public:
         screenshotHandler = ScreenshotHandler::create();        
         allocate_fix_depth_memory(render_width, render_height);
     }
+    vsg::ref_ptr<vsg::ImageMemoryBarrier> colorImageBarrier;
 
     void setRealColorAndImage(const std::string& real_color, const std::string& real_depth){
+        if (color_pixels) {
+            stbi_image_free(color_pixels);
+            color_pixels = nullptr;
+        }
+        if (depth_pixels) {
+            stbi_image_free(depth_pixels);
+            depth_pixels = nullptr;
+        }
         color_pixels = convert_image->convertColor(real_color);
         depth_pixels = convert_image->convertDepth(real_depth);
     }
 
     void setRealColorAndImage(unsigned char * real_color, unsigned short * real_depth){
+        if (color_pixels) {
+            stbi_image_free(color_pixels);
+            color_pixels = nullptr;
+        }
+        if (depth_pixels) {
+            stbi_image_free(depth_pixels);
+            depth_pixels = nullptr;
+        }
         color_pixels = real_color;
         depth_pixels = real_depth;
     }
@@ -755,10 +877,12 @@ public:
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
     }
 
-
     bool render() {
+        camera_matrix->set(0, (vsg::mat4)camera->viewMatrix->transform());
+        camera_matrix->dirty();
         auto t0 = std::chrono::high_resolution_clock::now();
         while (viewer->advanceToNextFrame()) {
+            // colorImageBarrier->image = window->imageView(window->imageIndex())->image;
             auto t1 = std::chrono::high_resolution_clock::now();
             fix_depth(width, height, depth_pixels);
 

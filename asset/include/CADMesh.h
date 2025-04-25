@@ -77,7 +77,8 @@ struct treeNode
 
 struct ProtoData
 {
-    vsg::dbox bounds;
+    vsg::ref_ptr<vsg::BufferInfo> bounds_buffer_info;
+    vsg::ref_ptr<vsg::vec4Array> bounds_data;
     std::string proto_id = "";
     vsg::ref_ptr<vsg::vec3Array> vertices;
     vsg::ref_ptr<vsg::vec3Array> normals;
@@ -88,12 +89,14 @@ struct ProtoData
     std::string mr_path = "";
     vsg::ref_ptr<vsg::PbrMaterialValue> material;
     vsg::ref_ptr<vsg::mat4Array> instance_buffer;
+    vsg::ref_ptr<vsg::BufferInfo> input_instance_buffer_info;
+    vsg::ref_ptr<vsg::BufferInfo> output_instance_buffer_info;
     std::vector<std::string> instance_id;
     std::vector<vsg::dmat4> instance_matrix;
     vsg::ref_ptr<vsg::ShaderSet> shaderset;
     vsg::ref_ptr<vsg::Group> scene;
     vsg::ref_ptr<vsg::DrawIndexedIndirect> draw_indirect;
-    vsg::ref_ptr<vsg::BufferInfo> full_buffer;
+    vsg::ref_ptr<vsg::BufferInfo> indirect_full_buffer_info;
 };
 
 struct MatrixIndex

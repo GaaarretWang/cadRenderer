@@ -134,6 +134,7 @@ int RenderingServer::Update(){
     vsg::dvec3 centre = {lookat_vector[0], lookat_vector[1], lookat_vector[2]};                    // 固定观察点
     vsg::dvec3 eye = {lookat_vector[3], lookat_vector[4], lookat_vector[5]};// 固定相机位置
     vsg::dvec3 up = {lookat_vector[6], lookat_vector[7], lookat_vector[8]};                       // 固定观察方向
+
     if(cameara_pos_bool){//停止位姿变化
         renderer.updateCamera(centre, eye, up);
         std::ifstream color_file(color_path, std::ios::binary | std::ios::app);
@@ -144,10 +145,9 @@ int RenderingServer::Update(){
         std::string real_color1(color_buffer.begin(), color_buffer.end());
         std::string real_depth1(depth_buffer.begin(), depth_buffer.end());
 
-        const std::string& real_color = real_color1;
-        const std::string& real_depth = real_depth1;
-        uint8_t* color_image;
-        renderer.setRealColorAndImage(real_color, real_depth);
+        color = real_color1;
+        depth = real_depth1;
+        renderer.setRealColorAndImage(color, depth);
 
         if(stop_cameara_pos)
             cameara_pos_bool = false;

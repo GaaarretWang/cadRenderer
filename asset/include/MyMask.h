@@ -26,7 +26,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 constexpr vsg::Mask MASK_PBR_FULL = 1ul;
 constexpr vsg::Mask MASK_SHADOW_CASTER = 2ul;
 constexpr vsg::Mask MASK_SHADOW_RECEIVER = 4ul;
-constexpr vsg::Mask MASK_DRAW_SHADOW = 4ul;
 constexpr vsg::Mask MASK_SKYBOX = 8ul;
 constexpr vsg::Mask MASK_WIREFRAME = 16ul;
 constexpr vsg::Mask MASK_CAMERA_IMAGE = 32ul;

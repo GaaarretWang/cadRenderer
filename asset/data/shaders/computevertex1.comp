@@ -100,7 +100,7 @@ void main() {
     }
 
     // 如果没有被完全遮挡，则设置实例可见
-    if (!culled && instanceIndex == 0) {		
+    if (!culled && instanceIndex == 1) {		
         uint prevCount = atomicAdd(outIndirect.instanceCount, 1);
         outIndirectMatrix.instanceModelMatrix[prevCount] = 
             inIndirectMatrix.instanceModelMatrix[instanceIndex];

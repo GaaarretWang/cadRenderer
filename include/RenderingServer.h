@@ -26,6 +26,8 @@ public:
     std::string color_path = "/home/lab/workspace/wgy/cadvsg_intg/asset/data/slamData/color/1711699313.948925.png";
     std::string depth_path = "/home/lab/workspace/wgy/cadvsg_intg/asset/data/slamData/depth/1711699313.948925.png";
     double upsample_scale = 2;
+    std::string color;
+    std::string depth;
 
     int frame_count = 0;
     vsg::ref_ptr<vsg::Device> device;
