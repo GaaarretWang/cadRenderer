@@ -759,6 +759,23 @@ public:
         // Shadow_renderGraph->clearValues[0].color = {{1.f, 1.f, 1.f, 1.f}};
         // auto Shadow_commandGraph = vsg::CommandGraph::create(shadow_window); //如果用Env_window会报错
         // Shadow_commandGraph->addChild(Shadow_renderGraph);
+
+
+
+        preClearBarrier->add(layoutTransition);
+
+
+        clearDepth->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 必须为 TRANSFER_DST_OPTIMAL 或 GENERAL
+        clearDepth->depthStencil = {0.0f, 0};
+        VkImageSubresourceRange range{};
+        range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+        range.baseMipLevel = 0;
+        range.levelCount = 1;
+        range.baseArrayLayer = 0;
+        range.layerCount = 1;
+        clearDepth->ranges = {range};
+
+
         auto pipelineBarrier_compute_to_render = vsg::PipelineBarrier::create(
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
             VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
@@ -797,6 +814,8 @@ public:
             VK_QUEUE_FAMILY_IGNORED
         );
 
+        commandGraph->addChild(preClearBarrier);
+        commandGraph->addChild(clearDepth);
         commandGraph->addChild(computeCommandGraph);
         commandGraph->addChild(pipelineBarrier_compute_to_render);
         commandGraph->addChild(renderGraph);
@@ -820,8 +839,24 @@ public:
         final_screenshotHandler = ScreenshotHandler::create(window, extent, ENCODER);
         screenshotHandler = ScreenshotHandler::create();        
         allocate_fix_depth_memory(render_width, render_height);
+        std::cout << "4" << std::endl;
     }
     vsg::ref_ptr<vsg::ImageMemoryBarrier> colorImageBarrier;
+    vsg::ref_ptr<vsg::ClearDepthStencilImage> clearDepth = vsg::ClearDepthStencilImage::create();
+    vsg::ref_ptr<vsg::PipelineBarrier> preClearBarrier = vsg::PipelineBarrier::create(
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,      // 源阶段（无前置操作）
+        VK_PIPELINE_STAGE_TRANSFER_BIT,         // 目标阶段（传输操作）
+        0                                       // 依赖标志
+    );
+
+    vsg::ref_ptr<vsg::ImageMemoryBarrier> layoutTransition = vsg::ImageMemoryBarrier::create(
+        0,                                      // 源访问掩码（无依赖）
+        VK_ACCESS_TRANSFER_WRITE_BIT,           // 目标访问掩码（传输写入）
+        VK_IMAGE_LAYOUT_UNDEFINED,              // 旧布局（假设初始状态为 UNDEFINED）
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,   // 新布局
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED
+    );
 
     void setRealColorAndImage(const std::string& real_color, const std::string& real_depth){
         if (color_pixels) {
@@ -884,7 +919,9 @@ public:
         auto t0 = std::chrono::high_resolution_clock::now();
         while (viewer->advanceToNextFrame()) {
             colorImageBarrier->image = window->imageView(window->imageIndex())->image;
-            
+            layoutTransition->image = window->_multisampleDepthImage;
+            clearDepth->image = window->_multisampleDepthImage;
+
             auto t1 = std::chrono::high_resolution_clock::now();
             fix_depth(width, height, depth_pixels);
 
