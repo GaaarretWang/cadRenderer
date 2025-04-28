@@ -90,7 +90,7 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::Data> vsg_depth_image;
     vsg::ImageInfoList camera_info;
     vsg::ImageInfoList depth_info;
-    vsg::ref_ptr<vsg::mat4Array> camera_matrix = vsg::mat4Array::create(1);
+    vsg::ref_ptr<vsg::mat4Array> camera_matrix = vsg::mat4Array::create(2);
     vsg::ref_ptr<vsg::BufferInfo> camera_matrix_buffer_info;
 
     //every frame's real color and depth
@@ -98,7 +98,7 @@ class vsgRendererServer
     unsigned short * depth_pixels = nullptr;
     mergeShaderType shader_type;
 
-    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_4_BIT;//多重采样的倍数
+    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;//多重采样的倍数
 
     vsg::ref_ptr<vsg::ShaderSet> buildMergeShaderSet(vsg::ref_ptr<vsg::Options> options) {
         auto vertexShader = vsg::read_cast<vsg::ShaderStage>("shaders/IBL/fullscreenquad.vert", options);
@@ -655,13 +655,31 @@ public:
         auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
         renderGraph1->addChild(renderImGui);
 
+        VkFormatProperties props;
+        vkGetPhysicalDeviceFormatProperties(window->_device->getPhysicalDevice()->vk(), VK_FORMAT_D32_SFLOAT, &props);
+        if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) {
+            std::cout << "支持作为 storage image 使用" << std::endl;
+        } else {
+            std::cout << "不支持作为 storage image 使用" << std::endl;
+        }
+
         // create the compute graph to compute the positions of the vertices
         // to use a different queue family, we need to use VK_SHARING_MODE_CONCURRENT with queueFamilyIndices for VkBuffer, or implement a queue family ownership transfer with a BufferMemoryBarrier
         //auto computeQueueFamily = physicalDevice->getQueueFamily(VK_QUEUE_COMPUTE_BIT);
         auto computeQueueFamily = commandGraph->queueFamily;
         auto computeCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily);
-        auto computeCommandGraph1 = vsg::CommandGraph::create(device, computeQueueFamily);
+        auto computeCommandGraph2 = vsg::CommandGraph::create(device, computeQueueFamily);
+        VkExtent2D extent = {};
+        extent.width = render_width;
+        extent.height = render_height;
+        std::cout << "createDepthCapture" << std::endl;
+        auto buffer = createDepthCapture(window->getOrCreateDevice(), extent, window->_depthImage, VK_FORMAT_D32_SFLOAT);
+        auto depth_info = vsg::BufferInfo::create(buffer, 0, extent.width * extent.height * 4);
         {
+            // auto sampler = vsg::Sampler::create();
+            // imageInfo = vsg::ImageInfo::create(sampler, window->_depthImageView, VK_IMAGE_LAYOUT_GENERAL);
+            // auto texture = vsg::DescriptorImage::create(imageInfo, 7, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
             camera_plane_info.n[0] = vsg::normalize(vsg::vec4(0, 0, -1, -near_plane));
             camera_plane_info.n[1] = vsg::normalize(vsg::vec4(0, 0, 1, far_plane));
             camera_plane_info.n[2] = vsg::normalize(vsg::vec4(2*fx/width, 0, -2*cx/width, 0));
@@ -673,6 +691,7 @@ public:
             camera_plane_info_buffer->set(0, camera_plane_info);
             auto camera_plane_info_buffer_info = vsg::BufferInfo::create(camera_plane_info_buffer);
             camera_matrix->set(0, vsg::mat4(camera->viewMatrix->transform()));
+            camera_matrix->set(1, vsg::mat4(camera->projectionMatrix->transform() * camera->viewMatrix->transform()));
             camera_matrix_buffer_info = vsg::BufferInfo::create(camera_matrix);
             camera_matrix->properties.dataVariance = vsg::DYNAMIC_DATA;
             vsg::DescriptorSetLayoutBindings descriptorBindings{
@@ -683,6 +702,7 @@ public:
                 {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
                 {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
                 {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+                {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
             };
             auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
             auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
@@ -697,30 +717,100 @@ public:
                     auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
                                                                                         proto_data->input_instance_buffer_info, proto_data->output_instance_buffer_info,
                                                                                         camera_plane_info_buffer_info, proto_data->bounds_buffer_info,
-                                                                                        camera_matrix_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                                                                                        camera_matrix_buffer_info, depth_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
                     auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer});
                     auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
                     computeCommandGraph->addChild(bindDescriptorSet);
                     computeCommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
                 }
             }
+
+
             {
                 auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex1.comp", options);
                 auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
                 auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
-                computeCommandGraph1->addChild(bindPipeline);
+                computeCommandGraph2->addChild(bindPipeline);
 
                 for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
                     ProtoData* proto_data = proto_data_itr.second;
                     auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
                                                                                         proto_data->input_instance_buffer_info, proto_data->output_instance_buffer_info,
                                                                                         camera_plane_info_buffer_info, proto_data->bounds_buffer_info,
-                                                                                        camera_matrix_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                                                                                        camera_matrix_buffer_info, depth_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
                     auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer});
                     auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
-                    computeCommandGraph1->addChild(bindDescriptorSet);
-                    computeCommandGraph1->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
+                    computeCommandGraph2->addChild(bindDescriptorSet);
+                    computeCommandGraph2->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
                 }
+            }
+        }
+
+        auto computeCommandGraph1 = vsg::CommandGraph::create(device, computeQueueFamily);
+        auto computeCommandGraph3 = vsg::CommandGraph::create(device, computeQueueFamily);
+        {
+            {
+                auto transitionDestinationBufferToTransferWriteBarrier = vsg::BufferMemoryBarrier::create(
+                    VK_ACCESS_MEMORY_READ_BIT,    // srcAccessMask
+                    VK_ACCESS_TRANSFER_WRITE_BIT, // dstAccessMask
+                    VK_QUEUE_FAMILY_IGNORED,      // srcQueueFamilyIndex
+                    VK_QUEUE_FAMILY_IGNORED,      // dstQueueFamilyIndex
+                    depth_info->buffer,            // buffer
+                    0,                            // offset
+                    extent.width * extent.height * 4                    // size
+                );
+
+                auto cmd_transitionSourceImageToTransferSourceLayoutBarrier = vsg::PipelineBarrier::create(
+                    VK_PIPELINE_STAGE_TRANSFER_BIT, // srcStageMask
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,                                                            // dstStageMask
+                    0,                                                                                         // dependencyFlags
+                    transitionDestinationBufferToTransferWriteBarrier                                          // barrier
+                );
+                computeCommandGraph1->addChild(cmd_transitionSourceImageToTransferSourceLayoutBarrier);
+                computeCommandGraph3->addChild(cmd_transitionSourceImageToTransferSourceLayoutBarrier);
+            }
+
+
+            vsg::DescriptorSetLayoutBindings descriptorBindings{
+                {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            };
+            auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
+            auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
+            {
+                auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex_depthimage.comp", options);
+                auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
+                auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
+                computeCommandGraph1->addChild(bindPipeline);
+                computeCommandGraph3->addChild(bindPipeline);
+
+                auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{depth_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer});
+                auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
+                computeCommandGraph1->addChild(bindDescriptorSet);
+                computeCommandGraph1->addChild(vsg::Dispatch::create((extent.width / 128 + 1), (extent.height / 128 + 1), 1));
+                computeCommandGraph3->addChild(bindDescriptorSet);
+                computeCommandGraph3->addChild(vsg::Dispatch::create((extent.width / 128 + 1), (extent.height / 128 + 1), 1));
+            }
+
+            {
+                auto transitionDestinationBufferToMemoryReadBarrier = vsg::BufferMemoryBarrier::create(
+                    VK_ACCESS_TRANSFER_WRITE_BIT, // srcAccessMask
+                    VK_ACCESS_MEMORY_READ_BIT,    // dstAccessMask
+                    VK_QUEUE_FAMILY_IGNORED,      // srcQueueFamilyIndex
+                    VK_QUEUE_FAMILY_IGNORED,      // dstQueueFamilyIndex
+                    depth_info->buffer,            // buffer
+                    0,                            // offset
+                    extent.width * extent.height * 4                    // size
+                );
+
+                auto cmd_transitionSourceImageBackToPresentBarrier = vsg::PipelineBarrier::create(
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,                                                            // srcStageMask
+                    VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // dstStageMask
+                    0,                                                                                         // dependencyFlags
+                    transitionDestinationBufferToMemoryReadBarrier                                             // barrier
+                );
+                computeCommandGraph1->addChild(cmd_transitionSourceImageBackToPresentBarrier);
+                computeCommandGraph3->addChild(cmd_transitionSourceImageBackToPresentBarrier);
             }
         }
 
@@ -799,30 +889,95 @@ public:
         }
 
 
-        auto pipelineBarrier_render0_to_compute1 = vsg::PipelineBarrier::create(
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // 源阶段
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,          // 目标阶段
-            0                                              // 依赖标志
+        auto pipelineBarrier_render0_to_compute2 = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, // 目标阶段保持不变
+            0
         );
 
         colorImageBarrier = vsg::ImageMemoryBarrier::create(
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, // Render0 写入
-            VK_ACCESS_SHADER_READ_BIT, // Compute1 读取
+            VK_ACCESS_SHADER_READ_BIT, // compute2 读取
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, // 旧布局
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, // 新布局
             VK_QUEUE_FAMILY_IGNORED,
             VK_QUEUE_FAMILY_IGNORED
         );
+        pipelineBarrier_render0_to_compute2->add(colorImageBarrier);
 
-        commandGraph->addChild(preClearBarrier);
+        depthImageBarrier = vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED
+        );
+        pipelineBarrier_render0_to_compute2->add(depthImageBarrier);
+
+        depthPyramidImage->imageType = VK_IMAGE_TYPE_2D;
+        depthPyramidImage->format = VK_FORMAT_D32_SFLOAT; // 假设与深度附件兼容
+        depthPyramidImage->mipLevels = 7; // 共 7 层
+        depthPyramidImage->usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        depthPyramidImage->extent.width = window->extent2D().width;
+        depthPyramidImage->extent.height = window->extent2D().height;
+        depthPyramidImage->extent.depth = 1;
+
+
+        VkImageCopy region{};
+        region.srcSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, // 深度附件
+            .mipLevel = 0,                           // 源 Mip 层级（深度附件通常无 Mipmap）
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        };
+        region.dstSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT, // 目标图像格式为 R32_SFLOAT
+            .mipLevel = 0,                           // 目标 Mip 层级（第 0 级）
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        };
+        region.extent = {
+            .width = window->extent2D().width,
+            .height = window->extent2D().height,
+            .depth = 1
+        };
+
+        // copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        // copyImage->dstImage = depthPyramidImage;
+        // copyImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        // copyImage->regions = {region};
+
+        // 转换源图像到 TRANSFER_SRC_OPTIMAL
+        auto srcBarrier = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0
+        );
+
+
+        srcBarrier->add(srcImageBarrier);
+
+
+
+        // commandGraph->addChild(preClearBarrier);
         commandGraph->addChild(clearDepth);
+        // commandGraph->addChild(computeCommandGraph1);
         commandGraph->addChild(computeCommandGraph);
         commandGraph->addChild(pipelineBarrier_compute_to_render);
         commandGraph->addChild(renderGraph);
-        commandGraph1->addChild(pipelineBarrier_render0_to_compute1);
-        commandGraph1->addChild(computeCommandGraph1);
+        // commandGraph1->addChild(pipelineBarrier_render0_to_compute2);
+        // commandGraph1->addChild(srcBarrier);
+        commandGraph->addChild(commands);
+        std::cout << "addChild(commands)" << std::endl;
+
+        // commandGraph1->addChild(computeCommandGraph3);
+        commandGraph1->addChild(computeCommandGraph2);
         commandGraph1->addChild(pipelineBarrier_compute_to_render);
         commandGraph1->addChild(renderGraph1);
+        commandGraph1->addChild(commands);
+        // auto commandGraph2 = vsg::CommandGraph::create(window);
+        // auto commandGraph3 = vsg::CommandGraph::create(window);
 
         std::cout << "Shadow Window" << std::endl;
         viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph, commandGraph1});
@@ -830,18 +985,17 @@ public:
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
         // std::cout << "4" << std::endl;
 
-        
+        std::cout << window->_depthImage << std::endl;
+
         
 
-        VkExtent2D extent = {};
-        extent.width = render_width;
-        extent.height = render_height;
         final_screenshotHandler = ScreenshotHandler::create(window, extent, ENCODER);
         screenshotHandler = ScreenshotHandler::create();        
         allocate_fix_depth_memory(render_width, render_height);
         std::cout << "4" << std::endl;
     }
     vsg::ref_ptr<vsg::ImageMemoryBarrier> colorImageBarrier;
+    vsg::ref_ptr<vsg::ImageMemoryBarrier> depthImageBarrier;
     vsg::ref_ptr<vsg::ClearDepthStencilImage> clearDepth = vsg::ClearDepthStencilImage::create();
     vsg::ref_ptr<vsg::PipelineBarrier> preClearBarrier = vsg::PipelineBarrier::create(
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,      // 源阶段（无前置操作）
@@ -857,6 +1011,130 @@ public:
         VK_QUEUE_FAMILY_IGNORED,
         VK_QUEUE_FAMILY_IGNORED
     );
+    vsg::ref_ptr<vsg::Image> depthPyramidImage = vsg::Image::create();
+    // vsg::ref_ptr<vsg::CopyImage> copyImage = vsg::CopyImage::create();
+    vsg::ref_ptr<vsg::ImageMemoryBarrier> srcImageBarrier = vsg::ImageMemoryBarrier::create(
+        VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        VK_ACCESS_TRANSFER_READ_BIT,
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED
+    );
+    vsg::ref_ptr<vsg::ImageInfo> imageInfo;
+    vsg::ref_ptr<vsg::Commands> commands = vsg::Commands::create();
+
+    vsg::ref_ptr<vsg::Buffer> createDepthCapture(vsg::ref_ptr<vsg::Device> device, const VkExtent2D& extent, vsg::ref_ptr<vsg::Image> sourceImage, VkFormat sourceImageFormat)
+    {
+        std::cout << "auto width = extent.width" << std::endl;
+        auto width = extent.width;
+        auto height = extent.height;
+        std::cout << "memoryRequirements" << std::endl;
+
+        // auto memoryRequirements = sourceImage->getMemoryRequirements(device->deviceID);
+        std::cout << "destinationBuffer = vsg::createBufferAndMemory" << std::endl;
+
+        // 1. create buffer to copy to.
+        VkDeviceSize bufferSize = extent.width * extent.height * 4;
+        auto destinationBuffer = vsg::createBufferAndMemory(device, bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_SHARING_MODE_EXCLUSIVE, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT);
+        std::cout << "imageAspectFlags" << std::endl;
+
+        VkImageAspectFlags imageAspectFlags = vsg::computeAspectFlagsForFormat(sourceImageFormat);
+
+        // 2.a) transition depth image for reading
+        std::cout << "transitionSourceImageToTransferSourceLayoutBarrier" << std::endl;
+
+        transitionSourceImageToTransferSourceLayoutBarrier = vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, // srcAccessMask
+            VK_ACCESS_TRANSFER_READ_BIT,                                                                // dstAccessMask
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,                                           // oldLayout
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,                                                       // newLayout
+            VK_QUEUE_FAMILY_IGNORED,                                                                    // srcQueueFamilyIndex
+            VK_QUEUE_FAMILY_IGNORED,                                                                    // dstQueueFamilyIndex
+            sourceImage,                                                                                // image
+            VkImageSubresourceRange{imageAspectFlags, 0, 1, 0, 1}                                       // subresourceRange
+        );
+
+        auto transitionDestinationBufferToTransferWriteBarrier = vsg::BufferMemoryBarrier::create(
+            VK_ACCESS_MEMORY_READ_BIT,    // srcAccessMask
+            VK_ACCESS_TRANSFER_WRITE_BIT, // dstAccessMask
+            VK_QUEUE_FAMILY_IGNORED,      // srcQueueFamilyIndex
+            VK_QUEUE_FAMILY_IGNORED,      // dstQueueFamilyIndex
+            destinationBuffer,            // buffer
+            0,                            // offset
+            bufferSize                    // size
+        );
+
+        auto cmd_transitionSourceImageToTransferSourceLayoutBarrier = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // srcStageMask
+            VK_PIPELINE_STAGE_TRANSFER_BIT,                                                            // dstStageMask
+            0,                                                                                         // dependencyFlags
+            transitionSourceImageToTransferSourceLayoutBarrier,                                        // barrier
+            transitionDestinationBufferToTransferWriteBarrier                                          // barrier
+        );
+        commands->addChild(cmd_transitionSourceImageToTransferSourceLayoutBarrier);
+        std::cout << "2.b) copy image to buffe" << std::endl;
+
+        // 2.b) copy image to buffer
+        {
+            VkBufferImageCopy region{};
+            region.bufferOffset = 0;
+            region.bufferRowLength = render_width; // need to figure out actual row length from somewhere...
+            region.bufferImageHeight = render_height;
+            region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+            region.imageSubresource.layerCount = 1;
+            region.imageOffset = VkOffset3D{0, 0, 0};
+            region.imageExtent = VkExtent3D{render_width, render_height, 1};
+
+            copyImage = vsg::CopyImageToBuffer::create();
+            copyImage->srcImage = sourceImage;
+            copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            copyImage->dstBuffer = destinationBuffer;
+            copyImage->regions.push_back(region);
+
+            commands->addChild(copyImage);
+        }
+
+        // 2.c) transition depth image back for rendering
+        transitionSourceImageBackToPresentBarrier = vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_TRANSFER_READ_BIT,                                                                // srcAccessMask
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, // dstAccessMask
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,                                                       // oldLayout
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,                                           // newLayout
+            VK_QUEUE_FAMILY_IGNORED,                                                                    // srcQueueFamilyIndex
+            VK_QUEUE_FAMILY_IGNORED,                                                                    // dstQueueFamilyIndex
+            sourceImage,                                                                                // image
+            VkImageSubresourceRange{imageAspectFlags, 0, 1, 0, 1}                                       // subresourceRange
+        );
+        std::cout << "transitionDestinationBufferToMemoryReadBarrier" << std::endl;
+
+        auto transitionDestinationBufferToMemoryReadBarrier = vsg::BufferMemoryBarrier::create(
+            VK_ACCESS_TRANSFER_WRITE_BIT, // srcAccessMask
+            VK_ACCESS_MEMORY_READ_BIT,    // dstAccessMask
+            VK_QUEUE_FAMILY_IGNORED,      // srcQueueFamilyIndex
+            VK_QUEUE_FAMILY_IGNORED,      // dstQueueFamilyIndex
+            destinationBuffer,            // buffer
+            0,                            // offset
+            bufferSize                    // size
+        );
+
+        auto cmd_transitionSourceImageBackToPresentBarrier = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_TRANSFER_BIT,                                                            // srcStageMask
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, // dstStageMask
+            0,                                                                                         // dependencyFlags
+            transitionSourceImageBackToPresentBarrier,                                                 // barrier
+            transitionDestinationBufferToMemoryReadBarrier                                             // barrier
+        );
+        std::cout << "commands->addChild(cmd_transitionSourceImageBackToPresentBarrier" << std::endl;
+
+        commands->addChild(cmd_transitionSourceImageBackToPresentBarrier);
+
+        return destinationBuffer;
+    }
+    vsg::ref_ptr<vsg::ImageMemoryBarrier> transitionSourceImageBackToPresentBarrier;
+    vsg::ref_ptr<vsg::CopyImageToBuffer> copyImage;
+    vsg::ref_ptr<vsg::ImageMemoryBarrier> transitionSourceImageToTransferSourceLayoutBarrier;
+
 
     void setRealColorAndImage(const std::string& real_color, const std::string& real_depth){
         if (color_pixels) {
@@ -915,12 +1193,22 @@ public:
 
     bool render() {
         camera_matrix->set(0, (vsg::mat4)camera->viewMatrix->transform());
+        camera_matrix->set(1, vsg::mat4(camera->projectionMatrix->transform() * camera->viewMatrix->transform()));
         camera_matrix->dirty();
         auto t0 = std::chrono::high_resolution_clock::now();
         while (viewer->advanceToNextFrame()) {
             colorImageBarrier->image = window->imageView(window->imageIndex())->image;
-            layoutTransition->image = window->_multisampleDepthImage;
-            clearDepth->image = window->_multisampleDepthImage;
+            depthImageBarrier->image = window->_depthImage;
+            layoutTransition->image = window->_depthImage;
+            clearDepth->image = window->_depthImage;
+            copyImage->srcImage = window->_depthImage;
+            srcImageBarrier->image = window->_depthImage;
+            // imageInfo->imageView = window->_depthImageView;
+
+            transitionSourceImageBackToPresentBarrier->image = window->_depthImage;
+            copyImage->srcImage = window->_depthImage;
+            transitionSourceImageToTransferSourceLayoutBarrier->image = window->_depthImage;
+
 
             auto t1 = std::chrono::high_resolution_clock::now();
             fix_depth(width, height, depth_pixels);

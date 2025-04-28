@@ -926,9 +926,10 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
         drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
         drawCommands->addChild(vsg::BindIndexBuffer::create(proto_data->indices));
 
-        proto_data->bounds_data = vsg::vec4Array::create(2);
+        proto_data->bounds_data = vsg::vec4Array::create(3);
         proto_data->bounds_data->set(0, vsg::vec4(bounds.min.x, bounds.min.y, bounds.min.z, 1));
         proto_data->bounds_data->set(1, vsg::vec4(bounds.max.x, bounds.max.y, bounds.max.z, 1));
+        proto_data->bounds_data->set(2, vsg::vec4(bounds.max.x, bounds.max.y, bounds.max.z, 1));
         proto_data->bounds_data->properties.dataVariance = vsg::DYNAMIC_DATA;
         proto_data->bounds_buffer_info = vsg::BufferInfo::create(proto_data->bounds_data);
 

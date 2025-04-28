@@ -24,11 +24,11 @@ struct InstanceData {
 };
 
 layout(set = 0, binding = 2) buffer InIndirectMatrix {
-    InstanceData instanceModelMatrix[2];
+    InstanceData instanceModelMatrix[];
 }inIndirectMatrix;
 
 layout(set = 0, binding = 3) buffer OutIndirectMatrix {
-    InstanceData instanceModelMatrix[2];
+    InstanceData instanceModelMatrix[];
 }outIndirectMatrix;
 
 layout(set = 0, binding = 4) buffer CameraPlaneInfo{
@@ -38,11 +38,17 @@ layout(set = 0, binding = 4) buffer CameraPlaneInfo{
 layout(std430, set = 0, binding = 5) buffer BBox{
     vec4 min;
     vec4 max;
+    float draw_state[];
 }bbox;
 
 layout(set = 0, binding = 6) buffer ViewMatrix{
 	mat4 view;
+	mat4 vp;
 }viewMatrix;
+
+layout(set = 0, binding = 7) buffer DepthInfo{
+	float view[];
+}depthInfo;
 
 layout (local_size_x = 32) in;
 
@@ -69,6 +75,7 @@ void main() {
         outIndirect.instanceCount = 0; // 默认不可见
     }
     barrier(); // 确保初始化完成
+    bbox.draw_state[instanceIndex] = 0.0;
 
     // 计算包围盒的8个顶点（世界空间）
     vec4 points[8];
@@ -84,27 +91,66 @@ void main() {
 	mat4 mv = viewMatrix.view * 
 					inIndirectMatrix.instanceModelMatrix[instanceIndex].modelMatrix * 
 					inIndirectMatrix.instanceModelMatrix[instanceIndex].protoMatrix;
-	
+	mat4 mvp = viewMatrix.vp * 
+					inIndirectMatrix.instanceModelMatrix[instanceIndex].modelMatrix * 
+					inIndirectMatrix.instanceModelMatrix[instanceIndex].protoMatrix;
+    vec4 viewPoints[8];
+    vec4 clipPoints[8];
+
+
 	for(int i = 0; i < 8; i ++){
-		points[i] = mv * points[i];
+		viewPoints[i] = mv * points[i];
+		clipPoints[i] = mvp * points[i];
 	}
 
 
     // 检查是否被任一平面完全遮挡
     bool culled = false;
     for (int p = 0; p < 6; p++) {
-        if (isFullyCulled(points, camera_plane.planes[p])) {
+        if (isFullyCulled(viewPoints, camera_plane.planes[p])) {
             culled = true;
             break;
         }
     }
 
     // 如果没有被完全遮挡，则设置实例可见
-    if (!culled && instanceIndex == 1) {		
-        uint prevCount = atomicAdd(outIndirect.instanceCount, 1);
-        outIndirectMatrix.instanceModelMatrix[prevCount] = 
-            inIndirectMatrix.instanceModelMatrix[instanceIndex];
-        
+    if (!culled) {		
+        ivec2 imageSize = ivec2(1280, 960);
+        for (int i = 0; i < 8; i++) {
+            // 透视除法
+            vec3 ndc = clipPoints[i].xyz / clipPoints[i].w;
+            // 转换为屏幕 UV [0,1]
+            vec2 uv = ndc.xy * 0.5 + 0.5;
+            uv.x = max(uv.x, 0);
+            uv.y = max(uv.y, 0);
+            uv.x = min(uv.x, 1);
+            uv.y = min(uv.y, 1);
+
+            // 计算深度（Vulkan 深度范围 [0,1]）
+            float depth = ndc.z;
+            ivec2 texel = ivec2(uv * imageSize);
+            float render_depth = depthInfo.view[texel.y * imageSize.x + texel.x];
+            if(render_depth <= depth){
+                uint prevCount = atomicAdd(outIndirect.instanceCount, 1);
+                InstanceData cur_data = inIndirectMatrix.instanceModelMatrix[instanceIndex];
+                //cur_data.modelMatrix[3][2] += 1;
+                outIndirectMatrix.instanceModelMatrix[prevCount] = cur_data;
+    
+                memoryBarrierBuffer();	
+                bbox.draw_state[instanceIndex] = 1.0;
+                return;
+            }
+        }
+        /*uint prevCount = atomicAdd(outIndirect.instanceCount, 1);
+        InstanceData cur_data = inIndirectMatrix.instanceModelMatrix[instanceIndex];
+        //cur_data.modelMatrix[3][2] += 1;
+        outIndirectMatrix.instanceModelMatrix[prevCount] = cur_data;
+            
         memoryBarrierBuffer();	
+        prevCount = atomicAdd(outIndirect.instanceCount, 1);
+        cur_data.modelMatrix[3][2] += 1;
+        outIndirectMatrix.instanceModelMatrix[prevCount] = cur_data;
+            
+        memoryBarrierBuffer();	*/
     }
 }
