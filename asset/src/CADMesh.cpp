@@ -9,9 +9,13 @@ vsg::ImageInfoList CADMesh::depth_info;
 vsg::ref_ptr<vsg::Data> CADMesh::params;
 std::unordered_map<std::string, vsg::ImageInfoList> CADMesh::texture_name_to_image_map;
 std::unordered_map<std::string, ProtoData*> CADMesh::proto_id_to_data_map;
-std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> CADMesh::materials;
+std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> CADMesh::scene_materials;
 
 std::unordered_map<std::string, std::vector<MatrixIndex>> CADMesh::id_to_matrix_index_map;
+
+DynamicLines CADMesh::dynamic_lines;
+DynamicPoints CADMesh::dynamic_points;
+DynamicTexts CADMesh::dynamic_texts;
 
 template<typename T>
 vsg::vec3 CADMesh::toVec3(const flatbuffers::Vector<T>* flat_vector, int begin)
@@ -461,22 +465,27 @@ void CADMesh::CreateDefaultMaterials(){
     default_material0->value().baseColorFactor.set(0, 0, 0, 1);
     default_material0->value().metallicFactor = 0.392f;
     default_material0->value().roughnessFactor = 0.651;
-    CADMesh::materials.push_back(default_material0);
+    CADMesh::scene_materials.push_back(default_material0);
     vsg::ref_ptr<vsg::PbrMaterialValue> default_material1 = vsg::PbrMaterialValue::create();
     default_material1->value().baseColorFactor.set(0.176, 0.2, 0.151, 1);
     default_material1->value().metallicFactor = 0.909f;
     default_material1->value().roughnessFactor = 0.899f;
-    CADMesh::materials.push_back(default_material1);
+    CADMesh::scene_materials.push_back(default_material1);
     vsg::ref_ptr<vsg::PbrMaterialValue> default_material2 = vsg::PbrMaterialValue::create();
     default_material2->value().baseColorFactor.set(0.439, 0, 0, 1);
     default_material2->value().metallicFactor = 0.522f;
     default_material2->value().roughnessFactor = 1.f;
-    CADMesh::materials.push_back(default_material2);
+    CADMesh::scene_materials.push_back(default_material2);
     vsg::ref_ptr<vsg::PbrMaterialValue> default_material3 = vsg::PbrMaterialValue::create();
     default_material3->value().baseColorFactor.set(0.780, 0.402, 0.013, 1);
     default_material3->value().metallicFactor = 0.384f;
     default_material3->value().roughnessFactor = 0.273;
-    CADMesh::materials.push_back(default_material3);
+    CADMesh::scene_materials.push_back(default_material3);
+    vsg::ref_ptr<vsg::PbrMaterialValue> default_material4_dynamic_lines = vsg::PbrMaterialValue::create();
+    default_material4_dynamic_lines->value().baseColorFactor.set(0.780, 0.402, 0.013, 1);
+    default_material4_dynamic_lines->value().metallicFactor = 0.384f;
+    default_material4_dynamic_lines->value().roughnessFactor = 0.273;
+    CADMesh::scene_materials.push_back(default_material4_dynamic_lines);
 }
 
 void CADMesh::preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)
@@ -615,13 +624,13 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
             //设置材质参数
             vsg::ref_ptr<vsg::PbrMaterialValue> default_material;
             if(testcolor == "000000"){
-                default_material = materials[0];
+                default_material = scene_materials[0];
             }else if(testcolor == "BBBBBB" || testcolor == "333333"){
-                default_material = materials[1];
+                default_material = scene_materials[1];
             }else if(testcolor == "FF0000"){
-                default_material = materials[2];
+                default_material = scene_materials[2];
             }else{
-                default_material = materials[3];
+                default_material = scene_materials[3];
             }
 
             /*
@@ -749,6 +758,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
 
 void CADMesh::preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)
 {
+    std::cout << "model_shaderset->defaultGraphicsPipelineStates.size()" << model_shaderset->defaultGraphicsPipelineStates.size() << std::endl;
     if(proto_ids.size() > 0){
         for(auto& id: proto_ids){
             proto_id_to_data_map[id]->instance_matrix.push_back(proto_id_to_data_map[id]->instance_matrix[0]);
@@ -829,6 +839,9 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
             proto_data->normals = normals_i;
             proto_data->uvs = uvs_i;
             proto_data->indices = indices_i;
+            proto_data->proto_id = proto_id;
+                    std::cout << materials.size() << std::endl;
+
             if(i < mtr_ids.size() && textures.size() > mtr_ids[i]){
                 proto_data->diffuse_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][0];
                 proto_data->normal_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][1];
@@ -838,13 +851,31 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
                 proto_data->diffuse_path = "";
                 proto_data->normal_path = "";
                 proto_data->mr_path = "";
+                proto_data->material = scene_materials[3];
             }
+                    std::cout << proto_id << std::endl;
+
             proto_data->shaderset = model_shaderset;
             proto_data->scene = scene;
             proto_id_to_data_map[proto_id] = proto_data;
         }
+        proto_id_default_matrix_map[proto_id] = std::vector<vsg::dmat4>();
+        proto_id_instance_name_map[proto_id] = std::vector<std::string>();
+        
+        proto_id_default_matrix_map[proto_id].push_back(vsg::dmat4());
+        proto_id_instance_name_map[proto_id].push_back("0");
+
         proto_data->instance_matrix.push_back(vsg::dmat4());
         proto_data->instance_matrix.push_back(modelMatrix);
+
+        std::cout << "proto_instance_ids[m_i] " << model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][0] << std::endl;
+        if(id_to_matrix_index_map.find(model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][0]) == id_to_matrix_index_map.end())
+            id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][0]] = std::vector<MatrixIndex>();
+        id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][0]].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 2));
+
+        if(id_to_matrix_index_map.find(model_instance_name) == id_to_matrix_index_map.end())
+            id_to_matrix_index_map[model_instance_name] = std::vector<MatrixIndex>();
+        id_to_matrix_index_map[model_instance_name].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
 
         if(i < mtr_ids.size() && textures.size() > mtr_ids[i]){
             if(texture_name_to_image_map.find("../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][0]) == texture_name_to_image_map.end()){
@@ -959,9 +990,161 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
         // draw_indexed->instanceMatrix = proto_data->instance_buffer;
         // drawCommands->addChild(draw_indexed);
         graphicsPipelineConfig->init();
+
         auto stateGroup = vsg::StateGroup::create();
         graphicsPipelineConfig->copyTo(stateGroup);
         stateGroup->addChild(drawCommands);
         proto_data->scene->addChild(stateGroup);
     }
 }
+
+void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene)
+{
+    dynamic_lines.vertices = vsg::vec3Array::create(20000); 
+    dynamic_lines.vertices->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
+    dynamic_lines.indices = vsg::uintArray::create(20000); 
+    dynamic_lines.indices->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
+    auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(model_shaderset);
+    graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
+    graphicsPipelineConfig->assignTexture("depthImage", depth_info);
+    graphicsPipelineConfig->assignUniform("params", params);//是否半透明判断
+    
+    dynamic_lines.colors = vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f});
+    dynamic_lines.colors->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
+    vsg::DataList vertexArrays;
+    graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, dynamic_lines.vertices);
+    graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, dynamic_lines.colors);
+    auto drawCommands = vsg::Commands::create();
+    drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
+    drawCommands->addChild(vsg::BindIndexBuffer::create(dynamic_lines.indices));
+
+    VkDrawIndexedIndirectCommand cmd = {
+        .indexCount = 20000,      // 例如：3000 个三角形 × 3
+        .instanceCount = 1,     // 绘制 10 个实例
+        .firstIndex = 0,         // 从索引 0 开始
+        .vertexOffset = 0,       // 无顶点偏移
+        .firstInstance = 0       // 实例 ID 从 0 开始
+    };
+
+    auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
+    indirectBuffer->set(0, cmd);
+    auto draw_indirect = vsg::DrawIndexedIndirect::create(
+        indirectBuffer,  // 间接命令缓冲区
+        1,              // 绘制命令数量
+        sizeof(VkDrawIndexedIndirectCommand) // 命令步长
+    );
+    drawCommands->addChild(draw_indirect);
+    // auto draw_indexed = vsg::DrawIndexed::create(proto_data->indices->size(), proto_data->instance_matrix.size() / 2, 0, 0, 0);
+    // draw_indexed->instanceMatrix = proto_data->instance_buffer;
+    // drawCommands->addChild(draw_indexed);
+    graphicsPipelineConfig->init();
+    for (size_t i = 0; i < graphicsPipelineConfig->pipelineStates.size(); ++i)
+    {
+        if (graphicsPipelineConfig->pipelineStates[i]->is_compatible(typeid(vsg::InputAssemblyState)))
+        {
+            vsg::ref_ptr<vsg::InputAssemblyState> inputAssemblyState = 
+                graphicsPipelineConfig->pipelineStates[i].cast<vsg::InputAssemblyState>();
+
+            inputAssemblyState->topology = VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
+            break;
+        }
+    }
+
+    auto stateGroup = vsg::StateGroup::create();
+    graphicsPipelineConfig->copyTo(stateGroup);
+    stateGroup->addChild(drawCommands);
+    scene->addChild(stateGroup);
+}
+
+void CADMesh::buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene)
+{
+    dynamic_points.vertices = vsg::vec3Array::create(20000); 
+    dynamic_points.vertices->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
+    dynamic_points.indices = vsg::uintArray::create(20000); 
+    dynamic_points.indices->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
+    auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(model_shaderset);
+    graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
+    graphicsPipelineConfig->assignTexture("depthImage", depth_info);
+    graphicsPipelineConfig->assignUniform("params", params);//是否半透明判断
+    
+    dynamic_points.colors = vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f});
+    dynamic_points.colors->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
+    vsg::DataList vertexArrays;
+    graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, dynamic_points.vertices);
+    graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, dynamic_points.colors);
+    auto drawCommands = vsg::Commands::create();
+    drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
+    drawCommands->addChild(vsg::BindIndexBuffer::create(dynamic_points.indices));
+
+    VkDrawIndexedIndirectCommand cmd = {
+        .indexCount = 20000,      // 例如：3000 个三角形 × 3
+        .instanceCount = 1,     // 绘制 10 个实例
+        .firstIndex = 0,         // 从索引 0 开始
+        .vertexOffset = 0,       // 无顶点偏移
+        .firstInstance = 0       // 实例 ID 从 0 开始
+    };
+
+    auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
+    indirectBuffer->set(0, cmd);
+    auto draw_indirect = vsg::DrawIndexedIndirect::create(
+        indirectBuffer,  // 间接命令缓冲区
+        1,              // 绘制命令数量
+        sizeof(VkDrawIndexedIndirectCommand) // 命令步长
+    );
+    drawCommands->addChild(draw_indirect);
+    // auto draw_indexed = vsg::DrawIndexed::create(proto_data->indices->size(), proto_data->instance_matrix.size() / 2, 0, 0, 0);
+    // draw_indexed->instanceMatrix = proto_data->instance_buffer;
+    // drawCommands->addChild(draw_indexed);
+    graphicsPipelineConfig->init();
+    for (size_t i = 0; i < graphicsPipelineConfig->pipelineStates.size(); ++i)
+    {
+        if (graphicsPipelineConfig->pipelineStates[i]->is_compatible(typeid(vsg::InputAssemblyState)))
+        {
+            vsg::ref_ptr<vsg::InputAssemblyState> inputAssemblyState = 
+                graphicsPipelineConfig->pipelineStates[i].cast<vsg::InputAssemblyState>();
+
+            inputAssemblyState->topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+            break;
+        }
+    }
+
+    auto stateGroup = vsg::StateGroup::create();
+    graphicsPipelineConfig->copyTo(stateGroup);
+    stateGroup->addChild(drawCommands);
+    scene->addChild(stateGroup);
+}
+
+void CADMesh::buildDynamicTextsData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Options> options, std::string font_path)
+{
+    auto font = vsg::read_cast<vsg::Font>(font_path, options);
+    if(!font){
+        std::cout << "failed to read font" << std::endl;
+    }
+
+    for(int i = 0; i < 10; i ++){
+        auto dynamic_text_label = vsg::stringValue::create("");
+        dynamic_texts.dynamic_text_labels.push_back(dynamic_text_label);
+        auto dynamic_text_layout = vsg::StandardLayout::create();
+        dynamic_texts.standardLayout.push_back(dynamic_text_layout);
+        auto dynamic_text = vsg::Text::create();
+        dynamic_texts.text.push_back(dynamic_text);
+        {
+            // currently vsg::GpuLayoutTechnique is the only technique that supports dynamic updating of the text parameters
+            dynamic_text->technique = vsg::GpuLayoutTechnique::create();
+
+            dynamic_text_layout->billboard = true;
+            dynamic_text_layout->position = vsg::vec3(0.0, 0.0, -6.0);
+            dynamic_text_layout->horizontal = vsg::vec3(1.0, 0.0, 0.0);
+            dynamic_text_layout->vertical = dynamic_text_layout->billboard ? vsg::vec3(0.0, 1.0, 0.0) : vsg::vec3(0.0, 0.0, 1.0) ;
+            dynamic_text_layout->color = vsg::vec4(1.0, 0.9, 1.0, 1.0);
+            dynamic_text_layout->outlineWidth = 0.1;
+
+            dynamic_text->text = dynamic_text_label;
+            dynamic_text->font = font;
+            dynamic_text->layout = dynamic_text_layout;
+            dynamic_text->setup(32); // allocate enough space for max possible characters
+        }
+        scene->addChild(dynamic_text);
+    }
+}
+

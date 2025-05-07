@@ -99,6 +99,28 @@ struct ProtoData
     vsg::ref_ptr<vsg::BufferInfo> indirect_full_buffer_info;
 };
 
+struct DynamicLines
+{
+    vsg::ref_ptr<vsg::vec3Array> vertices;
+    vsg::ref_ptr<vsg::uintArray> indices;
+    vsg::ref_ptr<vsg::vec4Value> colors;
+};
+
+struct DynamicPoints
+{
+    vsg::ref_ptr<vsg::vec3Array> vertices;
+    vsg::ref_ptr<vsg::uintArray> indices;
+    vsg::ref_ptr<vsg::vec4Value> colors;
+};
+
+struct DynamicTexts
+{
+    std::vector<vsg::ref_ptr<vsg::stringValue>> dynamic_text_labels;
+    std::vector<vsg::ref_ptr<vsg::StandardLayout>> standardLayout;
+    std::vector<vsg::ref_ptr<vsg::Text>> text;
+};
+
+
 struct MatrixIndex
 {
     ProtoData* proto_data;
@@ -233,14 +255,17 @@ public:
     static vsg::ref_ptr<vsg::Data> params;
     static std::unordered_map<std::string, vsg::ImageInfoList> texture_name_to_image_map;
     static std::unordered_map<std::string, ProtoData*> proto_id_to_data_map;
-    static std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> materials;
+    static std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> scene_materials;
 
     static std::unordered_map<std::string, std::vector<MatrixIndex>> id_to_matrix_index_map;
+
+    static DynamicLines dynamic_lines;
+    static DynamicPoints dynamic_points;
+    static DynamicTexts dynamic_texts;
 
     std::vector<std::string> proto_ids;
     std::unordered_map<std::string, std::vector<vsg::dmat4>> proto_id_default_matrix_map;
     std::unordered_map<std::string, std::vector<std::string>> proto_id_instance_name_map;
-
 
     //����ģ��
     void buildNewNode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene);
@@ -249,4 +274,8 @@ public:
     void preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string instance_name);
     void preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string instance_name);
     static void buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene);
+    
+    static void buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene);
+    static void buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene);
+    static void buildDynamicTextsData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Options> options, std::string font_path);
 };

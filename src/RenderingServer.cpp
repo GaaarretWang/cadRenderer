@@ -11,57 +11,57 @@ int RenderingServer::Init(int argc, char** argv){
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.8, 1) * init_model_transforms[0]
+    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.8, 1) * init_model_transforms[0]
+                               * vsg::dmat4(
+                                    20, 0, 0, 0, 
+                                    0, 20, 0, 0, 
+                                    0, 0, 20, 0, 
+                                    0, 0, 0, 1));
+    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.0, 1) * init_model_transforms[0]
+                               * vsg::dmat4(
+                                    20, 0, 0, 0, 
+                                    0, 20, 0, 0, 
+                                    0, 0, 20, 0, 
+                                    0, 0, 0, 1));
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
     //                            * vsg::dmat4(
-    //                                 20, 0, 0, 0, 
-    //                                 0, 20, 0, 0, 
-    //                                 0, 0, 20, 0, 
+    //                                 0.2, 0, 0, 0, 
+    //                                 0, 0.2, 0, 0, 
+    //                                 0, 0, 0.2, 0, 
     //                                 0, 0, 0, 1));
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.0, 1) * init_model_transforms[0]
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
     //                            * vsg::dmat4(
-    //                                 20, 0, 0, 0, 
-    //                                 0, 20, 0, 0, 
-    //                                 0, 0, 20, 0, 
+    //                                 0.2, 0, 0, 0, 
+    //                                 0, 0.2, 0, 0, 
+    //                                 0, 0, 0.2, 0, 
     //                                 0, 0, 0, 1));
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
-                               * vsg::dmat4(
-                                    0.2, 0, 0, 0, 
-                                    0, 0.2, 0, 0, 
-                                    0, 0, 0.2, 0, 
-                                    0, 0, 0, 1));
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
-                               * vsg::dmat4(
-                                    0.2, 0, 0, 0, 
-                                    0, 0.2, 0, 0, 
-                                    0, 0, 0.2, 0, 
-                                    0, 0, 0, 1));
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
-                               * vsg::dmat4(
-                                    0.2, 0, 0, 0, 
-                                    0, 0.2, 0, 0, 
-                                    0, 0, 0.2, 0, 
-                                    0, 0, 0, 1));
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
-                               * vsg::dmat4(
-                                    0.2, 0, 0, 0, 
-                                    0, 0.2, 0, 0, 
-                                    0, 0, 0.2, 0, 
-                                    0, 0, 0, 1));
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
+    //                            * vsg::dmat4(
+    //                                 0.2, 0, 0, 0, 
+    //                                 0, 0.2, 0, 0, 
+    //                                 0, 0, 0.2, 0, 
+    //                                 0, 0, 0, 1));
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
+    //                            * vsg::dmat4(
+    //                                 0.2, 0, 0, 0, 
+    //                                 0, 0.2, 0, 0, 
+    //                                 0, 0, 0.2, 0, 
+    //                                 0, 0, 0, 1));
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.991005, 1) * init_model_transforms[1]);
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.491005, 1) * init_model_transforms[1] * mat);
     // model_paths.push_back(rendering_dir + "asset/data/obj/Standtube.obj");
     // model_paths.push_back(rendering_dir + "asset/data/geos/大舱壁-ASM(PMI).fb");
-    // model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
-    // model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
+    model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
+    model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
     // model_paths.push_back(rendering_dir + "asset/data/obj/Medieval_building/output.obj");
     // model_paths.push_back(rendering_dir + "asset/data/geos/handNode_0.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/zhijiaC.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/SeatPart.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/LandingGear.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/airplaneBody.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/Engine.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/SeatPart.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/LandingGear.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/airplaneBody.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/Engine.fb");
     // instance_names.push_back("大舱壁-ASM(PMI)");
     // instance_names.push_back("小舱壁-ASM-修改焊接后0");
     // instance_names.push_back("大舱壁-ASM(PMI)");
@@ -69,8 +69,8 @@ int RenderingServer::Init(int argc, char** argv){
     // instance_names.push_back("Medieval_building1");
     instance_names.push_back("YIBIAOPAN1");
     instance_names.push_back("YIBIAOPAN2");
-    instance_names.push_back("YIBIAOPAN3");
-    instance_names.push_back("YIBIAOPAN4");
+    // instance_names.push_back("YIBIAOPAN3");
+    // instance_names.push_back("YIBIAOPAN4");
     // instance_names.push_back("texture");
 
     vsg::CommandLine arguments(&argc, argv);
@@ -95,11 +95,13 @@ int RenderingServer::Update(){
     //     renderer.updateEnvLighting();
     // }
 
-    // model_transforms[0][3][2] += 0.005;
-    // if(model_transforms[0][3][2] > -0.45)
-    //     model_transforms[0][3][2] = -0.679909;
-    // renderer.updateObjectPose("YIBIAOPAN1", model_transforms[0]);
-
+    model_transforms[0][3][2] += 0.005;
+    if(model_transforms[0][3][2] > -0.45)
+        model_transforms[0][3][2] = -0.679909;
+    renderer.updateObjectPose("YIBIAOPAN1", model_transforms[0]);
+    renderer.addLineData();
+    renderer.addPointData();
+    renderer.addTextData();
     // a proto instance movement
     // vsg::dmat4 matrix = vsg::dmat4(0.173648, 0, 0, 0,
     //                                0.984808, 0, -0.173648, 0,

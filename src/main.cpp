@@ -48,8 +48,8 @@ int main(int argc, char** argv){
     inf.close();
 
     RenderingServer rendering_server;
-    rendering_server.Init(argc, argv);
     Rendering rendering_client;
+    rendering_server.Init(argc, argv);
     rendering_client.Init(rendering_server.device);
     auto startTime = std::chrono::high_resolution_clock::now();
     int frameCount = 0;

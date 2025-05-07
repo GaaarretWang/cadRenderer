@@ -118,7 +118,14 @@ namespace gui
                     }
                 }
             }
-
+            ImGui::Separator();
+            ImGui::Text("dynamic objects:");
+            std::string line_color_str = "line color";
+            ImGui::SliderFloat3(line_color_str.c_str(), CADMesh::dynamic_lines.colors->value().data(), 0.0f, 1.0f);
+            CADMesh::dynamic_lines.colors->dirty();
+            std::string point_color_str = "point color";
+            ImGui::SliderFloat3(point_color_str.c_str(), CADMesh::dynamic_points.colors->value().data(), 0.0f, 1.0f);
+            CADMesh::dynamic_points.colors->dirty();
             // ImGui::Text("Material Control");
             // ImGui::ColorEdit3("base color", (float*)&params->baseColor);
             // ImGui::SliderFloat("metallic", &params->metallic, 0.0f, 1.0f);

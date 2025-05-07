@@ -38,6 +38,8 @@ class vsgRendererServer
 
     vsg::ref_ptr<vsg::ShaderSet> shadow_shader;
     vsg::ref_ptr<vsg::ShaderSet> model_shader;
+    vsg::ref_ptr<vsg::ShaderSet> line_shader;
+    vsg::ref_ptr<vsg::ShaderSet> point_shader;
 
     vsg::ref_ptr<ScreenshotHandler> final_screenshotHandler;
     vsg::ref_ptr<ScreenshotHandler> screenshotHandler;
@@ -184,6 +186,8 @@ public:
         ConfigShader config_shader;
         shadow_shader = config_shader.buildShadowShader(project_path + "asset/data/shaders/shadow.vert", project_path + "asset/data/shaders/shadow.frag");
         model_shader = config_shader.buildModelShader(project_path + "asset/data/shaders/model.vert", project_path + "asset/data/shaders/model.frag");
+        line_shader = config_shader.buildLineShader(project_path + "asset/data/shaders/line.vert", project_path + "asset/data/shaders/line.frag");
+        point_shader = config_shader.buildLineShader(project_path + "asset/data/shaders/point.vert", project_path + "asset/data/shaders/point.frag");
     }
 
     void preprocessEnvMap(){
@@ -249,12 +253,12 @@ public:
         vsg::ImageInfoList imageInfosListIBL = {imageInfosIBL};
         return imageInfosListIBL;
     }
+    vsg::ref_ptr<vsg::Options> options = vsg::Options::create();
 
     void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)
     {
         // project_path = engine_path.append("Rendering/");
         project_path = engine_path;
-        auto options = vsg::Options::create();
         options->fileCache = vsg::getEnv("VSG_FILE_CACHE"); //2
         options->paths = vsg::getEnvPaths("VSG_FILE_PATH");
         options->paths.push_back(engine_path + "asset/data/");
@@ -388,14 +392,15 @@ public:
         auto shadowGroup = vsg::Group::create();
         auto envSceneGroup = vsg::Group::create();
         auto wireframeGroup = vsg::Group::create();
+        auto textGroup = vsg::Group::create();
 
         auto rootSwitch = vsg::Switch::create();
         rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraImageNode);
         rootSwitch->addChild(MASK_SKYBOX, drawSkyboxNode);
         rootSwitch->addChild(MASK_PBR_FULL, modelGroup);
         rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowGroup);
-        // rootSwitch->addChild(MASK_SKYBOX, envSceneGroup);
-        // rootSwitch->addChild(MASK_WIREFRAME, wireframeGroup);
+        rootSwitch->addChild(MASK_TEXT, textGroup);
+        rootSwitch->addChild(MASK_WIREFRAME, wireframeGroup);
         
         vsg::ref_ptr<vsg::Group> scenegraph_safe = vsg::Group::create();
         scenegraph_safe->addChild(rootSwitch);
@@ -523,7 +528,6 @@ public:
         PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
 
         MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
-
         auto pbr_shaderset = vsg::createPhysicsBasedRenderingShaderSet(options);
         {
             vsg::ref_ptr<vsg::Geometry> reconstructDrawCmd = vsg::Geometry::create();
@@ -559,6 +563,7 @@ public:
         CADMesh::camera_info = camera_info;
         CADMesh::depth_info = depth_info;
         CADMesh::params = params;
+        CADMesh::CreateDefaultMaterials();
         if(shadow_recevier_path != "")
         {
             CADMesh* shadow_recevier_mesh = new CADMesh();
@@ -574,7 +579,6 @@ public:
             // rootSwitch->addChild(MASK_FAKE_BACKGROUND, iblStateGroup);
         }
         bool fullNormal = true;
-        CADMesh::CreateDefaultMaterials();
         //---------------------------------------读取CAD模型------------------------------------------//
         for(int i = 0; i < model_paths.size(); i ++){
             std::string &path_i = model_paths[i];
@@ -624,6 +628,9 @@ public:
             // }
         }
         CADMesh::buildDrawData(pbriblShaderSet, modelGroup); //读取obj文件
+        CADMesh::buildDynamicLinesData(line_shader, wireframeGroup); //读取obj文件
+        CADMesh::buildDynamicPointsData(point_shader, wireframeGroup); //读取obj文件
+        CADMesh::buildDynamicTextsData(textGroup, options, project_path + "asset/data/fonts/times.vsgt"); //读取obj文件
 
         std::cout << "model processing done" << std::endl;
 
@@ -647,7 +654,7 @@ public:
 
         auto view1 = vsg::View::create(camera, scenegraph_safe);
         // view->features = vsg::RECORD_LIGHTS;
-        view1->mask = MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
+        view1->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER;
         view1->viewDependentState = CustomViewDependentState::create(view1.get());
         auto renderGraph1 = vsg::RenderGraph::create(window, view1);
         // renderGraph1->getRenderPass()->attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
@@ -1250,6 +1257,52 @@ public:
         }
         return false;
     }
+
+    void addLineData(){
+        static PlaneData planeData = createTestPlanes();
+        static float subdivisions = 0.1;
+        static PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
+        static MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
+
+        auto input_vertices = static_cast<float*>(mesh.vertices->dataPointer(0));
+        auto output_vertices = static_cast<float*>(CADMesh::dynamic_lines.vertices->dataPointer(0));
+        std::fill_n(output_vertices, CADMesh::dynamic_lines.vertices->size() * 3, -10000.f);
+        std::copy(input_vertices, input_vertices + std::min(mesh.vertices->size(), CADMesh::dynamic_lines.vertices->size()) * 3, output_vertices);
+        CADMesh::dynamic_lines.vertices->dirty();
+
+        auto input_indices = static_cast<uint32_t*>(mesh.indices->dataPointer(0));
+        auto output_indices = static_cast<uint32_t*>(CADMesh::dynamic_lines.indices->dataPointer(0));
+        std::fill_n(output_indices, CADMesh::dynamic_lines.indices->size(), 0);
+        std::copy(input_indices, input_indices + std::min(mesh.indices->size(), CADMesh::dynamic_lines.indices->size()), output_indices);
+        CADMesh::dynamic_lines.indices->dirty();
+    }
+
+    void addPointData(){
+        static PlaneData planeData = createTestPlanes();
+        static float subdivisions = 0.1;
+        static PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
+        static MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
+
+        auto input_vertices = static_cast<float*>(mesh.vertices->dataPointer(0));
+        auto output_vertices = static_cast<float*>(CADMesh::dynamic_points.vertices->dataPointer(0));
+        std::fill_n(output_vertices, CADMesh::dynamic_points.vertices->size() * 3, -10000.f);
+        std::copy(input_vertices, input_vertices + std::min(mesh.vertices->size(), CADMesh::dynamic_points.vertices->size()) * 3, output_vertices);
+        CADMesh::dynamic_points.vertices->dirty();
+
+        auto input_indices = static_cast<uint32_t*>(mesh.indices->dataPointer(0));
+        auto output_indices = static_cast<uint32_t*>(CADMesh::dynamic_points.indices->dataPointer(0));
+        std::fill_n(output_indices, CADMesh::dynamic_points.indices->size(), 0);
+        std::copy(input_indices, input_indices + std::min(mesh.indices->size(), CADMesh::dynamic_points.indices->size()), output_indices);
+        CADMesh::dynamic_points.indices->dirty();
+    }
+
+    void addTextData(){
+        for(int i = 0; i < CADMesh::dynamic_texts.text.size(); i ++){
+            CADMesh::dynamic_texts.dynamic_text_labels[i]->value() = "bbbbbbbbbbb";
+            CADMesh::dynamic_texts.text[i]->setup(0, options);
+        }
+    }
+
 
     void repaint(std::string model_name, std::string part_name, int state){
         instance_phongs[model_name]->repaint(part_name, state);
