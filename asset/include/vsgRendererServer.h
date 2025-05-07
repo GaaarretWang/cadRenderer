@@ -1160,14 +1160,6 @@ public:
     }
 
     void setRealColorAndImage(unsigned char * real_color, unsigned short * real_depth){
-        if (color_pixels) {
-            stbi_image_free(color_pixels);
-            color_pixels = nullptr;
-        }
-        if (depth_pixels) {
-            stbi_image_free(depth_pixels);
-            depth_pixels = nullptr;
-        }
         color_pixels = real_color;
         depth_pixels = real_depth;
     }
