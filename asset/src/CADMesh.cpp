@@ -917,7 +917,17 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
             proto_data->instance_buffer->set(i, vsg::mat4(proto_data->instance_matrix[i]));
         }
         proto_data->input_instance_buffer_info = vsg::BufferInfo::create(proto_data->instance_buffer);
-        proto_data->output_instance_buffer_info = vsg::BufferInfo::create(proto_data->instance_buffer);
+
+        proto_data->highlight_buffer = vsg::uintArray::create(proto_data->instance_matrix.size() / 2 * 4);
+        proto_data->highlight_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
+        for(int i = 0; i < proto_data->instance_matrix.size() / 2 * 4; i ++){
+            proto_data->highlight_buffer->set(i, 0);
+        }
+        proto_data->input_highlight_buffer_info = vsg::BufferInfo::create(proto_data->highlight_buffer);
+
+        // 2个mat4，1个int，3个padding int，一共36
+        auto instance_data_buffer = vsg::floatArray::create(proto_data->instance_matrix.size() / 2 * 36);
+        proto_data->output_instance_buffer_info = vsg::BufferInfo::create(instance_data_buffer);
 
         vsg::BufferInfoList info_list = {proto_data->output_instance_buffer_info};
         graphicsPipelineConfig->assignDescriptor("instanceModelMatrix", info_list);

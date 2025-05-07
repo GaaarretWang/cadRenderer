@@ -710,6 +710,7 @@ public:
                 {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
                 {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
                 {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+                {8, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
             };
             auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
             auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
@@ -722,9 +723,10 @@ public:
                 for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
                     ProtoData* proto_data = proto_data_itr.second;
                     auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
-                                                                                        proto_data->input_instance_buffer_info, proto_data->output_instance_buffer_info,
-                                                                                        camera_plane_info_buffer_info, proto_data->bounds_buffer_info,
-                                                                                        camera_matrix_buffer_info, depth_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                                                                                        proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info,
+                                                                                        proto_data->output_instance_buffer_info, camera_plane_info_buffer_info, 
+                                                                                        proto_data->bounds_buffer_info, camera_matrix_buffer_info,
+                                                                                        depth_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
                     auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer});
                     auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
                     computeCommandGraph->addChild(bindDescriptorSet);
@@ -742,9 +744,10 @@ public:
                 for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
                     ProtoData* proto_data = proto_data_itr.second;
                     auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
-                                                                                        proto_data->input_instance_buffer_info, proto_data->output_instance_buffer_info,
-                                                                                        camera_plane_info_buffer_info, proto_data->bounds_buffer_info,
-                                                                                        camera_matrix_buffer_info, depth_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                                                                                        proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info, 
+                                                                                        proto_data->output_instance_buffer_info, camera_plane_info_buffer_info, 
+                                                                                        proto_data->bounds_buffer_info, camera_matrix_buffer_info, 
+                                                                                        depth_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
                     auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer});
                     auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
                     computeCommandGraph2->addChild(bindDescriptorSet);
@@ -1258,54 +1261,52 @@ public:
         return false;
     }
 
-    void addLineData(){
-        static PlaneData planeData = createTestPlanes();
-        static float subdivisions = 0.1;
-        static PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
-        static MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
-
-        auto input_vertices = static_cast<float*>(mesh.vertices->dataPointer(0));
+    void addLineData(float* vertices_pointer, size_t vertices_size, uint32_t* indices_pointer, size_t indices_size){
         auto output_vertices = static_cast<float*>(CADMesh::dynamic_lines.vertices->dataPointer(0));
         std::fill_n(output_vertices, CADMesh::dynamic_lines.vertices->size() * 3, -10000.f);
-        std::copy(input_vertices, input_vertices + std::min(mesh.vertices->size(), CADMesh::dynamic_lines.vertices->size()) * 3, output_vertices);
+        std::copy(vertices_pointer, vertices_pointer + std::min(vertices_size, CADMesh::dynamic_lines.vertices->size() * 3), output_vertices);
         CADMesh::dynamic_lines.vertices->dirty();
 
-        auto input_indices = static_cast<uint32_t*>(mesh.indices->dataPointer(0));
         auto output_indices = static_cast<uint32_t*>(CADMesh::dynamic_lines.indices->dataPointer(0));
         std::fill_n(output_indices, CADMesh::dynamic_lines.indices->size(), 0);
-        std::copy(input_indices, input_indices + std::min(mesh.indices->size(), CADMesh::dynamic_lines.indices->size()), output_indices);
+        std::copy(indices_pointer, indices_pointer + std::min(indices_size, CADMesh::dynamic_lines.indices->size()), output_indices);
         CADMesh::dynamic_lines.indices->dirty();
     }
 
-    void addPointData(){
-        static PlaneData planeData = createTestPlanes();
-        static float subdivisions = 0.1;
-        static PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
-        static MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
-
-        auto input_vertices = static_cast<float*>(mesh.vertices->dataPointer(0));
+    void addPointData(float* vertices_pointer, size_t vertices_size, uint32_t* indices_pointer, size_t indices_size){
         auto output_vertices = static_cast<float*>(CADMesh::dynamic_points.vertices->dataPointer(0));
         std::fill_n(output_vertices, CADMesh::dynamic_points.vertices->size() * 3, -10000.f);
-        std::copy(input_vertices, input_vertices + std::min(mesh.vertices->size(), CADMesh::dynamic_points.vertices->size()) * 3, output_vertices);
+        std::copy(vertices_pointer, vertices_pointer + std::min(vertices_size, CADMesh::dynamic_points.vertices->size() * 3), output_vertices);
         CADMesh::dynamic_points.vertices->dirty();
 
-        auto input_indices = static_cast<uint32_t*>(mesh.indices->dataPointer(0));
         auto output_indices = static_cast<uint32_t*>(CADMesh::dynamic_points.indices->dataPointer(0));
         std::fill_n(output_indices, CADMesh::dynamic_points.indices->size(), 0);
-        std::copy(input_indices, input_indices + std::min(mesh.indices->size(), CADMesh::dynamic_points.indices->size()), output_indices);
+        std::copy(indices_pointer, indices_pointer + std::min(indices_size, CADMesh::dynamic_points.indices->size()), output_indices);
         CADMesh::dynamic_points.indices->dirty();
     }
 
-    void addTextData(){
-        for(int i = 0; i < CADMesh::dynamic_texts.text.size(); i ++){
-            CADMesh::dynamic_texts.dynamic_text_labels[i]->value() = "bbbbbbbbbbb";
+    void addTextData(std::vector<std::string>& texts, std::vector<vsg::ref_ptr<vsg::StandardLayout>>& dynamic_text_layouts){
+        for(int i = 0; i < std::min(CADMesh::dynamic_texts.text.size(), texts.size()); i ++){
+            CADMesh::dynamic_texts.dynamic_text_labels[i]->value() = texts[i];
+            CADMesh::dynamic_texts.standardLayout[i]->billboard = dynamic_text_layouts[i]->billboard;
+            CADMesh::dynamic_texts.standardLayout[i]->position = dynamic_text_layouts[i]->position;
+            CADMesh::dynamic_texts.standardLayout[i]->horizontal = dynamic_text_layouts[i]->horizontal;
+            CADMesh::dynamic_texts.standardLayout[i]->vertical = dynamic_text_layouts[i]->vertical;
+            CADMesh::dynamic_texts.standardLayout[i]->color = dynamic_text_layouts[i]->color;
+            CADMesh::dynamic_texts.standardLayout[i]->outlineWidth = dynamic_text_layouts[i]->outlineWidth;
             CADMesh::dynamic_texts.text[i]->setup(0, options);
         }
     }
 
+    void repaint(std::string instance_name, uint32_t state){
+        auto& matrix_index = CADMesh::id_to_matrix_index_map[instance_name];
 
-    void repaint(std::string model_name, std::string part_name, int state){
-        instance_phongs[model_name]->repaint(part_name, state);
+        for(int i = 0; i < matrix_index.size(); i ++){
+            auto proto = matrix_index[i].proto_data;
+            auto index = matrix_index[i].index;
+            proto->highlight_buffer->set(index / 2, state);
+            proto->highlight_buffer->dirty();
+        }
     }
 
     void getWindowImage(uint8_t* color){

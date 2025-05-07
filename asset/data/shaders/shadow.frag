@@ -235,10 +235,7 @@ float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex){
 void main()
 {
     vec2 screen_uv = vec2(gl_FragCoord.x / extraParams.width, gl_FragCoord.y / extraParams.height);
-    if(extraParams.shader_type == 0){
-        outColor = texture(cameraImage, screen_uv);
-        return;
-    }else{
+    if(extraParams.shader_type != 0){
         float cadDepth = -eyePos.z / extraParams.z_far;
         float cameraDepth = texture(depthImage, screen_uv).r;
         if(cadDepth > cameraDepth){

@@ -97,6 +97,7 @@ layout(location = 0) in vec3 eyePos;
 layout(location = 1) in vec3 normalDir;
 layout(location = 2) in vec4 vertexColor;
 layout(location = 3) in vec2 texCoord0;
+layout(location = 4) in flat uint highlight;
 layout(location = 5) in vec3 viewDir;
 
 layout(location = 6) in vec3 worldNormal;
@@ -603,6 +604,11 @@ vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specula
 
 void main()
 {
+    if(highlight > 0){
+        outColor = vec4(1, 1, 1, 1);
+        return;
+    }
+
     if(extraParams.shader_type == 1){
         float cadDepth = -eyePos.z / 65.535;
         vec2 screen_uv = vec2(gl_FragCoord.x / 1280.0, gl_FragCoord.y / 960.0);

@@ -18,35 +18,45 @@ layout(set = 0, binding = 1) buffer InIndirect {
   	uint firstInstance;
 }inIndirect;
 
-struct InstanceData {
+struct MatrixData {
     mat4 protoMatrix;
     mat4 modelMatrix;
 };
 
+struct InstanceData {
+    mat4 protoMatrix;
+    mat4 modelMatrix;
+    uint highlight;
+};
+
 layout(set = 0, binding = 2) buffer InIndirectMatrix {
-    InstanceData instanceModelMatrix[];
+    MatrixData instanceModelMatrix[];
 }inIndirectMatrix;
 
-layout(set = 0, binding = 3) buffer OutIndirectMatrix {
+layout(set = 0, binding = 3) buffer InHighlightData {
+    uvec4 data[];
+}inHighlightData;
+
+layout(set = 0, binding = 4) buffer OutIndirectMatrix {
     InstanceData instanceModelMatrix[];
 }outIndirectMatrix;
 
-layout(set = 0, binding = 4) buffer CameraPlaneInfo{
+layout(set = 0, binding = 5) buffer CameraPlaneInfo{
 	vec4 planes[6];
 }camera_plane;
 
-layout(std430, set = 0, binding = 5) buffer BBox{
+layout(std430, set = 0, binding = 6) buffer BBox{
     vec4 min;
     vec4 max;
     float draw_state[];
 }bbox;
 
-layout(set = 0, binding = 6) buffer ViewMatrix{
+layout(set = 0, binding = 7) buffer ViewMatrix{
 	mat4 view;
 	mat4 vp;
 }viewMatrix;
 
-layout(set = 0, binding = 7) buffer DepthInfo{
+layout(set = 0, binding = 8) buffer DepthInfo{
 	float view[];
 }depthInfo;
 
@@ -75,7 +85,7 @@ void main() {
         outIndirect.instanceCount = 0; // 默认不可见
     }
     barrier(); // 确保初始化完成
-    bbox.draw_state[instanceIndex] = 0.0;
+    inHighlightData.data[instanceIndex].y = 0;
 
     // 计算包围盒的8个顶点（世界空间）
     vec4 points[8];
@@ -132,25 +142,18 @@ void main() {
             float render_depth = depthInfo.view[texel.y * imageSize.x + texel.x];
             if(render_depth <= depth){
                 uint prevCount = atomicAdd(outIndirect.instanceCount, 1);
-                InstanceData cur_data = inIndirectMatrix.instanceModelMatrix[instanceIndex];
+                MatrixData cur_data = inIndirectMatrix.instanceModelMatrix[instanceIndex];
                 //cur_data.modelMatrix[3][2] += 1;
-                outIndirectMatrix.instanceModelMatrix[prevCount] = cur_data;
+                InstanceData out_data;
+                out_data.protoMatrix = cur_data.protoMatrix;
+                out_data.modelMatrix = cur_data.modelMatrix;
+                out_data.highlight = inHighlightData.data[instanceIndex].x;
+                outIndirectMatrix.instanceModelMatrix[prevCount] = out_data;
     
                 memoryBarrierBuffer();	
-                bbox.draw_state[instanceIndex] = 1.0;
+                inHighlightData.data[instanceIndex].y = 1;
                 return;
             }
         }
-        /*uint prevCount = atomicAdd(outIndirect.instanceCount, 1);
-        InstanceData cur_data = inIndirectMatrix.instanceModelMatrix[instanceIndex];
-        //cur_data.modelMatrix[3][2] += 1;
-        outIndirectMatrix.instanceModelMatrix[prevCount] = cur_data;
-            
-        memoryBarrierBuffer();	
-        prevCount = atomicAdd(outIndirect.instanceCount, 1);
-        cur_data.modelMatrix[3][2] += 1;
-        outIndirectMatrix.instanceModelMatrix[prevCount] = cur_data;
-            
-        memoryBarrierBuffer();	*/
     }
 }

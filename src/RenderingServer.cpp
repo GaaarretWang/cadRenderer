@@ -51,12 +51,12 @@ int RenderingServer::Init(int argc, char** argv){
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.491005, 1) * init_model_transforms[1] * mat);
     // model_paths.push_back(rendering_dir + "asset/data/obj/Standtube.obj");
     // model_paths.push_back(rendering_dir + "asset/data/geos/大舱壁-ASM(PMI).fb");
-    model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
-    model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
+    // model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
+    // model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
     // model_paths.push_back(rendering_dir + "asset/data/obj/Medieval_building/output.obj");
     // model_paths.push_back(rendering_dir + "asset/data/geos/handNode_0.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
+    model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
+    model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/zhijiaC.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/SeatPart.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/LandingGear.fb");
@@ -98,40 +98,41 @@ int RenderingServer::Update(){
     model_transforms[0][3][2] += 0.005;
     if(model_transforms[0][3][2] > -0.45)
         model_transforms[0][3][2] = -0.679909;
-    renderer.updateObjectPose("YIBIAOPAN1", model_transforms[0]);
-    renderer.addLineData();
-    renderer.addPointData();
-    renderer.addTextData();
-    // a proto instance movement
-    // vsg::dmat4 matrix = vsg::dmat4(0.173648, 0, 0, 0,
-    //                                0.984808, 0, -0.173648, 0,
-    //                                0, 1, 0, 0,
-    //                                -238.327, -215.6, 22.5233, 1);
-    // static double z_offset = 0.0;
-    // z_offset += 0.5;
-    // if(z_offset > 20)
-    //     z_offset = 0;
-    // matrix[3][2] += z_offset;
-    // renderer.updateObjectPose("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", matrix);
+    // renderer.updateObjectPose("YIBIAOPAN1", model_transforms[0]);
 
-    // if(frame_count % 64 == 31)
-    // {
-    //     renderer.repaint("YIBIAOPAN", "006F1783-7FDA-4B8E-9219-69528CB35488", 0);
-    //     renderer.repaint("YIBIAOPAN", "0103F622-8C3C-4872-833D-850E1D60190D", 0);
-    //     renderer.repaint("YIBIAOPAN", "06FF30A9-50CA-4296-9636-2F7B7EFB6CC4", 0);
-    //     renderer.repaint("YIBIAOPAN", "08333F85-D22B-4EF5-888F-F96CA81C56EF", 0);
-    //     renderer.repaint("YIBIAOPAN", "0A7FC82F-8950-446A-8E10-871EAB94BD7A", 0);
-    //     renderer.repaint("YIBIAOPAN", "0B6D2CBA-6C5E-46AD-B2A5-E6E9CCBEF127", 0);
-    // }
-    // else if(frame_count % 64 == 0)
-    // {
-    //     renderer.repaint("YIBIAOPAN", "006F1783-7FDA-4B8E-9219-69528CB35488", 1);
-    //     renderer.repaint("YIBIAOPAN", "0103F622-8C3C-4872-833D-850E1D60190D", 1);
-    //     renderer.repaint("YIBIAOPAN", "06FF30A9-50CA-4296-9636-2F7B7EFB6CC4", 1);
-    //     renderer.repaint("YIBIAOPAN", "08333F85-D22B-4EF5-888F-F96CA81C56EF", 1);
-    //     renderer.repaint("YIBIAOPAN", "0A7FC82F-8950-446A-8E10-871EAB94BD7A", 1);
-    //     renderer.repaint("YIBIAOPAN", "0B6D2CBA-6C5E-46AD-B2A5-E6E9CCBEF127", 1);
-    // }
+    static PlaneData planeData = createTestPlanes();
+    static float subdivisions = 0.1;
+    static PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
+    static MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
+    float* vertices_pointer = static_cast<float*>(mesh.vertices->dataPointer(0));
+    size_t vertices_size = mesh.vertices->size() * 3;
+    uint32_t* indices_pointer = static_cast<uint32_t*>(mesh.indices->dataPointer(0));
+    size_t indices_size = mesh.indices->size();
+    renderer.addLineData(vertices_pointer, vertices_size, indices_pointer, indices_size);
+    renderer.addPointData(vertices_pointer, vertices_size, indices_pointer, indices_size);
+
+    std::vector<std::string> texts{"aaaaaaa"};
+    std::vector<vsg::ref_ptr<vsg::StandardLayout>> dynamic_text_layouts(1, vsg::StandardLayout::create());
+    dynamic_text_layouts[0]->billboard = true;
+    dynamic_text_layouts[0]->position = vsg::vec3(0.0, 0.0, 0.0);
+    dynamic_text_layouts[0]->horizontal = vsg::vec3(1.0, 0.0, 0.0);
+    dynamic_text_layouts[0]->vertical = vsg::vec3(0.0, 1.0, 0.0);
+    dynamic_text_layouts[0]->color = vsg::vec4(1.0, 0.9, 1.0, 1.0);
+    dynamic_text_layouts[0]->outlineWidth = 0.1;
+    renderer.addTextData(texts, dynamic_text_layouts);
+
+    // a proto instance movement
+    vsg::dmat4 matrix = vsg::dmat4(0.173648, 0, 0, 0,
+                                   0.984808, 0, -0.173648, 0,
+                                   0, 1, 0, 0,
+                                   -238.327, -215.6, 22.5233, 1);
+    static double z_offset = 0.0;
+    z_offset += 0.5;
+    if(z_offset > 20)
+        z_offset = 0;
+    matrix[3][2] += z_offset;
+    renderer.updateObjectPose("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", matrix);
+    renderer.repaint("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", 1);
 
     vsg::dvec3 centre = {lookat_vector[0], lookat_vector[1], lookat_vector[2]};                    // 固定观察点
     vsg::dvec3 eye = {lookat_vector[3], lookat_vector[4], lookat_vector[5]};// 固定相机位置
