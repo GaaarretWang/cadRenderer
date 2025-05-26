@@ -145,7 +145,14 @@ int RenderingServer::Update(){
         auto depth_pixels = all_images[frame_count % all_images.size()].depth.get();
         renderer.setRealColorAndImage(color_pixels, depth_pixels);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(25));
+        static auto last_frame_time = std::chrono::steady_clock::now();
+        auto current_time = std::chrono::steady_clock::now();
+        auto frame_time = std::chrono::duration_cast<std::chrono::milliseconds>(current_time - last_frame_time).count();
+        if (frame_time < 33) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(33 - frame_time));
+        }
+        current_time = std::chrono::steady_clock::now();
+        last_frame_time = current_time;
 
         if(stop_cameara_pos)
             cameara_pos_bool = false;
