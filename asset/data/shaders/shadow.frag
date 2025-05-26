@@ -253,7 +253,7 @@ void main()
     int numSpotLights = int(lightNums[3]);
     int index = 1;
 
-    float scene_brightness;
+    float scene_brightness = 0.0;
     // index used to step through the shadowMaps array
     int shadowMapIndex = 0;
     if (numDirectionalLights>0)

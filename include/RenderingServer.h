@@ -1,5 +1,11 @@
 #include <vsgRendererServer.h>
 #include <chrono>
+#include <thread>  // 用于线程睡眠
+
+struct ImagePair {
+    std::unique_ptr<unsigned char[]> color;
+    std::unique_ptr<unsigned short[]> depth;
+};
 
 class RenderingServer {
 public:
@@ -7,10 +13,11 @@ public:
     int width = 640;
     int height = 480;
     bool cameara_pos_bool = true;
-    bool stop_cameara_pos = true;
+    bool stop_cameara_pos = false;
     bool use_png = true;
-    mergeShaderType shader_type = FULL_MODEL;
+    mergeShaderType shader_type = CAMERA_DEPTH;
 
+    std::vector<ImagePair> all_images;
     std::string* real_color1;
     std::string* real_depth1;
     std::vector<double> lookat_vector = {0.000588, 0.739846, -0.903124, 0.087284, 1.51642, -0.279094, 0.163545, -0.628984, 0.760021};

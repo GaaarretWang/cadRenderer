@@ -7,7 +7,43 @@
 #include "communication/dataInterface.h"
 #include <string>
 #include <chrono>
+#include <fstream>
+#include <vector>
+#include <thread>
+#include <future>
+#include <memory>
+#include <stdexcept>
+
 // simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
+
+ImagePair loadImagePair(const std::string& timestamp, ConvertImage* converter) {
+    try {
+        // 加载颜色图像
+        std::ifstream color_file("../asset/data/dataset3/color/" + timestamp + ".png", std::ios::binary);
+        if (!color_file) throw std::runtime_error("Failed to open color file");
+        std::vector<uint8_t> color_buffer((std::istreambuf_iterator<char>(color_file)), 
+                            std::istreambuf_iterator<char>());
+        
+        // 加载深度图像
+        std::ifstream depth_file("../asset/data/dataset3/depth/" + timestamp + ".png", std::ios::binary);
+        if (!depth_file) throw std::runtime_error("Failed to open depth file");
+        std::vector<uint8_t> depth_buffer((std::istreambuf_iterator<char>(depth_file)), 
+                            std::istreambuf_iterator<char>());
+        
+        // 转换图像数据
+        std::string color_str(color_buffer.begin(), color_buffer.end());
+        std::string depth_str(depth_buffer.begin(), depth_buffer.end());
+        
+        ImagePair result;
+        result.color.reset(converter->convertColor(color_str));
+        result.depth.reset(converter->convertDepth(depth_str));
+        
+        return result;
+    } catch (const std::exception& e) {
+        std::cerr << "Error loading " << timestamp << ": " << e.what() << std::endl;
+        return {nullptr, nullptr};
+    }
+}
 
 int main(int argc, char** argv){
     std::vector<std::vector<double>> camera_pos;
@@ -51,6 +87,40 @@ int main(int argc, char** argv){
     Rendering rendering_client;
     rendering_server.Init(argc, argv);
     rendering_client.Init(rendering_server.device);
+    ConvertImage *convert_image = new ConvertImage(rendering_server.width, rendering_server.height);
+
+    int num_images = camera_pos.size();
+    // 确定并行线程数 (不超过硬件支持的核心数)
+    const unsigned int num_threads = std::min<unsigned int>(
+        std::thread::hardware_concurrency(), 
+        num_images
+    );
+    
+    // 分批处理图像
+    std::vector<std::future<std::vector<ImagePair>>> futures;
+    const int batch_size = (num_images + num_threads - 1) / num_threads;
+    
+    for (unsigned int t = 0; t < num_threads; ++t) {
+        futures.emplace_back(std::async(std::launch::async, [&, t] {
+            std::vector<ImagePair> batch_results;
+            const int start = t * batch_size;
+            const int end = std::min(start + batch_size, num_images);
+            
+            for (int i = start; i < end; ++i) {
+                batch_results.push_back(loadImagePair(camera_pos_timestamp[i], convert_image));
+            }
+            return batch_results;
+        }));
+    }
+    
+    // 收集结果
+    for (auto& future : futures) {
+        auto batch = future.get();
+        rendering_server.all_images.insert(rendering_server.all_images.end(), 
+                         std::make_move_iterator(batch.begin()),
+                         std::make_move_iterator(batch.end()));
+    }
+
     auto startTime = std::chrono::high_resolution_clock::now();
     int frameCount = 0;
     while(true){
@@ -85,7 +155,7 @@ int main(int argc, char** argv){
         if(rendering_server.vPacket.size() > 0)
             rendering_client.Update(rendering_server.vPacket);
         frame++;
-        if(frame > 698)
+        if(frame >= num_images)
             frame = 0;
     }
 }

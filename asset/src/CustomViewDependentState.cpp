@@ -37,9 +37,8 @@ namespace vsg
 
 } // namespace vsg
 
-ref_ptr<Image> createCustomShadowImage(uint32_t width, uint32_t height, uint32_t levels, VkFormat format, VkImageUsageFlags usage)
-{
-    auto image = Image::create();
+vsg::ref_ptr<vsg::Image> CustomViewDependentState::createCustomShadowImage(uint32_t width, uint32_t height, uint32_t levels, VkFormat format, VkImageUsageFlags usage){
+    auto image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
     image->format = format;
     image->extent = VkExtent3D{width, height, 1};
@@ -438,7 +437,6 @@ void CustomViewDependentState::traverse(RecordTraversal& rt) const
             ortho->farDistance = -ls_bounds_real.min.z;
 
             dmat4 shadowMapProjView = camera->projectionMatrix->transform() * camera->viewMatrix->transform();
-
             dmat4 shadowMapTM = scale(0.5, 0.5, 1.0) * translate(1.0, 1.0, shadowMapBias) * shadowMapProjView * inverse_viewMatrix;
 
             // convert tex gen matrix to float matrix and assign to light data

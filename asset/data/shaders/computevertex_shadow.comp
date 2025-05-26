@@ -1,0 +1,63 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+precision highp float;
+#extension GL_EXT_scalar_block_layout : enable
+layout(set = 0, binding = 0) buffer OutIndirect {
+  	uint indexCount;
+  	uint instanceCount;
+  	uint firstIndex;
+  	int vertexOffset;
+  	uint firstInstance;
+}outIndirect;
+
+layout(set = 0, binding = 1) buffer InIndirect {
+  	uint indexCount;
+  	uint instanceCount;
+  	uint firstIndex;
+  	int vertexOffset;
+  	uint firstInstance;
+}inIndirect;
+
+struct MatrixData {
+    mat4 protoMatrix;
+    mat4 modelMatrix;
+};
+
+struct InstanceData {
+    mat4 protoMatrix;
+    mat4 modelMatrix;
+    uint highlight;
+};
+
+layout(set = 0, binding = 2) buffer InIndirectMatrix {
+    MatrixData instanceModelMatrix[];
+}inIndirectMatrix;
+
+layout(set = 0, binding = 3) buffer InHighlightData {
+    uvec4 data[];
+}inHighlightData;
+
+layout(set = 0, binding = 4) buffer OutIndirectMatrix {
+    InstanceData instanceModelMatrix[];
+}outIndirectMatrix;
+
+layout (local_size_x = 32) in;
+
+void main() {
+	uint instanceIndex = gl_GlobalInvocationID.x;
+    
+    // 确保不超出实例数量范围
+    if (instanceIndex >= 1) {
+        return;
+    }
+
+    outIndirect.instanceCount = 2;
+    for(int i = 0; i < outIndirect.instanceCount; i ++){
+        MatrixData cur_data = inIndirectMatrix.instanceModelMatrix[i];
+        InstanceData out_data;
+        out_data.protoMatrix = cur_data.protoMatrix;
+        out_data.modelMatrix = cur_data.modelMatrix;
+        out_data.highlight = inHighlightData.data[i].x;
+        outIndirectMatrix.instanceModelMatrix[i] = out_data;
+    }
+}

@@ -9,20 +9,20 @@ int RenderingServer::Init(int argc, char** argv){
     renderer.setKParameters(fx, fy, cx, cy);
 
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
-    init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
+    init_model_transforms.push_back(vsg::dmat4(0.0001, 0, 0, 0, 0, 0.0001, 0, 0, 0, 0, 0.0001, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.8, 1) * init_model_transforms[0]
+    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.6, 1) * init_model_transforms[0]
                                * vsg::dmat4(
-                                    20, 0, 0, 0, 
-                                    0, 20, 0, 0, 
-                                    0, 0, 20, 0, 
+                                    10, 0, 0, 0, 
+                                    0, 10, 0, 0, 
+                                    0, 0, 10, 0, 
                                     0, 0, 0, 1));
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.0, 1) * init_model_transforms[0]
-                               * vsg::dmat4(
-                                    20, 0, 0, 0, 
-                                    0, 20, 0, 0, 
-                                    0, 0, 20, 0, 
-                                    0, 0, 0, 1));
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.0, 1) * init_model_transforms[0]
+    //                            * vsg::dmat4(
+    //                                 10, 0, 0, 0, 
+    //                                 0, 10, 0, 0, 
+    //                                 0, 0, 10, 0, 
+    //                                 0, 0, 0, 1));
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
     //                            * vsg::dmat4(
     //                                 0.2, 0, 0, 0, 
@@ -56,7 +56,7 @@ int RenderingServer::Init(int argc, char** argv){
     // model_paths.push_back(rendering_dir + "asset/data/obj/Medieval_building/output.obj");
     // model_paths.push_back(rendering_dir + "asset/data/geos/handNode_0.fb");
     model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/zhijiaC.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/SeatPart.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/LandingGear.fb");
@@ -100,26 +100,26 @@ int RenderingServer::Update(){
         model_transforms[0][3][2] = -0.679909;
     // renderer.updateObjectPose("YIBIAOPAN1", model_transforms[0]);
 
-    static PlaneData planeData = createTestPlanes();
-    static float subdivisions = 0.1;
-    static PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
-    static MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
-    float* vertices_pointer = static_cast<float*>(mesh.vertices->dataPointer(0));
-    size_t vertices_size = mesh.vertices->size() * 3;
-    uint32_t* indices_pointer = static_cast<uint32_t*>(mesh.indices->dataPointer(0));
-    size_t indices_size = mesh.indices->size();
-    renderer.addLineData(vertices_pointer, vertices_size, indices_pointer, indices_size);
-    renderer.addPointData(vertices_pointer, vertices_size, indices_pointer, indices_size);
+    // static PlaneData planeData = createTestPlanes();
+    // static float subdivisions = 0.1;
+    // static PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
+    // static MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
+    // float* vertices_pointer = static_cast<float*>(mesh.vertices->dataPointer(0));
+    // size_t vertices_size = mesh.vertices->size() * 3;
+    // uint32_t* indices_pointer = static_cast<uint32_t*>(mesh.indices->dataPointer(0));
+    // size_t indices_size = mesh.indices->size();
+    // renderer.addLineData(vertices_pointer, vertices_size, indices_pointer, indices_size);
+    // renderer.addPointData(vertices_pointer, vertices_size, indices_pointer, indices_size);
 
-    std::vector<std::string> texts{"aaaaaaa"};
-    std::vector<vsg::ref_ptr<vsg::StandardLayout>> dynamic_text_layouts(1, vsg::StandardLayout::create());
-    dynamic_text_layouts[0]->billboard = true;
-    dynamic_text_layouts[0]->position = vsg::vec3(0.0, 0.0, 0.0);
-    dynamic_text_layouts[0]->horizontal = vsg::vec3(1.0, 0.0, 0.0);
-    dynamic_text_layouts[0]->vertical = vsg::vec3(0.0, 1.0, 0.0);
-    dynamic_text_layouts[0]->color = vsg::vec4(1.0, 0.9, 1.0, 1.0);
-    dynamic_text_layouts[0]->outlineWidth = 0.1;
-    renderer.addTextData(texts, dynamic_text_layouts);
+    // std::vector<std::string> texts{"aaaaaaa"};
+    // std::vector<vsg::ref_ptr<vsg::StandardLayout>> dynamic_text_layouts(1, vsg::StandardLayout::create());
+    // dynamic_text_layouts[0]->billboard = true;
+    // dynamic_text_layouts[0]->position = vsg::vec3(0.0, 0.0, 0.0);
+    // dynamic_text_layouts[0]->horizontal = vsg::vec3(1.0, 0.0, 0.0);
+    // dynamic_text_layouts[0]->vertical = vsg::vec3(0.0, 1.0, 0.0);
+    // dynamic_text_layouts[0]->color = vsg::vec4(1.0, 0.9, 1.0, 1.0);
+    // dynamic_text_layouts[0]->outlineWidth = 0.1;
+    // renderer.addTextData(texts, dynamic_text_layouts);
 
     // a proto instance movement
     vsg::dmat4 matrix = vsg::dmat4(0.173648, 0, 0, 0,
@@ -131,8 +131,8 @@ int RenderingServer::Update(){
     if(z_offset > 20)
         z_offset = 0;
     matrix[3][2] += z_offset;
-    renderer.updateObjectPose("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", matrix);
-    renderer.repaint("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", 1);
+    // renderer.updateObjectPose("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", matrix);
+    // renderer.repaint("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", 1);
 
     vsg::dvec3 centre = {lookat_vector[0], lookat_vector[1], lookat_vector[2]};                    // 固定观察点
     vsg::dvec3 eye = {lookat_vector[3], lookat_vector[4], lookat_vector[5]};// 固定相机位置
@@ -140,17 +140,12 @@ int RenderingServer::Update(){
 
     if(cameara_pos_bool){//停止位姿变化
         renderer.updateCamera(centre, eye, up);
-        std::ifstream color_file(color_path, std::ios::binary | std::ios::app);
-        std::vector<uint8_t> color_buffer((std::istreambuf_iterator<char>(color_file)), std::istreambuf_iterator<char>());
-        std::ifstream depth_file(depth_path, std::ios::binary | std::ios::app);
-        std::vector<uint8_t> depth_buffer((std::istreambuf_iterator<char>(depth_file)), std::istreambuf_iterator<char>());
 
-        std::string real_color1(color_buffer.begin(), color_buffer.end());
-        std::string real_depth1(depth_buffer.begin(), depth_buffer.end());
+        auto color_pixels = all_images[frame_count % all_images.size()].color.get();
+        auto depth_pixels = all_images[frame_count % all_images.size()].depth.get();
+        renderer.setRealColorAndImage(color_pixels, depth_pixels);
 
-        color = real_color1;
-        depth = real_depth1;
-        renderer.setRealColorAndImage(color, depth);
+        std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
         if(stop_cameara_pos)
             cameara_pos_bool = false;

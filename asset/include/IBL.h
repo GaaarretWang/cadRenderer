@@ -5,6 +5,7 @@
 #include <vsg/utils/Builder.h>
 #include <vsg/utils/ShaderSet.h>
 #include "CustomViewDependentState.h"
+#include "CustomViewDependentState1.h"
 
 namespace IBL
 {

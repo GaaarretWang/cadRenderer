@@ -22,6 +22,7 @@ public:
 
     // to save viewMatrix and inverseViewMatrix
     void traverse(vsg::RecordTraversal& rt) const override;
+    vsg::ref_ptr<vsg::Image> createCustomShadowImage(uint32_t width, uint32_t height, uint32_t levels, VkFormat format, VkImageUsageFlags usage);
 
     // to actually bind the descriptor set
     //virtual void bindDescriptorSets(vsg::CommandBuffer& commandBuffer, VkPipelineBindPoint pipelineBindPoint, VkPipelineLayout layout, uint32_t firstSet) override;

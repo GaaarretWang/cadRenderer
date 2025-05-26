@@ -1,0 +1,28 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+
+layout(push_constant) uniform PushConstants {
+    ivec2 size;
+} pc;
+
+layout(r32f, set = 0, binding = 0) uniform writeonly image2D depth_pyramid; // 金字塔输出
+layout(r32f, set = 0, binding = 1) uniform readonly image2D prev_level;    // 上一层级输入
+
+layout(local_size_x = 32, local_size_y = 32) in;
+
+void main() {
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    if (coord.x * 2 + 2 > pc.size.x || coord.y * 2 + 2 > pc.size.y) return;
+
+    // 从上一层级取4个像素
+    ivec2 src_coord = coord * 2;
+    float d00 = imageLoad(prev_level, src_coord).x;
+    float d01 = imageLoad(prev_level, src_coord + ivec2(0, 1)).x;
+    float d10 = imageLoad(prev_level, src_coord + ivec2(1, 0)).x;
+    float d11 = imageLoad(prev_level, src_coord + ivec2(1, 1)).x;
+
+    // 取最大值（或平均值）
+    float min_depth = min(min(d00, d01), min(d10, d11));
+    imageStore(depth_pyramid, coord, vec4(min_depth, 0, 0, 0)); // 存储到下一层
+}
+
