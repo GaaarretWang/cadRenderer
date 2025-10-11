@@ -1,4 +1,4 @@
-#pragma  once
+﻿#pragma  once
 #include <iostream>
 #include <screenshot.h>
 #include <vsg/all.h>
@@ -13,6 +13,7 @@ using namespace std;
 
 class vsgRendererClient
 {
+public:
     vsg::ref_ptr<vsg::Viewer> decode_viewer = vsg::Viewer::create();
     vsg::ref_ptr<ScreenshotHandler> decode_screenshotHandler;
     vsg::ref_ptr<vsg::Window> decode_window;

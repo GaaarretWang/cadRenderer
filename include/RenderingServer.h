@@ -1,4 +1,4 @@
-#include <vsgRendererServer.h>
+﻿#include <vsgRendererServer.h>
 #include <chrono>
 #include <thread>  // 用于线程睡眠
 
@@ -13,7 +13,7 @@ public:
     int width = 640;
     int height = 480;
     bool cameara_pos_bool = true;
-    bool stop_cameara_pos = false;
+    bool stop_cameara_pos = true;
     bool use_png = true;
     mergeShaderType shader_type = CAMERA_DEPTH;
 
@@ -30,9 +30,7 @@ public:
     std::vector<std::string> model_paths;
     std::vector<std::string> instance_names;
     std::string rendering_dir = "../";
-    std::string color_path = "/home/lab/workspace/wgy/cadvsg_intg/asset/data/slamData/color/1711699313.948925.png";
-    std::string depth_path = "/home/lab/workspace/wgy/cadvsg_intg/asset/data/slamData/depth/1711699313.948925.png";
-    double upsample_scale = 2;
+    double upsample_scale = 3;
     std::string color;
     std::string depth;
 

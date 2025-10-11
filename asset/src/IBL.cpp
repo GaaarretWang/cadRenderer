@@ -2,9 +2,6 @@
 
 #define _USE_MATH_DEFINES
 
-#ifndef STB_IMAGE_IMPLEMENTATION
-#define STB_IMAGE_IMPLEMENTATION
-
 #include <math.h>
 #include <iostream>
 #include <type_traits>
@@ -1778,5 +1775,3 @@ ptr<Node> iblDemoSceneGraph(VsgContext& context)
 }
 
 } // namespace IBL
-
-#endif

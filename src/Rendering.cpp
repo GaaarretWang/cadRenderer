@@ -11,7 +11,8 @@ int Rendering::Init(vsg::ref_ptr<vsg::Device> device){
 }
 
 int Rendering::Update(std::vector<std::vector<uint8_t>> &vPacket){    
-    renderer.render(vPacket);
+    if(!renderer.render(vPacket))
+        return -1;
 
     return 0;
 }

@@ -1,4 +1,4 @@
-#include "CADMesh.h"
+﻿#include "CADMesh.h"
 #include <chrono>
 #include <iomanip>
 #include <vsg/all.h>
@@ -153,7 +153,7 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
     auto MapInfo = datainterface.getRenderInfoMap();
 	pmi = datainterface.getPmiInfos(false);
 	auto instances = datainterface.getInstances();
-	auto instanceInfos = datainterface.getInstanceInfos();
+	// auto instanceInfos = datainterface.getInstanceInfos();
 	std::string fbModelData = datainterface.getModelFlatbuffersData();
 
     uint8_t* buffer_data;
@@ -573,7 +573,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
     auto MapInfo = datainterface.getRenderInfoMap();
 	pmi = datainterface.getPmiInfos(false);
 	auto instances = datainterface.getInstances();
-	auto instanceInfos = datainterface.getInstanceInfos();
+	// auto instanceInfos = datainterface.getInstanceInfos();
 	std::string fbModelData = datainterface.getModelFlatbuffersData();
 
     uint8_t* buffer_data;
@@ -975,11 +975,11 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
         proto_data->bounds_buffer_info = vsg::BufferInfo::create(proto_data->bounds_data);
 
         VkDrawIndexedIndirectCommand cmd = {
-            .indexCount = proto_data->indices->size(),      // 例如：3000 个三角形 × 3
-            .instanceCount = proto_data->instance_matrix.size() / 2,     // 绘制 10 个实例
-            .firstIndex = 0,         // 从索引 0 开始
-            .vertexOffset = 0,       // 无顶点偏移
-            .firstInstance = 0       // 实例 ID 从 0 开始
+            proto_data->indices->size(),      // indexCount
+            proto_data->instance_matrix.size() / 2,     // instanceCount
+            0,         // firstIndex
+            0,         // vertexOffset
+            0          // firstInstance
         };
         auto indirect_full_buffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
         indirect_full_buffer->set(0, cmd);
@@ -1029,11 +1029,11 @@ void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset
     drawCommands->addChild(vsg::BindIndexBuffer::create(dynamic_lines.indices));
 
     VkDrawIndexedIndirectCommand cmd = {
-        .indexCount = 20000,      // 例如：3000 个三角形 × 3
-        .instanceCount = 1,     // 绘制 10 个实例
-        .firstIndex = 0,         // 从索引 0 开始
-        .vertexOffset = 0,       // 无顶点偏移
-        .firstInstance = 0       // 实例 ID 从 0 开始
+        20000,      // indexCount
+        1,          // instanceCount
+        0,          // firstIndex
+        0,          // vertexOffset
+        0           // firstInstance
     };
 
     auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
@@ -1087,11 +1087,11 @@ void CADMesh::buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderse
     drawCommands->addChild(vsg::BindIndexBuffer::create(dynamic_points.indices));
 
     VkDrawIndexedIndirectCommand cmd = {
-        .indexCount = 20000,      // 例如：3000 个三角形 × 3
-        .instanceCount = 1,     // 绘制 10 个实例
-        .firstIndex = 0,         // 从索引 0 开始
-        .vertexOffset = 0,       // 无顶点偏移
-        .firstInstance = 0       // 实例 ID 从 0 开始
+        20000,      // indexCount
+        1,          // instanceCount
+        0,          // firstIndex
+        0,          // vertexOffset
+        0           // firstInstance
     };
 
     auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);

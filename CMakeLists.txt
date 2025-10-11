@@ -6,6 +6,10 @@ project(Rendering
         LANGUAGES CXX C CUDA
 )
 
+if(WIN32)
+    add_compile_definitions(NOMINMAX)
+endif()
+
 # set_property(TARGET tgt PROPERTY CUDA_ARCHITECTURES native)
 # set(CMAKE_CUDA_ARCHITECTURES tgt)
 find_package(CUDA REQUIRED)
@@ -20,6 +24,8 @@ find_package(assimp REQUIRED)
 
 find_package(vsgImGui REQUIRED)
 
+find_package(flatbuffers REQUIRED)
+
 # set the use of C++17 globally as all examples require it
 set(CMAKE_CXX_STANDARD 17)
 aux_source_directory(src SRCS)
@@ -31,25 +37,27 @@ target_include_directories(Rendering PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
     ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/include
 )
-
-target_link_directories(Rendering PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Lib/linux/stubs/x86_64
-    ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/
-)
-
-target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/cadDataManager.a ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/libcurl.a)
-
-target_link_libraries(Rendering 
-    vsg::vsg
-    vsgImGui::vsgImGui
-    vsgXchange::vsgXchange
-    flatbuffers
-    vsgRenderer
-    libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY}
-    ${ASSIMP_LIBRARIES}
+if(UNIX)
+    target_link_directories(Rendering PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Lib/linux/stubs/x86_64
+        ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/
     )
 
-get_target_property(Rendering_include_dirs Rendering INTERFACE_INCLUDE_DIRECTORIES)
-message(STATUS "Rendering include directories:${Rendering_include_dirs}")
+    target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/cadDataManager.a ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/libcurl.a)
+
+    target_link_libraries(Rendering 
+        vsg::vsg
+        vsgImGui::vsgImGui
+        vsgXchange::vsgXchange
+        flatbuffers::flatbuffers
+        vsgRenderer
+        libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY}
+        ${ASSIMP_LIBRARIES}
+    )
+elseif(WIN32)
+    target_link_libraries(Rendering 
+        vsgRenderer
+    )
+endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}-pthread")

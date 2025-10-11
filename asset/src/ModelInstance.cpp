@@ -1,4 +1,4 @@
-#include "ModelInstance.h"
+﻿#include "ModelInstance.h"
 
 template <typename T>
 using ptr = vsg::ref_ptr<T>;

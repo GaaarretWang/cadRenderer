@@ -1,4 +1,4 @@
-#include "encoder.h"
+﻿#include "encoder.h"
 #include <array>
 
 void NvEncoderWrapper::getDeviceUUID(

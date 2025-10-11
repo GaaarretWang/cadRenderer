@@ -1,5 +1,4 @@
-#define STB_IMAGE_IMPLEMENTATION
-#include "Rendering.h"
+﻿#include "Rendering.h"
 #include "RenderingServer.h"
 #include <iostream>
 #include <vsg/all.h>
@@ -84,9 +83,11 @@ int main(int argc, char** argv){
     inf.close();
 
     RenderingServer rendering_server;
-    Rendering rendering_client;
     rendering_server.Init(argc, argv);
+#ifndef WIN32
+    Rendering rendering_client;
     rendering_client.Init(rendering_server.device);
+#endif
     ConvertImage *convert_image = new ConvertImage(rendering_server.width, rendering_server.height);
 
     int num_images = camera_pos.size();
@@ -125,8 +126,6 @@ int main(int argc, char** argv){
     int frameCount = 0;
     while(true){
         //std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        rendering_server.color_path = "../asset/data/dataset3/color/" + camera_pos_timestamp[frame] + ".png";
-        rendering_server.depth_path = "../asset/data/dataset3/depth/" + camera_pos_timestamp[frame] + ".png";
         rendering_server.lookat_vector = camera_pos[frame];
         
         // 增量帧计数器
@@ -150,10 +149,17 @@ int main(int argc, char** argv){
             frameCount = 0;
             startTime = currentTime;
         }
+        
+        if(rendering_server.Update() == -1){
+            std::cout << "end" << std::endl;
+            return 0;
+        }
 
-        rendering_server.Update();
+#ifndef WIN32
         if(rendering_server.vPacket.size() > 0)
             rendering_client.Update(rendering_server.vPacket);
+#endif
+
         frame++;
         if(frame >= num_images)
             frame = 0;

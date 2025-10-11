@@ -1,4 +1,4 @@
-#pragma  once
+﻿#pragma  once
 #include <encoder.h>
 
 enum ScreenshotHandlerType {
@@ -33,7 +33,6 @@ public:
                 std::cerr << e.message << '\n';
                 std::cout << "1111111111111111111" << std::endl;
             }
-            
             m_encoder->initCuda(instance, window);
 
             if(type == ENCODER)

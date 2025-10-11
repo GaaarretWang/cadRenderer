@@ -29,26 +29,28 @@ if(UNIX)
     target_link_libraries(vsgRenderer vsg::vsg vsgXchange::vsgXchange)
 elseif(WIN32)
     find_package(vsg REQUIRED)
+    find_package(vsgXchange REQUIRED)
+    find_package(assimp REQUIRED)
+    find_package(vsgImGui REQUIRED)
+    find_package(flatbuffers REQUIRED)
     find_package(CUDA REQUIRED)
-    message(STATUS "assetSRCS: ${assetSRCS}")
+
     add_library(vsgRenderer ${assetSRCS})
     set(render_LIB_PATH 
         ${CMAKE_CURRENT_SOURCE_DIR}/lib/
     )
     set_target_properties(vsgRenderer PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${render_LIB_PATH})
 
-    target_link_directories(vsgRenderer PUBLIC
-            ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Lib/linux/stubs/x86_64
-            ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Lib/x64
-            ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/cadDataManager/lib
-    )
-
     target_link_libraries(vsgRenderer PUBLIC
+        flatbuffers::flatbuffers
         vsg::vsg
-        nvcuvid nvencodeapi ${CUDA_LIBRARIES} ${CUDA_CUDA_LIBRARY}
-        cadDataManager
-        curl
-        "C:/Program Files/Assimp/lib/x64/assimp-vc143-mt.lib"
+        vsgXchange::vsgXchange
+        assimp::assimp
+        vsgImGui::vsgImGui         
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Lib/x64/nvcuvid.lib 
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Lib/x64/nvencodeapi.lib
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/cadDataManager/winlib/cadDataManager.lib 
+        ${CUDA_LIBRARIES} ${CUDA_CUDA_LIBRARY}
     )
 
     target_include_directories(vsgRenderer PUBLIC
@@ -56,7 +58,7 @@ elseif(WIN32)
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/cadDataManager/include
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Utils
         ${CUDA_INCLUDE_DIRS}
-        "C:/Program Files/Assimp/include"
+        ${ASSIMP_INCLUDE_DIR}
     )
 endif()
 

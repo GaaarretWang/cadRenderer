@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CADMesh.h"
 #include "MyMask.h"

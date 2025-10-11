@@ -1,4 +1,4 @@
-#include "RenderingServer.h"
+﻿#include "RenderingServer.h"
 
 RenderingServer::RenderingServer() = default;
 
@@ -29,19 +29,19 @@ int RenderingServer::Init(int argc, char** argv){
     //                                 0, 0.2, 0, 0, 
     //                                 0, 0, 0.2, 0, 
     //                                 0, 0, 0, 1));
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.40006, 1.01482, -0.8, 1) * init_model_transforms[0]
     //                            * vsg::dmat4(
     //                                 0.2, 0, 0, 0, 
     //                                 0, 0.2, 0, 0, 
     //                                 0, 0, 0.2, 0, 
     //                                 0, 0, 0, 1));
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.50006, 1.01482, -0.8, 1) * init_model_transforms[0]
     //                            * vsg::dmat4(
     //                                 0.2, 0, 0, 0, 
     //                                 0, 0.2, 0, 0, 
     //                                 0, 0, 0.2, 0, 
     //                                 0, 0, 0, 1));
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.60006, 1.01482, -0.8, 1) * init_model_transforms[0]
     //                            * vsg::dmat4(
     //                                 0.2, 0, 0, 0, 
     //                                 0, 0.2, 0, 0, 
@@ -62,16 +62,31 @@ int RenderingServer::Init(int argc, char** argv){
     // model_paths.push_back(rendering_dir + "asset/data/geos/LandingGear.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/airplaneBody.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/Engine.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/plane1.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/plane2.fb");
+
+    // model_paths.push_back(rendering_dir + "asset/data/geos/LandingGear1.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/seatPart1.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/plane3.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/plane4.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/plane4.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/plane4.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/plane4.fb");
+    
     // instance_names.push_back("大舱壁-ASM(PMI)");
     // instance_names.push_back("小舱壁-ASM-修改焊接后0");
     // instance_names.push_back("大舱壁-ASM(PMI)");
     // instance_names.push_back("Medieval_building");
     // instance_names.push_back("Medieval_building1");
     instance_names.push_back("YIBIAOPAN1");
-    instance_names.push_back("YIBIAOPAN2");
+    // instance_names.push_back("YIBIAOPAN2");
     // instance_names.push_back("YIBIAOPAN3");
     // instance_names.push_back("YIBIAOPAN4");
     // instance_names.push_back("texture");
+    // instance_names.push_back("plane1");
+    // instance_names.push_back("plane2");
+    // instance_names.push_back("plane3");
+    // instance_names.push_back("plane4");
 
     vsg::CommandLine arguments(&argc, argv);
 
@@ -95,9 +110,9 @@ int RenderingServer::Update(){
     //     renderer.updateEnvLighting();
     // }
 
-    model_transforms[0][3][2] += 0.005;
-    if(model_transforms[0][3][2] > -0.45)
-        model_transforms[0][3][2] = -0.679909;
+    // model_transforms[0][3][2] += 0.005;
+    // if(model_transforms[0][3][2] > -0.45)
+    //     model_transforms[0][3][2] = -0.679909;
     // renderer.updateObjectPose("YIBIAOPAN1", model_transforms[0]);
 
     // static PlaneData planeData = createTestPlanes();
@@ -122,23 +137,23 @@ int RenderingServer::Update(){
     // renderer.addTextData(texts, dynamic_text_layouts);
 
     // a proto instance movement
-    vsg::dmat4 matrix = vsg::dmat4(0.173648, 0, 0, 0,
-                                   0.984808, 0, -0.173648, 0,
-                                   0, 1, 0, 0,
-                                   -238.327, -215.6, 22.5233, 1);
-    static double z_offset = 0.0;
-    z_offset += 0.5;
-    if(z_offset > 20)
-        z_offset = 0;
-    matrix[3][2] += z_offset;
+    // vsg::dmat4 matrix = vsg::dmat4(0.173648, 0, 0, 0,
+    //                                0.984808, 0, -0.173648, 0,
+    //                                0, 1, 0, 0,
+    //                                -238.327, -215.6, 22.5233, 1);
+    // static double z_offset = 0.0;
+    // z_offset += 0.5;
+    // if(z_offset > 20)
+    //     z_offset = 0;
+    // matrix[3][2] += z_offset;
     // renderer.updateObjectPose("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", matrix);
     // renderer.repaint("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", 1);
 
-    vsg::dvec3 centre = {lookat_vector[0], lookat_vector[1], lookat_vector[2]};                    // 固定观察点
-    vsg::dvec3 eye = {lookat_vector[3], lookat_vector[4], lookat_vector[5]};// 固定相机位置
-    vsg::dvec3 up = {lookat_vector[6], lookat_vector[7], lookat_vector[8]};                       // 固定观察方向
 
     if(cameara_pos_bool){//停止位姿变化
+        vsg::dvec3 centre = {lookat_vector[0], lookat_vector[1], lookat_vector[2]};                    // 固定观察点
+        vsg::dvec3 eye = {lookat_vector[3], lookat_vector[4], lookat_vector[5]};// 固定相机位置
+        vsg::dvec3 up = {lookat_vector[6], lookat_vector[7], lookat_vector[8]};                       // 固定观察方向
         renderer.updateCamera(centre, eye, up);
 
         auto color_pixels = all_images[frame_count % all_images.size()].color.get();
@@ -160,7 +175,8 @@ int RenderingServer::Update(){
 
 
     auto startRender = std::chrono::high_resolution_clock::now();
-    renderer.render();
+    if(!renderer.render())
+        return -1;
     auto endRender = std::chrono::high_resolution_clock::now();
     gui::global_params->render_server_times[0] = std::chrono::duration<double, std::milli>(endRender - startRender).count();
 
