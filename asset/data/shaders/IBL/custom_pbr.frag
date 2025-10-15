@@ -74,11 +74,6 @@ layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
     vec4 values[2048];
 } lightData;
 
-layout(set = VIEW_DESCRIPTOR_SET, binding = 3) uniform ViewMatrixData{
-    mat4 view;
-    mat4 invView;
-    mat4 unused[2];
-} viewMatrixData;
 
 layout(set = VIEW_DESCRIPTOR_SET, binding = 2) uniform sampler2DArrayShadow shadowMaps;
 
@@ -98,11 +93,9 @@ layout(location = 1) in vec3 normalDir;
 layout(location = 2) in vec4 vertexColor;
 layout(location = 3) in vec2 texCoord0;
 layout(location = 4) in flat uint highlight;
-layout(location = 5) in vec3 viewDir;
 
 layout(location = 6) in vec3 worldNormal;
 layout(location = 7) in vec3 worldViewDir;
-layout(location = 8) in mat4 project;
 
 layout(location = 0) out vec4 outColor;
 
@@ -286,7 +279,9 @@ struct PBRInfo
 
 layout(push_constant) uniform PushConstants {
     mat4 projection;
-    mat4 modelView;
+    mat4 view;
+    mat4 invView;
+    mat4 cameraData;
 } pc;
 
 
@@ -704,7 +699,7 @@ void main()
     vec3 specularEnvironmentR90 = vec3(1.0, 1.0, 1.0) * reflectance90;
 
     vec3 n = getNormal();
-    vec3 v = normalize(viewDir);    // Vector from surface point to camera
+    vec3 v = normalize(-eyePos);    // Vector from surface point to camera
 
     float shininess = 100.0f;
 
@@ -728,30 +723,15 @@ void main()
     }
     
     vec3 worldN = normalize(getWorldNormal());
-    // vec3 worldPos = worldViewDir;
-    
-    // vec3 worldCamPos = vec3(-viewMatrixData.view[0][3], -viewMatrixData.view[1][3], -viewMatrixData.view[2][3]);
-    mat4 cameraData = viewMatrixData.unused[0];
+    mat4 cameraData = pc.cameraData;
 
     vec3 worldCamPos = vec3(cameraData[0][0], cameraData[0][1], cameraData[0][2]);
     vec3 worldPos = worldViewDir;
-    // vec3 worldV = vec3(viewMatrixData.view[3][0], viewMatrixData.view[3][1], viewMatrixData.view[3][2]) - worldPos;
-    // worldV = normalize(worldV);
     vec3 worldV = normalize(worldCamPos - worldPos);    
 
-    // metallic = 0.0;
     vec3 iblColor = IBL(worldV, worldN, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, diffuseColor);
-    // iblColor *= ambientOcclusion;
-    // iblColor.xyz = worldN;
     color += iblColor * envmapData.param.a;
-    // color += iblColor;
-    // color.xyz = worldV;
 
-    // color.xyz = fract(worldPos / 500);
-    // color.xy = worldPos.xy / 2000.0 * 0.5 + 0.5;
-    // color.xy *= step(-2000.0, worldPos.x) * step(worldPos.x, 2000.0);
-    // color.xy *= step(-2000.0, worldPos.y) * step(worldPos.y, 2000.0);
-    // color.z = 0;
     float scene_brightness;
     if (numDirectionalLights>0){
         int shadowMapIndex = 0;
@@ -790,7 +770,6 @@ void main()
         scene_brightness = totalRealBrightness / totalBrigtness;
     }
     scene_brightness = scene_brightness * 0.5 + 0.5;
-
 
     float exposure = 3.0f;
     color = Uncharted2Tonemap(color * scene_brightness * exposure);

@@ -133,13 +133,6 @@ void CustomViewDependentState1::init(ResourceRequirements& requirements)
 
     descriptor = DescriptorBuffer::create(BufferInfoList{lightDataBufferInfo, viewportDataBufferInfo}, 0); // hardwired position for now
 
-    viewMatrixData = mat4Array::create(4);
-    viewMatrixData->properties.dataVariance = DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
-    viewMatrixDataBufferInfo = BufferInfo::create(viewMatrixData.get());
-    auto descriptor1 = DescriptorBuffer::create(BufferInfoList{viewMatrixDataBufferInfo}, 3); // hardwired position for now
-
-
-
     // set up ShadowMaps
     auto shadowMapSampler = Sampler::create();
 #define HARDWARE_PCF 1
@@ -205,11 +198,10 @@ void CustomViewDependentState1::init(ResourceRequirements& requirements)
         VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}, // lightData
         VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}, // viewportData
         VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},                      // shadow map 2D texture array
-        VkDescriptorSetLayoutBinding{3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}, // viewportData
     };
 
     descriptorSetLayout = DescriptorSetLayout::create(descriptorBindings);
-    descriptorSet = DescriptorSet::create(descriptorSetLayout, Descriptors{descriptor, shadowMapImages, descriptor1});
+    descriptorSet = DescriptorSet::create(descriptorSetLayout, Descriptors{descriptor, shadowMapImages});
 
     descriptorSetLayout = pre_depth_pass->descriptorSetLayout;
     descriptorSet = pre_depth_pass->descriptorSet;

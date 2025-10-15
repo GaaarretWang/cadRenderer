@@ -10,8 +10,6 @@
 class CustomViewDependentState1 : public vsg::Inherit<vsg::ViewDependentState, CustomViewDependentState1>
 {
 public:
-    vsg::ref_ptr<vsg::mat4Array> viewMatrixData;
-    vsg::ref_ptr<vsg::BufferInfo> viewMatrixDataBufferInfo;
     vsg::dbox scene_bound_ws_virtual;
     vsg::dbox scene_bound_ws_real;
 

@@ -132,13 +132,6 @@ void CustomViewDependentState::init(ResourceRequirements& requirements)
 
     descriptor = DescriptorBuffer::create(BufferInfoList{lightDataBufferInfo, viewportDataBufferInfo}, 0); // hardwired position for now
 
-    viewMatrixData = mat4Array::create(4);
-    viewMatrixData->properties.dataVariance = DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
-    viewMatrixDataBufferInfo = BufferInfo::create(viewMatrixData.get());
-    auto descriptor1 = DescriptorBuffer::create(BufferInfoList{viewMatrixDataBufferInfo}, 3); // hardwired position for now
-
-
-
     // set up ShadowMaps
     auto shadowMapSampler = Sampler::create();
 #define HARDWARE_PCF 1
@@ -204,11 +197,10 @@ void CustomViewDependentState::init(ResourceRequirements& requirements)
         VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}, // lightData
         VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}, // viewportData
         VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},                      // shadow map 2D texture array
-        VkDescriptorSetLayoutBinding{3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}, // viewportData
     };
 
     descriptorSetLayout = DescriptorSetLayout::create(descriptorBindings);
-    descriptorSet = DescriptorSet::create(descriptorSetLayout, Descriptors{descriptor, shadowMapImages, descriptor1});
+    descriptorSet = DescriptorSet::create(descriptorSetLayout, Descriptors{descriptor, shadowMapImages});
 
     // if not active then don't enable shadow maps
     if (maxShadowMaps == 0) return;
@@ -266,21 +258,6 @@ void CustomViewDependentState::traverse(RecordTraversal& rt) const
 {
     if (!view->features) return;
     
-    auto& vsgViewMatrix = view->camera->viewMatrix;
-    dmat4 viewMat = vsgViewMatrix->transform();
-    dmat4 invViewMat = vsgViewMatrix->inverse();
-
-    auto viewMatrixItr = viewMatrixData->begin();
-    (*viewMatrixItr++) = mat4(viewMat);
-    (*viewMatrixItr++) = mat4(invViewMat);
-    if (view->camera->viewMatrix->is_compatible(typeid(vsg::LookAt))){
-        LookAt* lookAt = dynamic_cast<LookAt*>(view->camera->viewMatrix.get());
-        mat4 data = {};
-        data[0] = vec4(lookAt->eye, 0.0f);
-        (*viewMatrixItr++) = data;
-    }
-    viewMatrixData->dirty();
-
     // useful reference : https://learn.microsoft.com/en-us/windows/win32/dxtecharts/cascaded-shadow-maps
     // PCF filtering : https://github.com/SaschaWillems/Vulkan/issues/231
     // sampler2DArrayShadow

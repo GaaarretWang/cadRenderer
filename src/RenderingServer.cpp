@@ -52,10 +52,10 @@ int RenderingServer::Init(int argc, char** argv){
     // model_paths.push_back(rendering_dir + "asset/data/obj/Standtube.obj");
     // model_paths.push_back(rendering_dir + "asset/data/geos/大舱壁-ASM(PMI).fb");
     // model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
-    // model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
+    model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
     // model_paths.push_back(rendering_dir + "asset/data/obj/Medieval_building/output.obj");
     // model_paths.push_back(rendering_dir + "asset/data/geos/handNode_0.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/zhijiaC.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/SeatPart.fb");

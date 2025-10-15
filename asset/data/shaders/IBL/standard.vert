@@ -6,7 +6,9 @@
 
 layout(push_constant) uniform PushConstants {
     mat4 projection;
-    mat4 modelView;
+    mat4 view;
+    mat4 invView;
+    mat4 cameraData;
 } pc;
 
 #ifdef VSG_DISPLACEMENT_MAP
@@ -41,22 +43,15 @@ layout(location = 1) out vec3 normalDir;
 layout(location = 2) out vec4 vertexColor;
 layout(location = 3) out vec2 texCoord0;
 layout(location = 4) out uint highlight;
-layout(location = 5) out vec3 viewDir;
 
 layout(location = 6) out vec3 worldNormal;
 layout(location = 7) out vec3 worldViewDir;
-layout(location = 8) out mat4 project;
 
 #define VIEW_DESCRIPTOR_SET 1
 layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
 {
     vec4 values[2048];
 } lightData;
-layout(set = VIEW_DESCRIPTOR_SET, binding = 3) uniform ViewMatrixData{
-    mat4 view;
-    mat4 invView;
-    mat4 unused[2];
-} viewMatrixData;
 
 out gl_PerVertex{ vec4 gl_Position; };
 
@@ -82,7 +77,8 @@ mat4 computeBillboadMatrix(vec4 center_eye, float autoScaleDistance)
 void main()
 {
     vec4 vertex = vec4(vsg_Vertex, 1.0);
-    vertex = instanceMatrices.instanceModelMatrix[gl_InstanceIndex].modelMatrix * instanceMatrices.instanceModelMatrix[gl_InstanceIndex].protoMatrix * vertex;
+    InstanceData instanceModelMatrixi = instanceMatrices.instanceModelMatrix[gl_InstanceIndex];
+    vertex = instanceModelMatrixi.modelMatrix * instanceModelMatrixi.protoMatrix * vertex;
     vec4 normal = vec4(vsg_Normal, 0.0);
 
 #ifdef VSG_DISPLACEMENT_MAP
@@ -120,25 +116,22 @@ void main()
 #endif
 
 #ifdef VSG_BILLBOARD
-    mat4 mv = computeBillboadMatrix(pc.modelView * vec4(vsg_position_scaleDistance.xyz, 1.0), vsg_position_scaleDistance.w);
+    mat4 mv = computeBillboadMatrix(pc.view * vec4(vsg_position_scaleDistance.xyz, 1.0), vsg_position_scaleDistance.w);
 #else
-    mat4 mv = pc.modelView;
+    mat4 mv = pc.view;
 #endif
 
     gl_Position = (pc.projection * mv) * vertex;
     eyePos = (mv * vertex).xyz;
-    viewDir = - (mv * vertex).xyz;
     normalDir = (mv * normal).xyz;
 
     // worldNormal = normal.xyz;
     // worldViewDir = -vertex.xyz;
 
-    // mat3 modelRotateScale = mat3(viewMatrixData.invView  * mv);
-    mat4 model = viewMatrixData.invView * mv;
+    mat4 model = pc.invView * mv;
     worldNormal = mat3(model) * normal.xyz;
     worldViewDir = (model * vertex).xyz;
-    project = pc.projection;
     vertexColor = vsg_Color;
     texCoord0 = vsg_TexCoord0;
-    highlight = instanceMatrices.instanceModelMatrix[gl_InstanceIndex].highlight;
+    highlight = instanceModelMatrixi.highlight;
 }

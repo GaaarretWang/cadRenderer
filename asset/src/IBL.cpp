@@ -932,7 +932,13 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath)
 
     // CommandGraph to hold the different RenderGraphs used to render each view
     auto commandGraph = vsg::CommandGraph::create(vsgContext.device, vsgContext.queueFamily);
-
+    vsg::ref_ptr<vsg::mat4Array> newmatrix = vsg::mat4Array::create(2);
+    vsg::ref_ptr<vsg::Camera> tmp_camera = vsg::Camera::create();
+    newmatrix->set(0, (vsg::mat4)tmp_camera->projectionMatrix->transform());
+    newmatrix->set(1, (vsg::mat4)tmp_camera->viewMatrix->transform());
+    vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
+                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, newmatrix);
+    commandGraph->addChild(pc);
     VkImageSubresourceRange fbSubresRange = {};
     fbSubresRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     fbSubresRange.baseArrayLayer = 0;

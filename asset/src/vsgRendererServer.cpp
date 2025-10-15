@@ -2,64 +2,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-bool vsgRendererServer::render() {
-    camera_matrix->set(0, (vsg::mat4)camera->viewMatrix->transform());
-    camera_matrix->set(1, vsg::mat4(camera->projectionMatrix->transform() * camera->viewMatrix->transform()));
-    camera_matrix->dirty();
-    auto t0 = std::chrono::high_resolution_clock::now();
-    while (viewer->advanceToNextFrame()) {
-        static int tmp = 0;
-        std::chrono::steady_clock::time_point t3;
-        if(!tmp){
-            layoutTransition->image = window->_depthImage;
-            if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
-                clearDepth->image = window->_multisampleDepthImage;
-            clearDepth1->image = window->_depthImage;
-
-
-            auto t1 = std::chrono::high_resolution_clock::now();
-            fix_depth(width, height, depth_pixels);
-
-            auto t2 = std::chrono::high_resolution_clock::now();
-            uint8_t* vsg_color_image_beginPointer = static_cast<uint8_t*>(vsg_color_image->dataPointer(0));
-            std::copy(color_pixels, color_pixels + width * height * 3, vsg_color_image_beginPointer);
-            uint16_t* vsg_depth_image_beginPointer = static_cast<uint16_t*>(vsg_depth_image->dataPointer(0));
-            std::copy(depth_pixels, depth_pixels + width * height, vsg_depth_image_beginPointer);
-
-            t3 = std::chrono::high_resolution_clock::now();
-            vsg_color_image->dirty();
-            vsg_depth_image->dirty();
-
-            gui::global_params->render_func_times[0] = std::chrono::duration<double, std::milli>(t1 - t0).count();
-            gui::global_params->render_func_times[1] = std::chrono::duration<double, std::milli>(t2 - t1).count();
-            gui::global_params->render_func_times[2] = std::chrono::duration<double, std::milli>(t3 - t2).count();
-        }
-
-        auto t4 = std::chrono::high_resolution_clock::now();
-        viewer->handleEvents();
-
-        auto t5 = std::chrono::high_resolution_clock::now();
-        viewer->update();
-
-        auto t6 = std::chrono::high_resolution_clock::now();
-        viewer->recordAndSubmit();
-
-        auto t7 = std::chrono::high_resolution_clock::now();
-        viewer->present();
-
-        auto t8 = std::chrono::high_resolution_clock::now();
-
-        gui::global_params->render_func_times[3] = std::chrono::duration<double, std::milli>(t4 - t3).count();
-        gui::global_params->render_func_times[4] = std::chrono::duration<double, std::milli>(t5 - t4).count();
-        gui::global_params->render_func_times[5] = std::chrono::duration<double, std::milli>(t6 - t5).count();
-        gui::global_params->render_func_times[6] = std::chrono::duration<double, std::milli>(t7 - t6).count();
-        gui::global_params->render_func_times[7] = std::chrono::duration<double, std::milli>(t8 - t7).count();
-
-        return true;
-    }
-    return false;
-}
-
 void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)
 {
     // project_path = engine_path.append("Rendering/");
@@ -852,6 +794,11 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         pipelineBarrier_compute_to_render->add(barrier);
     }
 
+    newmatrix = vsg::mat4Array::create(2);
+    vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
+                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, newmatrix);
+    commandGraph->addChild(pc);
+
     commandGraph->addChild(computeCommandGraph1);
     if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
         commandGraph->addChild(clearDepth);
@@ -888,3 +835,70 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     allocate_fix_depth_memory(render_width, render_height);
     std::cout << "4" << std::endl;
 }
+
+bool vsgRendererServer::render() {
+    newmatrix->set(0, (vsg::mat4)camera->viewMatrix->inverse());
+    if (camera->viewMatrix->is_compatible(typeid(vsg::LookAt))){
+        vsg::LookAt* lookAt = dynamic_cast<vsg::LookAt*>(camera->viewMatrix.get());
+        vsg::mat4 data = {};
+        data[0] = vsg::vec4(lookAt->eye, 0.0f);
+        newmatrix->set(1, data);
+    }
+    newmatrix->dirty();
+    camera_matrix->set(0, (vsg::mat4)camera->viewMatrix->transform());
+    camera_matrix->set(1, vsg::mat4(camera->projectionMatrix->transform() * camera->viewMatrix->transform()));
+    camera_matrix->dirty();
+    auto t0 = std::chrono::high_resolution_clock::now();
+    while (viewer->advanceToNextFrame()) {
+        static int tmp = 0;
+        std::chrono::steady_clock::time_point t3;
+        if(!tmp){
+            layoutTransition->image = window->_depthImage;
+            if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
+                clearDepth->image = window->_multisampleDepthImage;
+            clearDepth1->image = window->_depthImage;
+
+
+            auto t1 = std::chrono::high_resolution_clock::now();
+            fix_depth(width, height, depth_pixels);
+
+            auto t2 = std::chrono::high_resolution_clock::now();
+            uint8_t* vsg_color_image_beginPointer = static_cast<uint8_t*>(vsg_color_image->dataPointer(0));
+            std::copy(color_pixels, color_pixels + width * height * 3, vsg_color_image_beginPointer);
+            uint16_t* vsg_depth_image_beginPointer = static_cast<uint16_t*>(vsg_depth_image->dataPointer(0));
+            std::copy(depth_pixels, depth_pixels + width * height, vsg_depth_image_beginPointer);
+
+            t3 = std::chrono::high_resolution_clock::now();
+            vsg_color_image->dirty();
+            vsg_depth_image->dirty();
+
+            gui::global_params->render_func_times[0] = std::chrono::duration<double, std::milli>(t1 - t0).count();
+            gui::global_params->render_func_times[1] = std::chrono::duration<double, std::milli>(t2 - t1).count();
+            gui::global_params->render_func_times[2] = std::chrono::duration<double, std::milli>(t3 - t2).count();
+        }
+
+        auto t4 = std::chrono::high_resolution_clock::now();
+        viewer->handleEvents();
+
+        auto t5 = std::chrono::high_resolution_clock::now();
+        viewer->update();
+
+        auto t6 = std::chrono::high_resolution_clock::now();
+        viewer->recordAndSubmit();
+
+        auto t7 = std::chrono::high_resolution_clock::now();
+        viewer->present();
+
+        auto t8 = std::chrono::high_resolution_clock::now();
+
+        gui::global_params->render_func_times[3] = std::chrono::duration<double, std::milli>(t4 - t3).count();
+        gui::global_params->render_func_times[4] = std::chrono::duration<double, std::milli>(t5 - t4).count();
+        gui::global_params->render_func_times[5] = std::chrono::duration<double, std::milli>(t6 - t5).count();
+        gui::global_params->render_func_times[6] = std::chrono::duration<double, std::milli>(t7 - t6).count();
+        gui::global_params->render_func_times[7] = std::chrono::duration<double, std::milli>(t8 - t7).count();
+
+        return true;
+    }
+    return false;
+}
+

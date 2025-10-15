@@ -342,7 +342,7 @@ public:
             CADMesh::dynamic_texts.text[i]->setup(0, options);
         }
     }
-
+    vsg::ref_ptr<vsg::mat4Array> newmatrix;
     void repaint(std::string instance_name, uint32_t state){
         auto& matrix_index = CADMesh::id_to_matrix_index_map[instance_name];
 
