@@ -12,7 +12,7 @@ const float RECIPROCAL_PI2 = 0.15915494;
 const float EPSILON = 1e-6;
 const float c_MinRoughness = 0.04;
 
-#define NUM_SAMPLES 32
+#define NUM_SAMPLES 16
 #define BLOCKER_SEARCH_NUM_SAMPLES NUM_SAMPLES
 #define PCF_NUM_SAMPLES NUM_SAMPLES
 #define NUM_RINGS 10
@@ -309,42 +309,44 @@ float pow5(const in float value)
 
 // Find the normal for this fragment, pulling either from a predefined normal map
 // or from the interpolated mesh normal and tangent attributes.
-vec3 getNormal()
+void getNormal(out vec3 outViewNormal, out vec3 outWorldNormal)
 {
-    vec3 result;
 #ifdef VSG_NORMAL_MAP
     // Perturb normal, see http://www.thetenthplanet.de/archives/1180
     vec3 tangentNormal = texture(normalMap, texCoord0).xyz * 2.0 - 1.0;
 
-    //tangentNormal *= vec3(2,2,1);
-
     vec3 q1 = dFdx(eyePos);
     vec3 q2 = dFdy(eyePos);
+    vec3 Q1 = dFdx(worldViewDir);
+    vec3 Q2 = dFdy(worldViewDir);
     vec2 st1 = dFdx(texCoord0);
     vec2 st2 = dFdy(texCoord0);
 
-    vec3 N = normalize(normalDir);
+    vec3 viewN = normalize(normalDir);
     vec3 T = normalize(q1 * st2.t - q2 * st1.t);
-    vec3 B = -normalize(cross(N, T));
-    mat3 TBN = mat3(T, B, N);
+    vec3 viewB = -normalize(cross(viewN, T));
+    mat3 viewTBN = mat3(T, viewB, viewN);
+    vec3 worldN = normalize(worldNormal);
+    vec3 worldB = -normalize(cross(worldN, T));
+    mat3 worldTBN = mat3(T, worldB, worldN);
 
-    result = normalize(TBN * tangentNormal);
+    outViewNormal = normalize(viewTBN * tangentNormal);
+    outWorldNormal = normalize(worldTBN * tangentNormal);
 #else
-    result = normalize(normalDir);
+    outViewNormal = normalize(normalDir);
+    outWorldNormal = normalize(worldNormal);
 #endif
 #ifdef VSG_TWO_SIDED_LIGHTING
     if (!gl_FrontFacing)
-        result = -result;
+        outViewNormal = -outViewNormal;
+        outWorldNormal = -outWorldNormal;
 #endif
-    return result;
 }
 vec3 getWorldNormal()
 {
     vec3 result;
 #ifdef VSG_NORMAL_MAP
-    vec3 tangentNormal = texture(normalMap, texCoord0 * 4).xyz * 2.0 - 1.0;
-    tangentNormal = tangentNormal * 0.3 + vec3(0, 0, 1) * 0.7;
-    //vec3 tangentNormal = texture(normalMap, texCoord0).xyz * 2.0 - 1.0;
+    vec3 tangentNormal = texture(normalMap, texCoord0).xyz * 2.0 - 1.0;
     
     vec3 Q1 = dFdx(worldViewDir);
     vec3 Q2 = dFdy(worldViewDir);
@@ -698,36 +700,22 @@ void main()
     vec3 specularEnvironmentR0 = specularColor.rgb;
     vec3 specularEnvironmentR90 = vec3(1.0, 1.0, 1.0) * reflectance90;
 
-    vec3 n = getNormal();
+    vec3 n;
+    vec3 worldN;
+    getNormal(n, worldN);
     vec3 v = normalize(-eyePos);    // Vector from surface point to camera
+    mat4 cameraData = pc.cameraData;
+    vec3 worldCamPos = vec3(cameraData[0][0], cameraData[0][1], cameraData[0][2]);
+    vec3 worldV = normalize(worldCamPos - worldViewDir);    
 
     float shininess = 100.0f;
 
     vec3 color = vec3(0.0, 0.0, 0.0);
 
     vec4 lightNums = lightData.values[0];
-    int numAmbientLights = int(lightNums[0]);
     int numDirectionalLights = int(lightNums[1]);
-    int numPointLights = int(lightNums[2]);
-    int numSpotLights = int(lightNums[3]);
     int index = 1;
 
-    if (numAmbientLights>0)
-    {
-        // ambient lights
-        for(int i = 0; i<numAmbientLights; ++i)
-        {
-            vec4 ambient_color = lightData.values[index++];
-            color += (baseColor.rgb * ambient_color.rgb) * (ambient_color.a * ambientOcclusion);
-        }
-    }
-    
-    vec3 worldN = normalize(getWorldNormal());
-    mat4 cameraData = pc.cameraData;
-
-    vec3 worldCamPos = vec3(cameraData[0][0], cameraData[0][1], cameraData[0][2]);
-    vec3 worldPos = worldViewDir;
-    vec3 worldV = normalize(worldCamPos - worldPos);    
 
     vec3 iblColor = IBL(worldV, worldN, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, diffuseColor);
     color += iblColor * envmapData.param.a;

@@ -172,10 +172,10 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
             auto matrix = modelfbs.matrix;
             auto type = modelfbs.type;
             auto modelGeo = modelfbs.geo;
-            auto modelIndex = modelGeo->getIndex();
-            auto position = modelGeo->getPosition();
-            auto normal = modelGeo->getNormal();
-            auto uv = modelGeo->getUV();
+            static auto modelIndex = modelGeo->getIndex();
+            static auto position = modelGeo->getPosition();
+            static auto normal = modelGeo->getNormal();
+            static auto uv = modelGeo->getUV();
             auto modelPar = modelfbs.params;
             auto metalness = modelPar->mMetalness;
             auto specular = modelPar->mSpecular;
@@ -248,44 +248,44 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
             */
             if (type == "face")
             {
-                for (int i = 0; i < modelIndex.size(); i += 1)
-                {
-                    TinyModelVertex vertex;
-                    int index = modelIndex.at(i);
-                    vertex.pos = toNewVec3(&position, index * 3);
-                    vertex.normal = toNewVec3(&normal, index * 3);
-                    if(uv.size() > index * 2){
-                        vertex.uv = toNewVec2(&uv, index * 2);
-                    }
+                // for (int i = 0; i < modelIndex.size(); i += 1)
+                // {
+                //     TinyModelVertex vertex;
+                //     int index = modelIndex.at(i);
+                //     vertex.pos = toNewVec3(&position, index * 3);
+                //     vertex.normal = toNewVec3(&normal, index * 3);
+                //     if(uv.size() > index * 2){
+                //         vertex.uv = toNewVec2(&uv, index * 2);
+                //     }
 
-                    if (uniqueVertices.count(vertex) == 0) //if unique 唯一
-                    {                                      //push进数组。记录位置
-                        uniqueVertices[vertex] = static_cast<uint32_t>(mVertices.size());
-                        mVertices.push_back(vertex);
-                    }
-                    mIndices.push_back(uniqueVertices[vertex]); //根据新proto的数组，索引位置改变
-                }
+                //     if (uniqueVertices.count(vertex) == 0) //if unique 唯一
+                //     {                                      //push进数组。记录位置
+                //         uniqueVertices[vertex] = static_cast<uint32_t>(mVertices.size());
+                //         mVertices.push_back(vertex);
+                //     }
+                //     mIndices.push_back(uniqueVertices[vertex]); //根据新proto的数组，索引位置改变
+                // }
 
-                int Nodenumber = mVertices.size();   //顶点、法向、UV个数
-                int Indicesnumber = mIndices.size(); //索引个数
+                // int Nodenumber = mVertices.size();   //顶点、法向、UV个数
+                // int Indicesnumber = mIndices.size(); //索引个数
 
-                vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(Nodenumber); //分配数组空间
-                vsg::ref_ptr<vsg::vec3Array> normals = vsg::vec3Array::create(Nodenumber);
-                vsg::ref_ptr<vsg::vec2Array> uvs = vsg::vec2Array::create(Nodenumber);
-                vsg::ref_ptr<vsg::uintArray> indices = vsg::uintArray::create(Indicesnumber);
+                vsg::ref_ptr<vsg::floatArray> vertices = vsg::floatArray::create(position.size(), position.data()); //分配数组空间
+                vsg::ref_ptr<vsg::floatArray> normals = vsg::floatArray::create(normal.size(), normal.data());
+                vsg::ref_ptr<vsg::floatArray> uvs = vsg::floatArray::create(uv.size(), uv.data());
+                vsg::ref_ptr<vsg::intArray> indices = vsg::intArray::create(modelIndex.size(), modelIndex.data());
 
                 //读取顶点，保存成vsg数组形式
-                for (int i = 0; i < Nodenumber; i++)
-                {
-                    vertices->at(i) = vsg::vec3(mVertices[i].pos);
-                    normals->at(i) = vsg::vec3(mVertices[i].normal);
-                    uvs->at(i) = vsg::vec2(mVertices[i].uv);
-                }
-                //读取索引
-                for (int i = 0; i < Indicesnumber; i++)
-                {
-                    indices->at(i) = mIndices[i];
-                }
+                // for (int i = 0; i < Nodenumber; i++)
+                // {
+                //     vertices->at(i) = vsg::vec3(mVertices[i].pos);
+                //     normals->at(i) = vsg::vec3(mVertices[i].normal);
+                //     uvs->at(i) = vsg::vec2(mVertices[i].uv);
+                // }
+                // //读取索引
+                // for (int i = 0; i < Indicesnumber; i++)
+                // {
+                //     indices->at(i) = mIndices[i];
+                // }
                 //以零件为单位来进行绘制，每个零件都有单独的数据
                 verticesVector.push_back(vertices);
                 normalsVector.push_back(normals);

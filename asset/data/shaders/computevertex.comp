@@ -24,7 +24,6 @@ struct MatrixData {
 };
 
 struct InstanceData {
-    mat4 protoMatrix;
     mat4 modelMatrix;
     uint highlight;
 };
@@ -88,10 +87,8 @@ void main() {
     if(inHighlightData.data[instanceIndex].z == 1){
         uint prevCount = atomicAdd(outIndirect.instanceCount, 1);
         MatrixData cur_data = inIndirectMatrix.instanceModelMatrix[instanceIndex];
-        //cur_data.modelMatrix[3][2] += 1;
         InstanceData out_data;
-        out_data.protoMatrix = cur_data.protoMatrix;
-        out_data.modelMatrix = cur_data.modelMatrix;
+        out_data.modelMatrix = cur_data.modelMatrix * cur_data.protoMatrix;
         out_data.highlight = inHighlightData.data[instanceIndex].x;
         outIndirectMatrix.instanceModelMatrix[prevCount] = out_data;
 

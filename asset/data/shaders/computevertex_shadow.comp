@@ -47,16 +47,15 @@ void main() {
 	uint instanceIndex = gl_GlobalInvocationID.x;
     
     // 确保不超出实例数量范围
-    if (instanceIndex >= 1) {
+    if (instanceIndex >= inIndirect.instanceCount) {
         return;
     }
 
-    outIndirect.instanceCount = 2;
+    outIndirect.instanceCount = inIndirect.instanceCount;
     for(int i = 0; i < outIndirect.instanceCount; i ++){
         MatrixData cur_data = inIndirectMatrix.instanceModelMatrix[i];
         InstanceData out_data;
-        out_data.protoMatrix = cur_data.protoMatrix;
-        out_data.modelMatrix = cur_data.modelMatrix;
+        out_data.modelMatrix = cur_data.modelMatrix * cur_data.protoMatrix;
         out_data.highlight = inHighlightData.data[i].x;
         outIndirectMatrix.instanceModelMatrix[i] = out_data;
     }

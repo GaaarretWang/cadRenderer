@@ -228,11 +228,11 @@ public:
     std::vector<vsg::ref_ptr<vsg::PbrMaterialArray>> objMaterialVector;
 
     std::vector<cadDataManager::pmiInfo> pmi;
-    std::vector<vsg::ref_ptr<vsg::vec3Array>> verticesVector;
-    std::vector<vsg::ref_ptr<vsg::vec3Array>> normalsVector;
-    std::vector<vsg::ref_ptr<vsg::vec2Array>> UVVector;
+    std::vector<vsg::ref_ptr<vsg::floatArray>> verticesVector;
+    std::vector<vsg::ref_ptr<vsg::floatArray>> normalsVector;
+    std::vector<vsg::ref_ptr<vsg::floatArray>> UVVector;
     std::vector<vsg::ref_ptr<vsg::vec2Array>> coordinatesVector;
-    std::vector<vsg::ref_ptr<vsg::uintArray>> indicesVector;
+    std::vector<vsg::ref_ptr<vsg::intArray>> indicesVector;
     std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> materialVector;
     std::vector<std::string> materialNameVector;
     std::vector<std::vector<float>> transformVector;
