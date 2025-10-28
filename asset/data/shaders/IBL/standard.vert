@@ -84,6 +84,7 @@ void main()
     vec4 vertex = vec4(vsg_Vertex, 1.0);
     vertex = instanceMatrices.instanceModelMatrix[gl_InstanceIndex].modelMatrix * instanceMatrices.instanceModelMatrix[gl_InstanceIndex].protoMatrix * vertex;
     vec4 normal = vec4(vsg_Normal, 0.0);
+    normal = instanceMatrices.instanceModelMatrix[gl_InstanceIndex].modelMatrix * instanceMatrices.instanceModelMatrix[gl_InstanceIndex].protoMatrix * normal;
 
 #ifdef VSG_DISPLACEMENT_MAP
     // TODO need to pass as as uniform or per instance attributes
@@ -134,9 +135,8 @@ void main()
     // worldViewDir = -vertex.xyz;
 
     // mat3 modelRotateScale = mat3(viewMatrixData.invView  * mv);
-    mat4 model = viewMatrixData.invView * mv;
-    worldNormal = mat3(model) * normal.xyz;
-    worldViewDir = (model * vertex).xyz;
+    worldNormal = normal.xyz;
+    worldViewDir = (vertex).xyz;
     project = pc.projection;
     vertexColor = vsg_Color;
     texCoord0 = vsg_TexCoord0;

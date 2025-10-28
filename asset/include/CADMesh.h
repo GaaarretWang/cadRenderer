@@ -47,23 +47,26 @@ struct TinyModelVertex
         pos = vsg::vec3(0.0f, 0.0f, 0.0f);
         uv = vsg::vec2(0.0f, 0.0f);
         normal = vsg::vec3(0.0f, 0.0f, 0.0f);
+        color = vsg::vec4(1.0f, 1.0f, 1.0f, 1.0f);
         tangent = vsg::vec4(0.0f, 0.0f, 0.0f, 0.0f);
     };
-    TinyModelVertex(vsg::vec3 _pos, vsg::vec2 _uv, vsg::vec3 _normal, vsg::vec4 _tangent)
+    TinyModelVertex(vsg::vec3 _pos, vsg::vec2 _uv, vsg::vec3 _normal, vsg::vec4 _color, vsg::vec4 _tangent)
     {
         pos = _pos;
         uv = _uv;
         normal = _normal;
+        color = _color;
         tangent = _tangent;
     }
     vsg::vec3 pos;
     vsg::vec2 uv;
     vsg::vec3 normal;
+    vsg::vec4 color;
     vsg::vec4 tangent;
 
     bool operator==(const TinyModelVertex& other) const
     {
-        return pos == other.pos && uv == other.uv && normal == other.normal;
+        return pos == other.pos && uv == other.uv && normal == other.normal && color == other.color;
     }
 };
 
@@ -82,6 +85,7 @@ struct ProtoData
     std::string proto_id = "";
     vsg::ref_ptr<vsg::vec3Array> vertices;
     vsg::ref_ptr<vsg::vec3Array> normals;
+    vsg::ref_ptr<vsg::vec4Array> colors;
     vsg::ref_ptr<vsg::vec2Array> uvs;
     vsg::ref_ptr<vsg::uintArray> indices;
     std::string diffuse_path = "";

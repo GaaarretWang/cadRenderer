@@ -1,6 +1,32 @@
 ﻿#include "vsgRendererServer.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
+#include <filesystem>
+
+std::string getDirectoryPath(const std::string& path) {
+    if (path.empty()) return path;
+
+    // 查找最后一个 '/' 或 '\'（同时支持两种分隔符）
+    size_t lastSeparator = path.find_last_of("/\\");
+
+    // 如果没有找到分隔符，说明是当前目录下的文件，返回当前目录 "."
+    if (lastSeparator == std::string::npos) {
+        return ".";
+    }
+
+    // 截取从开头到最后一个分隔符的前一个位置（不包含分隔符本身）
+    // 例如 "a/b/c.txt" → 截取到 "a/b"
+    std::string dirPath = path.substr(0, lastSeparator);
+
+    // 特殊情况：如果路径是根目录（如 "/a" 或 "C:\b"），确保不返回空
+    if (dirPath.empty()) {
+        // 对于 "/" 或 "C:\" 这类根路径，返回自身（保留根符号）
+        return path.substr(0, lastSeparator + 1);
+    }
+
+    return dirPath;
+}
+
 
 bool vsgRendererServer::render() {
     camera_matrix->set(0, (vsg::mat4)camera->viewMatrix->transform());
@@ -372,8 +398,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     {
         CADMesh* shadow_recevier_mesh = new CADMesh();
         // string texture = engine_path + "asset/data/obj/Medieval_building";
-        string texture = engine_path + "asset/data/obj/helicopter-engine";
-        shadow_recevier_mesh->preprocessProtoData(shadow_recevier_path.c_str(), texture.c_str(), shadow_recevier_transform, shadow_shader, shadowGroup, "shadow_receiver");
+        shadow_recevier_mesh->preprocessProtoData(shadow_recevier_path.c_str(), getDirectoryPath(shadow_recevier_path).c_str(), shadow_recevier_transform, shadow_shader, shadowGroup, "shadow_receiver");
         // ModelInstance* shadow_recevier_instance = new ModelInstance();
         // shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, shadowGroup, shadow_shader, shadow_recevier_transform, camera_info, depth_info, params);
         // scenegraph->addChild(shadowStateGroup);
@@ -388,7 +413,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         std::string &path_i = model_paths[i];
         size_t pos = path_i.find_last_of('.');
         std::string format = path_i.substr(pos + 1);
-        std::string texture_path_i = engine_path + texture_path;
+        std::string texture_path_i = getDirectoryPath(path_i);
         CADMesh* transfer_model;
         if (transfered_meshes.find(path_i) != transfered_meshes.end()){
             transfer_model = transfered_meshes[path_i];

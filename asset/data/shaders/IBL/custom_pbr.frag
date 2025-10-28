@@ -347,9 +347,7 @@ vec3 getWorldNormal()
 {
     vec3 result;
 #ifdef VSG_NORMAL_MAP
-    vec3 tangentNormal = texture(normalMap, texCoord0 * 4).xyz * 2.0 - 1.0;
-    tangentNormal = tangentNormal * 0.3 + vec3(0, 0, 1) * 0.7;
-    //vec3 tangentNormal = texture(normalMap, texCoord0).xyz * 2.0 - 1.0;
+    vec3 tangentNormal = texture(normalMap, texCoord0).xyz * 2.0 - 1.0;
     
     vec3 Q1 = dFdx(worldViewDir);
     vec3 Q2 = dFdy(worldViewDir);
@@ -541,7 +539,7 @@ float convertMetallic(vec3 diffuse, vec3 specular, float maxSpecular)
 vec3 specularFresnel(vec3 f0, vec3 f90, float NdotL)
 {
     //return pbrInputs.reflectance0 + (pbrInputs.reflectance90 - pbrInputs.reflectance0) * pow(clamp(1.0 - pbrInputs.VdotH, 0.0, 1.0), 5.0);
-    return f0 + (f90 - f0) * exp2((-5.55473 * NdotL - 6.98316) * NdotL);
+    return f0 + (f90 - f90 * f0) * exp2((-5.55473 * NdotL - 6.98316) * NdotL);
 }
 
 vec3 fixCubeDir(vec3 v){
@@ -573,14 +571,18 @@ vec3 Uncharted2Tonemap(vec3 x)
 }
 
 
-vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, vec3 diffuseColor){
+vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, vec3 diffuseColor, 
+    float clearcoatPerceptualRoughness, float clearcoatMetallic, vec3 clearcoatSpecularEnvironmentR0, vec3 clearcoatSpecularEnvironmentR90, vec3 clearcoatDiffuseColor){
     vec3 R = normalize(reflect(-v, n));
 
     float NdotV = clamp(abs(dot(n, v)), 0.001, 1.0);
 
     vec3 color = vec3(0);
     vec2 brdf = texture(samplerBRDFLUT, vec2(NdotV, perceptualRoughness)).rg;
-    vec3 F = specularFresnel(specularEnvironmentR0, vec3(1.0), NdotV);
+    vec3 F = specularFresnel(specularEnvironmentR0, specularEnvironmentR90, NdotV);
+
+    vec2 clearcoatBrdf = texture(samplerBRDFLUT, vec2(NdotV, clearcoatPerceptualRoughness)).rg;
+    vec3 clearcoatF = specularFresnel(clearcoatSpecularEnvironmentR0, clearcoatSpecularEnvironmentR90, NdotV);
 
     vec3 N = fixCubeDir(n);
     N.y *= -1.0f;
@@ -592,6 +594,9 @@ vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specula
     color += irradiance * diffuseColor;
 	vec3 reflection = prefilteredReflection(lutR, perceptualRoughness).rgb;	
     color += reflection * (F * brdf.x + brdf.y);
+    color *= (vec3(1) - clearcoatF);
+    vec3 clearcoatReflection = prefilteredReflection(lutR, clearcoatPerceptualRoughness).rgb;	
+    color += clearcoatReflection * (clearcoatF * clearcoatBrdf.x + clearcoatBrdf.y);
 
     // float exposure = 3.0f;
     // float gamma = 2.2f;
@@ -600,6 +605,13 @@ vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specula
 	// color = Uncharted2Tonemap(color * exposure);
 	// color = color * (1.0f / Uncharted2Tonemap(vec3(11.2f)));
     return color;
+}
+
+float computeF0Base_Merged(float f0) {
+    float sqrtF0 = sqrt(f0);
+    float numerator = 1.0 - 5.0 * sqrtF0;
+    float denominator = 5.0 - sqrtF0;
+    return (numerator * numerator) / (denominator * denominator);
 }
 
 void main()
@@ -619,6 +631,19 @@ void main()
         }
     }
 
+    vec3 clearcoatF0 = vec3(0.04);
+    float clearcoatRoughness = 0.1;
+    float clearcoatMetallic = 0;
+    vec4 clearcoatBaseColor = vec4(1.0f, 1.0f, 1.0f, 0.0f);
+    vec3 clearcoatDiffuseColor = clearcoatBaseColor.rgb * (vec3(1.0) - clearcoatF0);
+
+    float clearcoatAlphaRoughness = clearcoatRoughness * clearcoatRoughness;
+    vec3 clearcoatSpecularColor = mix(clearcoatF0, clearcoatBaseColor.rgb, clearcoatMetallic);
+    float clearcoatReflectance = max(max(clearcoatSpecularColor.r, clearcoatSpecularColor.g), clearcoatSpecularColor.b);
+    float clearcoatReflectance90 = clamp(clearcoatReflectance * 25.0, 0.0, 1.0);
+    vec3 clearcoatEnvR0 = clearcoatSpecularColor;
+    vec3 clearcoatEnvR90 = vec3(1.0) * clearcoatReflectance90;
+
     float brightnessCutoff = 0.001;
 
     float perceptualRoughness = 0.0;
@@ -628,7 +653,7 @@ void main()
 
     float ambientOcclusion = 1.0;
 
-    vec3 f0 = vec3(0.04);
+    vec3 f0 = vec3(computeF0Base_Merged(0.04));
 
 #ifdef VSG_DIFFUSE_MAP
     #ifdef VSG_GREYSCALE_DIFFUSE_MAP
@@ -679,7 +704,7 @@ void main()
     #ifdef VSG_METALLROUGHNESS_MAP
         vec4 mrSample = texture(mrMap, texCoord0);
         perceptualRoughness = mrSample.g * perceptualRoughness;
-        metallic = mrSample.b * metallic;
+        metallic = mrSample.r * metallic;
     #endif
 #endif
 
@@ -705,42 +730,21 @@ void main()
 
     vec3 n = getNormal();
     vec3 v = normalize(viewDir);    // Vector from surface point to camera
-
-    float shininess = 100.0f;
-
     vec3 color = vec3(0.0, 0.0, 0.0);
-
     vec4 lightNums = lightData.values[0];
     int numAmbientLights = int(lightNums[0]);
     int numDirectionalLights = int(lightNums[1]);
     int numPointLights = int(lightNums[2]);
     int numSpotLights = int(lightNums[3]);
     int index = 1;
-
-    if (numAmbientLights>0)
-    {
-        // ambient lights
-        for(int i = 0; i<numAmbientLights; ++i)
-        {
-            vec4 ambient_color = lightData.values[index++];
-            color += (baseColor.rgb * ambient_color.rgb) * (ambient_color.a * ambientOcclusion);
-        }
-    }
     
-    vec3 worldN = normalize(getWorldNormal());
-    // vec3 worldPos = worldViewDir;
-    
-    // vec3 worldCamPos = vec3(-viewMatrixData.view[0][3], -viewMatrixData.view[1][3], -viewMatrixData.view[2][3]);
+    vec3 worldN = normalize(getWorldNormal());    
     mat4 cameraData = viewMatrixData.unused[0];
-
     vec3 worldCamPos = vec3(cameraData[0][0], cameraData[0][1], cameraData[0][2]);
     vec3 worldPos = worldViewDir;
-    // vec3 worldV = vec3(viewMatrixData.view[3][0], viewMatrixData.view[3][1], viewMatrixData.view[3][2]) - worldPos;
-    // worldV = normalize(worldV);
     vec3 worldV = normalize(worldCamPos - worldPos);    
-
-    // metallic = 0.0;
-    vec3 iblColor = IBL(worldV, worldN, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, diffuseColor);
+    vec3 iblColor = IBL(worldV, worldN, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, diffuseColor
+    , clearcoatRoughness, clearcoatMetallic, clearcoatEnvR0, clearcoatEnvR90, clearcoatDiffuseColor);
     // iblColor *= ambientOcclusion;
     // iblColor.xyz = worldN;
     color += iblColor * envmapData.param.a;

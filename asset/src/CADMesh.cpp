@@ -347,9 +347,15 @@ void CADMesh::buildObjNode(const char* model_path, const char* material_path, co
     vsg::ref_ptr<vsg::vec2Array> verticesUV = vsg::vec2Array::create(num["uvs"]);
     vsg::ref_ptr<vsg::vec3Array> colors = vsg::vec3Array::create(num["vertices"]);
     std::vector<std::vector<std::string>> textures;
-    std::vector<int> mtr_ids;
+    std::vector< std::vector<int>> mtr_ids1;
     std::cout << material_path << std::endl;
-    objLoader.load_obj(model_path, material_path, vertices, normals, verticesUV, colors, materials, indices, textures, mtr_ids);
+    objLoader.load_obj(model_path, material_path, vertices, normals, verticesUV, colors, materials, indices, textures, mtr_ids1);
+    std::vector<int> mtr_ids;
+    //todo
+    for (int i = 0; i < mtr_ids1.size(); ++i) {
+        mtr_ids.push_back(mtr_ids1[i][0]);
+    }
+
     //std::cout <<"success Loading obj "<<material_path<<std::endl;
     for (int i = 0; i < indices.size(); i += 1)
     {
@@ -660,6 +666,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
 
                 vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(position.size() / 3); //分配数组空间
                 vsg::ref_ptr<vsg::vec3Array> normals = vsg::vec3Array::create(normal.size() / 3);
+                vsg::ref_ptr<vsg::vec4Array> colors = vsg::vec4Array::create(position.size() / 3, vsg::vec4(1.0f, 1.0f, 1.0f, 1.0f));
                 vsg::ref_ptr<vsg::vec2Array> uvs = vsg::vec2Array::create(uv.size() / 2);
                 vsg::ref_ptr<vsg::uintArray> indices = vsg::uintArray::create(modelIndex.size());
                 float* position_beginPointer = static_cast<float*>(vertices->dataPointer(0));
@@ -678,6 +685,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     proto_data = new ProtoData();
                     proto_data->vertices = vertices;
                     proto_data->normals = normals;
+                    proto_data->colors = colors;
                     proto_data->uvs = uvs;
                     proto_data->indices = indices;
                     proto_data->proto_id = protoId;
@@ -791,9 +799,11 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
     vsg::ref_ptr<vsg::vec2Array> verticesUV = vsg::vec2Array::create(num["uvs"]);
     vsg::ref_ptr<vsg::vec3Array> colors = vsg::vec3Array::create(num["vertices"]);
     std::vector<std::vector<std::string>> textures;
-    std::vector<int> mtr_ids;
+    std::vector<std::vector<int>> mtr_ids;
     std::cout << material_path << std::endl;
     objLoader.load_obj(model_path, material_path, vertices, normals, verticesUV, colors, materials, indices, textures, mtr_ids);
+    if(mtr_ids.size() > 0)
+        std::cout << "mtr_ids[0].size()" << mtr_ids[0].size() << std::endl;
     std::cout <<"success Loading obj "<<material_path<<std::endl;
     std::cout << "indices.size()" << indices.size() << std::endl;
     for (int i = 0; i < indices.size(); i += 1)
@@ -808,6 +818,9 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
             vertex.pos = vertices->at(index_pos);
             int index_normal = indices[i][1]->at(j);
             vertex.normal = normals->at(index_normal);
+            if(mtr_ids.size() > i && mtr_ids[i].size() > j / 3 && mtr_ids[i][j / 3] < materials.size()){
+                vertex.color = materials[mtr_ids[i][j / 3]]->value().baseColorFactor;
+            }
             int index_coord = indices[i][2]->at(j);
             if(index_coord < verticesUV->size())
                 vertex.uv = verticesUV->at(index_coord);    
@@ -821,11 +834,13 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
         auto vertices_i = vsg::vec3Array::create(mVertices.size()); 
         auto normals_i = vsg::vec3Array::create(mVertices.size());
         auto uvs_i = vsg::vec2Array::create(mVertices.size());
+        auto colors_i = vsg::vec4Array::create(mVertices.size());
         auto indices_i = vsg::uintArray::create(mIndices.size());
         for(int m = 0; m < mVertices.size(); m ++){
             vertices_i->at(m) = mVertices[m].pos;
             normals_i->at(m) = mVertices[m].normal;
             uvs_i->at(m) = mVertices[m].uv;
+            colors_i->at(m) = mVertices[m].color;
         }
         for(int m = 0; m < mIndices.size(); m ++){
             indices_i->at(m) = mIndices[m];
@@ -837,23 +852,30 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
             proto_data = new ProtoData();
             proto_data->vertices = vertices_i;
             proto_data->normals = normals_i;
+            proto_data->colors = colors_i;
             proto_data->uvs = uvs_i;
             proto_data->indices = indices_i;
             proto_data->proto_id = proto_id;
                     std::cout << materials.size() << std::endl;
 
-            if(i < mtr_ids.size() && textures.size() > mtr_ids[i]){
-                proto_data->diffuse_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][0];
-                proto_data->normal_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][1];
-                proto_data->mr_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][2];
-                proto_data->material = materials[mtr_ids[i]];
-            }else{
+            if(i < mtr_ids.size() && mtr_ids[i][0] < materials.size()){
+                proto_data->material = materials[mtr_ids[i][0]];
+                if(textures.size() > mtr_ids[i][0])
+                {
+                    if(textures[mtr_ids[i][0]][0] != "")
+                        proto_data->diffuse_path = std::string(material_path) + "/tex/" + textures[mtr_ids[i][0]][0];
+                    if(textures[mtr_ids[i][0]][1] != "")
+                        proto_data->normal_path = std::string(material_path) + "/tex/" + textures[mtr_ids[i][0]][1];
+                    if(textures[mtr_ids[i][0]][2] != "")
+                        proto_data->mr_path = std::string(material_path) + "/tex/" + textures[mtr_ids[i][0]][2];
+                }
+            }
+            else{
                 proto_data->diffuse_path = "";
                 proto_data->normal_path = "";
                 proto_data->mr_path = "";
                 proto_data->material = scene_materials[3];
             }
-                    std::cout << proto_id << std::endl;
 
             proto_data->shaderset = model_shaderset;
             proto_data->scene = scene;
@@ -877,18 +899,18 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
             id_to_matrix_index_map[model_instance_name] = std::vector<MatrixIndex>();
         id_to_matrix_index_map[model_instance_name].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
 
-        if(i < mtr_ids.size() && textures.size() > mtr_ids[i]){
-            if(texture_name_to_image_map.find("../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][0]) == texture_name_to_image_map.end()){
-                vsg::ref_ptr<vsg::Data> textureData = vsg::read_cast<vsg::Data>("../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][0], options);
-                texture_name_to_image_map["../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][0]] = createImageInfo(textureData);
+        if(i < mtr_ids.size() && textures.size() > mtr_ids[i][0]){
+            if(textures[mtr_ids[i][0]][0] != "" && texture_name_to_image_map.find(proto_data->diffuse_path) == texture_name_to_image_map.end()){
+                vsg::ref_ptr<vsg::Data> textureData = vsg::read_cast<vsg::Data>(proto_data->diffuse_path, options);
+                texture_name_to_image_map[proto_data->diffuse_path] = createImageInfo(textureData);
             }
-            if(texture_name_to_image_map.find("../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][1]) == texture_name_to_image_map.end()){
-                vsg::ref_ptr<vsg::Data> textureData = vsg::read_cast<vsg::Data>("../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][1], options);
-                texture_name_to_image_map["../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][1]] = createImageInfo(textureData);
+            if(textures[mtr_ids[i][0]][1] != "" && texture_name_to_image_map.find(proto_data->normal_path) == texture_name_to_image_map.end()){
+                vsg::ref_ptr<vsg::Data> textureData = vsg::read_cast<vsg::Data>(proto_data->normal_path, options);
+                texture_name_to_image_map[proto_data->normal_path] = createImageInfo(textureData);
             }
-            if(texture_name_to_image_map.find("../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][2]) == texture_name_to_image_map.end()){
-                vsg::ref_ptr<vsg::Data> metallicData = vsg::read_cast<vsg::Data>("../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][2], options);
-                vsg::ref_ptr<vsg::Data> roughnessData = vsg::read_cast<vsg::Data>("../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][3], options);
+            if(textures[mtr_ids[i][0]][2] != "" && texture_name_to_image_map.find(proto_data->mr_path) == texture_name_to_image_map.end()){
+                vsg::ref_ptr<vsg::Data> metallicData = vsg::read_cast<vsg::Data>(proto_data->mr_path, options);
+                vsg::ref_ptr<vsg::Data> roughnessData = vsg::read_cast<vsg::Data>(std::string(material_path) + "/tex/" + textures[mtr_ids[i][0]][3], options);
                 vsg::ref_ptr<vsg::Data> mrData = vsg::ushortArray2D::create(metallicData->width(), metallicData->height(), vsg::Data::Properties{VK_FORMAT_R8G8_UNORM});
                 auto* metallicPtr = static_cast<const uint8_t*>(metallicData->dataPointer());
                 auto* roughnessPtr = static_cast<const uint8_t*>(roughnessData->dataPointer());
@@ -901,7 +923,7 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
                     mrPtr[i*2] = metallic; // 组合为双通道
                     mrPtr[i*2+1] = roughness; // 组合为双通道
                 }
-                texture_name_to_image_map["../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][2]] = createImageInfo(mrData);
+                texture_name_to_image_map[proto_data->mr_path] = createImageInfo(mrData);
             }
         }
     }
@@ -962,7 +984,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
         graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->vertices);
         graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->normals);
         graphicsPipelineConfig->assignArray(vertexArrays, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->uvs);
-        graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, colors);
+        graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->colors);
         auto drawCommands = vsg::Commands::create();
         drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
         drawCommands->addChild(vsg::BindIndexBuffer::create(proto_data->indices));

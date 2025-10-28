@@ -21,7 +21,7 @@ public:
     void load_obj(const char* filename, const char* materials_path, vsg::ref_ptr<vsg::vec3Array>& vertices, 
     vsg::ref_ptr<vsg::vec3Array>& vertnormals, vsg::ref_ptr<vsg::vec2Array>& vertuvs, 
     vsg::ref_ptr<vsg::vec3Array>& colors,std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>>& materials, 
-    std::vector<std::vector<vsg::ref_ptr<vsg::uintArray>>>& indices, std::vector<std::vector<std::string>>& textures, std::vector<int>& mtr_ids);
+    std::vector<std::vector<vsg::ref_ptr<vsg::uintArray>>>& indices, std::vector<std::vector<std::string>>& textures, std::vector<std::vector<int>>& mtr_ids);
 };
 
 #endif
