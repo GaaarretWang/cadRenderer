@@ -24,7 +24,6 @@ struct MatrixData {
 };
 
 struct InstanceData {
-    mat4 protoMatrix;
     mat4 modelMatrix;
     uint highlight;
 };
@@ -46,8 +45,7 @@ layout (local_size_x = 32) in;
 void main() {
 	uint instanceIndex = gl_GlobalInvocationID.x;
     
-    // 确保不超出实例数量范围
-    if (instanceIndex >= inIndirect.instanceCount) {
+    if (instanceIndex >= 1) {
         return;
     }
 

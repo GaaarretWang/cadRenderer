@@ -62,8 +62,6 @@ class vsgRendererServer
     std::string project_path;
     std::string shadow_recevier_path;
     vsg::dmat4 shadow_recevier_transform;
-    std::string texture_path = "asset/data/obj/helicopter-engine";
-    // std::string texture_path = "asset/data/obj/Medieval_building";
 
     struct CameraPlaneInfo{
         vsg::vec4 n[6];
@@ -96,30 +94,6 @@ class vsgRendererServer
     mergeShaderType shader_type;
 
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_4_BIT;//多重采样的倍数
-
-    vsg::ref_ptr<vsg::ShaderSet> buildMergeShaderSet(vsg::ref_ptr<vsg::Options> options) {
-        auto vertexShader = vsg::read_cast<vsg::ShaderStage>("shaders/IBL/fullscreenquad.vert", options);
-        vsg::ref_ptr<vsg::ShaderStage> fragShader;
-        if(shader_type == FULL_MODEL){
-            fragShader = vsg::read_cast<vsg::ShaderStage>("shaders/merge_full_model.frag", options);
-        }else if(shader_type == CAMERA_DEPTH){
-            fragShader = vsg::read_cast<vsg::ShaderStage>("shaders/new_merge.frag", options);
-        }else if(shader_type == CAD_DAPTH){
-            fragShader = vsg::read_cast<vsg::ShaderStage>("shaders/new_merge_background.frag", options);
-        }
-        auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragShader});
-
-        const uint32_t TEXTURE_DESCRIPTOR_SET = 0;
-        const uint32_t MATERIAL_DESCRIPTOR_SET = 1;
-        shaderSet->addDescriptorBinding("cadColor", "", TEXTURE_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
-        shaderSet->addDescriptorBinding("cadDepth", "", TEXTURE_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
-        shaderSet->addDescriptorBinding("planeColor", "", TEXTURE_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec3Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8_UNORM}));
-        shaderSet->addDescriptorBinding("planeDepth", "", TEXTURE_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
-        shaderSet->addDescriptorBinding("shadowColor", "", TEXTURE_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
-        shaderSet->addDescriptorBinding("shadowDepth", "", TEXTURE_DESCRIPTOR_SET, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
-        //shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(TEXTURE_DESCRIPTOR_SET));
-        return shaderSet;
-    };
 
     vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(string windowTitle, int num,  vsg::ref_ptr<vsg::Options> options)
     {

@@ -63,9 +63,9 @@ void OBJLoader::load_materials(const std::vector<tinyobj::material_t>& objmateri
     for(auto mat = objmaterials.begin(); mat < objmaterials.end(); ++mat) {
         size_t index = std::distance(objmaterials.begin(), mat);
         auto material = vsg::PbrMaterialValue::create();
-        material->value().roughnessFactor = 1.f;
-        material->value().metallicFactor = 0.8f;
-        material->value().baseColorFactor = vsg::vec4{1.f, 1.f, 1.f, 1.0f};
+        material->value().roughnessFactor = mat->roughness;
+        material->value().metallicFactor = mat->metallic;
+        material->value().baseColorFactor = vsg::vec4{mat->diffuse[0], mat->diffuse[1], mat->diffuse[2], 1.0f};
         material->value().specularFactor = vsg::vec4{mat->specular[0], mat->specular[1], mat->specular[2], 1.0f};
         mat_val.push_back(material);
         std::cout << mat->diffuse_texname << std::endl;
@@ -77,7 +77,7 @@ void OBJLoader::load_materials(const std::vector<tinyobj::material_t>& objmateri
 void OBJLoader::load_obj(const char* filename, const char* materials_path, vsg::ref_ptr<vsg::vec3Array>& vertices,
                          vsg::ref_ptr<vsg::vec3Array>& vertnormals, vsg::ref_ptr<vsg::vec2Array>& vertuvs,
                          vsg::ref_ptr<vsg::vec3Array>& colors, std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>>& materials,
-                         std::vector<std::vector<vsg::ref_ptr<vsg::uintArray>>>& indices, std::vector<std::vector<std::string>>& textures, std::vector<int>& mtr_ids)
+                         std::vector<std::vector<vsg::ref_ptr<vsg::uintArray>>>& indices, std::vector<std::vector<std::string>>& textures, std::vector<std::vector<int>>& mtr_ids)
 {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -95,6 +95,9 @@ void OBJLoader::load_obj(const char* filename, const char* materials_path, vsg::
     //boilerplate error handling
     if (!err.empty()) {
         std::cerr << err << std::endl;
+    }
+    if (!warn.empty()) {
+        std::cout << warn << std::endl;
     }
     if (!success) {
         exit(1);
@@ -119,7 +122,7 @@ void OBJLoader::load_obj(const char* filename, const char* materials_path, vsg::
     }
 
     for(auto shape = shapes.begin(); shape < shapes.end(); shape++) {
-        mtr_ids.push_back(shape->mesh.material_ids[0]);
+        mtr_ids.push_back(shape->mesh.material_ids);
         int count = 0;
         vsg::ref_ptr<vsg::uintArray> indice_pos = vsg::uintArray::create(shape->mesh.indices.size());
         vsg::ref_ptr<vsg::uintArray> indice_normal = vsg::uintArray::create(shape->mesh.indices.size());
