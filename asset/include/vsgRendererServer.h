@@ -28,6 +28,7 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::ImageInfo> imageInfosIBL[4];
     vsg::ref_ptr<vsg::Viewer> viewer = vsg::Viewer::create();
     vsg::ref_ptr<vsg::Viewer> viewer_IBL = vsg::Viewer::create();
+    vsg::ref_ptr<vsg::View> view;
 
     std::unordered_map<std::string, CADMesh*> transfered_meshes; //path, mesh*
     std::unordered_map<std::string, ModelInstance*> instance_phongs; //path, mesh*
@@ -269,6 +270,7 @@ public:
             proto->instance_buffer->set(index, vsg::mat4(model_matrix));
             proto->instance_buffer->dirty();
         }
+        view->viewDependentState->draw_shadow = true;
     }
 
     void updateEnvLighting(){
@@ -276,6 +278,7 @@ public:
         update_directional_lights();
         IBL::textures.params->dirty();
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
+        view->viewDependentState->draw_shadow = true;
     }
 
     bool render();

@@ -13,7 +13,7 @@ int RenderingServer::Init(int argc, char** argv){
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
     int model_num = 100;
     for(int i = 0; i < model_num; ++i)
-        model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.6, 1) * init_model_transforms[0]
+        model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006 + i % 10 * 0.1, 1.01482 + i / 10 * 0.1, -0.6, 1) * init_model_transforms[0]
                                    * vsg::dmat4(
                                         10, 0, 0, 0, 
                                         0, 10, 0, 0, 

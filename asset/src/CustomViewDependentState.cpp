@@ -257,7 +257,7 @@ void CustomViewDependentState::init(ResourceRequirements& requirements)
 void CustomViewDependentState::traverse(RecordTraversal& rt) const
 {
     if (!view->features) return;
-    
+    if (!draw_shadow) return;
     // useful reference : https://learn.microsoft.com/en-us/windows/win32/dxtecharts/cascaded-shadow-maps
     // PCF filtering : https://github.com/SaschaWillems/Vulkan/issues/231
     // sampler2DArrayShadow
@@ -414,7 +414,7 @@ void CustomViewDependentState::traverse(RecordTraversal& rt) const
             ortho->farDistance = -ls_bounds_real.min.z;
 
             dmat4 shadowMapProjView = camera->projectionMatrix->transform() * camera->viewMatrix->transform();
-            dmat4 shadowMapTM = scale(0.5, 0.5, 1.0) * translate(1.0, 1.0, shadowMapBias) * shadowMapProjView * inverse_viewMatrix;
+            dmat4 shadowMapTM = scale(0.5, 0.5, 1.0) * translate(1.0, 1.0, shadowMapBias) * shadowMapProjView;
 
             // convert tex gen matrix to float matrix and assign to light data
             mat4 m(shadowMapTM);

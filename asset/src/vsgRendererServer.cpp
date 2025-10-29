@@ -412,7 +412,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     
     //----------------------------------------------------------------窗口1----------------------------------------------------------//
     viewer->addWindow(window);
-    auto view = vsg::View::create(camera, scenegraph_safe);
+    view = vsg::View::create(camera, scenegraph_safe);
     // view->features = vsg::RECORD_LIGHTS;
     view->mask = MASK_CAMERA_IMAGE | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
     view->viewDependentState = CustomViewDependentState::create(view.get());
@@ -883,7 +883,6 @@ bool vsgRendererServer::render() {
                 clearDepth->image = window->_multisampleDepthImage;
             clearDepth1->image = window->_depthImage;
 
-
             auto t1 = std::chrono::high_resolution_clock::now();
             fix_depth(width, height, depth_pixels);
 
@@ -921,6 +920,8 @@ bool vsgRendererServer::render() {
         gui::global_params->render_func_times[5] = std::chrono::duration<double, std::milli>(t6 - t5).count();
         gui::global_params->render_func_times[6] = std::chrono::duration<double, std::milli>(t7 - t6).count();
         gui::global_params->render_func_times[7] = std::chrono::duration<double, std::milli>(t8 - t7).count();
+
+        view->viewDependentState->draw_shadow = false;
 
         return true;
     }

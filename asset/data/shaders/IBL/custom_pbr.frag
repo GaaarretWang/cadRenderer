@@ -728,7 +728,7 @@ void main()
                                       lightData.values[index++],
                                       lightData.values[index++],
                                       lightData.values[index++]);
-                vec4 sm_tc = (sm_matrix) * vec4(eyePos, 1.0);
+                vec4 sm_tc = (sm_matrix) * vec4(worldViewDir, 1.0);
                 if (sm_tc.x >= 0.0 && sm_tc.x <= 1.0 && sm_tc.y >= 0.0 && sm_tc.y <= 1.0 && sm_tc.z >= 0.0)
                 {
                     matched = true;
