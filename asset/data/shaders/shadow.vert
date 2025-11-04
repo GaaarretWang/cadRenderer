@@ -6,6 +6,8 @@
 layout(push_constant) uniform PushConstants {
     mat4 projection;
     mat4 modelView;
+    mat4 invView;
+    mat4 cameraData;
 } pc;
 
 #ifdef VSG_DISPLACEMENT_MAP
@@ -28,6 +30,7 @@ layout(location = 0) out vec3 eyePos;
 layout(location = 1) out vec3 normalDir;
 layout(location = 2) out vec4 vertexColor;
 layout(location = 3) out vec2 texCoord0;
+layout(location = 4) out vec3 worldViewDir;
 
 layout(location = 5) out vec3 viewDir;
 
@@ -101,7 +104,7 @@ void main()
     eyePos = (mv * vertex).xyz;
     viewDir = - (mv * vertex).xyz;
     normalDir = (mv * normal).xyz;
-
     vertexColor = vsg_Color;
     texCoord0 = vsg_TexCoord0;
+    worldViewDir = (pc.invView * mv * vertex).xyz;
 }

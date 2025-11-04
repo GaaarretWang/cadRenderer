@@ -145,15 +145,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     // 只包含虚拟物体
     auto cadWindowTraits = createWindowTraits("Model", 0, options);
     cadWindowTraits->device = device;
-
-    auto envWindowTraits = createWindowTraits("Background", 1, options);
-    envWindowTraits->device = device;
-
-    auto shadowWindowTraits = createWindowTraits("shadowShader", 2, options);
-    shadowWindowTraits->device = device;
-
-    auto intgWindowTraits = createWindowTraits("Integration", 3, options);
-    intgWindowTraits->device = device;
+    cadWindowTraits->useMRT = true;
     window = vsg::Window::create(cadWindowTraits);
 
     double nearFarRatio = 0.0001;       //近平面和远平面之间的比例
@@ -503,7 +495,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                 auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer});
                 auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
                 computeCommandGraph0->addChild(bindDescriptorSet);
-                computeCommandGraph0->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
+                computeCommandGraph0->addChild(vsg::Dispatch::create(1, 1, 1));
                 auto barrier3 = vsg::BufferMemoryBarrier::create(
                     VK_ACCESS_SHADER_WRITE_BIT, // 顶点输入读取
                     VK_ACCESS_INDIRECT_COMMAND_READ_BIT,      // Compute Shader 写入

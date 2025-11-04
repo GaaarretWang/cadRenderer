@@ -71,6 +71,7 @@ layout(location = 0) in vec3 eyePos;
 layout(location = 1) in vec3 normalDir;
 layout(location = 2) in vec4 vertexColor;
 layout(location = 3) in vec2 texCoord0;
+layout(location = 4) in vec3 worldViewDir;
 layout(location = 5) in vec3 viewDir;
 
 layout(location = 0) out vec4 outColor;
@@ -97,7 +98,7 @@ struct PBRInfo
 };
 
 
-#define NUM_SAMPLES 32 
+#define NUM_SAMPLES 16 
 #define BLOCKER_SEARCH_NUM_SAMPLES NUM_SAMPLES
 #define PCF_NUM_SAMPLES NUM_SAMPLES
 #define NUM_RINGS 10
@@ -280,7 +281,7 @@ void main()
                                       lightData.values[index++],
                                       lightData.values[index++]);
 
-                vec4 sm_tc = (sm_matrix) * vec4(eyePos, 1.0);
+                vec4 sm_tc = (sm_matrix) * vec4(worldViewDir, 1.0);
 
                 if (sm_tc.x >= 0.0 && sm_tc.x <= 1.0 && sm_tc.y >= 0.0 && sm_tc.y <= 1.0 && sm_tc.z >= 0.0 /* && sm_tc.z <= 1.0*/)
                 {

@@ -204,7 +204,7 @@ private:
     vsg::vec2 toNewVec2(std::vector<T>* flat_vector, int begin);
     template<typename T>
     vsg::vec2 toVec2(const flatbuffers::Vector<T>* flat_vector, int begin = 0);
-    RGB hexToRGB(const std::string& color);
+    vsg::vec4 hexToRGB(const std::string& color);
 
     std::vector<MaterialObj> mMaterials{};
     std::vector<std::string> mTextures{};
@@ -232,11 +232,11 @@ public:
     std::vector<vsg::ref_ptr<vsg::PbrMaterialArray>> objMaterialVector;
 
     std::vector<cadDataManager::pmiInfo> pmi;
-    std::vector<vsg::ref_ptr<vsg::floatArray>> verticesVector;
-    std::vector<vsg::ref_ptr<vsg::floatArray>> normalsVector;
-    std::vector<vsg::ref_ptr<vsg::floatArray>> UVVector;
+    std::vector<vsg::ref_ptr<vsg::vec3Array>> verticesVector;
+    std::vector<vsg::ref_ptr<vsg::vec3Array>> normalsVector;
+    std::vector<vsg::ref_ptr<vsg::vec2Array>> UVVector;
     std::vector<vsg::ref_ptr<vsg::vec2Array>> coordinatesVector;
-    std::vector<vsg::ref_ptr<vsg::intArray>> indicesVector;
+    std::vector<vsg::ref_ptr<vsg::uintArray>> indicesVector;
     std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> materialVector;
     std::vector<std::string> materialNameVector;
     std::vector<std::vector<float>> transformVector;

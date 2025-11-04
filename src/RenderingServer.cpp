@@ -53,7 +53,7 @@ int RenderingServer::Init(int argc, char** argv){
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.491005, 1) * init_model_transforms[1] * mat);
     // model_paths.push_back(rendering_dir + "asset/data/obj/Standtube.obj");
     // model_paths.push_back(rendering_dir + "asset/data/geos/大舱壁-ASM(PMI).fb");
-    // model_paths.push_back("D:/xwechat_files/wxid_yl9e7wozu12p21_f8b1/msg/file/2025-10/Airbus_A380V3/Airbus_A380V3.obj");
+    // model_paths.push_back(rendering_dir + "asset/data/obj/Airbus_A380V3/Airbus_A380V3.obj");
     for (int i = 0; i < model_num; ++i)
         model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
     // model_paths.push_back(rendering_dir + "asset/data/obj/Medieval_building/output.obj");

@@ -65,7 +65,7 @@ vsg::vec3 CADMesh::toVec3(const flatbuffers::String* string_vector)
     return vector3;
 }
 
-RGB CADMesh::hexToRGB(const std::string& color)
+vsg::vec4 CADMesh::hexToRGB(const std::string& color)
 {
     // 去掉 '#' 字符
     std::string testcolor = color.substr(1);
@@ -80,7 +80,7 @@ RGB CADMesh::hexToRGB(const std::string& color)
     float g = green / 255.0f;
     float b = blue / 255.0f;
 
-    return RGB{r, g, b};
+    return vsg::vec4{r, g, b, 1.0};
 }
 
 void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene)
@@ -172,10 +172,10 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
             auto matrix = modelfbs.matrix;
             auto type = modelfbs.type;
             auto modelGeo = modelfbs.geo;
-            static auto modelIndex = modelGeo->getIndex();
-            static auto position = modelGeo->getPosition();
-            static auto normal = modelGeo->getNormal();
-            static auto uv = modelGeo->getUV();
+            auto modelIndex = modelGeo->getIndex();
+            auto position = modelGeo->getPosition();
+            auto normal = modelGeo->getNormal();
+            auto uv = modelGeo->getUV();
             auto modelPar = modelfbs.params;
             auto metalness = modelPar->mMetalness;
             auto specular = modelPar->mSpecular;
@@ -248,44 +248,44 @@ void CADMesh::buildNewNode(const std::string& path, bool fullNormal, vsg::ref_pt
             */
             if (type == "face")
             {
-                // for (int i = 0; i < modelIndex.size(); i += 1)
-                // {
-                //     TinyModelVertex vertex;
-                //     int index = modelIndex.at(i);
-                //     vertex.pos = toNewVec3(&position, index * 3);
-                //     vertex.normal = toNewVec3(&normal, index * 3);
-                //     if(uv.size() > index * 2){
-                //         vertex.uv = toNewVec2(&uv, index * 2);
-                //     }
+                for (int i = 0; i < modelIndex.size(); i += 1)
+                {
+                    TinyModelVertex vertex;
+                    int index = modelIndex.at(i);
+                    vertex.pos = toNewVec3(&position, index * 3);
+                    vertex.normal = toNewVec3(&normal, index * 3);
+                    if(uv.size() > index * 2){
+                        vertex.uv = toNewVec2(&uv, index * 2);
+                    }
 
-                //     if (uniqueVertices.count(vertex) == 0) //if unique 唯一
-                //     {                                      //push进数组。记录位置
-                //         uniqueVertices[vertex] = static_cast<uint32_t>(mVertices.size());
-                //         mVertices.push_back(vertex);
-                //     }
-                //     mIndices.push_back(uniqueVertices[vertex]); //根据新proto的数组，索引位置改变
-                // }
+                    if (uniqueVertices.count(vertex) == 0) //if unique 唯一
+                    {                                      //push进数组。记录位置
+                        uniqueVertices[vertex] = static_cast<uint32_t>(mVertices.size());
+                        mVertices.push_back(vertex);
+                    }
+                    mIndices.push_back(uniqueVertices[vertex]); //根据新proto的数组，索引位置改变
+                }
 
-                // int Nodenumber = mVertices.size();   //顶点、法向、UV个数
-                // int Indicesnumber = mIndices.size(); //索引个数
+                int Nodenumber = mVertices.size();   //顶点、法向、UV个数
+                int Indicesnumber = mIndices.size(); //索引个数
 
-                vsg::ref_ptr<vsg::floatArray> vertices = vsg::floatArray::create(position.size(), position.data()); //分配数组空间
-                vsg::ref_ptr<vsg::floatArray> normals = vsg::floatArray::create(normal.size(), normal.data());
-                vsg::ref_ptr<vsg::floatArray> uvs = vsg::floatArray::create(uv.size(), uv.data());
-                vsg::ref_ptr<vsg::intArray> indices = vsg::intArray::create(modelIndex.size(), modelIndex.data());
+                vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(Nodenumber); //分配数组空间
+                vsg::ref_ptr<vsg::vec3Array> normals = vsg::vec3Array::create(Nodenumber);
+                vsg::ref_ptr<vsg::vec2Array> uvs = vsg::vec2Array::create(Nodenumber);
+                vsg::ref_ptr<vsg::uintArray> indices = vsg::uintArray::create(Indicesnumber);
 
                 //读取顶点，保存成vsg数组形式
-                // for (int i = 0; i < Nodenumber; i++)
-                // {
-                //     vertices->at(i) = vsg::vec3(mVertices[i].pos);
-                //     normals->at(i) = vsg::vec3(mVertices[i].normal);
-                //     uvs->at(i) = vsg::vec2(mVertices[i].uv);
-                // }
-                // //读取索引
-                // for (int i = 0; i < Indicesnumber; i++)
-                // {
-                //     indices->at(i) = mIndices[i];
-                // }
+                for (int i = 0; i < Nodenumber; i++)
+                {
+                    vertices->at(i) = vsg::vec3(mVertices[i].pos);
+                    normals->at(i) = vsg::vec3(mVertices[i].normal);
+                    uvs->at(i) = vsg::vec2(mVertices[i].uv);
+                }
+                //读取索引
+                for (int i = 0; i < Indicesnumber; i++)
+                {
+                    indices->at(i) = mIndices[i];
+                }
                 //以零件为单位来进行绘制，每个零件都有单独的数据
                 verticesVector.push_back(vertices);
                 normalsVector.push_back(normals);
@@ -616,54 +616,15 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
             auto material = modelPar->getMaterialName();//这里得到材质的名称(未生效)
             auto proto_instance_ids = modelfbs.instanceIds;
             std::string testcolor = color.substr(1);
-            // std::cout << testcolor << std::endl;
-            // // 将 hex 转换为 RGB
-            // int red = std::stoi(testcolor.substr(0, 2), nullptr, 16);
-            // int green = std::stoi(testcolor.substr(2, 2), nullptr, 16);
-            // int blue = std::stoi(testcolor.substr(4, 2), nullptr, 16);
-
-            // // 将 RGB 转换为 0.0 到 1.0 之间的浮点数
-            // float r = red / 255.0f;
-            // float g = green / 255.0f;
-            // float b = blue / 255.0f;
 
             //设置材质参数
-            vsg::ref_ptr<vsg::PbrMaterialValue> default_material;
-            if(testcolor == "000000"){
-                default_material = scene_materials[0];
-            }else if(testcolor == "BBBBBB" || testcolor == "333333"){
-                default_material = scene_materials[1];
-            }else if(testcolor == "FF0000"){
-                default_material = scene_materials[2];
-            }else{
-                default_material = scene_materials[3];
-            }
+            vsg::ref_ptr<vsg::PbrMaterialValue> default_material = vsg::PbrMaterialValue::create(); 
+            default_material->value().baseColorFactor = hexToRGB(color);
+            default_material->value().roughnessFactor = roughness;
+            default_material->value().metallicFactor = metalness;
 
-            /*
-            */
             if (type == "face")
             {
-                for (int i = 0; i < modelIndex.size(); i += 1)
-                {
-                    TinyModelVertex vertex;
-                    int index = modelIndex.at(i);
-                    vertex.pos = toNewVec3(&position, index * 3);
-                    vertex.normal = toNewVec3(&normal, index * 3);
-                    if(uv.size() > index * 2){
-                        vertex.uv = toNewVec2(&uv, index * 2);
-                    }
-
-                    if (uniqueVertices.count(vertex) == 0) //if unique 唯一
-                    {                                      //push进数组。记录位置
-                        uniqueVertices[vertex] = static_cast<uint32_t>(mVertices.size());
-                        mVertices.push_back(vertex);
-                    }
-                    mIndices.push_back(uniqueVertices[vertex]); //根据新proto的数组，索引位置改变
-                }
-
-                int Nodenumber = mVertices.size();   //顶点、法向、UV个数
-                int Indicesnumber = mIndices.size(); //索引个数
-
                 vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(position.size() / 3); //分配数组空间
                 vsg::ref_ptr<vsg::vec3Array> normals = vsg::vec3Array::create(normal.size() / 3);
                 vsg::ref_ptr<vsg::vec4Array> colors = vsg::vec4Array::create(position.size() / 3, vsg::vec4(1.0f, 1.0f, 1.0f, 1.0f));
@@ -728,40 +689,9 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     id_to_matrix_index_map[model_instance_name].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
                 }
                 std::cout << std::endl;
-
-
-                // //以零件为单位来进行绘制，每个零件都有单独的数据
-                // verticesVector.push_back(vertices);
-                // normalsVector.push_back(normals);
-                // UVVector.push_back(uvs);
-                // indicesVector.push_back(indices);
-                // materialVector.push_back(default_material);
-                // materialNameVector.push_back(material);
-                // transformVector.push_back(matrix);
-                // transformNumVector.push_back(num);
             }
         }
-
     }
-
-    // for (int i = 0; i < indicesVector.size(); i++)
-    // {
-
-    //     //创建纹理或遮罩
-    //     bool addTexture = 0;
-    //     auto options = vsg::Options::create();
-    //     vsg::Path textureFile("../data/textures/lz.vsgb");
-    //     if (textureFile && addTexture)
-    //     {
-    //         auto textureData = vsg::read_cast<vsg::Data>(textureFile, options);
-    //         if (!textureData)
-    //         {
-    //             std::cout << "Could not read texture file : " << textureFile << std::endl;
-    //         }
-    //         //graphicsPipelineConfig->assignTexture("diffuseMap", textureData);
-    //     }
-
-    // }
 }
 
 void CADMesh::preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)

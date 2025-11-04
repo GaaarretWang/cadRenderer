@@ -14,7 +14,6 @@
 
 #include "assimp.h"
 #include "HDRLightSampler.h"
-
 #include "PlaneLoader.h"
 
 #include "fixDepth.h"
@@ -42,9 +41,6 @@ class vsgRendererServer
     vsg::ref_ptr<ScreenshotHandler> screenshotHandler;
 
     vsg::ref_ptr<vsg::Window> window;
-    vsg::ref_ptr<vsg::Window> env_window;
-    vsg::ref_ptr<vsg::Window> shadow_window;
-    vsg::ref_ptr<vsg::Window> final_window;
     vsg::ref_ptr<vsg::Camera> camera;
 
     //IBL
