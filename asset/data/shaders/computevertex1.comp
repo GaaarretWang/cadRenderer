@@ -25,7 +25,7 @@ struct MatrixData {
 
 struct InstanceData {
     mat4 modelMatrix;
-    uint highlight;
+    float highlight;
 };
 
 layout(set = 0, binding = 2) buffer InIndirectMatrix {
@@ -33,7 +33,7 @@ layout(set = 0, binding = 2) buffer InIndirectMatrix {
 }inIndirectMatrix;
 
 layout(set = 0, binding = 3) buffer InHighlightData {
-    uvec4 data[];
+    vec4 data[];
 }inHighlightData;
 
 layout(set = 0, binding = 4) buffer OutIndirectMatrix {
@@ -47,7 +47,9 @@ layout(set = 0, binding = 5) buffer CameraPlaneInfo{
 layout(std430, set = 0, binding = 6) buffer BBox{
     vec4 min;
     vec4 max;
-    vec4 draw_state;
+    vec4 ndc_min;
+    vec4 ndc_max;
+    vec4 depths;
 }bbox;
 
 layout(set = 0, binding = 7) buffer ViewMatrix{
@@ -157,6 +159,8 @@ void main() {
         vec2 dims = b - a; 
         if (dims.x <= 1 && dims.y <= 1)
             mipLevel = int(level_lower);
+        bbox.ndc_min.xy = uv_min;
+        bbox.ndc_max.xy = uv_max;
 
         bool depth_culled = false;
         float render_depth0 = textureLod(mipPyramid, vec2(uv_min.x, uv_min.y), mipLevel).x;
@@ -164,13 +168,19 @@ void main() {
         float render_depth2 = textureLod(mipPyramid, vec2(uv_max.x, uv_min.y), mipLevel).x;
         float render_depth3 = textureLod(mipPyramid, vec2(uv_max.x, uv_max.y), mipLevel).x;
         float box_nearest_depth = ndc_max.z;
+        bbox.ndc_max.z = box_nearest_depth;
+        bbox.depths = vec4(render_depth0, render_depth1, render_depth2, render_depth3);
 
         if(box_nearest_depth < render_depth0 && box_nearest_depth < render_depth1 && box_nearest_depth < render_depth2 && box_nearest_depth < render_depth3)
             depth_culled = true;
 
         if(!depth_culled){
             inHighlightData.data[instanceIndex].z = 1;
-            if(inHighlightData.data[instanceIndex].y == 0){
+            inHighlightData.data[instanceIndex].x = box_nearest_depth - max(max(max(render_depth2, render_depth3), render_depth1), render_depth0);
+            if(inIndirect.instanceCount > 30){
+                inHighlightData.data[instanceIndex].x += 30;
+            }
+            if(inHighlightData.data[instanceIndex].y < 0.5){
                 uint prevCount = atomicAdd(outIndirect.instanceCount, 1);
                 MatrixData cur_data = inIndirectMatrix.instanceModelMatrix[instanceIndex];
                 InstanceData out_data;

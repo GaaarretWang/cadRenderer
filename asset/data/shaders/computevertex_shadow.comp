@@ -25,7 +25,7 @@ struct MatrixData {
 
 struct InstanceData {
     mat4 modelMatrix;
-    uint highlight;
+    float highlight;
 };
 
 layout(set = 0, binding = 2) buffer InIndirectMatrix {
@@ -33,7 +33,7 @@ layout(set = 0, binding = 2) buffer InIndirectMatrix {
 }inIndirectMatrix;
 
 layout(set = 0, binding = 3) buffer InHighlightData {
-    uvec4 data[];
+    vec4 data[];
 }inHighlightData;
 
 layout(set = 0, binding = 4) buffer OutIndirectMatrix {

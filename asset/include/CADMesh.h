@@ -86,7 +86,7 @@ struct ProtoData
     vsg::ref_ptr<vsg::PbrMaterialValue> material;
     vsg::ref_ptr<vsg::mat4Array> instance_buffer;
     vsg::ref_ptr<vsg::BufferInfo> input_instance_buffer_info;
-    vsg::ref_ptr<vsg::uintArray> highlight_buffer;
+    vsg::ref_ptr<vsg::floatArray> highlight_buffer;
     vsg::ref_ptr<vsg::BufferInfo> input_highlight_buffer_info;
     vsg::ref_ptr<vsg::BufferInfo> output_instance_buffer_info;
     std::vector<std::string> instance_id;

@@ -320,7 +320,7 @@ public:
         for(int i = 0; i < matrix_index.size(); i ++){
             auto proto = matrix_index[i].proto_data;
             auto index = matrix_index[i].index;
-            proto->highlight_buffer->set(index / 2, state);
+            proto->highlight_buffer->set(index / 2, (float)state);
             proto->highlight_buffer->dirty();
         }
     }

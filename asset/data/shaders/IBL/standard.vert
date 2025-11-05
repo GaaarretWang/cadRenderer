@@ -17,7 +17,7 @@ layout(binding = 6) uniform sampler2D displacementMap;
 
 struct InstanceData {
     mat4 modelMatrix;
-    uint highlight;
+    float highlight;
 };
 
 
@@ -41,7 +41,7 @@ layout(location = 0) out vec3 eyePos;
 layout(location = 1) out vec3 normalDir;
 layout(location = 2) out vec4 vertexColor;
 layout(location = 3) out vec2 texCoord0;
-layout(location = 4) out uint highlight;
+layout(location = 4) out float highlight;
 
 layout(location = 6) out vec3 worldNormal;
 layout(location = 7) out vec3 worldViewDir;

@@ -92,7 +92,7 @@ layout(location = 0) in vec3 eyePos;
 layout(location = 1) in vec3 normalDir;
 layout(location = 2) in vec4 vertexColor;
 layout(location = 3) in vec2 texCoord0;
-layout(location = 4) in flat uint highlight;
+layout(location = 4) in float highlight;
 
 layout(location = 6) in vec3 worldNormal;
 layout(location = 7) in vec3 worldViewDir;
@@ -628,10 +628,15 @@ float computeF0Base_Merged(float f0) {
 
 void main()
 {
-    if(highlight > 0){
-        outColor = vec4(1, 1, 1, 1);
-        return;
+    if(highlight > 20){
+        outColor = vec4(highlight - 30, highlight - 30, highlight - 30, 1);
+        gl_FragDepth  = 0.9;
     }
+    else{
+        outColor = vec4(highlight, highlight, highlight, 1);
+        gl_FragDepth  = 0.8;
+    }
+    return;
 
     if(extraParams.shader_type == 1){
         float cadDepth = -eyePos.z / 65.535;

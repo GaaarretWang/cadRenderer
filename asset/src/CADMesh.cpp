@@ -456,7 +456,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
         }
         proto_data->input_instance_buffer_info = vsg::BufferInfo::create(proto_data->instance_buffer);
 
-        proto_data->highlight_buffer = vsg::uintArray::create(proto_data->instance_matrix.size() / 2 * 4);
+        proto_data->highlight_buffer = vsg::floatArray::create(proto_data->instance_matrix.size() / 2 * 4);
         proto_data->highlight_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
         for(int i = 0; i < proto_data->instance_matrix.size() / 2 * 4; i ++){
             proto_data->highlight_buffer->set(i, 0);
