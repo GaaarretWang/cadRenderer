@@ -129,6 +129,8 @@ void main() {
         vec3 ndcs[8];
         for (int i = 0; i < 8; i++) {
             ndcs[i] = clipPoints[i].xyz / clipPoints[i].w;
+            ndcs[i].xy = clamp(ndcs[i].xy, -1, 1);
+            ndcs[i].z = clamp(ndcs[i].z, 0, 1);
             ndc_min.x = min(ndc_min.x, ndcs[i].x);
             ndc_min.y = min(ndc_min.y, ndcs[i].y);
             ndc_min.z = min(ndc_min.z, ndcs[i].z);
@@ -148,8 +150,13 @@ void main() {
 
         vec2 uv_min = ndc_min.xy * 0.5 + 0.5;
         vec2 uv_max = ndc_max.xy * 0.5 + 0.5;
-        uv_min = min(max(uv_min, vec2(0)), vec2(1));
-        uv_max = min(max(uv_max, vec2(0)), vec2(1));
+        float level_lower = float(max(mipLevel - 1, 0)); 
+        float scale = pow(2.0, -level_lower);
+        vec2 a = floor(uv_min * scale);  // 覆盖范围的起始像素坐标（向下取整）
+        vec2 b = floor(uv_max * scale);   // 覆盖范围的结束像素坐标（向上取整）
+        vec2 dims = b - a; 
+        if (dims.x <= 1 && dims.y <= 1)
+            mipLevel = int(level_lower);
 
         bool depth_culled = false;
         float render_depth0 = textureLod(mipPyramid, vec2(uv_min.x, uv_min.y), mipLevel).x;

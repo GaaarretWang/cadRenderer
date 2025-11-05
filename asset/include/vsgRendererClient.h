@@ -3,7 +3,6 @@
 #include <screenshot.h>
 #include <vsg/all.h>
 #include "ConfigShader.h"
-#include "ModelInstance.h"
 
 #ifdef vsgXchange_FOUND
 #    include <vsgXchange/all.h>

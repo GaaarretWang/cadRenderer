@@ -70,14 +70,6 @@ struct TinyModelVertex
     }
 };
 
-struct treeNode
-{
-    std::vector<std::string> kids;
-    vsg::ref_ptr<vsg::MatrixTransform> transform;
-    vsg::mat4 originalMatrix;
-    vsg::dbox bounds;
-};
-
 struct ProtoData
 {
     vsg::ref_ptr<vsg::BufferInfo> bounds_buffer_info;
@@ -209,7 +201,7 @@ private:
     std::vector<MaterialObj> mMaterials{};
     std::vector<std::string> mTextures{};
     std::vector<uint32_t> mMatIndex{};
-    std::unordered_map<std::string, uint32_t> uniqueMaterials; //pos,normal,uv...
+    std::unordered_map<std::string, uint32_t> uniqueMaterials;
 
 public:
     int Nodenumber;
@@ -220,8 +212,6 @@ public:
     std::unordered_map<std::string, uint32_t> protoIndex;
     std::unordered_map<std::string, uint32_t> protoTriangleNum;
     std::unordered_map<int, uint32_t> materialIndex;
-    // std::unordered_map<std::string, int> instanceIndex;     
-    // std::unordered_map<std::string, treeNode> nodePtr;        //
 
     std::vector<vsg::ref_ptr<vsg::vec3Array>> objVerticesVector;
     std::vector<vsg::ref_ptr<vsg::vec3Array>> objNormalsVector;
@@ -241,7 +231,7 @@ public:
     std::vector<std::string> materialNameVector;
     std::vector<std::vector<float>> transformVector;
     std::vector<int> transformNumVector;
-    std::unordered_map<std::string, int> meshIndice; //存储零件名和它在数组中的位置，便于查找
+    std::unordered_map<std::string, int> meshIndice;
     
     cadDataManager::RenderInfo info;
 
@@ -261,7 +251,6 @@ public:
     static vsg::ref_ptr<vsg::Data> params;
     static std::unordered_map<std::string, vsg::ImageInfoList> texture_name_to_image_map;
     static std::unordered_map<std::string, ProtoData*> proto_id_to_data_map;
-    static std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> scene_materials;
 
     static std::unordered_map<std::string, std::vector<MatrixIndex>> id_to_matrix_index_map;
 
@@ -273,10 +262,6 @@ public:
     std::unordered_map<std::string, std::vector<vsg::dmat4>> proto_id_default_matrix_map;
     std::unordered_map<std::string, std::vector<std::string>> proto_id_instance_name_map;
 
-    //����ģ��
-    void buildNewNode(const std::string& path, bool fullNormal, vsg::ref_ptr<vsg::Group> scene);
-    void buildObjNode(const char* path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene);
-    static void CreateDefaultMaterials();
     void preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string instance_name);
     void preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string instance_name);
     static void buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene);

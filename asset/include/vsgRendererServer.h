@@ -6,7 +6,6 @@
 #include <vsg/all.h>
 #include "convertPng.h"
 #include "ConfigShader.h"
-#include "ModelInstance.h"
 #include "ImGui.h"
 #ifdef vsgXchange_FOUND
 #    include <vsgXchange/all.h>
@@ -30,7 +29,6 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::View> view;
 
     std::unordered_map<std::string, CADMesh*> transfered_meshes; //path, mesh*
-    std::unordered_map<std::string, ModelInstance*> instance_phongs; //path, mesh*
 
     vsg::ref_ptr<vsg::ShaderSet> shadow_shader;
     vsg::ref_ptr<vsg::ShaderSet> model_shader;

@@ -327,19 +327,10 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     CADMesh::camera_info = camera_info;
     CADMesh::depth_info = depth_info;
     CADMesh::params = params;
-    CADMesh::CreateDefaultMaterials();
     if(shadow_recevier_path != "")
     {
         CADMesh* shadow_recevier_mesh = new CADMesh();
-        // string texture = engine_path + "asset/data/obj/Medieval_building";
         shadow_recevier_mesh->preprocessProtoData(shadow_recevier_path.c_str(), getDirectoryPath(shadow_recevier_path).c_str(), shadow_recevier_transform, shadow_shader, shadowGroup, "shadow_receiver");
-        // ModelInstance* shadow_recevier_instance = new ModelInstance();
-        // shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, shadowGroup, shadow_shader, shadow_recevier_transform, camera_info, depth_info, params);
-        // scenegraph->addChild(shadowStateGroup);
-        // ModelInstance* ibl_shadow_recevier_instance = new ModelInstance();
-        // auto iblStateGroup = vsg::StateGroup::create();
-        // ibl_shadow_recevier_instance->buildObjInstanceShadow(shadow_recevier_mesh, iblStateGroup, gpc_ibl, gpc_shadow, shadow_recevier_transform, false);
-        // rootSwitch->addChild(MASK_FAKE_BACKGROUND, iblStateGroup);
     }
     bool fullNormal = true;
     //---------------------------------------读取CAD模型------------------------------------------//
@@ -364,31 +355,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             //transfer_model->transferModel(model_paths[i], fullNormal, model_transforms[i]);
             transfer_model->preprocessFBProtoData(path_i, texture_path_i.c_str(), model_transforms[i], pbriblShaderSet, modelGroup, instance_names[i]);
         }
-
-
-
-        // if(format == "obj"){
-        //     ModelInstance* instance_phong = new ModelInstance();
-        //     instance_phong->context = vsg::Context::create(window->getOrCreateDevice());
-        //     // instance_phong->buildObjInstanceIBL(transfer_model, modelGroup, pbriblShaderSet, model_transforms[i], camera_info, depth_info, params1);
-        //     //instance_phong->buildObjInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
-        //     instance_phongs[instance_names[i]] = instance_phong;
-        //     std::cout << "**************** reading obj ******************" << std::endl;
-        // }
-        // else if(format == "fb"){
-        //     ModelInstance* instance_phong = new ModelInstance();
-        //     instance_phong->context = vsg::Context::create(window->getOrCreateDevice());
-        //     //instance_phong->buildInstance(transfer_model, scenegraph, phongShader, model_transforms[i]);
-        //     instance_phong->buildFbInstance(transfer_model, scenegraph, pbriblShaderSet, gpc_ibl, model_transforms[i], options, engine_path);
-        //     //instance_phong->buildInstanceIBL(transfer_model, scenegraph, gpc_ibl, gpc_shadow, model_transforms[i]);
-        //     instance_phongs[instance_names[i]] = instance_phong;
-        //     std::cout << "**************** reading fb ******************" << std::endl;
-        // }
-        // else if(format == "texture")
-        // {
-        //     ModelInstance* instance_phong = new ModelInstance();
-        //     instance_phong->buildTextureSphere(scenegraph, gpc_ibl, gpc_ibl, model_transforms[i]);
-        // }
     }
     CADMesh::buildDrawData(pbriblShaderSet, modelGroup); //读取obj文件
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup); //读取obj文件
