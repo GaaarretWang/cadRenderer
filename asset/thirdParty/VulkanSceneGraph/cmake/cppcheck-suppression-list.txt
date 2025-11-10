@@ -1,0 +1,144 @@
+// suppress Key related errors
+noExplicitConstructor:*include/vsg/core/ref_ptr.h
+noExplicitConstructor:*include/vsg/core/Inherit.h:31
+noExplicitConstructor:*include/vsg/core/Allocator.h:138
+noExplicitConstructor:*include/vsg/io/Path.h
+
+// suppress correct casts flagged as issues
+invalidPointerCast:*/include/vsg/core/Data.h
+invalidPointerCast:*/include/vsg/core/Array.h
+invalidPointerCast:*/include/vsg/core/Array2D.h
+invalidPointerCast:*/include/vsg/core/Array3D.h
+invalidPointerCast:*/include/vsg/core/Array3D.h
+invalidPointerCast:*/src/vsg/commands/CopyAndReleaseImage.cpp
+
+// suppress inappropriate stl algorithm suggestions
+useStlAlgorithm:*/include/vsg/core/Value.h
+useStlAlgorithm:*/include/vsg/core/Array.h
+useStlAlgorithm:*/include/vsg/core/Array2D.h
+useStlAlgorithm:*/include/vsg/core/Array3D.h
+useStlAlgorithm:*/include/vsg/vk/vk_buffer.h
+useStlAlgorithm:*/src/vsg/nodes/VertexDraw.cpp
+useStlAlgorithm:*/src/vsg/io/VSG.cpp
+useStlAlgorithm:*/src/vsg/commands/BindVertexBuffers.cpp
+useStlAlgorithm:*/src/vsg/nodes/Geometry.cpp
+useStlAlgorithm:*/src/vsg/nodes/VertexIndexDraw.cpp
+useStlAlgorithm:*/src/vsg/state/DescriptorBuffer.cpp
+useStlAlgorithm:*/src/vsg/state/PipelineLayout.cpp
+useStlAlgorithm:*/src/vsg/state/ViewDependentState.cpp
+useStlAlgorithm:*/src/vsg/threading/Affinity.cpp
+useStlAlgorithm:*/src/vsg/utils/Intersector.cpp
+useStlAlgorithm:*/src/vsg/app/Presentation.cpp
+useStlAlgorithm:*/src/vsg/app/ExecuteCommands.cpp
+useStlAlgorithm:*/src/vsg/app/RecordAndSubmitTask.cpp
+useStlAlgorithm:*/src/vsg/app/src/vsg/utils/Builder.cpp
+useStlAlgorithm:*/src/vsg/app/Viewer.cpp
+useStlAlgorithm:*/src/vsg/app/CompileManager.cpp
+useStlAlgorithm:*/src/vsg/vk/Device.cpp
+useStlAlgorithm:*/src/vsg/vk/DeviceMemory.cpp
+useStlAlgorithm:*/src/vsg/vk/Framebuffer.cpp
+useStlAlgorithm:*/src/vsg/vk/Swapchain.cpp
+useStlAlgorithm:*/src/vsg/utils/Builder.cpp
+useStlAlgorithm:*/src/vsg/vk/Instance.cpp
+useStlAlgorithm:*/src/vsg/vk/RenderPass.cpp
+useStlAlgorithm:*/src/vsg/core/Allocator.cpp
+useStlAlgorithm:*/src/vsg/core/MemorySlots.cpp
+useStlAlgorithm:*/src/vsg/state/ArrayState.cpp
+useStlAlgorithm:*/src/vsg/app/CompileTraversal.cpp
+useStlAlgorithm:*/src/vsg/utils/ShaderSet.cpp
+useStlAlgorithm:*/src/vsg/utils/ShaderCompiler.cpp
+useStlAlgorithm:*/src/vsg/utils/GraphicsPipelineConfigurator.cpp
+useStlAlgorithm:*/include/vsg/utils/CommandLine.h
+
+
+// suppress the warning about valid C++17 if (init; condition) usage
+syntaxError:*include/vsg/core/Inherit.h
+syntaxError:*src/vsg/io/AsciiOutput.cpp
+syntaxError:*src/vsg/io/AsciiInput.cpp
+syntaxError:*src/vsg/io/BinaryOutput.cpp
+syntaxError:*src/vsg/io/BinaryInput.cpp
+syntaxError:*src/vsg/io/ReaderWriter.cpp
+syntaxError:*src/vsg/io/FileSystem.cpp
+syntaxError:*include/vsg/io/Input.h
+syntaxError:*include/vsg/io/Output.h
+
+// suppress the warning about valid C++17 if (init; condition) usage
+syntaxError:*include/vsg/utils/CommandLine.h
+syntaxError:*include/vsg/core/Data.h:51
+
+// suppress warnings about never used variables that are used in .cpp's
+unusedStructMember:*include/vsg/core/Data.h
+unusedStructMember:*include/vsg/core/Exception.h
+unusedStructMember:*include/vsg/core/Version.h
+unusedStructMember:*include/vsg/io/ObjectCache.h
+unusedStructMember:*include/vsg/nodes/Bin.h
+unusedStructMember:*include/vsg/nodes/LOD.h
+unusedStructMember:*include/vsg/nodes/PagedLOD.h
+unusedStructMember:*include/vsg/state/ArrayState.h
+unusedStructMember:*include/vsg/utils/LineSegmentIntersector.h
+unusedStructMember:*include/vsg/app/Trackball.h
+unusedStructMember:*include/vsg/vk/ResourceRequirements.h
+unusedStructMember:*include/vsg/vk/Device.h
+unusedStructMember:*include/vsg/vk/RenderPass.h
+unusedStructMember:*include/vsg/vk/Swapchain.h
+unusedStructMember:*include/vsg/vk/vulkan.h
+unusedStructMember:*include/vsg/nodes/Switch.h
+unusedStructMember:*include/vsg/text/TextLayout.h
+unusedStructMember:*include/vsg/introspection/c_interface.h
+unusedStructMember:*include/vsg/utils/Builder.h
+unusedStructMember:*src/vsg/core/External.cpp
+
+// suppress warnings about unused variables
+unusedVariable:*src/vsg/io/FileSystem.cpp
+unusedVariable:*src/vsg/app/CompileManager.cpp
+
+// suppress inappropriate warnings about unassigned variables
+unassignedVariable:*src/vsg/commands/ExecuteCommands.cpp
+unassignedVariable:*src/vsg/state/ShaderStage.cpp
+unassignedVariable:*src/vsg/state/ViewDependentState.cpp
+unassignedVariable:*src/vsg/vk/DescriptorPool.cpp
+unassignedVariable:*src/vsg/vk/ResourceRequirements.cpp
+unassignedVariable:*src/vsg/core/External.cpp
+unassignedVariable:*src/vsg/core/MemorySlots.cpp
+unassignedVariable:*src/vsg/vk/Context.cpp
+unassignedVariable:*src/vsg/app/CompileManager.cpp
+
+// suppress inappropriate warnings about unreadVariable variables
+unreadVariable:*/src/vsg/state/DescriptorTexelBufferView.cpp
+
+// suppress inappropriate warning about uninitialized variable
+uninitvar:*/include/vsg/vk/DeviceFeatures.h
+uninitvar:*/src/vsg/vk/DeviceFeatures.cpp
+
+// suppress inappropriate warning about out of bounds
+arrayIndexOutOfBounds:*include/vsg/vk/State.h
+
+// suppress warnings about intentional code usage
+knownConditionTrueFalse:*/src/vsg/utils/Builder.cpp
+
+// suppress warning about initializtion.
+useInitializationList:*/include/vsg/core/ScratchMemory.h
+useInitializationList:*/src/vsg/vk/Extensions.cpp
+useInitializationList:*/src/vsg/vk/Context.cpp
+useInitializationList:*/src/vsg/app/Viewer.cpp
+
+// suppress inappropriate warning about insertion.
+stlFindInsert:*/src/vsg/vk/ResourceRequirements.cpp
+
+// suppress inappropriate warning about usage that exists for debugging purposes.
+duplicateConditionalAssign:*/src/vsg/core/MemorySlots.cpp
+
+// suppress unhelpful "can be declared with const"
+constParameter:*/src/vsg/state/QueryPool.cpp
+constParameter:*/src/vsg/commands/CopyAndReleaseImage.cpp
+
+// suppress inappropriate warning of returnTempReference
+returnTempReference:*/include/vsg/core/Inherit.h
+
+// suppress inappropriate warning of variableScope
+variableScope:*/include/vsg/utils/SharedObjects.h
+variableScope:*/src/vsg/utils/SharedObjects.cpp
+variableScope:*/src/vsg/app/CompileManager.cpp
+
+// suppress really stupid warning of pointerLessThanZero
+pointerLessThanZero:*/src/vsg/app/Viewer.cpp

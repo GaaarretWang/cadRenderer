@@ -1,7 +1,6 @@
 aux_source_directory(src assetSRCS)
 if(UNIX)
-    find_package(vsg REQUIRED)
-    find_package(vsgXchange REQUIRED)
+    add_subdirectory(thirdParty/VulkanSceneGraph)
 
     add_library(vsgRenderer SHARED ${assetSRCS})
     set(render_LIB_PATH 
@@ -13,7 +12,7 @@ if(UNIX)
         flatbuffers
         vsg::vsg
         vsgImGui::vsgImGui
-        libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY} ${ASSIMP_LIBRARIES}
+        libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY}
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/CADDataManager/lib/cadDataManager.a 
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/CADDataManager/lib/libcurl.a
     )
@@ -23,10 +22,9 @@ if(UNIX)
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/CADDataManager/include
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Utils
         ${CUDA_INCLUDE_DIRS}
-        ${ASSIMP_INCLUDE_DIR}
     )
 
-    target_link_libraries(vsgRenderer vsg::vsg vsgXchange::vsgXchange)
+    target_link_libraries(vsgRenderer vsg::vsg)
 elseif(WIN32)
     add_subdirectory(thirdParty/VulkanSceneGraph)
     find_package(vsgXchange)

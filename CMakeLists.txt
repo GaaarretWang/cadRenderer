@@ -14,13 +14,9 @@ endif()
 # set(CMAKE_CUDA_ARCHITECTURES tgt)
 find_package(CUDA REQUIRED)
 
-#find_package(vsg REQUIRED)
+find_package(vsgXchange)
 
-find_package(vsg 1.1.0 REQUIRED)
-
-find_package(vsgXchange REQUIRED)
-
-find_package(assimp REQUIRED)
+find_package(assimp)
 
 find_package(vsgImGui REQUIRED)
 

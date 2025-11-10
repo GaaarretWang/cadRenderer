@@ -301,7 +301,6 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
     std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> materials;
     
     auto options = vsg::Options::create();
-    options->add(vsgXchange::all::create());
     auto createImageInfo = [](vsg::ref_ptr<vsg::Data> in_data) -> vsg::ImageInfoList {
         auto sampler = vsg::Sampler::create();
         sampler->magFilter = VK_FILTER_NEAREST;
