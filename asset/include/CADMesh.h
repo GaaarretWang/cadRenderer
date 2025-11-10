@@ -95,6 +95,7 @@ struct ProtoData
     vsg::ref_ptr<vsg::Group> scene;
     vsg::ref_ptr<vsg::DrawIndexedIndirect> draw_indirect;
     vsg::ref_ptr<vsg::BufferInfo> indirect_full_buffer_info;
+    bool back_cull;
 };
 
 struct DynamicLines
@@ -233,6 +234,8 @@ public:
     std::vector<int> transformNumVector;
     std::unordered_map<std::string, int> meshIndice;
     
+    bool back_cull = true;
+
     cadDataManager::RenderInfo info;
 
     vsg::GeometryInfo geomInfo;

@@ -234,7 +234,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     proto_data->vertices = vertices;
                     proto_data->normals = normals;
                     proto_data->colors = nullptr;
-                    proto_data->uvs = uvs;
+                    proto_data->uvs = nullptr;
                     proto_data->indices = indices;
                     proto_data->proto_id = protoId;
                     // if(i < mtr_ids.size() && textures.size() > mtr_ids[i]){
@@ -250,6 +250,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     proto_data->material = default_material;
                     proto_data->shaderset = model_shaderset;
                     proto_data->scene = scene;
+                    proto_data->back_cull = back_cull;
                     proto_id_to_data_map[proto_id] = proto_data;
                 }
                 proto_id_default_matrix_map[proto_id] = std::vector<vsg::dmat4>();
@@ -395,6 +396,7 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
 
             proto_data->shaderset = model_shaderset;
             proto_data->scene = scene;
+            proto_data->back_cull = back_cull;
             proto_id_to_data_map[proto_id] = proto_data;
         }
         proto_id_default_matrix_map[proto_id] = std::vector<vsg::dmat4>();
@@ -448,6 +450,11 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
 void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene){
     for(auto& proto_data_itr : proto_id_to_data_map){
         ProtoData* proto_data = proto_data_itr.second;
+        if(! proto_data->back_cull){
+            auto rasterizationState = vsg::RasterizationState::create();
+            rasterizationState->cullMode = VK_CULL_MODE_NONE;
+            proto_data->shaderset->defaultGraphicsPipelineStates.push_back(rasterizationState);
+        }
         auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(proto_data->shaderset);
         proto_data->instance_buffer = vsg::mat4Array::create(proto_data->instance_matrix.size());
         proto_data->instance_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
@@ -497,7 +504,8 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
         vsg::DataList vertexArrays;
         graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->vertices);
         graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->normals);
-        graphicsPipelineConfig->assignArray(vertexArrays, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->uvs);
+        if(proto_data->uvs)
+            graphicsPipelineConfig->assignArray(vertexArrays, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->uvs);
         if(proto_data->colors)
             graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->colors);
         else
