@@ -840,7 +840,7 @@ bool vsgRendererServer::render() {
     auto t0 = std::chrono::high_resolution_clock::now();
     while (viewer->advanceToNextFrame()) {
         static int tmp = 0;
-        std::chrono::steady_clock::time_point t3;
+        auto t3 = std::chrono::high_resolution_clock::now();
         if(!tmp){
             layoutTransition->image = window->_depthImage;
             if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)

@@ -14,13 +14,6 @@ endif()
 # set(CMAKE_CUDA_ARCHITECTURES tgt)
 find_package(CUDA REQUIRED)
 
-#find_package(vsg REQUIRED)
-
-find_package(vsg 1.1.0 REQUIRED)
-
-find_package(vsgXchange REQUIRED)
-
-find_package(assimp REQUIRED)
 
 find_package(vsgImGui REQUIRED)
 
@@ -48,11 +41,9 @@ if(UNIX)
     target_link_libraries(Rendering 
         vsg::vsg
         vsgImGui::vsgImGui
-        vsgXchange::vsgXchange
         flatbuffers::flatbuffers
         vsgRenderer
         libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY}
-        ${ASSIMP_LIBRARIES}
     )
 elseif(WIN32)
     target_link_libraries(Rendering 

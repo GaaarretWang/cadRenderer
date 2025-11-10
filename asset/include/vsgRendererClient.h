@@ -4,10 +4,6 @@
 #include <vsg/all.h>
 #include "ConfigShader.h"
 
-#ifdef vsgXchange_FOUND
-#    include <vsgXchange/all.h>
-#endif
-
 using namespace std;
 
 class vsgRendererClient

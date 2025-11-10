@@ -3,7 +3,6 @@
 #include <iostream>
 #include <unordered_set>
 #include <vsg/all.h>
-#include <vsgXchange/all.h>
 #include "communication/dataInterface.h"
 #include "OBJLoader.h"
 #define EXPLODE

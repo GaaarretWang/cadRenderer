@@ -8,11 +8,7 @@
 #include "convertPng.h"
 #include "ConfigShader.h"
 #include "ImGui.h"
-#ifdef vsgXchange_FOUND
-#    include <vsgXchange/all.h>
-#endif
 
-#include "assimp.h"
 #include "HDRLightSampler.h"
 #include "PlaneLoader.h"
 

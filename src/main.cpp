@@ -12,7 +12,7 @@
 #include <future>
 #include <memory>
 #include <stdexcept>
-
+#define RENDER_TEST
 // simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
 ImagePair loadImagePair(const std::string& timestamp, ConvertImage* converter) {
@@ -84,7 +84,7 @@ int main(int argc, char** argv){
 
     RenderingServer rendering_server;
     rendering_server.Init(argc, argv);
-#ifndef WIN32
+#ifndef RENDER_TEST
     Rendering rendering_client;
     rendering_client.Init(rendering_server.device);
 #endif
@@ -155,7 +155,7 @@ int main(int argc, char** argv){
             return 0;
         }
 
-#ifndef WIN32
+#ifndef RENDER_TEST
         if(rendering_server.vPacket.size() > 0)
             rendering_client.Update(rendering_server.vPacket);
 #endif
