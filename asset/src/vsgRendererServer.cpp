@@ -292,7 +292,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
 
     MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
-    auto pbr_shaderset = vsg::createPhysicsBasedRenderingShaderSet(options);
     {
         vsg::ref_ptr<vsg::Geometry> reconstructDrawCmd = vsg::Geometry::create();
         reconstructDrawCmd->assignArrays({mesh.vertices,
@@ -392,19 +391,92 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
     renderGraph1->addChild(renderImGui);
 
-    VkFormatProperties props;
-    vkGetPhysicalDeviceFormatProperties(window->_device->getPhysicalDevice()->vk(), VK_FORMAT_D32_SFLOAT, &props);
-    if (props.optimalTilingFeatures & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) {
-        std::cout << "支持作为 storage image 使用" << std::endl;
-    } else {
-        std::cout << "不支持作为 storage image 使用" << std::endl;
-    }
+
+    VkExtent2D extent = {};
+    extent.width = render_width;
+    extent.height = render_height;
+    depthPyramidImage->imageType = VK_IMAGE_TYPE_2D;
+    depthPyramidImage->format = VK_FORMAT_R32_SFLOAT; // 假设与深度附件兼容
+    depthPyramidImage->mipLevels = 7; // 共 7 层
+    depthPyramidImage->usage = VK_IMAGE_USAGE_STORAGE_BIT |          // 计算着色器读写
+                                VK_IMAGE_USAGE_SAMPLED_BIT | 
+                                VK_IMAGE_USAGE_TRANSFER_SRC_BIT |     // 可能需要mipmap生成
+                                VK_IMAGE_USAGE_TRANSFER_DST_BIT;      // 可能需要初始化
+    depthPyramidImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthPyramidImage->extent.width = window->extent2D().width;
+    depthPyramidImage->extent.height = window->extent2D().height;
+    depthPyramidImage->extent.depth = 1;
+
+
+    auto depth_pyramid_sampler = vsg::Sampler::create();
+    depth_pyramid_sampler->minLod = 0;
+    depth_pyramid_sampler->maxLod = 6;
+    depth_pyramid_sampler->magFilter = VK_FILTER_NEAREST;  // 放大时使用 Nearest
+    depth_pyramid_sampler->minFilter = VK_FILTER_NEAREST;  // 缩小时使用 Nearest
+    depth_pyramid_sampler->mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST; // Mipmap 使用 Nearest
+    vsg::ref_ptr<vsg::ImageView> depthPyramidImageView = vsg::ImageView::create(depthPyramidImage);
+    depthPyramidImageView->subresourceRange.baseMipLevel = 0;
+    depthPyramidImageView->subresourceRange.levelCount = 7;
+    vsg::ref_ptr<vsg::ImageInfo> depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, depthPyramidImageView);
+
+    vsg::ref_ptr<vsg::ImageInfo> framebuffer_depthImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, window->getOrCreateDepthImageView());
+
+    camera_plane_info.n[0] = vsg::normalize(vsg::vec4(0, 0, -1, -near_plane));
+    camera_plane_info.n[1] = vsg::normalize(vsg::vec4(0, 0, 1, far_plane));
+    camera_plane_info.n[2] = vsg::normalize(vsg::vec4(2*fx/width, 0, -2*cx/width, 0));
+    camera_plane_info.n[3] = vsg::normalize(vsg::vec4(-2*fx/width, 0, -2+2*cx/width, 0));
+    camera_plane_info.n[4] = vsg::normalize(vsg::vec4(0, 2*fy/height, -2+2*cy/height, 0));
+    camera_plane_info.n[5] = vsg::normalize(vsg::vec4(0, -2*fy/height, -2*cy/height, 0));
+    vsg::ref_ptr<vsg::Array<CameraPlaneInfo>> camera_plane_info_buffer = vsg::Array<CameraPlaneInfo>::create(1);
+    camera_plane_info_buffer->set(0, camera_plane_info);
+    auto camera_plane_info_buffer_info = vsg::BufferInfo::create(camera_plane_info_buffer);
+    camera_matrix->set(0, vsg::mat4(camera->viewMatrix->transform()));
+    camera_matrix->set(1, vsg::mat4(camera->projectionMatrix->transform() * camera->viewMatrix->transform()));
+    camera_matrix_buffer_info = vsg::BufferInfo::create(camera_matrix);
+    camera_matrix->properties.dataVariance = vsg::DYNAMIC_DATA;
+
+
+    preClearBarrier->add(layoutTransition);
+
+    clearDepth->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 必须为 TRANSFER_DST_OPTIMAL 或 GENERAL
+    clearDepth->depthStencil = {0.0f, 0};
+    VkImageSubresourceRange range{};
+    range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    range.baseMipLevel = 0;
+    range.levelCount = 1;
+    range.baseArrayLayer = 0;
+    range.layerCount = 1;
+    clearDepth->ranges = {range};
+
+    clearDepth1->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 必须为 TRANSFER_DST_OPTIMAL 或 GENERAL
+    clearDepth1->depthStencil = {0.0f, 0};
+    clearDepth1->ranges = {range};
+
+    newmatrix = vsg::mat4Array::create(2);
+    vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
+                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, newmatrix);
+    commandGraph->addChild(pc);
+    if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
+        commandGraph->addChild(clearDepth);
+    commandGraph->addChild(clearDepth1);
+
+
+
 
     auto computeQueueFamily = commandGraph->queueFamily;
+    auto computeQueueFamily1 = commandGraph1->queueFamily;
     auto computeCommandGraphShadow = vsg::CommandGraph::create(device, computeQueueFamily);
     computeCommandGraphShadow->submitOrder = -1;
-    auto computeCommandGraph4 = vsg::CommandGraph::create(device, computeQueueFamily);
-    computeCommandGraph4->submitOrder = -1;
+
+    auto depth_cull_command_graph1 = vsg::CommandGraph::create(device, computeQueueFamily);
+    commandGraph->addChild(depth_cull_command_graph1);
+    commandGraph->addChild(renderGraph);
+
+    auto depth_pyramid_CommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
+    commandGraph1->addChild(depth_pyramid_CommandGraph);
+    commandGraph1->addChild(renderGraph1);
+
+
     {
         vsg::DescriptorSetLayoutBindings descriptorBindings{
             {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
@@ -459,35 +531,78 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             computeCommandGraphShadow->addChild(ShadowPipelineBarrier);
         }
     }
+    
+    {
+        vsg::DescriptorSetLayoutBindings descriptorBindings{
+            {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+        };
+        auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
+        auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
 
-    VkExtent2D extent = {};
-    extent.width = render_width;
-    extent.height = render_height;
-    depthPyramidImage->imageType = VK_IMAGE_TYPE_2D;
-    depthPyramidImage->format = VK_FORMAT_R32_SFLOAT; // 假设与深度附件兼容
-    depthPyramidImage->mipLevels = 7; // 共 7 层
-    depthPyramidImage->usage = VK_IMAGE_USAGE_STORAGE_BIT |          // 计算着色器读写
-                                VK_IMAGE_USAGE_TRANSFER_SRC_BIT |     // 可能需要mipmap生成
-                                VK_IMAGE_USAGE_TRANSFER_DST_BIT;      // 可能需要初始化
-    depthPyramidImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    depthPyramidImage->extent.width = window->extent2D().width;
-    depthPyramidImage->extent.height = window->extent2D().height;
-    depthPyramidImage->extent.depth = 1;
+        auto ShadowToPass1CullBarrier = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            0
+        );
+        for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
+            ProtoData* proto_data = proto_data_itr.second;
+            auto indirectBarrier = vsg::BufferMemoryBarrier::create(
+                VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
+                VK_ACCESS_SHADER_WRITE_BIT,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                proto_data->draw_indirect->bufferInfo->buffer,
+                0,
+                VK_WHOLE_SIZE
+            );
+            ShadowToPass1CullBarrier->add(indirectBarrier);
+        }
+        depth_cull_command_graph1->addChild(ShadowToPass1CullBarrier);
 
+        auto Pass1CullToPass1Barrier = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+            0
+        );
+        auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex.comp", options);
+        auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
+        auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
+        depth_cull_command_graph1->addChild(bindPipeline);
 
-    auto depth_pyramid_sampler = vsg::Sampler::create();
-    depth_pyramid_sampler->minLod = 0;
-    depth_pyramid_sampler->maxLod = 6;
-    depth_pyramid_sampler->magFilter = VK_FILTER_NEAREST;  // 放大时使用 Nearest
-    depth_pyramid_sampler->minFilter = VK_FILTER_NEAREST;  // 缩小时使用 Nearest
-    depth_pyramid_sampler->mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST; // Mipmap 使用 Nearest
-    vsg::ref_ptr<vsg::ImageView> depthPyramidImageView = vsg::ImageView::create(depthPyramidImage);
-    depthPyramidImageView->subresourceRange.baseMipLevel = 0;
-    depthPyramidImageView->subresourceRange.levelCount = 7;
-    vsg::ref_ptr<vsg::ImageInfo> depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, depthPyramidImageView);
+        for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
+            ProtoData* proto_data = proto_data_itr.second;
+            auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
+                                                                                proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info, 
+                                                                                proto_data->output_instance_buffer_info, camera_plane_info_buffer_info, 
+                                                                                proto_data->bounds_buffer_info, camera_matrix_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            auto storageImage = vsg::DescriptorImage::create(vsg::ImageInfoList{depthPyramidImageInfo}, 8);
+            auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer, storageImage});
+            auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
+            depth_cull_command_graph1->addChild(bindDescriptorSet);
+            depth_cull_command_graph1->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
 
-    vsg::ref_ptr<vsg::ImageInfo> framebuffer_depthImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, window->getOrCreateDepthImageView());
-    auto depth_pyramid_CommandGraph = vsg::CommandGraph::create(device, computeQueueFamily);
+            auto indirectBarrier = vsg::BufferMemoryBarrier::create(
+                VK_ACCESS_SHADER_WRITE_BIT,
+                VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                proto_data->draw_indirect->bufferInfo->buffer,
+                0,
+                VK_WHOLE_SIZE
+            );
+            Pass1CullToPass1Barrier->add(indirectBarrier);
+        }
+        depth_cull_command_graph1->addChild(Pass1CullToPass1Barrier);
+    }
+
     {
         vsg::DescriptorSetLayoutBindings descriptorBindings{
             {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
@@ -512,7 +627,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                 VK_QUEUE_FAMILY_IGNORED,
                 VK_QUEUE_FAMILY_IGNORED,
                 depthPyramidImage,
-                VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 7, 0, 1}
+                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 7, 0, 1}
             );
 
             auto depthToComputeBarrier = vsg::ImageMemoryBarrier::create(
@@ -542,7 +657,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
             auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
             depth_pyramid_CommandGraph->addChild(bindPipeline);
-            // depth_cull_command_graph2->addChild(bindPipeline);
 
             auto storageImage = vsg::DescriptorImage::create(vsg::ImageInfoList{depthPyramidImageInfo, framebuffer_depthImageInfo}, 0);
             auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageImage});
@@ -558,7 +672,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                 VK_QUEUE_FAMILY_IGNORED,
                 VK_QUEUE_FAMILY_IGNORED,
                 depthPyramidImage,
-                VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1} // 前一层级
+                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // 前一层级
             );
 
             depth_pyramid_CommandGraph->addChild(vsg::PipelineBarrier::create(
@@ -588,7 +702,11 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             i_image_view->subresourceRange.baseMipLevel = i;
             i_image_view->subresourceRange.levelCount = 1;
             auto i_depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, i_image_view);
-            auto storageImage = vsg::DescriptorImage::create(vsg::ImageInfoList{i_depthPyramidImageInfo, depthPyramidImageInfo}, 0);
+            auto i1_image_view = vsg::ImageView::create(depthPyramidImage);
+            i1_image_view->subresourceRange.baseMipLevel = i - 1;
+            i1_image_view->subresourceRange.levelCount = 1;
+            auto i1_depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, i1_image_view);
+            auto storageImage = vsg::DescriptorImage::create(vsg::ImageInfoList{i_depthPyramidImageInfo, i1_depthPyramidImageInfo}, 0);
             auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageImage});
             auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
             depth_pyramid_CommandGraph->addChild(bindDescriptorSet);
@@ -599,8 +717,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                 (mipHeight + 31) / 32,
                 1
             ));
-            depthPyramidImageView = i_image_view;
-            depthPyramidImageInfo = i_depthPyramidImageInfo;
 
             auto barrier = vsg::ImageMemoryBarrier::create(
                 VK_ACCESS_SHADER_WRITE_BIT,
@@ -610,7 +726,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                 VK_QUEUE_FAMILY_IGNORED,
                 VK_QUEUE_FAMILY_IGNORED,
                 depthPyramidImage,
-                VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, i, 1, 0, 1} // 前一层级
+                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, 1} // 前一层级
             );
 
             depth_pyramid_CommandGraph->addChild(vsg::PipelineBarrier::create(
@@ -635,29 +751,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
         depth_pyramid_CommandGraph->addChild(vsg::PipelineBarrier::create(
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,  // 前序阶段：金字塔生成的计算阶段
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,  // 后续阶段：剔除的计算阶段
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,  // 后续阶段：剔除的计算阶段
             0,
             pyramidFinalBarrier
         ));
     }
 
-    auto depth_cull_command_graph1 = vsg::CommandGraph::create(device, computeQueueFamily);
-    auto depth_cull_command_graph2 = vsg::CommandGraph::create(device, computeQueueFamily);
     {
-        camera_plane_info.n[0] = vsg::normalize(vsg::vec4(0, 0, -1, -near_plane));
-        camera_plane_info.n[1] = vsg::normalize(vsg::vec4(0, 0, 1, far_plane));
-        camera_plane_info.n[2] = vsg::normalize(vsg::vec4(2*fx/width, 0, -2*cx/width, 0));
-        camera_plane_info.n[3] = vsg::normalize(vsg::vec4(-2*fx/width, 0, -2+2*cx/width, 0));
-        camera_plane_info.n[4] = vsg::normalize(vsg::vec4(0, 2*fy/height, -2+2*cy/height, 0));
-        camera_plane_info.n[5] = vsg::normalize(vsg::vec4(0, -2*fy/height, -2*cy/height, 0));
-
-        vsg::ref_ptr<vsg::Array<CameraPlaneInfo>> camera_plane_info_buffer = vsg::Array<CameraPlaneInfo>::create(1);
-        camera_plane_info_buffer->set(0, camera_plane_info);
-        auto camera_plane_info_buffer_info = vsg::BufferInfo::create(camera_plane_info_buffer);
-        camera_matrix->set(0, vsg::mat4(camera->viewMatrix->transform()));
-        camera_matrix->set(1, vsg::mat4(camera->projectionMatrix->transform() * camera->viewMatrix->transform()));
-        camera_matrix_buffer_info = vsg::BufferInfo::create(camera_matrix);
-        camera_matrix->properties.dataVariance = vsg::DYNAMIC_DATA;
         vsg::DescriptorSetLayoutBindings descriptorBindings{
             {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
             {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
@@ -671,104 +771,52 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         };
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
         auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
-        {
-            auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex.comp", options);
-            auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
-            auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
-            depth_cull_command_graph1->addChild(bindPipeline);
 
-            for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
-                ProtoData* proto_data = proto_data_itr.second;
-                auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
-                                                                                    proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info, 
-                                                                                    proto_data->output_instance_buffer_info, camera_plane_info_buffer_info, 
-                                                                                    proto_data->bounds_buffer_info, camera_matrix_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-                auto storageImage = vsg::DescriptorImage::create(vsg::ImageInfoList{depthPyramidImageInfo}, 8);
-                auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer, storageImage});
-                auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
-                depth_cull_command_graph1->addChild(bindDescriptorSet);
-                depth_cull_command_graph1->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
-            }
+        auto Pass2CullToPass2Barrier = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+            0
+        );
+        auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex1.comp", options);
+        auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
+        auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
+        depth_pyramid_CommandGraph->addChild(bindPipeline);
+
+        for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
+            ProtoData* proto_data = proto_data_itr.second;
+            auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
+                                                                                proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info, 
+                                                                                proto_data->output_instance_buffer_info, camera_plane_info_buffer_info, 
+                                                                                proto_data->bounds_buffer_info, camera_matrix_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            auto storageImage = vsg::DescriptorImage::create(vsg::ImageInfoList{depthPyramidImageInfo}, 8);
+            auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer, storageImage});
+            auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
+            depth_pyramid_CommandGraph->addChild(bindDescriptorSet);
+            depth_pyramid_CommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
+            auto indirectBarrier = vsg::BufferMemoryBarrier::create(
+                VK_ACCESS_SHADER_WRITE_BIT,
+                VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                proto_data->draw_indirect->bufferInfo->buffer,
+                0,
+                VK_WHOLE_SIZE
+            );
+            Pass2CullToPass2Barrier->add(indirectBarrier);
         }
-
-
-        {
-            auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex1.comp", options);
-            auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
-            auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
-            depth_cull_command_graph2->addChild(bindPipeline);
-
-            for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
-                ProtoData* proto_data = proto_data_itr.second;
-                auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
-                                                                                    proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info, 
-                                                                                    proto_data->output_instance_buffer_info, camera_plane_info_buffer_info, 
-                                                                                    proto_data->bounds_buffer_info, camera_matrix_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-                auto storageImage = vsg::DescriptorImage::create(vsg::ImageInfoList{depthPyramidImageInfo}, 8);
-                auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer, storageImage});
-                auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
-                depth_cull_command_graph2->addChild(bindDescriptorSet);
-                depth_cull_command_graph2->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
-            }
-        }
+        depth_pyramid_CommandGraph->addChild(Pass2CullToPass2Barrier);
     }
 
     viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
     viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
     viewer->addEventHandler(vsg::Trackball::create(camera));
 
-    preClearBarrier->add(layoutTransition);
 
-    clearDepth->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 必须为 TRANSFER_DST_OPTIMAL 或 GENERAL
-    clearDepth->depthStencil = {0.0f, 0};
-    VkImageSubresourceRange range{};
-    range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-    range.baseMipLevel = 0;
-    range.levelCount = 1;
-    range.baseArrayLayer = 0;
-    range.layerCount = 1;
-    clearDepth->ranges = {range};
 
-    clearDepth1->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 必须为 TRANSFER_DST_OPTIMAL 或 GENERAL
-    clearDepth1->depthStencil = {0.0f, 0};
-    clearDepth1->ranges = {range};
-
-    newmatrix = vsg::mat4Array::create(2);
-    vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
-                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, newmatrix);
-    commandGraph->addChild(pc);
-
-    commandGraph->addChild(depth_cull_command_graph1);
-    if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
-        commandGraph->addChild(clearDepth);
-    commandGraph->addChild(clearDepth1);
-    // commandGraph->addChild(pipelineBarrier_compute_to_render);
-    commandGraph->addChild(renderGraph);
-
-    commandGraph1->addChild(depth_pyramid_CommandGraph);
-    commandGraph1->addChild(depth_cull_command_graph2);
-    // commandGraph1->addChild(pipelineBarrier_compute_to_render);
-    commandGraph1->addChild(renderGraph1);
-
-    std::cout << "Shadow Window" << std::endl;
     viewer->assignRecordAndSubmitTaskAndPresentation({computeCommandGraphShadow, commandGraph, commandGraph1});
     // viewer->setupThreading();
     viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
     // std::cout << "4" << std::endl;
-    auto initLayoutBarrier = vsg::ImageMemoryBarrier::create(
-        0,
-        VK_ACCESS_SHADER_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,  // 当前层级的读取
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_GENERAL,
-        VK_QUEUE_FAMILY_IGNORED,
-        VK_QUEUE_FAMILY_IGNORED,
-        depthPyramidImage,
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 7, 0, 1});
-
-    auto pipelinBarrier = vsg::PipelineBarrier::create(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, initLayoutBarrier);
-
-    context->commands.push_back(pipelinBarrier);
-
     final_screenshotHandler = ScreenshotHandler::create(window, extent, ENCODER);
     screenshotHandler = ScreenshotHandler::create();        
     allocate_fix_depth_memory(render_width, render_height);

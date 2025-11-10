@@ -1,6 +1,7 @@
 ﻿#include <vsgRendererServer.h>
 #include <chrono>
 #include <thread>  // 用于线程睡眠
+#include <unordered_set>
 
 struct ImagePair {
     std::unique_ptr<unsigned char[]> color;
@@ -37,6 +38,7 @@ public:
     int frame_count = 0;
     vsg::ref_ptr<vsg::Device> device;
     std::vector<std::vector<uint8_t>> vPacket;
+    std::unordered_set<std::string> cull_mode_none_model_paths;
 public:
 
     RenderingServer();

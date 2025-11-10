@@ -448,6 +448,9 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
 void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene){
     for(auto& proto_data_itr : proto_id_to_data_map){
         ProtoData* proto_data = proto_data_itr.second;
+        auto rasterizationState = vsg::RasterizationState::create();
+        rasterizationState->cullMode = VK_CULL_MODE_NONE;
+        proto_data->shaderset->defaultGraphicsPipelineStates.push_back(rasterizationState);
         auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(proto_data->shaderset);
         proto_data->instance_buffer = vsg::mat4Array::create(proto_data->instance_matrix.size());
         proto_data->instance_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;

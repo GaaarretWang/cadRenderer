@@ -176,7 +176,7 @@ void main() {
 
         if(!depth_culled){
             inHighlightData.data[instanceIndex].z = 1;
-            inHighlightData.data[instanceIndex].x = box_nearest_depth - max(max(max(render_depth2, render_depth3), render_depth1), render_depth0);
+            inHighlightData.data[instanceIndex].x = max(max(max(render_depth2, render_depth3), render_depth1), render_depth0);
             if(inIndirect.instanceCount > 30){
                 inHighlightData.data[instanceIndex].x += 30;
             }

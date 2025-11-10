@@ -628,16 +628,6 @@ float computeF0Base_Merged(float f0) {
 
 void main()
 {
-    if(highlight > 20){
-        outColor = vec4(highlight - 30, highlight - 30, highlight - 30, 1);
-        gl_FragDepth  = 0.9;
-    }
-    else{
-        outColor = vec4(highlight, highlight, highlight, 1);
-        gl_FragDepth  = 0.8;
-    }
-    return;
-
     if(extraParams.shader_type == 1){
         float cadDepth = -eyePos.z / 65.535;
         vec2 screen_uv = vec2(gl_FragCoord.x / 1280.0, gl_FragCoord.y / 960.0);
