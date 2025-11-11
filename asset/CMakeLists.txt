@@ -1,6 +1,8 @@
 aux_source_directory(src assetSRCS)
 if(UNIX)
     add_subdirectory(thirdParty/VulkanSceneGraph)
+    add_subdirectory(thirdParty/vsgImGui)
+    add_subdirectory(thirdParty/vsgXchange)
 
     add_library(vsgRenderer SHARED ${assetSRCS})
     set(render_LIB_PATH 
@@ -27,9 +29,9 @@ if(UNIX)
     target_link_libraries(vsgRenderer vsg::vsg)
 elseif(WIN32)
     add_subdirectory(thirdParty/VulkanSceneGraph)
-    find_package(vsgXchange)
+    add_subdirectory(thirdParty/vsgImGui)
+    add_subdirectory(thirdParty/vsgXchange)
     find_package(assimp)
-    find_package(vsgImGui REQUIRED)
     find_package(flatbuffers REQUIRED)
     find_package(CUDA REQUIRED)
 
@@ -41,7 +43,6 @@ elseif(WIN32)
 
     target_link_libraries(vsgRenderer PUBLIC
         flatbuffers::flatbuffers
-        vsg::vsg
         vsgXchange::vsgXchange
         assimp::assimp
         vsgImGui::vsgImGui         

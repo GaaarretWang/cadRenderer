@@ -369,12 +369,14 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     update_directional_lights();
     scenegraph_safe->addChild(lightGroup);
     
+
     //----------------------------------------------------------------窗口1----------------------------------------------------------//
     viewer->addWindow(window);
     view = vsg::View::create(camera, scenegraph_safe);
     // view->features = vsg::RECORD_LIGHTS;
     view->mask = MASK_CAMERA_IMAGE | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
-    view->viewDependentState = CustomViewDependentState::create(view.get());
+    auto shadow_view_dependent_state = CustomViewDependentState::create(view.get());
+    view->viewDependentState = shadow_view_dependent_state;
     auto renderGraph = vsg::RenderGraph::create(window, view);
     renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
     // auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));

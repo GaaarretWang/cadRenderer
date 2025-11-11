@@ -5,7 +5,7 @@ public:
     vsgRendererClient renderer;
     int width = 640;
     int height = 480;
-    double upsample_scale = 3;
+    double upsample_scale = 2;
 
 public:
 

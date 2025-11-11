@@ -30,7 +30,7 @@ public:
     std::vector<std::string> model_paths;
     std::vector<std::string> instance_names;
     std::string rendering_dir = "../";
-    double upsample_scale = 3;
+    double upsample_scale = 2;
     std::string color;
     std::string depth;
 

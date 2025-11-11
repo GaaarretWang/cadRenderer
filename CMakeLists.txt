@@ -14,11 +14,7 @@ endif()
 # set(CMAKE_CUDA_ARCHITECTURES tgt)
 find_package(CUDA REQUIRED)
 
-find_package(vsgXchange)
-
 find_package(assimp)
-
-find_package(vsgImGui REQUIRED)
 
 find_package(flatbuffers REQUIRED)
 
@@ -42,7 +38,6 @@ if(UNIX)
     target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/cadDataManager.a ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/libcurl.a)
 
     target_link_libraries(Rendering 
-        vsg::vsg
         vsgImGui::vsgImGui
         vsgXchange::vsgXchange
         flatbuffers::flatbuffers
