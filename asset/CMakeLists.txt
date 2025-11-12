@@ -14,6 +14,7 @@ if(UNIX)
         flatbuffers
         vsg::vsg
         vsgImGui::vsgImGui
+        vsgXchange::vsgXchange
         libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY}
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/CADDataManager/lib/cadDataManager.a 
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/CADDataManager/lib/libcurl.a

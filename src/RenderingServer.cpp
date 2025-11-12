@@ -124,6 +124,7 @@ int RenderingServer::Update(){
     // if(model_transforms[0][3][2] > -0.45)
     //     model_transforms[0][3][2] = -0.679909;
     // renderer.updateObjectPose("YIBIAOPAN1", model_transforms[0]);
+    // renderer.repaint("YIBIAOPAN1", 1);
 
     // static PlaneData planeData = createTestPlanes();
     // static float subdivisions = 0.1;
@@ -145,20 +146,6 @@ int RenderingServer::Update(){
     // dynamic_text_layouts[0]->color = vsg::vec4(1.0, 0.9, 1.0, 1.0);
     // dynamic_text_layouts[0]->outlineWidth = 0.1;
     // renderer.addTextData(texts, dynamic_text_layouts);
-
-    // a proto instance movement
-    // vsg::dmat4 matrix = vsg::dmat4(0.173648, 0, 0, 0,
-    //                                0.984808, 0, -0.173648, 0,
-    //                                0, 1, 0, 0,
-    //                                -238.327, -215.6, 22.5233, 1);
-    // static double z_offset = 0.0;
-    // z_offset += 0.5;
-    // if(z_offset > 20)
-    //     z_offset = 0;
-    // matrix[3][2] += z_offset;
-    // renderer.updateObjectPose("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", matrix);
-    // renderer.repaint("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", 1);
-
 
     if(cameara_pos_bool){//停止位姿变化
         vsg::dvec3 centre = {lookat_vector[0], lookat_vector[1], lookat_vector[2]};                    // 固定观察点
