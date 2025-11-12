@@ -47,7 +47,7 @@ vsg::ref_ptr<vsg::Image> CustomViewDependentState::createCustomShadowImage(uint3
     image->samples = VK_SAMPLE_COUNT_1_BIT;
     image->tiling = VK_IMAGE_TILING_OPTIMAL;
     image->usage = usage;
-    image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    image->initialLayout = VK_IMAGE_LAYOUT_GENERAL;
     image->flags = 0;
     image->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 

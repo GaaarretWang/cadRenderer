@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <vsg/all.h>
 #include <communication/dataInterface.h>
+#include <vsgXchange/all.h>
 
 vsg::ImageInfoList CADMesh::camera_info;
 vsg::ImageInfoList CADMesh::depth_info;
@@ -284,11 +285,13 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
 
 void CADMesh::preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)
 {
-    std::cout << "model_shaderset->defaultGraphicsPipelineStates.size()" << model_shaderset->defaultGraphicsPipelineStates.size() << std::endl;
     if(proto_ids.size() > 0){
         for(auto& id: proto_ids){
             proto_id_to_data_map[id]->instance_matrix.push_back(proto_id_to_data_map[id]->instance_matrix[0]);
             proto_id_to_data_map[id]->instance_matrix.push_back(modelMatrix);
+                    
+            auto proto_data = proto_id_to_data_map[id];
+            id_to_matrix_index_map[model_instance_name].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
         }
         return;
     }
@@ -301,11 +304,9 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
     std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> materials;
     
     auto options = vsg::Options::create();
+    options->add(vsgXchange::all::create());
     auto createImageInfo = [](vsg::ref_ptr<vsg::Data> in_data) -> vsg::ImageInfoList {
         auto sampler = vsg::Sampler::create();
-        sampler->magFilter = VK_FILTER_NEAREST;
-        sampler->minFilter = VK_FILTER_NEAREST;
-
         vsg::ref_ptr<vsg::ImageInfo> imageInfosIBL = vsg::ImageInfo::create(sampler, in_data);
         vsg::ImageInfoList imageInfosListIBL = {imageInfosIBL};
         return imageInfosListIBL;
@@ -400,17 +401,10 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
         }
         proto_id_default_matrix_map[proto_id] = std::vector<vsg::dmat4>();
         proto_id_instance_name_map[proto_id] = std::vector<std::string>();
-        
-        proto_id_default_matrix_map[proto_id].push_back(vsg::dmat4());
-        proto_id_instance_name_map[proto_id].push_back("0");
-
         proto_data->instance_matrix.push_back(vsg::dmat4());
         proto_data->instance_matrix.push_back(modelMatrix);
-
-        std::cout << "proto_instance_ids[m_i] " << model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][0] << std::endl;
-        if(id_to_matrix_index_map.find(model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][0]) == id_to_matrix_index_map.end())
-            id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][0]] = std::vector<MatrixIndex>();
-        id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][0]].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 2));
+        proto_id_default_matrix_map[proto_id].push_back(vsg::dmat4());
+        proto_id_instance_name_map[proto_id].push_back("0");
 
         if(id_to_matrix_index_map.find(model_instance_name) == id_to_matrix_index_map.end())
             id_to_matrix_index_map[model_instance_name] = std::vector<MatrixIndex>();
@@ -428,7 +422,7 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
             if(textures[mtr_ids[i][0]][2] != "" && texture_name_to_image_map.find(proto_data->mr_path) == texture_name_to_image_map.end()){
                 vsg::ref_ptr<vsg::Data> metallicData = vsg::read_cast<vsg::Data>(proto_data->mr_path, options);
                 vsg::ref_ptr<vsg::Data> roughnessData = vsg::read_cast<vsg::Data>(std::string(material_path) + "/tex/" + textures[mtr_ids[i][0]][3], options);
-                vsg::ref_ptr<vsg::Data> mrData = vsg::ushortArray2D::create(metallicData->width(), metallicData->height(), vsg::Data::Properties{VK_FORMAT_R8G8_UNORM});
+                vsg::ref_ptr<vsg::Data> mrData = vsg::ubvec2Array2D::create(metallicData->width(), metallicData->height(), vsg::Data::Properties{VK_FORMAT_R8G8_UNORM});
                 auto* metallicPtr = static_cast<const uint8_t*>(metallicData->dataPointer());
                 auto* roughnessPtr = static_cast<const uint8_t*>(roughnessData->dataPointer());
                 auto* mrPtr = static_cast<uint8_t*>(mrData->dataPointer());

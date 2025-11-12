@@ -406,7 +406,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                                 VK_IMAGE_USAGE_SAMPLED_BIT | 
                                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT |     // 可能需要mipmap生成
                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT;      // 可能需要初始化
-    depthPyramidImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthPyramidImage->initialLayout = VK_IMAGE_LAYOUT_GENERAL;
     depthPyramidImage->extent.width = window->extent2D().width;
     depthPyramidImage->extent.height = window->extent2D().height;
     depthPyramidImage->extent.depth = 1;
@@ -587,8 +587,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                                                                                 proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info, 
                                                                                 proto_data->output_instance_buffer_info, camera_plane_info_buffer_info, 
                                                                                 proto_data->bounds_buffer_info, camera_matrix_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-            auto storageImage = vsg::DescriptorImage::create(vsg::ImageInfoList{depthPyramidImageInfo}, 8);
-            auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer, storageImage});
+            auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer});
             auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
             depth_cull_command_graph1->addChild(bindDescriptorSet);
             depth_cull_command_graph1->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));

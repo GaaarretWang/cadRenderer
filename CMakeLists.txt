@@ -14,7 +14,7 @@ endif()
 # set(CMAKE_CUDA_ARCHITECTURES tgt)
 find_package(CUDA REQUIRED)
 
-find_package(assimp)
+find_package(assimp REQUIRED)
 
 find_package(flatbuffers REQUIRED)
 
