@@ -783,10 +783,21 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex1.comp", options);
         auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
         auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
+        auto computeShader_seat = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex1_seat.comp", options);
+        auto pipeline_seat = vsg::ComputePipeline::create(pipelineLayout, computeShader_seat);
+        auto bindPipeline_seat = vsg::BindComputePipeline::create(pipeline_seat);
         depth_pyramid_CommandGraph->addChild(bindPipeline);
-
+        auto pre_pipeline = bindPipeline;
         for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
             ProtoData* proto_data = proto_data_itr.second;
+            if(proto_data->instance_matrix.size() / 2 > 100 && pre_pipeline == bindPipeline){
+                depth_pyramid_CommandGraph->addChild(bindPipeline_seat);
+                pre_pipeline = bindPipeline_seat;
+            }
+            else if(proto_data->instance_matrix.size() / 2 < 100 && pre_pipeline == bindPipeline_seat){
+                depth_pyramid_CommandGraph->addChild(bindPipeline);
+                pre_pipeline = bindPipeline;
+            }
             auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
                                                                                 proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info, 
                                                                                 proto_data->output_instance_buffer_info, camera_plane_info_buffer_info, 

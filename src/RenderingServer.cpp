@@ -159,9 +159,9 @@ int RenderingServer::Update(){
     // renderer.updateObjectPose("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", matrix);
     // renderer.repaint("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", 1);
     auto cameralookat = renderer.camera->viewMatrix.cast<vsg::LookAt>();
-    renderer.updateCamera(vsg::dvec3(0.467534, 1.59309, -0.859118), 
-                        vsg::dvec3(0.577326, 1.11943, -0.703542), 
-                        vsg::dvec3(-0.287307, 0.238132, 0.927765));
+    // renderer.updateCamera(vsg::dvec3(0.467534, 1.59309, -0.859118), 
+    //                     vsg::dvec3(0.577326, 1.11943, -0.703542), 
+    //                     vsg::dvec3(-0.287307, 0.238132, 0.927765));
     if(cameara_pos_bool){//停止位姿变化
         vsg::dvec3 centre = {lookat_vector[0], lookat_vector[1], lookat_vector[2]};                    // 固定观察点
         vsg::dvec3 eye = {lookat_vector[3], lookat_vector[4], lookat_vector[5]};// 固定相机位置

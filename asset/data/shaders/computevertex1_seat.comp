@@ -70,7 +70,7 @@ bool isFullyCulled(vec4[8] points, vec4 plane) {
 }
 
 float sub_sample_count = 1;
-#define compare_image_size 2
+#define compare_image_size 12
 #define compare_image_size_square (compare_image_size) * (compare_image_size)
 
 void rasterize(vec3 p0, vec3 p1, vec3 p2, inout float out_surface[compare_image_size_square]) {
