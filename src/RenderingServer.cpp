@@ -124,6 +124,7 @@ int RenderingServer::Update(){
     // if(model_transforms[0][3][2] > -0.45)
     //     model_transforms[0][3][2] = -0.679909;
     // renderer.updateObjectPose("YIBIAOPAN1", model_transforms[0]);
+    // renderer.repaint("YIBIAOPAN1", 1);
 
     // static PlaneData planeData = createTestPlanes();
     // static float subdivisions = 0.1;
