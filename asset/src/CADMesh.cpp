@@ -464,7 +464,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
         proto_data->input_highlight_buffer_info = vsg::BufferInfo::create(proto_data->highlight_buffer);
 
         // 2个mat4，1个int，3个padding int，一共36
-        auto instance_data_buffer = vsg::floatArray::create(proto_data->instance_matrix.size() / 2 * 36);
+        auto instance_data_buffer = vsg::floatArray::create(proto_data->instance_matrix.size() / 2 * 512);
         proto_data->output_instance_buffer_info = vsg::BufferInfo::create(instance_data_buffer);
 
         vsg::BufferInfoList info_list = {proto_data->output_instance_buffer_info};

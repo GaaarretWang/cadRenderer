@@ -401,7 +401,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     extent.height = render_height;
     depthPyramidImage->imageType = VK_IMAGE_TYPE_2D;
     depthPyramidImage->format = VK_FORMAT_R32_SFLOAT; // 假设与深度附件兼容
-    depthPyramidImage->mipLevels = 7; // 共 7 层
+    depthPyramidImage->mipLevels = 9; // 共 9 层
     depthPyramidImage->usage = VK_IMAGE_USAGE_STORAGE_BIT |          // 计算着色器读写
                                 VK_IMAGE_USAGE_SAMPLED_BIT | 
                                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT |     // 可能需要mipmap生成
@@ -420,7 +420,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     depth_pyramid_sampler->mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST; // Mipmap 使用 Nearest
     vsg::ref_ptr<vsg::ImageView> depthPyramidImageView = vsg::ImageView::create(depthPyramidImage);
     depthPyramidImageView->subresourceRange.baseMipLevel = 0;
-    depthPyramidImageView->subresourceRange.levelCount = 7;
+    depthPyramidImageView->subresourceRange.levelCount = 9;
     vsg::ref_ptr<vsg::ImageInfo> depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, depthPyramidImageView);
 
     vsg::ref_ptr<vsg::ImageInfo> framebuffer_depthImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, window->getOrCreateDepthImageView());
@@ -630,7 +630,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                 VK_QUEUE_FAMILY_IGNORED,
                 VK_QUEUE_FAMILY_IGNORED,
                 depthPyramidImage,
-                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 7, 0, 1}
+                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 9, 0, 1}
             );
 
             auto depthToComputeBarrier = vsg::ImageMemoryBarrier::create(
@@ -687,7 +687,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
         }
 
-        for(uint32_t i = 1; i < 7; i ++)
+        for(uint32_t i = 1; i < 9; i ++)
         {
             auto pcData = vsg::Value<ComputePushConstants>::create(ComputePushConstants{extent.width >> i - 1, extent.height >> i - 1});
             depth_pyramid_CommandGraph->addChild(vsg::PushConstants::create(
@@ -748,7 +748,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             depthPyramidImage,
             VkImageSubresourceRange{
                 VK_IMAGE_ASPECT_COLOR_BIT,       // 关键！depthPyramidImage是R32_SFLOAT（普通颜色格式），不是深度格式，不能用DEPTH_BIT
-                0, 7, 0, 1                       // 同步所有7个mip层
+                0, 9, 0, 1                       // 同步所有7个mip层
             }
         );
 

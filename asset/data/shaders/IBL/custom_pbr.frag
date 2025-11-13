@@ -92,7 +92,7 @@ layout(location = 0) in vec3 eyePos;
 layout(location = 1) in vec3 normalDir;
 layout(location = 2) in vec4 vertexColor;
 layout(location = 3) in vec2 texCoord0;
-layout(location = 4) in flat uint highlight;
+layout(location = 4) in float highlight;
 
 layout(location = 6) in vec3 worldNormal;
 layout(location = 7) in vec3 worldViewDir;
