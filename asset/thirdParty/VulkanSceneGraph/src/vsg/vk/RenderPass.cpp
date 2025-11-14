@@ -465,11 +465,63 @@ ref_ptr<RenderPass> vsg::createMultisampledRenderPass(Device* device, VkFormat i
     return RenderPass::create(device, attachments, subpasses, dependencies);
 }
 
+ref_ptr<RenderPass> vsg::createMRTRenderPass(Device* device, VkFormat imageFormat, VkFormat depthFormat, bool requiresDepthRead)
+{
+    auto colorAttachment = defaultColorAttachment(imageFormat);
+    auto depthAttachment = defaultDepthAttachment(depthFormat);
+
+    if (requiresDepthRead)
+    {
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    }
+
+    RenderPass::Attachments attachments{colorAttachment, depthAttachment};
+
+    AttachmentReference colorAttachmentRef = {};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    AttachmentReference depthAttachmentRef = {};
+    depthAttachmentRef.attachment = 1;
+    depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    SubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachments.emplace_back(colorAttachmentRef);
+    subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
+
+    RenderPass::Subpasses subpasses{subpass};
+
+    // image layout transition
+    SubpassDependency colorDependency = {};
+    colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    colorDependency.dstSubpass = 0;
+    colorDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    colorDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    colorDependency.srcAccessMask = 0;
+    colorDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    colorDependency.dependencyFlags = 0;
+
+    // depth buffer is shared between swap chain images
+    SubpassDependency depthDependency = {};
+    depthDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    depthDependency.dstSubpass = 0;
+    depthDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depthDependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depthDependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    depthDependency.dependencyFlags = 0;
+
+    RenderPass::Dependencies dependencies{colorDependency, depthDependency};
+
+    return RenderPass::create(device, attachments, subpasses, dependencies);
+}
+
 ref_ptr<RenderPass> vsg::createMRTMultisampledRenderPass(Device* device, VkFormat imageFormat, VkFormat depthFormat, VkSampleCountFlagBits samples, bool requiresDepthRead)
 {
     if (samples == VK_SAMPLE_COUNT_1_BIT)
     {
-        return createRenderPass(device, imageFormat, depthFormat, requiresDepthRead);
+        return createMRTRenderPass(device, imageFormat, depthFormat, requiresDepthRead);
     }
     std::cout << "createMultisampledRenderPass" << std::endl;
     // First attachment is multisampled target.

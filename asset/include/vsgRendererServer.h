@@ -86,7 +86,7 @@ class vsgRendererServer
     unsigned short * depth_pixels = nullptr;
     mergeShaderType shader_type;
 
-    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_4_BIT;//多重采样的倍数
+    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_2_BIT;//多重采样的倍数
 
     vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(string windowTitle, int num,  vsg::ref_ptr<vsg::Options> options)
     {

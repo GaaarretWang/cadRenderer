@@ -605,16 +605,16 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         }
         depth_cull_command_graph1->addChild(Pass1CullToPass1Barrier);
     }
+    struct ComputePushConstants {
+        uint32_t width;
+        uint32_t height;
+        char padding[8];
+    };
 
     {
         vsg::DescriptorSetLayoutBindings descriptorBindings{
             {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
             {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-        };
-        struct ComputePushConstants {
-            uint32_t width;
-            uint32_t height;
-            char padding[8];
         };
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
         auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, 
@@ -774,6 +774,12 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         };
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
         auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
+        auto pcData = vsg::Value<ComputePushConstants>::create(ComputePushConstants{(uint32_t)render_width, (uint32_t)render_height});
+        depth_pyramid_CommandGraph->addChild(vsg::PushConstants::create(
+            VK_SHADER_STAGE_COMPUTE_BIT,
+            0,
+            pcData
+        ));
 
         auto Pass2CullToPass2Barrier = vsg::PipelineBarrier::create(
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,

@@ -57,6 +57,10 @@ layout(set = 0, binding = 7) buffer ViewMatrix{
 
 layout(set=0, binding = 8) uniform sampler2D mipPyramid;
 
+layout(push_constant) uniform PushConstants {
+    ivec2 size;
+} pc;
+
 layout (local_size_x = 32) in;
 
 // 判断包围盒是否完全在视锥外（被某个平面完全遮挡）
@@ -173,7 +177,7 @@ void main() {
 
     // 如果没有被完全遮挡，则设置实例可见
     if (!culled) {		
-        ivec2 imageSize = ivec2(1280, 960);
+        ivec2 imageSize = pc.size;
 
         vec3 uv_min = vec3(100.0);
         vec3 uv_max = vec3(-100.0);

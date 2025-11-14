@@ -632,10 +632,10 @@ void main()
         outColor = vec4(1, 1, 1, 1);
         return;
     }
-
+    
     if(extraParams.shader_type == 1){
         float cadDepth = -eyePos.z / 65.535;
-        vec2 screen_uv = vec2(gl_FragCoord.x / 1280.0, gl_FragCoord.y / 960.0);
+        vec2 screen_uv = vec2(gl_FragCoord.x / extraParams.width, gl_FragCoord.y / extraParams.height);
         float cameraDepth = texture(depthImage, screen_uv).r;
         if(cadDepth > cameraDepth){
             outColor = texture(cameraImage, screen_uv);
