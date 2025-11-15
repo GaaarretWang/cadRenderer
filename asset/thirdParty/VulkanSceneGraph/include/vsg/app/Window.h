@@ -170,6 +170,12 @@ namespace vsg
         ref_ptr<Image> _multisampleImage;
         ref_ptr<ImageView> _multisampleImageView;
 
+        ref_ptr<Image> _GBufferImage1;
+        ref_ptr<ImageView> _GBufferImageView1;
+
+        ref_ptr<Image> _GBufferImage2;
+        ref_ptr<ImageView> _GBufferImageView2;
+
         // only used when multisampling and with Traits::requiresDepthRead == true
         ref_ptr<Image> _multisampleDepthImage;
         ref_ptr<ImageView> _multisampleDepthImageView;

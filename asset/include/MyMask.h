@@ -30,6 +30,7 @@ constexpr vsg::Mask MASK_SKYBOX = 8ul;
 constexpr vsg::Mask MASK_WIREFRAME = 16ul;
 constexpr vsg::Mask MASK_CAMERA_IMAGE = 32ul;
 constexpr vsg::Mask MASK_TEXT = 64ul;
+constexpr vsg::Mask MASK_SSAO = 128ul;
 
 enum mergeShaderType{
     FULL_MODEL, 

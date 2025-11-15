@@ -27,6 +27,49 @@ std::string getDirectoryPath(const std::string& path) {
     return dirPath;
 }
 
+// todo:
+// void buildSSAOPass(vsg::ref_ptr<vsg::Group> scene){
+//     auto options = vsg::Options::create();
+//     auto vertexShaderFilepath = vsg::findFile("shaders/IBL/ssao.vert", options->paths);
+//     auto fragShaderFilepath = vsg::findFile("shaders/IBL/ssao.frag", options->paths);
+//     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
+//     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+
+//     if (!vertexShader || !fragmentShader)
+//     {
+//         vsg::error("ssao_ShaderSet(...) could not find shaders.");
+//         return ;
+//     }
+
+// #define CUSTOM_DESCRIPTOR_SET 0
+// #define VIEW_DESCRIPTOR_SET 1
+// #define MATERIAL_DESCRIPTOR_SET 2
+
+//     auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
+
+//     shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
+
+//     auto rasterizationState = vsg::RasterizationState::create();
+//     rasterizationState->cullMode = VK_CULL_MODE_NONE;
+//     shaderSet->defaultGraphicsPipelineStates.push_back(rasterizationState);
+
+//     auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(shaderSet);
+//     graphicsPipelineConfig->subpass = 0;
+
+//     vsg::DataList vertexArrays;
+//     auto drawCommands = vsg::Commands::create();
+//     graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, 
+//         vsg::floatArray::create({-3, 1, 1, 1, 1, 1, 1, -3, 1}));
+//     drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
+//     drawCommands->addChild(vsg::BindIndexBuffer::create(vsg::intArray::create({0, 1, 2})));
+//     drawCommands->addChild(vsg::DrawIndexed::create(3, 1, 0, 0, 0));
+
+//     graphicsPipelineConfig->init();
+//     auto stateGroup = vsg::StateGroup::create();
+//     graphicsPipelineConfig->copyTo(stateGroup);
+//     stateGroup->addChild(drawCommands);
+//     scene->addChild(stateGroup);
+// }
 
 void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)
 {
@@ -157,6 +200,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto envSceneGroup = vsg::Group::create();
     auto wireframeGroup = vsg::Group::create();
     auto textGroup = vsg::Group::create();
+    auto SSAOGroup = vsg::Group::create();
 
     auto rootSwitch = vsg::Switch::create();
     rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraImageNode);
@@ -165,9 +209,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowGroup);
     rootSwitch->addChild(MASK_TEXT, textGroup);
     rootSwitch->addChild(MASK_WIREFRAME, wireframeGroup);
+    auto rootSwitch1 = vsg::Switch::create();
+    rootSwitch1->addChild(MASK_SSAO, SSAOGroup);
     
     vsg::ref_ptr<vsg::Group> scenegraph_safe = vsg::Group::create();
     scenegraph_safe->addChild(rootSwitch);
+    scenegraph_safe->addChild(vsg::NextSubPass::create());
+    scenegraph_safe->addChild(rootSwitch1);
     std::cout << "1" << std::endl;
     vsg::ref_ptr<vsg::PbrMaterialValue> objectMaterial;
     
@@ -361,8 +409,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup); //读取obj文件
     CADMesh::buildDynamicPointsData(point_shader, wireframeGroup); //读取obj文件
     CADMesh::buildDynamicTextsData(textGroup, options, project_path + "asset/data/fonts/times.vsgt"); //读取obj文件
-
     std::cout << "model processing done" << std::endl;
+    CADMesh::buildSSAOData(IBL::customSSAOShaderSet(options), SSAOGroup); //读取obj文件
 
     // HDR环境光采样
 
@@ -386,15 +434,12 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     auto view1 = vsg::View::create(camera, scenegraph_safe);
     // view->features = vsg::RECORD_LIGHTS;
-    view1->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER;
+    view1->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER | MASK_SSAO;
     view1->viewDependentState = CustomViewDependentState1::create(view1.get());
     view1->viewDependentState->pre_depth_pass = view->viewDependentState;
     auto renderGraph1 = vsg::RenderGraph::create(window, view1);
-    // renderGraph1->getRenderPass()->attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    renderGraph1->clearValues[0].color = {{0.f, 0.f, 0.f, 0.f}};
     auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
     renderGraph1->addChild(renderImGui);
-
 
     VkExtent2D extent = {};
     extent.width = render_width;
@@ -683,8 +728,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
                 0, barrier1
             ));
-
-
         }
 
         for(uint32_t i = 1; i < 9; i ++)
@@ -830,8 +873,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
     viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
     viewer->addEventHandler(vsg::Trackball::create(camera));
-
-
 
     viewer->assignRecordAndSubmitTaskAndPresentation({computeCommandGraphShadow, commandGraph, commandGraph1});
     // viewer->setupThreading();

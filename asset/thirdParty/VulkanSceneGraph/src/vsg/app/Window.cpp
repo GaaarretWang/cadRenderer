@@ -242,7 +242,12 @@ void Window::_initRenderPass()
 
     if (_framebufferSamples == VK_SAMPLE_COUNT_1_BIT)
     {
-        _renderPass = vsg::createRenderPass(_device, _imageFormat.format, _depthFormat, requiresDepthRead);
+        if(_useMRT){
+            _renderPass = vsg::createMRTRenderPass(_device, _imageFormat.format, _depthFormat, requiresDepthRead);
+        }
+        else{
+            _renderPass = vsg::createRenderPass(_device, _imageFormat.format, _depthFormat, requiresDepthRead);
+        }
     }
     else
     {
@@ -310,6 +315,50 @@ void Window::buildSwapchain()
 
         _multisampleImageView = ImageView::create(_multisampleImage, VK_IMAGE_ASPECT_COLOR_BIT);
         _multisampleImageView->compile(_device);
+    }
+
+    if(_useMRT){
+        _GBufferImage1 = Image::create();
+        _GBufferImage1->imageType = VK_IMAGE_TYPE_2D;
+        _GBufferImage1->format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        _GBufferImage1->extent.width = _extent2D.width;
+        _GBufferImage1->extent.height = _extent2D.height;
+        _GBufferImage1->extent.depth = 1;
+        _GBufferImage1->mipLevels = 1;
+        _GBufferImage1->arrayLayers = 1;
+        _GBufferImage1->samples = VK_SAMPLE_COUNT_1_BIT;
+        _GBufferImage1->tiling = VK_IMAGE_TILING_OPTIMAL;
+        _GBufferImage1->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+        _GBufferImage1->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        _GBufferImage1->flags = 0;
+        _GBufferImage1->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        _GBufferImage1->compile(_device);
+        _GBufferImage1->allocateAndBindMemory(_device);
+
+        _GBufferImageView1 = ImageView::create(_GBufferImage1, VK_IMAGE_ASPECT_COLOR_BIT);
+        _GBufferImageView1->compile(_device);
+
+        _GBufferImage2 = Image::create();
+        _GBufferImage2->imageType = VK_IMAGE_TYPE_2D;
+        _GBufferImage2->format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        _GBufferImage2->extent.width = _extent2D.width;
+        _GBufferImage2->extent.height = _extent2D.height;
+        _GBufferImage2->extent.depth = 1;
+        _GBufferImage2->mipLevels = 1;
+        _GBufferImage2->arrayLayers = 1;
+        _GBufferImage2->samples = VK_SAMPLE_COUNT_1_BIT;
+        _GBufferImage2->tiling = VK_IMAGE_TILING_OPTIMAL;
+        _GBufferImage2->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
+        _GBufferImage2->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        _GBufferImage2->flags = 0;
+        _GBufferImage2->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        _GBufferImage2->compile(_device);
+        _GBufferImage2->allocateAndBindMemory(_device);
+
+        _GBufferImageView2 = ImageView::create(_GBufferImage2, VK_IMAGE_ASPECT_COLOR_BIT);
+        _GBufferImageView2->compile(_device);
     }
 
     bool requiresDepthRead = (_traits->depthImageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
@@ -380,6 +429,12 @@ void Window::buildSwapchain()
             attachments.push_back(_multisampleImageView);
         }
         attachments.push_back(imageViews[i]);
+
+        if(_useMRT)
+        {
+            attachments.push_back(_GBufferImageView1);
+            attachments.push_back(_GBufferImageView2);
+        }
 
         if (_multisampleDepthImageView)
         {
