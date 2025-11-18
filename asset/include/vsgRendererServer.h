@@ -46,6 +46,7 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::StateGroup> drawIBLBackgroundNode = vsg::StateGroup::create();
     vsg::ref_ptr<vsg::StateGroup> drawShadowBackgroundNode = vsg::StateGroup::create();
     vsg::ref_ptr<vsg::Group> lightGroup = vsg::Group::create();
+    std::unordered_map<int, vsg::ref_ptr<vsg::Group>> hdr_to_light_group_map;
     int hdr_image_num = 1;
 
     vsg::ref_ptr<vsg::DirectionalLight> directionalLight[4];
@@ -155,9 +156,9 @@ public:
 
     void preprocessEnvMap(){
         std::string envmapFilepath = project_path + "asset/data/textures/" + std::to_string(hdr_image_num) + ".hdr";
-        IBL::generateEnvmap(vsgContext, envmapFilepath);
-        IBL::generateIrradianceCube(vsgContext);
-        IBL::generatePrefilteredEnvmapCube(vsgContext);
+        IBL::generateEnvmap(vsgContext, envmapFilepath, 0);
+        IBL::generateIrradianceCube(vsgContext, 0);
+        IBL::generatePrefilteredEnvmapCube(vsgContext, 0);
 
         viewer_IBL->compile();
         bool process_done = false;
@@ -171,6 +172,45 @@ public:
             viewer_IBL->present();
             process_done = true;
         }
+        for(int i = 3; i > 0; i--){
+            hdr_image_num = i;
+            std::string envmapFilepath = project_path + "asset/data/textures/" + std::to_string(hdr_image_num) + ".hdr";
+            IBL::generateEnvmap(vsgContext, envmapFilepath, hdr_image_num);
+            IBL::generateIrradianceCube(vsgContext, hdr_image_num);
+            IBL::generatePrefilteredEnvmapCube(vsgContext, hdr_image_num);
+
+            viewer_IBL->compile();
+            bool process_done = false;
+            while (viewer_IBL->advanceToNextFrame())
+            {
+                if(process_done)
+                    break;
+                viewer_IBL->handleEvents();
+                viewer_IBL->update();
+                viewer_IBL->recordAndSubmit();
+                viewer_IBL->present();
+                process_done = true;
+            }
+        }
+
+        IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
+        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, camera_info);
+    }
+    
+    void updateEnvMap(){
+        auto command = vsg::Commands::create();
+        IBL::updateHDRTextures(command, hdr_image_num);
+
+
+        auto physicalDevice = window->getPhysicalDevice();
+        auto fence = vsg::Fence::create(device);
+        auto queueFamilyIndex = physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
+        auto commandPool = vsg::CommandPool::create(device, queueFamilyIndex);
+        auto queue = device->getQueue(queueFamilyIndex);
+        
+        vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
+            command->record(commandBuffer);
+        });
 
         IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
         IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, camera_info);
@@ -267,7 +307,7 @@ public:
     }
 
     void updateEnvLighting(){
-        preprocessEnvMap();
+        updateEnvMap();
         update_directional_lights();
         IBL::textures.params->dirty();
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。

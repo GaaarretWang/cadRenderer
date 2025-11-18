@@ -35,6 +35,7 @@ public:
     std::string depth;
 
     int frame_count = 0;
+    int num = 0;
     vsg::ref_ptr<vsg::Device> device;
     std::vector<std::vector<uint8_t>> vPacket;
 public:

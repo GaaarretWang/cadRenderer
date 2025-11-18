@@ -47,12 +47,24 @@ namespace IBL
         } // namespace PrefiltedEnvmapCube
     }     // namespace Constants
 
+    struct _ImageLine{
+        vsg::ref_ptr<vsg::Image> cube;
+        vsg::ref_ptr<vsg::ImageView> cubeView;
+        vsg::ref_ptr<vsg::Sampler> cubeSmapler;
+        vsg::ref_ptr<vsg::ImageInfo> cubeInfo;
+    };
+
     typedef struct _Textures{
         vsg::ref_ptr<vsg::Image> envmapCube;
         vsg::ref_ptr<vsg::ImageView> envmapCubeView;
         vsg::ref_ptr<vsg::Sampler> envmapCubeSmapler;
         vsg::ref_ptr<vsg::ImageInfo> envmapCubeInfo;
+        //for test
+        std::unordered_map<int, _ImageLine> testMap;
+        std::unordered_map<int, _ImageLine> irraMap;
+        std::unordered_map<int, _ImageLine> prefMap;
         // Generated at runtime
+        std::unordered_map<int, vsg::ref_ptr<vsg::Image>> envMap, irradianceMap, prefilteredMap;
         vsg::ref_ptr<vsg::Image> brdfLut, irradianceCube, prefilterCube;
         vsg::ref_ptr<vsg::ImageView> brdfLutView, irradianceCubeView, prefilterCubeView;
         vsg::ref_ptr<vsg::Sampler> brdfLutSampler, irradianceCubeSampler, prefilterCubeSampler;
@@ -90,16 +102,18 @@ namespace IBL
 
     void generateBRDFLUT(VsgContext &vsgContext);
 
-    void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath);
+    void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr);
 
-    void generateIrradianceCube(VsgContext& vsgContext);
+    void generateIrradianceCube(VsgContext& vsgContext, int hdr);
 
-    void generatePrefilteredEnvmapCube(VsgContext& vsgContext);
+    void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr);
 
     ptr<vsg::StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGroup> root, int width, int height,  vsg::ImageInfoList camera_data = {});
 
     vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options> options);
 
     ptr<vsg::Node> iblDemoSceneGraph(VsgContext& context);
+    
+    void updateHDRTextures(vsg::ref_ptr<vsg::Commands>& vsgContext, int hdr);
 }
-#endif // !ZSZ_IBL
+#endif // ZSZ_IBL
