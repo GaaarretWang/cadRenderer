@@ -49,6 +49,13 @@ elseif(WIN32)
     target_link_libraries(Rendering 
         vsgRenderer
     )
+
+    set(CAD_DATA_MANAGER_DLL "${CMAKE_SOURCE_DIR}/asset/thirdParty/CADDataManager/winlib/cadDataManager.dll")
+    add_custom_command(TARGET Rendering POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CAD_DATA_MANAGER_DLL}"
+        $<TARGET_FILE_DIR:Rendering>  # 复制到目标输出目录（Debug/Release）
+    )
 endif()
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}-pthread")

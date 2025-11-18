@@ -5,6 +5,7 @@
 #include "model/geometry/geometry.h"
 #include "global/typeDefine.h"
 #include "model/appearance/appearanceParams.h"
+#include <spdlog/spdlog.h>
 
 namespace cadDataManager {
 	enum ConversionPrecision {
@@ -89,12 +90,14 @@ namespace cadDataManager {
 	public:
 		std::string mInstanceId;
 		std::string mProtoId;
+		std::string mName;
 		std::string mType; //instance类型： 零件 or 装配
 		std::string mParentId;
 		std::vector<std::string> mChildIds;
 		std::vector<GeometryInfo::Ptr> mGeometryInfos;
 		std::vector<float> mMatrixWorld;
 		std::unordered_map<int, ElementInfo::Ptr> mElementInfoMap;
+		std::vector<float> mInstanceAABBBox{};
 
 	public:
 		using Ptr = std::shared_ptr<InstanceInfo>;
@@ -104,6 +107,35 @@ namespace cadDataManager {
 
 		InstanceInfo() = default;
 		~InstanceInfo() = default;
+
+		void buildBox() {
+			mInstanceAABBBox.clear();
+			
+			Box3 instanceBox;
+			
+			//获取几何原型的包围盒信息
+			for (GeometryInfo::Ptr geometryInfo : mGeometryInfos) {
+				Box3 box = geometryInfo->mGeometryBox;
+				instanceBox.unionBox3(box);
+			}
+
+			//包围盒根据Instance的矩阵，进行位姿变换
+			Matrix4 matrixWorld;
+			matrixWorld.fromVector(mMatrixWorld);
+			instanceBox.applyMatrix4(matrixWorld);
+
+			//读取包围盒到vector中
+			Vector3 min = instanceBox.getMin();
+			Vector3 max = instanceBox.getMax();
+
+			mInstanceAABBBox.push_back(min.getX());
+			mInstanceAABBBox.push_back(min.getY());
+			mInstanceAABBBox.push_back(min.getZ());
+
+			mInstanceAABBBox.push_back(max.getX());
+			mInstanceAABBBox.push_back(max.getY());
+			mInstanceAABBBox.push_back(max.getZ());
+		}
 	};
 
 
@@ -113,35 +145,35 @@ namespace cadDataManager {
 		Geometry::Ptr geo; //几何信息
 		int matrixNum; //矩阵个数
 		std::vector<float> matrix; //矩阵
-		std::string type; //几何类型 face edge
+		std::string type; //几何类型
 		std::string protoId;
 		std::vector<std::string> instanceIds;
+		
 
 		void console() const {
 			//TODO: 几何顶点数量、三角面片数量、颜色、透明度
 			std::vector<float> position = this->geo->getPosition();
 			std::vector<int> index = this->geo->getIndex();
-			std::cout << "模型几何类型：" << this->type << std::endl;
+			spdlog::debug("模型几何类型：{}", this->type);
+
 			if (this->type == "face") {
-				std::cout << "原型网格的顶点数量：" << position.size() / 3 << std::endl;
-				std::cout << "原型网格的面片数量：" << index.size() / 3 << std::endl;
-				std::cout << "模型颜色：" << this->params->getColor() << std::endl;
+				spdlog::debug("原型网格的顶点数量：{}", position.size() / 3);
+				spdlog::debug("原型网格的面片数量：{}", index.size() / 3);
+				spdlog::debug("模型颜色：{}", this->params->getColor());
 			}
-			//TODO: 是否打印的控制器
-			std::cout << "矩阵数量：" << this->matrixNum << std::endl;
-			std::cout << "矩阵数组：" << std::endl;
+			spdlog::debug("矩阵数量：{}", this->matrixNum);
+			spdlog::debug("矩阵数组：{}", fmt::join(this->matrix, ","));
+
 			int flag = 0;
 			for (auto it = this->matrix.begin(); it != this->matrix.end(); ++it) {
-				std::cout << *it << ' ';
 				if (++flag == 16) {
-					std::cout << "\n";
 					flag = 0;
 				}
 			}
 		}
 
 		size_t getTriangleNumber() {
-			if (this->type == "face") {
+			if (this->type == "mesh" || this->type == "face") {
 				std::vector<int> index = this->geo->getIndex();
 				size_t number = index.size() / 3 * this->matrixNum;
 				return number;

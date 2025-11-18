@@ -1,6 +1,6 @@
 ﻿#pragma once
 #include "parser/serialization_generated.h"
-#include "json.hpp"
+#include <json/json.hpp>
 
 
 namespace cadDataManager {

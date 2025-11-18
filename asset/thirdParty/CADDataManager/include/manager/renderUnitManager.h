@@ -24,7 +24,7 @@ namespace cadDataManager {
 		void addInstance(Instance::Ptr instance);
 		void removeInstance(std::string instanceId);
 		void updateRenderUnits();
-		void RenderUnitManager::updateRenderUnit(RenderUnit::Ptr renderUnit);
+		void updateRenderUnit(RenderUnit::Ptr renderUnit);
 		std::unordered_map<std::string, RenderUnit::Ptr> getProtoRenderUnitMap() { return mProtoRenderUnitMap; };
 		std::unordered_map<std::string, RenderUnit::Ptr> getInstanceRenderUnitMap() { return mInstanceRenderUnitMap; };
 		void modifyInstance(Instance::Ptr instance, bool needRebuildObj = false);

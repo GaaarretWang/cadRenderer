@@ -1,7 +1,7 @@
 #pragma once
 
 #include "global/baseDef.h"
-#include "vector3.h"
+#include "Vector3.h"
 #include "math/Box3.h"
 #include "math/Plane.h"
 namespace cadDataManager {

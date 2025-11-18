@@ -25,7 +25,7 @@ namespace cadDataManager {
 
 		float distanceToPoint(Vector3 point);
 
-		Vector3 projectPoint(Vector3 point, Vector3 target);
+		Vector3& projectPoint(Vector3 point, Vector3 target);
 	private:
 		Vector3					mNormal{ 1.0f, 0.0f, 0.0f };
 		float					mConstant{ 0.0f };

@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 #include "global/baseDef.h"
 #include "math/Ray.h"
 #include "math/Layers.h"

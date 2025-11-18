@@ -76,5 +76,7 @@ namespace cadDataManager {
 
 		void parseAnimationAction(Json animationActionJson);
 
+		std::vector<AnimationActionUnit::Ptr> getAnimationAction(std::string animationName);
+
 	};
 }

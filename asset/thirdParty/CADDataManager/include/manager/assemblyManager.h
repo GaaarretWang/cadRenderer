@@ -29,6 +29,7 @@ namespace cadDataManager {
 		std::vector<std::vector<Instance::Ptr>> getInstanceTreeList() { return mInstanceTreeList; };
 
 		std::vector<Instance::Ptr> getInstancesByProto(std::string protoId);
+		Instance::Ptr  getInstanceByName(std::string name);
 
 		void buildInstanceInfoMap();
 		void updateInstanceInfoMap();
@@ -40,5 +41,6 @@ namespace cadDataManager {
 		std::vector<std::vector<Instance::Ptr>>					mInstanceTreeList{};
 		std::unordered_map<std::string, Instance::Ptr>			mInstanceMap{};
 		std::unordered_map<std::string, InstanceInfo::Ptr>		mInstanceInfoMap{};
+		std::unordered_map<std::string, Instance::Ptr>			mInstanceMapByName{};
 	};
 }

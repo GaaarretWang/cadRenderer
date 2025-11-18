@@ -1,5 +1,4 @@
 ﻿#pragma once
-#define CURL_STATICLIB
 #include<string>
 #include "util/fileUtil.h"
 namespace cadDataManager {

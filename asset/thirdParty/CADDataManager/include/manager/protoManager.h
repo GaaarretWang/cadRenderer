@@ -30,6 +30,6 @@ namespace cadDataManager {
 
 		std::unordered_map<std::string, Proto::Ptr> getProtoMap() { return mProtoMap; };
 
-		void ProtoManager::updateProto(Proto::Ptr proto);
+		void updateProto(Proto::Ptr proto);
 	};
 }

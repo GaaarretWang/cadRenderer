@@ -166,7 +166,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
     datainterface.loadMaterialData("/home/lab/workspace/wgy/cadRenderer/asset/data/JsonData/CockpitMaterial.json");//括号输入json路径
 	// auto info = datainterface.getRenderInfo();
     auto MapInfo = datainterface.getRenderInfoMap();
-	pmi = datainterface.getPmiInfos(false);
+	pmi = datainterface.getPmiInfos();
 	auto instances = datainterface.getInstances();
 	// auto instanceInfos = datainterface.getInstanceInfos();
 	std::string fbModelData = datainterface.getModelFlatbuffersData();

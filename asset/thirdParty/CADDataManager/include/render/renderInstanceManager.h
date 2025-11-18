@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "renderInstance.h"
 #include <unordered_map>
+#include <spdlog/spdlog.h>
+
 namespace cadDataManager {
 	class RenderInstanceManager
 	{
