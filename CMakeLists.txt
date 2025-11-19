@@ -35,8 +35,6 @@ if(UNIX)
         ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/
     )
 
-    target_link_libraries (${PROJECT_NAME} ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/cadDataManager.a ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/libcurl.a)
-
     target_link_libraries(Rendering 
         vsgImGui::vsgImGui
         vsgXchange::vsgXchange

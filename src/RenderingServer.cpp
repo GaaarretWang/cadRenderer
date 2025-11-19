@@ -67,7 +67,8 @@ int RenderingServer::Init(int argc, char** argv){
     model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoEngine.fb");
     model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoLandingGear.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart_small.fb");
+    model_paths.push_back(rendering_dir + "asset/data/geos/1118/twoSeatPartV5.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart_small.fb");
     model_paths.push_back(rendering_dir + "asset/data/geos/1105/window.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/Engine.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/plane1.fb");

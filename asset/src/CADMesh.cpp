@@ -212,7 +212,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
             default_material->value().roughnessFactor = roughness;
             default_material->value().metallicFactor = metalness;
 
-            if (type == "face")
+            // if (type == "face")
             {
                 vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(position.size() / 3); //分配数组空间
                 vsg::ref_ptr<vsg::vec3Array> normals = vsg::vec3Array::create(normal.size() / 3);
