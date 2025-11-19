@@ -153,7 +153,12 @@ void createImage2D(vsg::Context& context, VkFormat format, VkImageUsageFlags usa
     imageView->image = image;
 }
 
-void createImageCube(vsg::Context& context, VkFormat format, VkImageUsageFlags usage, VkExtent2D extent, uint32_t numMips, ptr<vsg::Image>& image, ptr<vsg::ImageView>& imageView)
+void createImageCube(vsg::Context& context, 
+    VkFormat format, 
+    VkImageUsageFlags usage, 
+    VkExtent2D extent, uint32_t numMips, 
+    ptr<vsg::Image>& image, 
+    ptr<vsg::ImageView>& imageView)
 {
     // Image
     image = vsg::Image::create();
@@ -446,6 +451,82 @@ void createResources(VsgContext& vsgContext)
         );
     }
 
+    // test cubemap (only used by skybox and texture generations)
+    for(int i = 1; i < 4; i++){
+        {
+            _ImageLine tempLine;
+            createImageCube(*context, 
+                Constants::EnvmapCube::format, 
+                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, // DST for mipmap generation
+                Constants::EnvmapCube::extent,
+                Constants::EnvmapCube::numMips, 
+                tempLine.cube, 
+                tempLine.cubeView
+            );
+            createSamplerCube(
+                Constants::EnvmapCube::numMips, // 1 for no mips
+                tempLine.cubeSmapler
+            );
+
+            createImageInfo(
+                tempLine.cubeView, 
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+                tempLine.cubeSmapler, 
+                tempLine.cubeInfo
+            );
+
+            textures.testMap.insert({i, tempLine});
+        }
+
+        {
+            _ImageLine tempLine;
+            createImageCube(*context, 
+                Constants::IrradianceCube::format, 
+                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+                Constants::IrradianceCube::extent, 
+                Constants::IrradianceCube::numMips, 
+                tempLine.cube, 
+                tempLine.cubeView
+            );
+            createSamplerCube(
+                Constants::IrradianceCube::numMips, // 7
+                tempLine.cubeSmapler
+            );
+            createImageInfo(
+                tempLine.cubeView, 
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                tempLine.cubeSmapler, 
+                tempLine.cubeInfo
+            );
+
+            textures.irraMap.insert({i, tempLine});
+        }
+
+        {
+            _ImageLine tempLine;
+            createImageCube(*context,
+                Constants::PrefilteredEnvmapCube::format,
+                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
+                Constants::PrefilteredEnvmapCube::extent,
+                Constants::PrefilteredEnvmapCube::numMips,
+                tempLine.cube, 
+                tempLine.cubeView
+            );
+            createSamplerCube(
+                Constants::PrefilteredEnvmapCube::numMips, // 10
+                tempLine.cubeSmapler
+            );
+            createImageInfo(
+                tempLine.cubeView, 
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                tempLine.cubeSmapler, 
+                tempLine.cubeInfo
+            );
+
+            textures.prefMap.insert({i, tempLine});
+        }
+    }
+
     // move brdf lut here
     {
         createImage2D(*context, 
@@ -504,44 +585,84 @@ void createResources(VsgContext& vsgContext)
             textures.prefilterCubeInfo);
     }
 
-    gSkyboxCube.vertices = vsg::vec3Array::create({// Back
-        {-1.0f, -1.0f, -1.0f},
-        {1.0f, -1.0f, -1.0f},
-        {-1.0f, 1.0f, -1.0f},
-        {1.0f, 1.0f, -1.0f},
+    gSkyboxCube.vertices = vsg::vec3Array::create({
+        // // Back
+        // {-1.0f, -1.0f, -1.0f},
+        // {1.0f, -1.0f, -1.0f},
+        // {-1.0f, 1.0f, -1.0f},
+        // {1.0f, 1.0f, -1.0f},
 
-        // Front
+        // // Front
+        // {-1.0f, -1.0f, 1.0f},
+        // {1.0f, -1.0f, 1.0f},
+        // {-1.0f, 1.0f, 1.0f},
+        // {1.0f, 1.0f, 1.0f},
+
+        // // Left
+        // {-1.0f, -1.0f, -1.0f},
+        // {-1.0f, -1.0f, 1.0f},
+        // {-1.0f, 1.0f, -1.0f},
+        // {-1.0f, 1.0f, 1.0f},
+
+        // // Right
+        // {1.0f, -1.0f, -1.0f},
+        // {1.0f, -1.0f, 1.0f},
+        // {1.0f, 1.0f, -1.0f},
+        // {1.0f, 1.0f, 1.0f},
+
+        // // Bottom
+        // {-1.0f, -1.0f, -1.0f},
+        // {-1.0f, -1.0f, 1.0f},
+        // {1.0f, -1.0f, -1.0f},
+        // {1.0f, -1.0f, 1.0f},
+
+        // // Top
+        // {-1.0f, 1.0f, -1.0f},
+        // {-1.0f, 1.0f, 1.0f},
+        // {1.0f, 1.0f, -1.0f},
+        // {1.0f, 1.0f, 1.0}}
+
+        //---------------------------------------------------
+        
+        // Right
+        {-1.0f, -1.0f, -1.0f},
         {-1.0f, -1.0f, 1.0f},
-        {1.0f, -1.0f, 1.0f},
+        {-1.0f, 1.0f, -1.0f},
         {-1.0f, 1.0f, 1.0f},
-        {1.0f, 1.0f, 1.0f},
 
         // Left
-        {-1.0f, -1.0f, -1.0f},
-        {-1.0f, -1.0f, 1.0f},
-        {-1.0f, 1.0f, -1.0f},
-        {-1.0f, 1.0f, 1.0f},
-
-        // Right
         {1.0f, -1.0f, -1.0f},
         {1.0f, -1.0f, 1.0f},
         {1.0f, 1.0f, -1.0f},
         {1.0f, 1.0f, 1.0f},
+
+        // Front
+        {-1.0f, -1.0f, -1.0f},
+        {-1.0f, -1.0f, 1.0f},
+        {1.0f, -1.0f, -1.0f},
+        {1.0f, -1.0f, 1.0f},
+
+        // Back
+        {-1.0f, 1.0f, -1.0f},
+        {-1.0f, 1.0f, 1.0f},
+        {1.0f, 1.0f, -1.0f},
+        {1.0f, 1.0f, 1.0},
 
         // Bottom
         {-1.0f, -1.0f, -1.0f},
-        {-1.0f, -1.0f, 1.0f},
         {1.0f, -1.0f, -1.0f},
-        {1.0f, -1.0f, 1.0f},
+        {-1.0f, 1.0f, -1.0f},
+        {1.0f, 1.0f, -1.0f},
 
         // Top
-        {-1.0f, 1.0f, -1.0f},
+        {-1.0f, -1.0f, 1.0f},
+        {1.0f, -1.0f, 1.0f},
         {-1.0f, 1.0f, 1.0f},
-        {1.0f, 1.0f, -1.0f},
-        {1.0f, 1.0f, 1.0}}
+        {1.0f, 1.0f, 1.0f}}
     );
 
-    gSkyboxCube.indices = vsg::ushortArray::create({// Back
+    gSkyboxCube.indices = vsg::ushortArray::create({
+        // Back
         0, 2, 1,
         1, 2, 3,
 
@@ -848,7 +969,7 @@ void generateBRDFLUT(VsgContext &vsgContext)
     viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
-void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath)
+void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr)
 {
     auto searchPaths = appData.options->paths;
     searchPaths.push_back("./data");
@@ -959,8 +1080,13 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath)
     cubeAllMipSubresRange.baseMipLevel = 0;
     cubeAllMipSubresRange.layerCount = 6;
     cubeAllMipSubresRange.levelCount = Constants::EnvmapCube::numMips;
-
-    auto setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.envmapCube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cubeAllMipSubresRange);
+    IBL::ptr<vsg::PipelineBarrier> setCubeLayoutTransferDst;
+    if(hdr==-1){
+        setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.envmapCube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cubeAllMipSubresRange);
+    }
+    else{
+        setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.testMap.at(hdr).cube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cubeAllMipSubresRange);
+    }
     commandGraph->addChild(setCubeLayoutTransferDst);
   
     //auto projMatValue = vsg::mat4Value::create(vsg::perspective((M_PI / 2.0), 1.0, 0.1, 512.0));
@@ -1035,7 +1161,12 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath)
         copyFBToCubeFace->regions = {copyRegion};
         copyFBToCubeFace->srcImage = pFBImage;
         copyFBToCubeFace->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        copyFBToCubeFace->dstImage = textures.envmapCube;
+        if(hdr==-1){
+            copyFBToCubeFace->dstImage = textures.envmapCube;
+        }
+        else{
+            copyFBToCubeFace->dstImage = textures.testMap.at(hdr).cube;
+        }
         copyFBToCubeFace->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         commandGraph->addChild(copyFBToCubeFace);
 
@@ -1056,7 +1187,12 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath)
             blitFBToCubeFaceMip->regions = {blitRegion};
             blitFBToCubeFaceMip->srcImage = pFBImage;
             blitFBToCubeFaceMip->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            blitFBToCubeFaceMip->dstImage = textures.envmapCube;
+            if(hdr==-1){
+                blitFBToCubeFaceMip->dstImage = textures.envmapCube;
+            }
+            else{
+                blitFBToCubeFaceMip->dstImage = textures.testMap.at(hdr).cube;
+            }
             blitFBToCubeFaceMip->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             commandGraph->addChild(blitFBToCubeFaceMip);
         }
@@ -1068,13 +1204,21 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath)
     // set for shader use layout after mipmap generaton. & signal event for further lut generation
     auto setEvent = vsg::SetEvent::create(gVkEvents.envmapCubeGeneratedEvent, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
     commandGraph->addChild(setEvent);
-    auto setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.envmapCube, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cubeAllMipSubresRange);
+
+    IBL::ptr<vsg::PipelineBarrier> setCubeLayoutShaderRead;
+    if(hdr==-1){
+        setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.envmapCube, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cubeAllMipSubresRange);
+    }
+    else{
+        setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.testMap.at(hdr).cube, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cubeAllMipSubresRange);
+    
+    }
     commandGraph->addChild(setCubeLayoutShaderRead);
     gVkEvents.envmapCubeGeneratedBarrier = setCubeLayoutShaderRead->imageMemoryBarriers.at(0);
     viewer->addRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
-void generateIrradianceCube(VsgContext& vsgContext)//生成辐照度贴图
+void generateIrradianceCube(VsgContext& vsgContext, int hdr)//生成辐照度贴图
 {
     auto searchPaths = appData.options->paths;
     searchPaths.push_back("./data");
@@ -1122,7 +1266,15 @@ void generateIrradianceCube(VsgContext& vsgContext)//生成辐照度贴图
         {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}};
     auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorSetLayoutBindings);
     // And actual Descriptor for cubemap texture
-    auto envmapRectDescriptor = vsg::DescriptorImage::create(textures.envmapCubeInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    
+    vsg::ref_ptr<vsg::DescriptorImage> envmapRectDescriptor;
+    if(hdr==-1){
+        envmapRectDescriptor = vsg::DescriptorImage::create(textures.envmapCubeInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    }
+    else{
+        envmapRectDescriptor = vsg::DescriptorImage::create(textures.testMap.at(hdr).cubeInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    }
+
     auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{envmapRectDescriptor});
 
     vsg::PushConstantRanges pushConstantRanges = {
@@ -1172,7 +1324,14 @@ void generateIrradianceCube(VsgContext& vsgContext)//生成辐照度贴图
     subresourceRange.baseMipLevel = 0;
     subresourceRange.levelCount = Constants::IrradianceCube::numMips;
     subresourceRange.layerCount = 6;
-    auto setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.irradianceCube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+
+    IBL::ptr<vsg::PipelineBarrier> setCubeLayoutTransferDst;
+    if(hdr==-1){
+        setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.irradianceCube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+    }
+    else{
+        setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.irraMap.at(hdr).cube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+    }
     commandGraph->addChild(setCubeLayoutTransferDst);
     
     //VkViewport viewport = {};    
@@ -1264,7 +1423,12 @@ void generateIrradianceCube(VsgContext& vsgContext)//生成辐照度贴图
             copyFBToCubeMap->regions = {copyRegion};
             copyFBToCubeMap->srcImage = pFBImage;
             copyFBToCubeMap->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            copyFBToCubeMap->dstImage = textures.irradianceCube;
+            if(hdr==-1){
+                copyFBToCubeMap->dstImage = textures.irradianceCube;
+            }
+            else{
+                copyFBToCubeMap->dstImage = textures.irraMap.at(hdr).cube;
+            }
             copyFBToCubeMap->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
             commandGraph->addChild(copyFBToCubeMap);
@@ -1273,15 +1437,24 @@ void generateIrradianceCube(VsgContext& vsgContext)//生成辐照度贴图
             commandGraph->addChild(setFBLayoutAttachment);
         }
     }
-    auto setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.irradianceCube, 
+
+    IBL::ptr<vsg::PipelineBarrier> setCubeLayoutShaderRead;
+    if(hdr==-1){
+        setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.irradianceCube, 
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
         subresourceRange);
+    }
+    else{
+        setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.irraMap.at(hdr).cube, 
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+        subresourceRange);
+    }
     commandGraph->addChild(setCubeLayoutShaderRead);
 
     viewer->addRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
-void generatePrefilteredEnvmapCube(VsgContext& vsgContext)
+void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
 {
     auto searchPaths = appData.options->paths;
     searchPaths.push_back("./data");
@@ -1326,7 +1499,14 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext)
         {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}};
     auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorSetLayoutBindings);
     // And actual Descriptor for cubemap texture
-    auto envmapRectDescriptor = vsg::DescriptorImage::create(textures.envmapCubeInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+    vsg::ref_ptr<vsg::DescriptorImage> envmapRectDescriptor;
+    if(hdr==-1){
+        envmapRectDescriptor = vsg::DescriptorImage::create(textures.envmapCubeInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    }
+    else{
+        envmapRectDescriptor = vsg::DescriptorImage::create(textures.testMap.at(hdr).cubeInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    }
     auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{envmapRectDescriptor});
 
     vsg::PushConstantRanges pushConstantRanges = {
@@ -1377,7 +1557,14 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext)
     subresourceRange.baseMipLevel = 0;
     subresourceRange.levelCount = Constants::PrefilteredEnvmapCube::numMips;
     subresourceRange.layerCount = 6;
-    auto setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.prefilterCube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+
+    IBL::ptr<vsg::PipelineBarrier> setCubeLayoutTransferDst;
+    if(hdr==-1){
+        setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.prefilterCube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+    }
+    else{
+        setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.prefMap.at(hdr).cube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
+    }
     commandGraph->addChild(setCubeLayoutTransferDst);
 
     auto dummyProjMatrix = vsg::Perspective::create(degrees(M_PI / 2.0), 1.0, 0.1, 512.0);
@@ -1463,7 +1650,12 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext)
             copyFBToCubeMap->regions = {copyRegion};
             copyFBToCubeMap->srcImage = pFBImage;
             copyFBToCubeMap->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            copyFBToCubeMap->dstImage = textures.prefilterCube;
+            if(hdr==-1){
+                copyFBToCubeMap->dstImage = textures.prefilterCube;
+            }
+            else{
+                copyFBToCubeMap->dstImage = textures.prefMap.at(hdr).cube;
+            }
             copyFBToCubeMap->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
             commandGraph->addChild(copyFBToCubeMap);
@@ -1472,9 +1664,18 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext)
             commandGraph->addChild(setFBLayoutAttachment);
         }
     }
-    auto setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.prefilterCube,
+
+    IBL::ptr<vsg::PipelineBarrier> setCubeLayoutShaderRead;
+    if(hdr==-1){
+        setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.prefilterCube,
                                                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                                                     subresourceRange);
+    }
+    else{
+        setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.prefMap.at(hdr).cube,
+                                                                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                                    subresourceRange);
+    }
     commandGraph->addChild(setCubeLayoutShaderRead);
 
     //vsg::write(commandGraph, appData.debugOutputPath);
@@ -1676,7 +1877,7 @@ vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options>
     shaderSet->addDescriptorBinding("params", "", CUSTOM_DESCRIPTOR_SET, 3,
                                     VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT,
                                     textures.params);
-
+    //
     auto iblDSBinding = IBLDescriptorSetBinding::create(CUSTOM_DESCRIPTOR_SET, IBL::textures);
     shaderSet->customDescriptorSetBindings.push_back(iblDSBinding);
 
@@ -1778,6 +1979,169 @@ ptr<Node> iblDemoSceneGraph(VsgContext& context)
     auto scene = createTestScene(options, false);
     //vsg::write(scene, appData.debugOutputPath);
     return scene;
+}
+
+void updateHDRTextures(vsg::ref_ptr<vsg::Commands>& command, int hdr)
+{
+    
+    // CommandGraph to hold the different RenderGraphs used to render each view
+    // auto commandGraph = vsg::CommandGraph::create(vsgContext.device, vsgContext.queueFamily);
+
+    {
+
+        VkImageSubresourceRange cubeAllMipSubresRange = {};
+        cubeAllMipSubresRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        cubeAllMipSubresRange.baseArrayLayer = 0;
+        cubeAllMipSubresRange.baseMipLevel = 0;
+        cubeAllMipSubresRange.layerCount = 6;
+        cubeAllMipSubresRange.levelCount = Constants::EnvmapCube::numMips;
+        auto setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.testMap.at(hdr).cube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cubeAllMipSubresRange);
+        command->addChild(setCubeLayoutTransferDst);
+        for (uint32_t f = 0; f< 6; f++)
+        {
+            // VkImageSubresourceLayers fbSubresLayers = {};
+            // fbSubresLayers.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            // fbSubresLayers.baseArrayLayer = f;
+            // fbSubresLayers.layerCount = 1;
+            // fbSubresLayers.mipLevel = 0;
+            // VkOffset3D fbSubresourceBound = {Constants::EnvmapCube::dim, Constants::EnvmapCube::dim, 1};
+            auto copyFBToCubeFace = vsg::CopyImage::create();
+            VkImageCopy copyRegion = {};
+            copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            copyRegion.srcSubresource.baseArrayLayer = f;
+            copyRegion.srcSubresource.layerCount = 1;
+            copyRegion.srcSubresource.mipLevel = 0;
+            copyRegion.srcOffset = {0, 0, 0};
+            copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            copyRegion.dstSubresource.baseArrayLayer = f;
+            copyRegion.dstSubresource.layerCount = 1;
+            copyRegion.dstSubresource.mipLevel = 0;
+            copyRegion.dstOffset = {0, 0, 0};
+            copyRegion.extent.width = static_cast<uint32_t>(Constants::EnvmapCube::dim);
+            copyRegion.extent.height = static_cast<uint32_t>(Constants::EnvmapCube::dim);
+            copyRegion.extent.depth = 1;
+            copyFBToCubeFace->regions = {copyRegion};
+            copyFBToCubeFace->srcImage = textures.testMap.at(hdr).cube;
+            copyFBToCubeFace->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            copyFBToCubeFace->dstImage = textures.envmapCube;
+            copyFBToCubeFace->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            command->addChild(copyFBToCubeFace);
+
+            // blit to higher mips
+            for(uint32_t targetMipLevel = 1; targetMipLevel < Constants::EnvmapCube::numMips; targetMipLevel++) 
+            {
+                int32_t mipDim = (int32_t) Constants::EnvmapCube::dim >> targetMipLevel;
+                VkImageBlit blitRegion = {};
+                blitRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                blitRegion.srcSubresource.baseArrayLayer = f;
+                blitRegion.srcSubresource.layerCount = 1;
+                blitRegion.srcSubresource.mipLevel = targetMipLevel;
+                blitRegion.srcOffsets[1] = {mipDim, mipDim, 1};
+                blitRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                blitRegion.dstSubresource.baseArrayLayer = f;
+                blitRegion.dstSubresource.layerCount = 1;
+                blitRegion.dstSubresource.mipLevel = targetMipLevel;
+                blitRegion.dstOffsets[1] = {mipDim, mipDim, 1};
+                
+                auto blitFBToCubeFaceMip = vsg::BlitImage::create();
+                blitFBToCubeFaceMip->regions = {blitRegion};
+                blitFBToCubeFaceMip->srcImage = textures.testMap.at(hdr).cube;
+                blitFBToCubeFaceMip->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                blitFBToCubeFaceMip->dstImage = textures.envmapCube;
+                blitFBToCubeFaceMip->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+                command->addChild(blitFBToCubeFaceMip);
+            }
+        }
+        auto setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(
+            textures.envmapCube, 
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+            cubeAllMipSubresRange);
+        command->addChild(setCubeLayoutShaderRead);
+    }
+    
+    {
+        VkImageSubresourceRange subresourceRange = {};
+        subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        subresourceRange.baseMipLevel = 0;
+        subresourceRange.levelCount = Constants::IrradianceCube::numMips;
+        subresourceRange.layerCount = 6;
+        for (uint32_t m = 0; m < Constants::IrradianceCube::numMips; m++)
+        {
+            uint32_t mipDim = Constants::IrradianceCube::dim >> m;
+            auto viewportState = vsg::ViewportState::create(0, 0, mipDim, mipDim);
+            for (uint32_t f = 0; f < 6; f++)
+            {
+                auto copyFBToCubeMap = vsg::CopyImage::create();
+                VkImageCopy copyRegion = {};
+                copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                copyRegion.srcSubresource.baseArrayLayer = f;
+                copyRegion.srcSubresource.mipLevel = m;
+                copyRegion.srcSubresource.layerCount = 1;
+                copyRegion.srcOffset = {0, 0, 0};
+                copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                copyRegion.dstSubresource.baseArrayLayer = f;
+                copyRegion.dstSubresource.mipLevel = m;
+                copyRegion.dstSubresource.layerCount = 1;
+                copyRegion.dstOffset = {0, 0, 0};
+                copyRegion.extent.width = mipDim;
+                copyRegion.extent.height = mipDim;
+                copyRegion.extent.depth = 1;
+                copyFBToCubeMap->regions = {copyRegion};
+                copyFBToCubeMap->srcImage = textures.irraMap.at(hdr).cube;
+                copyFBToCubeMap->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                copyFBToCubeMap->dstImage = textures.irradianceCube;
+                copyFBToCubeMap->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+                command->addChild(copyFBToCubeMap);
+            }
+        }
+        auto setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.irraMap.at(hdr).cube, 
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+            subresourceRange);
+        command->addChild(setCubeLayoutShaderRead);
+    }
+    
+    {
+        VkImageSubresourceRange subresourceRange = {};
+        subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        subresourceRange.baseMipLevel = 0;
+        subresourceRange.levelCount = Constants::PrefilteredEnvmapCube::numMips;
+        subresourceRange.layerCount = 6;
+        for (uint32_t m = 0; m < Constants::PrefilteredEnvmapCube::numMips; m++)
+        {
+            uint32_t mipDim = Constants::PrefilteredEnvmapCube::dim >> m;
+            for (uint32_t f = 0; f < 6; f++)
+            {
+                auto copyFBToCubeMap = vsg::CopyImage::create();
+                VkImageCopy copyRegion = {};
+                copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                copyRegion.srcSubresource.baseArrayLayer = f;
+                copyRegion.srcSubresource.mipLevel = m;
+                copyRegion.srcSubresource.layerCount = 1;
+                copyRegion.srcOffset = {0, 0, 0};
+                copyRegion.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+                copyRegion.dstSubresource.baseArrayLayer = f;
+                copyRegion.dstSubresource.mipLevel = m;
+                copyRegion.dstSubresource.layerCount = 1;
+                copyRegion.dstOffset = {0, 0, 0};
+                copyRegion.extent.width = mipDim;
+                copyRegion.extent.height = mipDim;
+                copyRegion.extent.depth = 1;
+                copyFBToCubeMap->regions = {copyRegion};
+                copyFBToCubeMap->srcImage = textures.prefMap.at(hdr).cube;
+                copyFBToCubeMap->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+                copyFBToCubeMap->dstImage = textures.prefilterCube;
+                copyFBToCubeMap->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+                command->addChild(copyFBToCubeMap);
+            }
+        }
+        auto setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.prefMap.at(hdr).cube,
+                                                                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                                        subresourceRange);
+        command->addChild(setCubeLayoutShaderRead);
+    }
 }
 
 } // namespace IBL

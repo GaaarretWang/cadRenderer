@@ -137,6 +137,7 @@ void main() {
         outIndirect.instanceCount = 0; // 默认不可见
     }
     barrier(); // 确保初始化完成
+    memoryBarrierBuffer();	
     inHighlightData.data[instanceIndex].z = 0;
 
     // 计算包围盒的8个顶点（世界空间）
@@ -289,4 +290,5 @@ void main() {
             }
         }
     }
+    memoryBarrierBuffer();	
 }

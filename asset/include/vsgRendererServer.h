@@ -13,7 +13,7 @@
 #include "PlaneLoader.h"
 
 #include "fixDepth.h"
-
+#include "json.hpp"
 using namespace std;
 
 class vsgRendererServer
@@ -45,8 +45,10 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::StateGroup> drawIBLSceneNode = vsg::StateGroup::create();
     vsg::ref_ptr<vsg::StateGroup> drawIBLBackgroundNode = vsg::StateGroup::create();
     vsg::ref_ptr<vsg::StateGroup> drawShadowBackgroundNode = vsg::StateGroup::create();
-    vsg::ref_ptr<vsg::Group> lightGroup = vsg::Group::create();
-    int hdr_image_num = 1;
+    std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;
+    vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
+    std::unordered_map<int, vsg::ref_ptr<vsg::Group>> hdr_to_light_group_map;
+    int hdr_image_num = 3;
 
     vsg::ref_ptr<vsg::DirectionalLight> directionalLight[4];
     vsg::ref_ptr<vsg::Switch> directionalLightSwitch = vsg::Switch::create();
@@ -155,9 +157,9 @@ public:
 
     void preprocessEnvMap(){
         std::string envmapFilepath = project_path + "asset/data/textures/" + std::to_string(hdr_image_num) + ".hdr";
-        IBL::generateEnvmap(vsgContext, envmapFilepath);
-        IBL::generateIrradianceCube(vsgContext);
-        IBL::generatePrefilteredEnvmapCube(vsgContext);
+        IBL::generateEnvmap(vsgContext, envmapFilepath, -1);
+        IBL::generateIrradianceCube(vsgContext, -1);
+        IBL::generatePrefilteredEnvmapCube(vsgContext, -1);
 
         viewer_IBL->compile();
         bool process_done = false;
@@ -171,39 +173,80 @@ public:
             viewer_IBL->present();
             process_done = true;
         }
+        for(int i = 3; i > 0; i--){
+            std::string envmapFilepath = project_path + "asset/data/textures/" + std::to_string(i) + ".hdr";
+            IBL::generateEnvmap(vsgContext, envmapFilepath, i);
+            IBL::generateIrradianceCube(vsgContext, i);
+            IBL::generatePrefilteredEnvmapCube(vsgContext, i);
+
+            viewer_IBL->compile();
+            bool process_done = false;
+            while (viewer_IBL->advanceToNextFrame())
+            {
+                if(process_done)
+                    break;
+                viewer_IBL->handleEvents();
+                viewer_IBL->update();
+                viewer_IBL->recordAndSubmit();
+                viewer_IBL->present();
+                process_done = true;
+            }
+        }
+
+        IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
+        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, camera_info);
+    }
+    
+    void updateEnvMap(){
+        auto command = vsg::Commands::create();
+        IBL::updateHDRTextures(command, hdr_image_num);
+
+
+        auto physicalDevice = window->getPhysicalDevice();
+        auto fence = vsg::Fence::create(device);
+        auto queueFamilyIndex = physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
+        auto commandPool = vsg::CommandPool::create(device, queueFamilyIndex);
+        auto queue = device->getQueue(queueFamilyIndex);
+        
+        vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
+            command->record(commandBuffer);
+        });
 
         IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
         IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, camera_info);
     }
 
     void update_directional_lights(){
-        lightGroup->children.clear();
-        // HDR环境光采样
-        HDRLightSampler lightSampler;
-        lightSampler.loadHDRImage(project_path + "asset/data/textures/" + std::to_string(hdr_image_num) + ".hdr");
-        lightSampler.computeLuminanceMap();
-        lightSampler.computeCDF();
-        auto sampledLights = lightSampler.sampleLights(1);
+        curLightGroup->children.clear();
+        curLightGroup->addChild(lightGroups[hdr_image_num]);
+    }
 
+    void init_directional_lights(){
+        std::string json_path = project_path + "asset/LightInfo.json";
+        std::ifstream json_file(json_path);
+        
+        if (!json_file.is_open()) {
+            std::cerr << "错误：无法打开光源配置文件 " << json_path << std::endl;
+            return;
+        }
 
-        //-----------------------------------设置光源----------------------------------//
-        //vsg::ref_ptr<vsg::DirectionalLight> directionalLight; //定向光源 ref_ptr智能指针
-        for (const auto& light : sampledLights)
-        {   
-            vsg::vec3 lightColor = vsg::vec3(light.color[0], light.color[1], light.color[2]);
-            vsg::vec3 lightPosition = vsg::vec3(light.position[0], light.position[1], light.position[2]);
+        json json_data = json::parse(json_file);
+        json_file.close();
 
-            auto pointLight = vsg::DirectionalLight::create();
-            pointLight->color = lightColor;
-            pointLight->intensity = light.intensity;
-            pointLight->direction = vsg::normalize(-lightPosition);
-            pointLight->shadowMaps = 1;
-            
-            auto lightTransform = vsg::MatrixTransform::create();
-            lightTransform->matrix = vsg::translate(lightPosition);
-            lightTransform->addChild(pointLight);
-            
-            lightGroup->addChild(lightTransform);
+        for (auto& [hdr_idx_str, hdr_data] : json_data.items()) {
+            std::cout << hdr_idx_str << std::endl;
+            int hdr_idx = std::stoi(hdr_idx_str);
+            vsg::ref_ptr<vsg::Group> light_i = vsg::Group::create();
+            lightGroups[hdr_idx] = light_i;
+            for (auto& light_data : hdr_data["lights"]) {
+                auto directional_light = vsg::DirectionalLight::create();
+                directional_light->area = light_data["area"].get<float>();
+                directional_light->intensity = light_data["brightness"].get<float>();
+                auto direction = light_data["direction"].get<std::vector<float>>();
+                directional_light->direction = -vsg::normalize(vsg::vec3(direction[2], direction[0], direction[1]));
+                directional_light->shadowMaps = 1;
+                light_i->addChild(directional_light);
+            }
         }
     }
 
@@ -267,7 +310,7 @@ public:
     }
 
     void updateEnvLighting(){
-        preprocessEnvMap();
+        updateEnvMap();
         update_directional_lights();
         IBL::textures.params->dirty();
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。

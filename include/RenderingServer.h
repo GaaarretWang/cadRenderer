@@ -15,7 +15,7 @@ public:
     bool cameara_pos_bool = true;
     bool stop_cameara_pos = true;
     bool use_png = true;
-    mergeShaderType shader_type = CAMERA_DEPTH;
+    mergeShaderType shader_type = FULL_MODEL;
 
     std::vector<ImagePair> all_images;
     std::string* real_color1;
@@ -35,6 +35,7 @@ public:
     std::string depth;
 
     int frame_count = 0;
+    int num = 0;
     vsg::ref_ptr<vsg::Device> device;
     std::vector<std::vector<uint8_t>> vPacket;
 public:

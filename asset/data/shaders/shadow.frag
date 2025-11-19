@@ -157,8 +157,11 @@ void poissonDiskSamples( const in vec2 randomSeed ) {
     }
 }
 
-float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex) {          
-    float Stride = 10.0; 
+float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float area) {
+    float linearFrac = sqrt(max(area, 0.0));//将area映射为线性尺寸
+    float baseStridePixels = 10.0; //基础步长
+    const float lightSizeScale = 20.0; // 调节此值来放大/缩小基于 area 的影响
+    float Stride = baseStridePixels * linearFrac * lightSizeScale + 0.001; // 最小非零避免 0
     float shadowmapSize = 2048.;
     float visibility = 0.0;
     float cur_depth = coords.z;
@@ -259,12 +262,13 @@ void main()
     int shadowMapIndex = 0;
     if (numDirectionalLights>0)
     {
-        float totalBrigtness = 0.0f;
-        float totalRealBrightness = 0.0f;
+        float totalBrigtness = 3.0f;
+        float totalRealBrightness = 3.0f;
         // directional lights
         for(int i = 0; i<numDirectionalLights; ++i)
         {
             vec4 lightColor = lightData.values[index++];
+            float area = lightData.values[index].w;
             vec3 direction = -lightData.values[index++].xyz;
             vec4 shadowMapSettings = lightData.values[index++];
 
@@ -288,7 +292,7 @@ void main()
                     //visibility = 1 - texture(shadowMaps, vec4(sm_tc.st, shadowMapIndex, sm_tc.z)).r; //����ǰƬ�ε�������������Ӱ��ͼ�е����ֵ���бȽ� ����Ӱ0 ������Ӱ1
 
                     matched = true;
-                    visibility = 1 - PCF(shadowMaps,sm_tc,shadowMapIndex);
+                    visibility = 1 - PCF(shadowMaps,sm_tc,shadowMapIndex,area);
                 }else{
                     visibility = 1.0;
                 }
@@ -309,7 +313,7 @@ void main()
         }
         scene_brightness = totalRealBrightness / totalBrigtness;
     }
-    vec3 color = vec3(scene_brightness * 0.5 + 0.5);
+    vec3 color = vec3(scene_brightness);
     outColor.rgb = texture(cameraImage, screen_uv).rgb * color;
     outColor.a = 1;
 }

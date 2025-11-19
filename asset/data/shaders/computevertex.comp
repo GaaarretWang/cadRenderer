@@ -85,7 +85,7 @@ void main() {
     memoryBarrierBuffer();	
     inHighlightData.data[instanceIndex].y = 0;
 
-    //if(inHighlightData.data[instanceIndex].z == 1){
+    if(inHighlightData.data[instanceIndex].z == 1){
         uint prevCount = atomicAdd(outIndirect.instanceCount, 1);
         MatrixData cur_data = inIndirectMatrix.instanceModelMatrix[instanceIndex];
         InstanceData out_data;
@@ -94,5 +94,6 @@ void main() {
         outIndirectMatrix.instanceModelMatrix[prevCount] = out_data;
 
         inHighlightData.data[instanceIndex].y = 1;
-    //}
+    }
+    memoryBarrierBuffer();	
 }
