@@ -54,7 +54,7 @@ namespace vsg
     {
     public:
         dvec3 direction = dvec3(0.0, 0.0, -1.0);
-        float area = 0.0001f; // area of the light for soft shadows
+        float area = 0.01f; // area of the light for soft shadows
 
         void read(Input& input) override;
         void write(Output& output) const override;

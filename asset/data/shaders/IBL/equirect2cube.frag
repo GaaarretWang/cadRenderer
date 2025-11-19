@@ -18,22 +18,31 @@ vec3 getSamplingVector(vec2 st)
     vec2 uv = 2.0 * vec2(st.x, st.y) - 1.0;
     // vec2 uv = st;
 
+    //1.把这个和skybox对齐
+    //2.和python脚本中的旋转对齐（theta和phi设定旋转角度，之后再看）
     vec3 ret;
 	// Select vector based on cubemap face index.
     // Sadly 'switch' doesn't seem to work, at least on NVIDIA.
-    // if(pc.faceIdx == 0)      ret = vec3(1.0,  uv.y, -uv.x); //+x
-    // else if(pc.faceIdx == 1) ret = vec3(-1.0, uv.y,  uv.x); //-x
-    // else if(pc.faceIdx == 2) ret = vec3(uv.x, 1.0, -uv.y);  //+y
-    // else if(pc.faceIdx == 3) ret = vec3(uv.x, -1.0, uv.y);  //-y
-    // else if(pc.faceIdx == 4) ret = vec3(uv.x, uv.y, 1.0);   //+z
-    // else if(pc.faceIdx == 5) ret = vec3(-uv.x, uv.y, -1.0); //-z
+    if(pc.faceIdx == 0)      ret = vec3(-uv.y, -uv.x, -1.0); //-z
+    else if(pc.faceIdx == 1) ret = vec3(-uv.y, uv.x, 1.0); //+z
+    else if(pc.faceIdx == 2) ret = vec3(1.0, uv.y,  -uv.x);  //x
+    else if(pc.faceIdx == 3) ret = vec3(-1.0,  -uv.y, -uv.x);  //-x
+    else if(pc.faceIdx == 4) ret = vec3(-uv.y, 1.0, -uv.x);   //y
+    else if(pc.faceIdx == 5) ret = vec3(-uv.y, -1.0, uv.x); //-y
 
-    if(pc.faceIdx == 0)      ret = vec3(-uv.x, uv.y, -1.0); //+x
-    else if(pc.faceIdx == 1) ret = vec3(uv.x, uv.y, 1.0); //-x
-    else if(pc.faceIdx == 2) ret = vec3(uv.y, -1.0, -uv.x);  //+y
-    else if(pc.faceIdx == 3) ret = vec3(-uv.y, 1.0, -uv.x);  //-y
-    else if(pc.faceIdx == 4) ret = vec3(1.0,  uv.y, -uv.x);   //+z
-    else if(pc.faceIdx == 5) ret = vec3(-1.0, uv.y,  uv.x); //-z
+    //if(pc.faceIdx == 0)      ret = vec3(1.0, uv.y,  -uv.x);  //x
+    //else if(pc.faceIdx == 1) ret = vec3(-1.0,  -uv.y, -uv.x);  //-x
+    //else if(pc.faceIdx == 2) ret = vec3(-uv.y, 1.0, -uv.x);   //y
+    //else if(pc.faceIdx == 3) ret = vec3(-uv.y, -1.0, uv.x); //-y
+    //else if(pc.faceIdx == 4) ret = vec3(-uv.y, -uv.x, -1.0); //-z
+    //else if(pc.faceIdx == 5) ret = vec3(-uv.y, uv.x, 1.0); //+z
+
+    //if(pc.faceIdx == 0)      ret = vec3(-uv.x, uv.y, -1.0); //+x
+    //else if(pc.faceIdx == 1) ret = vec3(uv.x, uv.y, 1.0); //-x
+    //else if(pc.faceIdx == 2) ret = vec3(uv.y, -1.0, -uv.x);  //+y
+    //else if(pc.faceIdx == 3) ret = vec3(-uv.y, 1.0, -uv.x);  //-y
+    //else if(pc.faceIdx == 4) ret = vec3(1.0,  uv.y, -uv.x);   //+z
+    //else if(pc.faceIdx == 5) ret = vec3(-1.0, uv.y,  uv.x); //-z
     return normalize(ret);
 }
 
@@ -52,6 +61,12 @@ void main()
 
     vec3 color = texture(samplerEnv, equiRectUV).rgb;
 
+    if(pc.faceIdx == 0)      outColor.xyz = vec3(1.0,  0.0, 0.0); //+x
+    else if(pc.faceIdx == 1) outColor.xyz = vec3(1.0,  1.0, 1.0); //-x
+    else if(pc.faceIdx == 2) outColor.xyz = vec3(0.0,  1.0, 0.0);  //+y
+    else if(pc.faceIdx == 3) outColor.xyz = vec3(1.0,  1.0, 1.0);  //-y
+    else if(pc.faceIdx == 4) outColor.xyz = vec3(0.0,  0.0, 1.0);   //+z
+    else if(pc.faceIdx == 5) outColor.xyz = vec3(1.0,  1.0, 1.0); //-z
     // color = vec3(equiRectUV, 0.0);
     outColor = vec4(color, 1.0);
 }

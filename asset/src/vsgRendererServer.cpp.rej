@@ -1,0 +1,13 @@
+diff a/asset/src/vsgRendererServer.cpp b/asset/src/vsgRendererServer.cpp	(rejected hunks)
+@@ -365,9 +365,9 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
+     std::cout << "model processing done" << std::endl;
+ 
+     // HDR环境光采样
+-
++    init_directional_lights();
+     update_directional_lights();
+-    scenegraph_safe->addChild(lightGroup);
++    scenegraph_safe->addChild(curLightGroup);
+     
+ 
+     //----------------------------------------------------------------窗口1----------------------------------------------------------//

@@ -585,44 +585,84 @@ void createResources(VsgContext& vsgContext)
             textures.prefilterCubeInfo);
     }
 
-    gSkyboxCube.vertices = vsg::vec3Array::create({// Back
-        {-1.0f, -1.0f, -1.0f},
-        {1.0f, -1.0f, -1.0f},
-        {-1.0f, 1.0f, -1.0f},
-        {1.0f, 1.0f, -1.0f},
+    gSkyboxCube.vertices = vsg::vec3Array::create({
+        // // Back
+        // {-1.0f, -1.0f, -1.0f},
+        // {1.0f, -1.0f, -1.0f},
+        // {-1.0f, 1.0f, -1.0f},
+        // {1.0f, 1.0f, -1.0f},
 
-        // Front
+        // // Front
+        // {-1.0f, -1.0f, 1.0f},
+        // {1.0f, -1.0f, 1.0f},
+        // {-1.0f, 1.0f, 1.0f},
+        // {1.0f, 1.0f, 1.0f},
+
+        // // Left
+        // {-1.0f, -1.0f, -1.0f},
+        // {-1.0f, -1.0f, 1.0f},
+        // {-1.0f, 1.0f, -1.0f},
+        // {-1.0f, 1.0f, 1.0f},
+
+        // // Right
+        // {1.0f, -1.0f, -1.0f},
+        // {1.0f, -1.0f, 1.0f},
+        // {1.0f, 1.0f, -1.0f},
+        // {1.0f, 1.0f, 1.0f},
+
+        // // Bottom
+        // {-1.0f, -1.0f, -1.0f},
+        // {-1.0f, -1.0f, 1.0f},
+        // {1.0f, -1.0f, -1.0f},
+        // {1.0f, -1.0f, 1.0f},
+
+        // // Top
+        // {-1.0f, 1.0f, -1.0f},
+        // {-1.0f, 1.0f, 1.0f},
+        // {1.0f, 1.0f, -1.0f},
+        // {1.0f, 1.0f, 1.0}}
+
+        //---------------------------------------------------
+        
+        // Right
+        {-1.0f, -1.0f, -1.0f},
         {-1.0f, -1.0f, 1.0f},
-        {1.0f, -1.0f, 1.0f},
+        {-1.0f, 1.0f, -1.0f},
         {-1.0f, 1.0f, 1.0f},
-        {1.0f, 1.0f, 1.0f},
 
         // Left
-        {-1.0f, -1.0f, -1.0f},
-        {-1.0f, -1.0f, 1.0f},
-        {-1.0f, 1.0f, -1.0f},
-        {-1.0f, 1.0f, 1.0f},
-
-        // Right
         {1.0f, -1.0f, -1.0f},
         {1.0f, -1.0f, 1.0f},
         {1.0f, 1.0f, -1.0f},
         {1.0f, 1.0f, 1.0f},
+
+        // Front
+        {-1.0f, -1.0f, -1.0f},
+        {-1.0f, -1.0f, 1.0f},
+        {1.0f, -1.0f, -1.0f},
+        {1.0f, -1.0f, 1.0f},
+
+        // Back
+        {-1.0f, 1.0f, -1.0f},
+        {-1.0f, 1.0f, 1.0f},
+        {1.0f, 1.0f, -1.0f},
+        {1.0f, 1.0f, 1.0},
 
         // Bottom
         {-1.0f, -1.0f, -1.0f},
-        {-1.0f, -1.0f, 1.0f},
         {1.0f, -1.0f, -1.0f},
-        {1.0f, -1.0f, 1.0f},
+        {-1.0f, 1.0f, -1.0f},
+        {1.0f, 1.0f, -1.0f},
 
         // Top
-        {-1.0f, 1.0f, -1.0f},
+        {-1.0f, -1.0f, 1.0f},
+        {1.0f, -1.0f, 1.0f},
         {-1.0f, 1.0f, 1.0f},
-        {1.0f, 1.0f, -1.0f},
-        {1.0f, 1.0f, 1.0}}
+        {1.0f, 1.0f, 1.0f}}
     );
 
-    gSkyboxCube.indices = vsg::ushortArray::create({// Back
+    gSkyboxCube.indices = vsg::ushortArray::create({
+        // Back
         0, 2, 1,
         1, 2, 3,
 
@@ -1041,7 +1081,7 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
     cubeAllMipSubresRange.layerCount = 6;
     cubeAllMipSubresRange.levelCount = Constants::EnvmapCube::numMips;
     IBL::ptr<vsg::PipelineBarrier> setCubeLayoutTransferDst;
-    if(hdr==0){
+    if(hdr==-1){
         setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.envmapCube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cubeAllMipSubresRange);
     }
     else{
@@ -1121,7 +1161,7 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
         copyFBToCubeFace->regions = {copyRegion};
         copyFBToCubeFace->srcImage = pFBImage;
         copyFBToCubeFace->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        if(hdr==0){
+        if(hdr==-1){
             copyFBToCubeFace->dstImage = textures.envmapCube;
         }
         else{
@@ -1147,7 +1187,7 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
             blitFBToCubeFaceMip->regions = {blitRegion};
             blitFBToCubeFaceMip->srcImage = pFBImage;
             blitFBToCubeFaceMip->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            if(hdr==0){
+            if(hdr==-1){
                 blitFBToCubeFaceMip->dstImage = textures.envmapCube;
             }
             else{
@@ -1166,7 +1206,7 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
     commandGraph->addChild(setEvent);
 
     IBL::ptr<vsg::PipelineBarrier> setCubeLayoutShaderRead;
-    if(hdr==0){
+    if(hdr==-1){
         setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.envmapCube, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cubeAllMipSubresRange);
     }
     else{
@@ -1228,7 +1268,7 @@ void generateIrradianceCube(VsgContext& vsgContext, int hdr)//生成辐照度贴
     // And actual Descriptor for cubemap texture
     
     vsg::ref_ptr<vsg::DescriptorImage> envmapRectDescriptor;
-    if(hdr==0){
+    if(hdr==-1){
         envmapRectDescriptor = vsg::DescriptorImage::create(textures.envmapCubeInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     }
     else{
@@ -1286,7 +1326,7 @@ void generateIrradianceCube(VsgContext& vsgContext, int hdr)//生成辐照度贴
     subresourceRange.layerCount = 6;
 
     IBL::ptr<vsg::PipelineBarrier> setCubeLayoutTransferDst;
-    if(hdr==0){
+    if(hdr==-1){
         setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.irradianceCube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
     }
     else{
@@ -1383,7 +1423,7 @@ void generateIrradianceCube(VsgContext& vsgContext, int hdr)//生成辐照度贴
             copyFBToCubeMap->regions = {copyRegion};
             copyFBToCubeMap->srcImage = pFBImage;
             copyFBToCubeMap->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            if(hdr==0){
+            if(hdr==-1){
                 copyFBToCubeMap->dstImage = textures.irradianceCube;
             }
             else{
@@ -1399,7 +1439,7 @@ void generateIrradianceCube(VsgContext& vsgContext, int hdr)//生成辐照度贴
     }
 
     IBL::ptr<vsg::PipelineBarrier> setCubeLayoutShaderRead;
-    if(hdr==0){
+    if(hdr==-1){
         setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.irradianceCube, 
         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
         subresourceRange);
@@ -1461,7 +1501,7 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
     // And actual Descriptor for cubemap texture
 
     vsg::ref_ptr<vsg::DescriptorImage> envmapRectDescriptor;
-    if(hdr==0){
+    if(hdr==-1){
         envmapRectDescriptor = vsg::DescriptorImage::create(textures.envmapCubeInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     }
     else{
@@ -1519,7 +1559,7 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
     subresourceRange.layerCount = 6;
 
     IBL::ptr<vsg::PipelineBarrier> setCubeLayoutTransferDst;
-    if(hdr==0){
+    if(hdr==-1){
         setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.prefilterCube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
     }
     else{
@@ -1610,7 +1650,7 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
             copyFBToCubeMap->regions = {copyRegion};
             copyFBToCubeMap->srcImage = pFBImage;
             copyFBToCubeMap->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-            if(hdr==0){
+            if(hdr==-1){
                 copyFBToCubeMap->dstImage = textures.prefilterCube;
             }
             else{
@@ -1626,7 +1666,7 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
     }
 
     IBL::ptr<vsg::PipelineBarrier> setCubeLayoutShaderRead;
-    if(hdr==0){
+    if(hdr==-1){
         setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.prefilterCube,
                                                                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                                                     subresourceRange);

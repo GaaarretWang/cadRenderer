@@ -157,9 +157,9 @@ public:
 
     void preprocessEnvMap(){
         std::string envmapFilepath = project_path + "asset/data/textures/" + std::to_string(hdr_image_num) + ".hdr";
-        IBL::generateEnvmap(vsgContext, envmapFilepath, 0);
-        IBL::generateIrradianceCube(vsgContext, 0);
-        IBL::generatePrefilteredEnvmapCube(vsgContext, 0);
+        IBL::generateEnvmap(vsgContext, envmapFilepath, -1);
+        IBL::generateIrradianceCube(vsgContext, -1);
+        IBL::generatePrefilteredEnvmapCube(vsgContext, -1);
 
         viewer_IBL->compile();
         bool process_done = false;
@@ -174,11 +174,10 @@ public:
             process_done = true;
         }
         for(int i = 3; i > 0; i--){
-            hdr_image_num = i;
-            std::string envmapFilepath = project_path + "asset/data/textures/" + std::to_string(hdr_image_num) + ".hdr";
-            IBL::generateEnvmap(vsgContext, envmapFilepath, hdr_image_num);
-            IBL::generateIrradianceCube(vsgContext, hdr_image_num);
-            IBL::generatePrefilteredEnvmapCube(vsgContext, hdr_image_num);
+            std::string envmapFilepath = project_path + "asset/data/textures/" + std::to_string(i) + ".hdr";
+            IBL::generateEnvmap(vsgContext, envmapFilepath, i);
+            IBL::generateIrradianceCube(vsgContext, i);
+            IBL::generatePrefilteredEnvmapCube(vsgContext, i);
 
             viewer_IBL->compile();
             bool process_done = false;
@@ -244,7 +243,7 @@ public:
                 directional_light->area = light_data["area"].get<float>();
                 directional_light->intensity = light_data["brightness"].get<float>();
                 auto direction = light_data["direction"].get<std::vector<float>>();
-                directional_light->direction = -vsg::normalize(vsg::vec3(direction[0], -direction[2], direction[1]));
+                directional_light->direction = -vsg::normalize(vsg::vec3(direction[2], direction[0], direction[1]));
                 directional_light->shadowMaps = 1;
                 light_i->addChild(directional_light);
             }

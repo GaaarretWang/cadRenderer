@@ -103,7 +103,7 @@ int RenderingServer::Init(int argc, char** argv){
     vsg::dmat4 plane_transform = vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -0.78, 1);
     // vsg::vec3 light_direction = vsg::normalize(vsg::vec3(0, 1, 0));
     //vsg::vec3 light_direction = vsg::normalize(vsg::vec3(-1.0, 0.2, -1.0));
-    renderer.shadow_recevier_path = rendering_dir + "asset/data/obj/shadow_receiver.obj";
+    renderer.shadow_recevier_path = rendering_dir + "asset/data/obj/shadow_receiver2.obj";
     renderer.shadow_recevier_transform = vsg::dmat4();
     renderer.shader_type = shader_type;
     renderer.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/twoAirplaneBody.fb");
@@ -160,9 +160,9 @@ int RenderingServer::Update(){
     // renderer.updateObjectPose("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", matrix);
     // renderer.repaint("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", 1);
     auto cameralookat = renderer.camera->viewMatrix.cast<vsg::LookAt>();
-    // renderer.updateCamera(vsg::dvec3(0.467534, 1.59309, -0.859118), 
-    //                     vsg::dvec3(0.577326, 1.11943, -0.703542), 
-    //                     vsg::dvec3(-0.287307, 0.238132, 0.927765));
+    // renderer.updateCamera(vsg::dvec3(1, 0, 0), 
+    //                     vsg::dvec3(0, 0, 0), 
+    //                     vsg::dvec3(0, 0, 1));
     if(cameara_pos_bool){//停止位姿变化
         vsg::dvec3 centre = {lookat_vector[0], lookat_vector[1], lookat_vector[2]};                    // 固定观察点
         vsg::dvec3 eye = {lookat_vector[3], lookat_vector[4], lookat_vector[5]};// 固定相机位置
@@ -200,25 +200,25 @@ int RenderingServer::Update(){
 
     
     num++;
-    if(num == 1000)
-    {
-        renderer.hdr_image_num = 2;
-        renderer.updateEnvLighting();
-        std::cout << "update env lighting, hdr_image_num: " << renderer.hdr_image_num << std::endl;
-    }
-    else if(num == 2000)
-    {
-        renderer.hdr_image_num = 3;
-        renderer.updateEnvLighting();
-        std::cout << "update env lighting, hdr_image_num: " << renderer.hdr_image_num << std::endl;
-    }
-    else if(num == 3000)
-    {
-        num = 0;
-        renderer.hdr_image_num = 1;
-        renderer.updateEnvLighting();
-        std::cout << "update env lighting, hdr_image_num: " << renderer.hdr_image_num << std::endl;
-    }
+    // if(num == 200)
+    // {
+    //     renderer.hdr_image_num = 2;
+    //     renderer.updateEnvLighting();
+    //     std::cout << "update env lighting, hdr_image_num: " << renderer.hdr_image_num << std::endl;
+    // }
+    // else if(num == 4000)
+    // {
+    //     renderer.hdr_image_num = 3;
+    //     renderer.updateEnvLighting();
+    //     std::cout << "update env lighting, hdr_image_num: " << renderer.hdr_image_num << std::endl;
+    // }
+    // else if(num == 6000)
+    // {
+    //     num = 0;
+    //     renderer.hdr_image_num = 2;
+    //     renderer.updateEnvLighting();
+    //     std::cout << "update env lighting, hdr_image_num: " << renderer.hdr_image_num << std::endl;
+    // }
     
     frame_count ++;
     // std::cout << "frame_count " << frame_count << std::endl;

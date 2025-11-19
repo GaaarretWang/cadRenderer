@@ -31,6 +31,7 @@ vec3 Uncharted2Tonemap(vec3 color)
 
 void main() 
 {
+	//xyz混乱，改成xyz为右前上。
     vec3 dir = normalize(inUVW);
 	vec3 color = textureLod(samplerEnv, dir, 0).rgb;
 	// outColor = vec4(color, 1.0);
