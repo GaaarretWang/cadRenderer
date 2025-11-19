@@ -13,7 +13,7 @@
 #include "PlaneLoader.h"
 
 #include "fixDepth.h"
-
+#include "json.hpp"
 using namespace std;
 
 class vsgRendererServer
@@ -45,7 +45,8 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::StateGroup> drawIBLSceneNode = vsg::StateGroup::create();
     vsg::ref_ptr<vsg::StateGroup> drawIBLBackgroundNode = vsg::StateGroup::create();
     vsg::ref_ptr<vsg::StateGroup> drawShadowBackgroundNode = vsg::StateGroup::create();
-    vsg::ref_ptr<vsg::Group> lightGroup = vsg::Group::create();
+    std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;
+    vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> hdr_to_light_group_map;
     int hdr_image_num = 1;
 
@@ -217,33 +218,36 @@ public:
     }
 
     void update_directional_lights(){
-        lightGroup->children.clear();
-        // HDR环境光采样
-        HDRLightSampler lightSampler;
-        lightSampler.loadHDRImage(project_path + "asset/data/textures/" + std::to_string(hdr_image_num) + ".hdr");
-        lightSampler.computeLuminanceMap();
-        lightSampler.computeCDF();
-        auto sampledLights = lightSampler.sampleLights(1);
+        curLightGroup->children.clear();
+        curLightGroup->addChild(lightGroups[hdr_image_num]);
+    }
 
+    void init_directional_lights(){
+        std::string json_path = project_path + "asset/LightInfo.json";
+        std::ifstream json_file(json_path);
+        
+        if (!json_file.is_open()) {
+            std::cerr << "错误：无法打开光源配置文件 " << json_path << std::endl;
+            return;
+        }
 
-        //-----------------------------------设置光源----------------------------------//
-        //vsg::ref_ptr<vsg::DirectionalLight> directionalLight; //定向光源 ref_ptr智能指针
-        for (const auto& light : sampledLights)
-        {   
-            vsg::vec3 lightColor = vsg::vec3(light.color[0], light.color[1], light.color[2]);
-            vsg::vec3 lightPosition = vsg::vec3(light.position[0], light.position[1], light.position[2]);
+        json json_data = json::parse(json_file);
+        json_file.close();
 
-            auto pointLight = vsg::DirectionalLight::create();
-            pointLight->color = lightColor;
-            pointLight->intensity = light.intensity;
-            pointLight->direction = vsg::normalize(-lightPosition);
-            pointLight->shadowMaps = 1;
-            
-            auto lightTransform = vsg::MatrixTransform::create();
-            lightTransform->matrix = vsg::translate(lightPosition);
-            lightTransform->addChild(pointLight);
-            
-            lightGroup->addChild(lightTransform);
+        for (auto& [hdr_idx_str, hdr_data] : json_data.items()) {
+            std::cout << hdr_idx_str << std::endl;
+            int hdr_idx = std::stoi(hdr_idx_str);
+            vsg::ref_ptr<vsg::Group> light_i = vsg::Group::create();
+            lightGroups[hdr_idx] = light_i;
+            for (auto& light_data : hdr_data["lights"]) {
+                auto directional_light = vsg::DirectionalLight::create();
+                directional_light->area = light_data["area"].get<float>();
+                directional_light->intensity = light_data["brightness"].get<float>();
+                auto direction = light_data["direction"].get<std::vector<float>>();
+                directional_light->direction = -vsg::normalize(vsg::vec3(direction[0], -direction[2], direction[1]));
+                directional_light->shadowMaps = 1;
+                light_i->addChild(directional_light);
+            }
         }
     }
 
