@@ -57,7 +57,7 @@ layout(set = 0, binding = 7) buffer ViewMatrix{
 
 layout(set=0, binding=8) uniform sampler2D mipPyramid;
 
-layout (local_size_x = 32) in;
+layout (local_size_x = 1024) in;
 
 // 判断包围盒是否完全在视锥外（被某个平面完全遮挡）
 bool isFullyCulled(vec4[8] points, vec4 plane) {

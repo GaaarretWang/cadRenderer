@@ -268,7 +268,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     proto_data->instance_matrix.push_back(transforms_matrix);
                     proto_data->instance_matrix.push_back(modelMatrix);
 
-                    std::cout << "proto_instance_ids[m_i] " << model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i] << std::endl;
+                    // std::cout << "proto_instance_ids[m_i] " << model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i] << std::endl;
                     if(id_to_matrix_index_map.find(model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i]) == id_to_matrix_index_map.end())
                         id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i]] = std::vector<MatrixIndex>();
                     id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i]].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 2));
@@ -277,7 +277,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                         id_to_matrix_index_map[model_instance_name] = std::vector<MatrixIndex>();
                     id_to_matrix_index_map[model_instance_name].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
                 }
-                std::cout << std::endl;
+                // std::cout << std::endl;
             }
         }
     }

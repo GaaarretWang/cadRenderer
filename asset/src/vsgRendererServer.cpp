@@ -590,7 +590,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer});
             auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
             depth_cull_command_graph1->addChild(bindDescriptorSet);
-            depth_cull_command_graph1->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
+            depth_cull_command_graph1->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 700 + 1, 1, 1));
 
             auto indirectBarrier = vsg::BufferMemoryBarrier::create(
                 VK_ACCESS_SHADER_WRITE_BIT,
@@ -606,15 +606,15 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         depth_cull_command_graph1->addChild(Pass1CullToPass1Barrier);
     }
 
+    struct ComputePushConstants {
+        uint32_t width;
+        uint32_t height;
+        char padding[8];
+    };
     {
         vsg::DescriptorSetLayoutBindings descriptorBindings{
             {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
             {1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-        };
-        struct ComputePushConstants {
-            uint32_t width;
-            uint32_t height;
-            char padding[8];
         };
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
         auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, 
@@ -773,7 +773,10 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             {8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
         };
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-        auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
+        auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, 
+                vsg::PushConstantRanges{
+                    {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants)} // projection, view, and model matrices, actual push constant calls automatically provided by the VSG's RecordTraversal
+                });
 
         auto Pass2CullToPass2Barrier = vsg::PipelineBarrier::create(
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -783,10 +786,28 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex1.comp", options);
         auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
         auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
+        auto computeShader_seat = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex1_seat.comp", options);
+        auto pipeline_seat = vsg::ComputePipeline::create(pipelineLayout, computeShader_seat);
+        auto bindPipeline_seat = vsg::BindComputePipeline::create(pipeline_seat);
         depth_pyramid_CommandGraph->addChild(bindPipeline);
+        auto pcData1 = vsg::Value<ComputePushConstants>::create(ComputePushConstants{extent.width, extent.height});
+        depth_pyramid_CommandGraph->addChild(vsg::PushConstants::create(
+            VK_SHADER_STAGE_COMPUTE_BIT,
+            0,
+            pcData1
+        ));
 
+        auto pre_pipeline = bindPipeline;
         for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
             ProtoData* proto_data = proto_data_itr.second;
+            if(proto_data->instance_matrix.size() / 2 > 32 && pre_pipeline == bindPipeline){
+                depth_pyramid_CommandGraph->addChild(bindPipeline_seat);
+                pre_pipeline = bindPipeline_seat;
+            }
+            else if(proto_data->instance_matrix.size() / 2 <= 32 && pre_pipeline == bindPipeline_seat){
+                depth_pyramid_CommandGraph->addChild(bindPipeline);
+                pre_pipeline = bindPipeline;
+            }
             auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
                                                                                 proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info, 
                                                                                 proto_data->output_instance_buffer_info, camera_plane_info_buffer_info, 
@@ -795,7 +816,10 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer, storageImage});
             auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
             depth_pyramid_CommandGraph->addChild(bindDescriptorSet);
-            depth_pyramid_CommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
+            if(proto_data->instance_matrix.size() / 2 > 32)
+                depth_pyramid_CommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 700 + 1, 1, 1));
+            else
+                depth_pyramid_CommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
             auto indirectBarrier = vsg::BufferMemoryBarrier::create(
                 VK_ACCESS_SHADER_WRITE_BIT,
                 VK_ACCESS_INDIRECT_COMMAND_READ_BIT,

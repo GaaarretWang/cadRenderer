@@ -61,7 +61,7 @@ layout(push_constant) uniform PushConstants {
     ivec2 size;
 } pc;
 
-layout (local_size_x = 32) in;
+layout (local_size_x = 700) in;
 
 // 判断包围盒是否完全在视锥外（被某个平面完全遮挡）
 bool isFullyCulled(vec4[8] points, vec4 plane) {
@@ -73,11 +73,11 @@ bool isFullyCulled(vec4[8] points, vec4 plane) {
     return true; // 所有点都在平面外侧，完全被遮挡
 }
 
-float sub_sample_count = 1;
-#define compare_image_size 12
+#define compare_image_size 4
 #define compare_image_size_square (compare_image_size) * (compare_image_size)
+#define compare_image_size_square_1 (compare_image_size + 1) * (compare_image_size + 1)
 
-void rasterize(vec3 p0, vec3 p1, vec3 p2, inout float out_surface[compare_image_size_square]) {
+void rasterize(vec3 p0, vec3 p1, vec3 p2, inout float out_surface[compare_image_size_square_1]) {
     // 剔除任一顶点深度<0的三角形（超出近平面）
     if (p0.z < 0.0f || p1.z < 0.0f || p2.z < 0.0f) return;
 
@@ -85,11 +85,11 @@ void rasterize(vec3 p0, vec3 p1, vec3 p2, inout float out_surface[compare_image_
     vec3 p20 = p2 - p0;
     float det = p20.x * p10.y - p20.y * p10.x;
     // 剔除顺时针绕组的三角形（仅处理逆时针三角形）
-    if (det >= 0.0f) return;
+    // if (det >= 0.0f) return;
 
     // 计算三角形覆盖的像素范围（浮点数坐标）
-    vec2 min_p = vec2(1 / (sub_sample_count * 2));
-    vec2 max_p = vec2(compare_image_size) - min_p;
+    vec2 min_p = vec2(0);
+    vec2 max_p = vec2(compare_image_size) + vec2(0.01);
 
     // 计算重心坐标的微分（用于逐像素快速计算）
     vec2 texcoord_dx = vec2(-p20.y, p10.y) / det;
@@ -100,9 +100,9 @@ void rasterize(vec3 p0, vec3 p1, vec3 p2, inout float out_surface[compare_image_
     vec2 texcoord_y = texcoord_dy * (min_p.y - p0.y);
 
     // 逐行逐像素遍历覆盖区域（仅遍历 0/1 两个像素坐标）
-    for (float y = min_p.y; y <= max_p.y; y += 1 / sub_sample_count) {
+    for (float y = min_p.y; y <= max_p.y; y += 1) {
         vec2 texcoord = texcoord_x + texcoord_y;
-        for (float x = min_p.x; x <= max_p.x; x += 1 / sub_sample_count) {
+        for (float x = min_p.x; x <= max_p.x; x += 1) {
             // 判断像素是否在三角形内部（重心坐标有效性）
             if (texcoord.x >= 0.0f && texcoord.y >= 0.0f && texcoord.x + texcoord.y <= 1.0f) {
                 // 重心坐标插值计算当前像素的深度值
@@ -111,16 +111,16 @@ void rasterize(vec3 p0, vec3 p1, vec3 p2, inout float out_surface[compare_image_
                 // 计算数组索引：2x2 像素 → index = y*2 + x（x/y 取整后为 0 或 1）
                 uint x_idx = uint(x);
                 uint y_idx = uint(y);
-                uint index = y_idx * compare_image_size + x_idx;
+                uint index = y_idx * (compare_image_size + 1) + x_idx;
                 
                 // 原子操作：保留该像素的最大深度（避免多三角形覆盖时的竞争问题）
                 out_surface[index] = max(out_surface[index], z);
             }
             // 沿x方向更新重心坐标
-            texcoord += texcoord_dx / sub_sample_count;
+            texcoord += texcoord_dx;
         }
         // 沿y方向更新重心坐标
-        texcoord_y += texcoord_dy / sub_sample_count;
+        texcoord_y += texcoord_dy;
     }
 }
 
@@ -201,57 +201,46 @@ void main() {
 
         // 计算Mip Level（取最大边长的对数）
         float maxCoverage = max(uvWidth, uvHeight);
-        int mipLevel = int(floor(log2(maxCoverage)));
+        int mipLevel = int(ceil(log2(maxCoverage / compare_image_size)));
         mipLevel = clamp(mipLevel, 0, 8);
+        float mip_scale = pow(2.0, -mipLevel);
+        ivec2 begin_pixel = ivec2(floor(uv_min.xy * mip_scale * imageSize));  // 起始像素坐标（向下取整后转整数）
 
 
-        float level_lower, scale;
-        ivec2 a, b, dims = ivec2(1);
-        for(int i = 0; i < sqrt(compare_image_size * 1.0); ++i){
-            level_lower = float(max(mipLevel - 1, 0)); 
-            scale = pow(2.0, -level_lower);
-            a = ivec2(floor(uv_min.xy * scale * imageSize));  // 起始像素坐标（向下取整后转整数）
-            b = ivec2(floor(uv_max.xy * scale * imageSize)) + 1;  // 结束像素坐标（向下取整+1，转整数）
-            dims = b - a;  // 整数类型的尺寸（单位：像素）
-            if (dims.x <= compare_image_size && dims.y <= compare_image_size)
-                mipLevel = int(level_lower);
-            else
-                break;
-        }
-        scale = pow(2.0, -mipLevel);
-        a = ivec2(floor(uv_min.xy * scale * imageSize));  // 起始像素坐标（向下取整后转整数）
-        b = ivec2(ceil(uv_max.xy * scale * imageSize));  // 结束像素坐标（向下取整+1，转整数）
+        // float level_lower, scale;
+        // ivec2 a, b, dims = ivec2(1);
+        // for(int i = 0; i < sqrt(compare_image_size * 1.0); ++i){
+        //     level_lower = float(max(mipLevel - 1, 0)); 
+        //     scale = pow(2.0, -level_lower);
+        //     a = ivec2(floor(uv_min.xy * scale * imageSize));  // 起始像素坐标（向下取整后转整数）
+        //     b = ivec2(floor(uv_max.xy * scale * imageSize)) + 1;  // 结束像素坐标（向下取整+1，转整数）
+        //     dims = b - a;  // 整数类型的尺寸（单位：像素）
+        //     if (dims.x <= compare_image_size && dims.y <= compare_image_size)
+        //         mipLevel = int(level_lower);
+        //     else
+        //         break;
+        // }
+        // scale = pow(2.0, -mipLevel);
+        // a = ivec2(floor(uv_min.xy * scale * imageSize));  // 起始像素坐标（向下取整后转整数）
+        // b = ivec2(ceil(uv_max.xy * scale * imageSize));  // 结束像素坐标（向下取整+1，转整数）
 
-        float bbox_depth_grid[compare_image_size_square];
-        for (int i = 0; i < compare_image_size_square; i++) {
-            bbox_depth_grid[i] = 0.0f;
-        }
-
-        InstanceData out_data;
-        for(int i = 0; i < 8; ++i){
-            ivec2 delta = ivec2(floor(ndcs[i].xy * scale * imageSize) - a);
-            int index = delta.y * compare_image_size + delta.x;
-            index = max(min(compare_image_size_square - 1, index), 0);
-            bbox_depth_grid[index] = max(bbox_depth_grid[index], ndcs[i].z);
-        }
-
-        vec2 scale1 = imageSize / pow(2.0, mipLevel);
+        vec2 pixel_scale = imageSize * mip_scale;
         float render_depths[compare_image_size_square];
         for (int i = 0; i < compare_image_size; i++) {
             for (int j = 0; j < compare_image_size; j++) {
-                vec2 mipUV = (vec2(a.x + 0.5f + j, a.y + 0.5f + i)) / scale1;
+                vec2 mipUV = vec2(begin_pixel.x + 0.5f + j, begin_pixel.y + 0.5f + i) / pixel_scale;
                 render_depths[i * compare_image_size + j] = textureLod(mipPyramid, mipUV, mipLevel).x;
             }
         }
 
         vec3 screenPoints[8];
         for (int i = 0; i < 8; i++) {
-            screenPoints[i].xy = ndcs[i].xy * scale * imageSize - a;
+            screenPoints[i].xy = ndcs[i].xy * mip_scale * imageSize - begin_pixel;
             screenPoints[i].z = ndcs[i].z;
         }
 
-        float out_surface[compare_image_size_square];
-        for (int i = 0; i < compare_image_size_square; i++) {
+        float out_surface[compare_image_size_square_1];
+        for (int i = 0; i < compare_image_size_square_1; i++) {
             out_surface[i] = 0.0f;
         }
         rasterize(screenPoints[0], screenPoints[2], screenPoints[6], out_surface); // 三角形 0-2-6（逆时针）
@@ -267,21 +256,38 @@ void main() {
         rasterize(screenPoints[2], screenPoints[3], screenPoints[7], out_surface); // 三角形 2-3-7（逆时针）
         rasterize(screenPoints[2], screenPoints[7], screenPoints[6], out_surface); // 三角形 2-7-6（逆时针）
 
-        float theta = 0.000001;
-        for(int i = 0; i < compare_image_size_square; ++i){
-            out_surface[i] = max(out_surface[i], bbox_depth_grid[i]);
+        float final_depth[compare_image_size_square];
+        for (int i = 0; i < compare_image_size; i++) {
+            for (int j = 0; j < compare_image_size; j++) {
+                float depth_0 = out_surface[i * (compare_image_size + 1) + j];
+                float depth_1 = out_surface[i * (compare_image_size + 1) + (j + 1)];
+                float depth_2 = out_surface[(i + 1) * (compare_image_size + 1) + j];
+                float depth_3 = out_surface[(i + 1) * (compare_image_size + 1) + (j + 1)];
+                
+                final_depth[i * compare_image_size + j] = max(depth_0, max(depth_1, max(depth_2, depth_3)));
+            }
         }
+
+        for(int i = 0; i < 8; ++i){
+            ivec2 delta = ivec2(floor(ndcs[i].xy * mip_scale * imageSize) - begin_pixel);
+            int index = delta.y * compare_image_size + delta.x;
+            if(index > 0 && index < compare_image_size_square)
+                final_depth[index] = max(final_depth[index], ndcs[i].z);
+        }
+
         bool depth_culled = true;
         for(int i = 0; i < compare_image_size_square; ++i){
-            if(out_surface[i] - theta > render_depths[i])
+            if(final_depth[i] > render_depths[i])
                 depth_culled = false;
         }
+        
 
         if(!depth_culled){
             inHighlightData.data[instanceIndex].z = 1;
             if(inHighlightData.data[instanceIndex].y == 0){
                 uint prevCount = atomicAdd(outIndirect.instanceCount, 1);
                 MatrixData cur_data = inIndirectMatrix.instanceModelMatrix[instanceIndex];
+                InstanceData out_data;
                 out_data.modelMatrix = cur_data.modelMatrix * cur_data.protoMatrix;
                 out_data.highlight[0].x = inHighlightData.data[instanceIndex].x;
                 outIndirectMatrix.instanceModelMatrix[prevCount] = out_data;
