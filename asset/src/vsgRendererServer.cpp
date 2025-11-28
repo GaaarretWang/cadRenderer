@@ -357,7 +357,10 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             transfer_model->preprocessFBProtoData(path_i, texture_path_i.c_str(), model_transforms[i], IBL::customPbrShaderSet(options), modelGroup, instance_names[i]);
         }
     }
-    CADMesh::buildDrawData(pbriblShaderSet, modelGroup); //读取obj文件
+    newmatrix = vsg::mat4Array::create(2);
+    vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
+                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, newmatrix);
+    CADMesh::buildDrawData(pbriblShaderSet, modelGroup, pc); //读取obj文件
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup); //读取obj文件
     CADMesh::buildDynamicPointsData(point_shader, wireframeGroup); //读取obj文件
     CADMesh::buildDynamicTextsData(textGroup, options, project_path + "asset/data/fonts/times.vsgt"); //读取obj文件
@@ -407,8 +410,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT |     // 可能需要mipmap生成
                                 VK_IMAGE_USAGE_TRANSFER_DST_BIT;      // 可能需要初始化
     depthPyramidImage->initialLayout = VK_IMAGE_LAYOUT_GENERAL;
-    depthPyramidImage->extent.width = window->extent2D().width;
-    depthPyramidImage->extent.height = window->extent2D().height;
+    depthPyramidImage->extent.width = extent.width;
+    depthPyramidImage->extent.height = extent.height;
     depthPyramidImage->extent.depth = 1;
 
 
@@ -456,10 +459,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     clearDepth1->depthStencil = {0.0f, 0};
     clearDepth1->ranges = {range};
 
-    newmatrix = vsg::mat4Array::create(2);
-    vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
-                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, newmatrix);
-    commandGraph->addChild(pc);
     if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
         commandGraph->addChild(clearDepth);
     commandGraph->addChild(clearDepth1);
@@ -479,6 +478,11 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto depth_pyramid_CommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
     commandGraph1->addChild(depth_pyramid_CommandGraph);
     commandGraph1->addChild(renderGraph1);
+    viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
+    viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
+    viewer->addEventHandler(vsg::Trackball::create(camera));
+    viewer->assignRecordAndSubmitTaskAndPresentation({computeCommandGraphShadow, commandGraph, commandGraph1});
+    viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
 
 
     {
@@ -644,12 +648,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                 VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}
             );
 
-            auto pcData = vsg::Value<ComputePushConstants>::create(ComputePushConstants{extent.width, extent.height});
-            depth_pyramid_CommandGraph->addChild(vsg::PushConstants::create(
-                VK_SHADER_STAGE_COMPUTE_BIT,
-                0,
-                pcData
-            ));
             depth_pyramid_CommandGraph->addChild(vsg::PipelineBarrier::create(
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
@@ -660,6 +658,12 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
             auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
             depth_pyramid_CommandGraph->addChild(bindPipeline);
+            auto pcData = vsg::Value<ComputePushConstants>::create(ComputePushConstants{extent.width, extent.height});
+            depth_pyramid_CommandGraph->addChild(vsg::PushConstants::create(
+                VK_SHADER_STAGE_COMPUTE_BIT,
+                0,
+                pcData
+            ));
 
             auto storageImage = vsg::DescriptorImage::create(vsg::ImageInfoList{depthPyramidImageInfo, framebuffer_depthImageInfo}, 0);
             auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageImage});
@@ -680,7 +684,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
             depth_pyramid_CommandGraph->addChild(vsg::PipelineBarrier::create(
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                 0, barrier1
             ));
 
@@ -689,17 +693,16 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
         for(uint32_t i = 1; i < 7; i ++)
         {
-            auto pcData = vsg::Value<ComputePushConstants>::create(ComputePushConstants{extent.width >> i - 1, extent.height >> i - 1});
+            auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex_depthpyramid.comp", options);
+            auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
+            auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
+            depth_pyramid_CommandGraph->addChild(bindPipeline);
+            auto pcData = vsg::Value<ComputePushConstants>::create(ComputePushConstants{extent.width >> i, extent.height >> i});
             depth_pyramid_CommandGraph->addChild(vsg::PushConstants::create(
                 VK_SHADER_STAGE_COMPUTE_BIT,
                 0,
                 pcData
             ));
-
-            auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex_depthpyramid.comp", options);
-            auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
-            auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
-            depth_pyramid_CommandGraph->addChild(bindPipeline);
 
             auto i_image_view = vsg::ImageView::create(depthPyramidImage);
             i_image_view->subresourceRange.baseMipLevel = i;
@@ -709,8 +712,9 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             i1_image_view->subresourceRange.baseMipLevel = i - 1;
             i1_image_view->subresourceRange.levelCount = 1;
             auto i1_depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, i1_image_view);
-            auto storageImage = vsg::DescriptorImage::create(vsg::ImageInfoList{i_depthPyramidImageInfo, i1_depthPyramidImageInfo}, 0);
-            auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageImage});
+            auto storageImage0 = vsg::DescriptorImage::create(vsg::ImageInfoList{i_depthPyramidImageInfo}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+            auto storageImage1 = vsg::DescriptorImage::create(vsg::ImageInfoList{i1_depthPyramidImageInfo}, 1, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+            auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageImage0, storageImage1});
             auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
             depth_pyramid_CommandGraph->addChild(bindDescriptorSet);
             uint32_t mipWidth = std::max(1u, extent.width >> i);
@@ -734,7 +738,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
             depth_pyramid_CommandGraph->addChild(vsg::PipelineBarrier::create(
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
+                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                 0, barrier
             ));
         }
@@ -754,7 +758,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
         depth_pyramid_CommandGraph->addChild(vsg::PipelineBarrier::create(
             VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,  // 前序阶段：金字塔生成的计算阶段
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,  // 后续阶段：剔除的计算阶段
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,  // 后续阶段：剔除的计算阶段
             0,
             pyramidFinalBarrier
         ));
@@ -833,15 +837,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         }
         depth_pyramid_CommandGraph->addChild(Pass2CullToPass2Barrier);
     }
-
-    viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
-    viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
-    viewer->addEventHandler(vsg::Trackball::create(camera));
-
-
-
-    viewer->assignRecordAndSubmitTaskAndPresentation({computeCommandGraphShadow, commandGraph, commandGraph1});
-    // viewer->setupThreading();
     viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
     // std::cout << "4" << std::endl;
     final_screenshotHandler = ScreenshotHandler::create(window, extent, ENCODER);

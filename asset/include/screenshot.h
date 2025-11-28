@@ -13,12 +13,13 @@ class ScreenshotHandler : public vsg::Inherit<vsg::Visitor, ScreenshotHandler>
 public:
     int mFrameCount = 0;
     NvEncoderWrapper* m_encoder = nullptr;
+    VkExtent2D m_extent;
     //构造函数
     ScreenshotHandler()
     {
     }
 
-    ScreenshotHandler(vsg::ref_ptr<vsg::Window> window, VkExtent2D extent, ScreenshotHandlerType type)
+    ScreenshotHandler(vsg::ref_ptr<vsg::Window> window, VkExtent2D extent, ScreenshotHandlerType type): m_extent(extent)
     {
         if(type != NONE){
             m_encoder = new NvEncoderWrapper();

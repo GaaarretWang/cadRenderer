@@ -440,7 +440,7 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
     }
 }
 
-void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene){
+void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::PushConstants> pc){
     for(auto& proto_data_itr : proto_id_to_data_map){
         ProtoData* proto_data = proto_data_itr.second;
         if(! proto_data->back_cull){
@@ -542,6 +542,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
 
         auto stateGroup = vsg::StateGroup::create();
         graphicsPipelineConfig->copyTo(stateGroup);
+        stateGroup->add(pc);
         stateGroup->addChild(drawCommands);
         proto_data->scene->addChild(stateGroup);
     }

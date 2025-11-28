@@ -1053,13 +1053,6 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
 
     // CommandGraph to hold the different RenderGraphs used to render each view
     auto commandGraph = vsg::CommandGraph::create(vsgContext.device, vsgContext.queueFamily);
-    vsg::ref_ptr<vsg::mat4Array> newmatrix = vsg::mat4Array::create(2);
-    vsg::ref_ptr<vsg::Camera> tmp_camera = vsg::Camera::create();
-    newmatrix->set(0, (vsg::mat4)tmp_camera->projectionMatrix->transform());
-    newmatrix->set(1, (vsg::mat4)tmp_camera->viewMatrix->transform());
-    vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
-                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, newmatrix);
-    commandGraph->addChild(pc);
     VkImageSubresourceRange fbSubresRange = {};
     fbSubresRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     fbSubresRange.baseArrayLayer = 0;
@@ -1120,6 +1113,14 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
         // sit behind two matrix4x4 pushed by vsg::Camera here
         //bindStates->add(PushConstants::create(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, projMatValue));
         //bindStates->add(PushConstants::create(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 64, viewMatValues[f]));
+        vsg::ref_ptr<vsg::mat4Array> newmatrix = vsg::mat4Array::create(2);
+        vsg::ref_ptr<vsg::Camera> tmp_camera = vsg::Camera::create();
+        newmatrix->set(0, (vsg::mat4)tmp_camera->projectionMatrix->transform());
+        newmatrix->set(1, (vsg::mat4)tmp_camera->viewMatrix->transform());
+        vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
+                    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, newmatrix);
+        bindStates->add(pc);
+
         bindStates->add(PushConstants::create(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, faceIdx));
         // fullscreen quad
         auto drawFullscreenQuad = vsg::Draw::create(3, 1, 0, 0);
@@ -1884,7 +1885,7 @@ vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options>
     // additional defines
     shaderSet->optionalDefines = {"VSG_GREYSCALE_DIFFUSE_MAP", "VSG_TWO_SIDED_LIGHTING"};
 
-    shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
+    shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 256);
 
     shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_INSTANCE_POSITIONS", "VSG_DISPLACEMENT_MAP"}, vsg::PositionAndDisplacementMapArrayState::create()});
     shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_INSTANCE_POSITIONS"}, vsg::PositionArrayState::create()});

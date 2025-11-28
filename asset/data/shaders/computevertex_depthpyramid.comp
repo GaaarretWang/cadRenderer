@@ -12,7 +12,7 @@ layout(local_size_x = 32, local_size_y = 32) in;
 
 void main() {
     ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-    if (coord.x * 2 + 2 > pc.size.x || coord.y * 2 + 2 > pc.size.y) return;
+    if (coord.x >= pc.size.x || coord.y >= pc.size.y) return;
 
     // 从上一层级取4个像素
     ivec2 src_coord = coord * 2;

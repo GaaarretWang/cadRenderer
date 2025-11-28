@@ -11,7 +11,7 @@ int RenderingServer::Init(int argc, char** argv){
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
     init_model_transforms.push_back(vsg::dmat4(0.0001, 0, 0, 0, 0, 0.0001, 0, 0, 0, 0, 0.0001, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
-    int model_num = 5;
+    int model_num = 1;
     for(int i = 0; i < model_num; ++i)
         // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006 + i % 10 * 0.1, 1.01482 + i / 10 * 0.1, -0.6, 1) * init_model_transforms[0]
         //                            * vsg::dmat4(
@@ -64,12 +64,12 @@ int RenderingServer::Init(int argc, char** argv){
     // model_paths.push_back(rendering_dir + "asset/data/geos/SeatPart.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/LandingGear.fb");
     model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoAirplaneBody.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoEngine.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoLandingGear.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/1118/twoSeatPartV5.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart_small.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/1105/window.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoEngine.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoLandingGear.fb");
+    // // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/1118/twoSeatPartV5.fb");
+    // // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart_small.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/window.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/Engine.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/plane1.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/plane2.fb");

@@ -12,7 +12,7 @@
 #include <future>
 #include <memory>
 #include <stdexcept>
-#define RENDER_TEST
+// #define RENDER_TEST
 // simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
 ImagePair loadImagePair(const std::string& timestamp, ConvertImage* converter) {
