@@ -387,8 +387,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     // renderGraph->addChild(renderImGui);
     auto commandGraph = vsg::CommandGraph::create(window);
     auto commandGraph1 = vsg::CommandGraph::create(window);
-    commandGraph->addChild(pc);
-    commandGraph1->addChild(pc);
     auto view1 = vsg::View::create(camera, scenegraph_safe);
     // view->features = vsg::RECORD_LIGHTS;
     view1->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER;
