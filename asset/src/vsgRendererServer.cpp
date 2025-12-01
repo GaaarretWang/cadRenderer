@@ -357,7 +357,10 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             transfer_model->preprocessFBProtoData(path_i, texture_path_i.c_str(), model_transforms[i], IBL::customPbrShaderSet(options), modelGroup, instance_names[i]);
         }
     }
-    CADMesh::buildDrawData(pbriblShaderSet, modelGroup); //读取obj文件
+    newmatrix = vsg::mat4Array::create(2);
+    vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
+                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, newmatrix);
+    CADMesh::buildDrawData(pbriblShaderSet, modelGroup, pc); //读取obj文件
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup); //读取obj文件
     CADMesh::buildDynamicPointsData(point_shader, wireframeGroup); //读取obj文件
     CADMesh::buildDynamicTextsData(textGroup, options, project_path + "asset/data/fonts/times.vsgt"); //读取obj文件
@@ -845,6 +848,14 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 }
 
 bool vsgRendererServer::render() {
+    newmatrix->set(0, (vsg::mat4)camera->viewMatrix->inverse());
+    if (camera->viewMatrix->is_compatible(typeid(vsg::LookAt))){
+        vsg::LookAt* lookAt = dynamic_cast<vsg::LookAt*>(camera->viewMatrix.get());
+        vsg::mat4 data = {};
+        data[0] = vsg::vec4(lookAt->eye, 0.0f);
+        newmatrix->set(1, data);
+    }
+    newmatrix->dirty();
     camera_matrix->set(0, (vsg::mat4)camera->viewMatrix->transform());
     camera_matrix->set(1, vsg::mat4(camera->projectionMatrix->transform() * camera->viewMatrix->transform()));
     camera_matrix->dirty();

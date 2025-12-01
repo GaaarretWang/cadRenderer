@@ -78,6 +78,8 @@ class vsgRendererServer
     int encode_width;
     int encode_height;
 
+    vsg::ref_ptr<vsg::mat4Array> newmatrix;
+
     vsg::ref_ptr<vsg::Data> vsg_color_image;
     vsg::ref_ptr<vsg::Data> vsg_depth_image;
     vsg::ImageInfoList camera_info;

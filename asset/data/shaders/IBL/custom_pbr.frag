@@ -724,7 +724,7 @@ void main()
     vec3 worldN = getWorldNormal();
     mat4 cameraData = pc.cameraData;
     vec3 worldCamPos = vec3(cameraData[0][0], cameraData[0][1], cameraData[0][2]);
-    vec3 worldV = normalize(worldViewDir);    
+    vec3 worldV = normalize(worldCamPos - worldViewDir);    
 
     vec3 color = vec3(0.0, 0.0, 0.0);
     vec4 lightNums = lightData.values[0];
@@ -736,11 +736,11 @@ void main()
     , clearcoatRoughness, clearcoatMetallic, clearcoatEnvR0, clearcoatEnvR90, clearcoatDiffuseColor);
     color += iblColor * envmapData.param.a;
 
-    float scene_brightness;
+    float scene_brightness = 1.0f;
     if (numDirectionalLights>0){
         int shadowMapIndex = 0;
-        float totalBrigtness = 0.0f;
-        float totalRealBrightness = 0.0f;
+        float totalBrigtness = 2.0f;
+        float totalRealBrightness = 2.0f;
         for(int i = 0; i<numDirectionalLights; ++i){
             vec4 lightColor = lightData.values[index++];
             float area = lightData.values[index].w;
@@ -774,7 +774,6 @@ void main()
         }
         scene_brightness = totalRealBrightness / totalBrigtness;
     }
-    scene_brightness = scene_brightness * 0.5 + 0.5;
 
     float exposure = 3.0f;
     color = Uncharted2Tonemap(color * scene_brightness * exposure);
