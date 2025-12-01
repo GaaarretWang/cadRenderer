@@ -357,10 +357,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             transfer_model->preprocessFBProtoData(path_i, texture_path_i.c_str(), model_transforms[i], IBL::customPbrShaderSet(options), modelGroup, instance_names[i]);
         }
     }
-    newmatrix = vsg::mat4Array::create(2);
-    vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
-                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, newmatrix);
-    CADMesh::buildDrawData(pbriblShaderSet, modelGroup, pc); //读取obj文件
+    CADMesh::buildDrawData(pbriblShaderSet, modelGroup); //读取obj文件
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup); //读取obj文件
     CADMesh::buildDynamicPointsData(point_shader, wireframeGroup); //读取obj文件
     CADMesh::buildDynamicTextsData(textGroup, options, project_path + "asset/data/fonts/times.vsgt"); //读取obj文件
@@ -516,7 +513,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                 computeCommandGraphShadow->addChild(bindDescriptorSet);
                 computeCommandGraphShadow->addChild(vsg::Dispatch::create(1, 1, 1));
                 auto indirect_draw_barrier = vsg::BufferMemoryBarrier::create(
-                    VK_ACCESS_SHADER_WRITE_BIT,
+                    VK_ACCESS_NONE,
                     VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
                     VK_QUEUE_FAMILY_IGNORED,
                     VK_QUEUE_FAMILY_IGNORED,
@@ -525,7 +522,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                     VK_WHOLE_SIZE
                 );
                 auto instance_data_barrier = vsg::BufferMemoryBarrier::create(
-                    VK_ACCESS_SHADER_WRITE_BIT,
+                    VK_ACCESS_NONE,
                     VK_ACCESS_UNIFORM_READ_BIT, 
                     VK_QUEUE_FAMILY_IGNORED,
                     VK_QUEUE_FAMILY_IGNORED,
@@ -839,21 +836,15 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     }
     viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
     // std::cout << "4" << std::endl;
-    final_screenshotHandler = ScreenshotHandler::create(window, extent, ENCODER);
-    screenshotHandler = ScreenshotHandler::create();        
+    VkExtent2D encode_extent = {};
+    encode_extent.width = encode_width;
+    encode_extent.height = encode_height;
+    final_screenshotHandler = ScreenshotHandler::create(window, extent, encode_extent, ENCODER);
     allocate_fix_depth_memory(render_width, render_height);
     std::cout << "4" << std::endl;
 }
 
 bool vsgRendererServer::render() {
-    newmatrix->set(0, (vsg::mat4)camera->viewMatrix->inverse());
-    if (camera->viewMatrix->is_compatible(typeid(vsg::LookAt))){
-        vsg::LookAt* lookAt = dynamic_cast<vsg::LookAt*>(camera->viewMatrix.get());
-        vsg::mat4 data = {};
-        data[0] = vsg::vec4(lookAt->eye, 0.0f);
-        newmatrix->set(1, data);
-    }
-    newmatrix->dirty();
     camera_matrix->set(0, (vsg::mat4)camera->viewMatrix->transform());
     camera_matrix->set(1, vsg::mat4(camera->projectionMatrix->transform() * camera->viewMatrix->transform()));
     camera_matrix->dirty();

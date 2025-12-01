@@ -18,7 +18,7 @@
 #include <cuda_runtime.h>
 #include "NvEncoderCuda.h"
 #include "ColorSpace.h"
-
+#include "upscaleImage.h"
 // #include "NvEncoderCLIOptions.h"
 
 class Cudactx
@@ -123,24 +123,29 @@ public:
     vsg::ref_ptr<vsg::Image> decode_image;
     Cudaimage* decode_cuimage;
     vsg::ref_ptr<vsg::Image> output_image;
+    CUdeviceptr d_cuda_input = 0;
+    CUdeviceptr d_cuda_output = 0;
+    VkExtent2D m_extent;
+    VkExtent2D m_encode_extent;
 
-    void initEncoder(VkExtent2D extent)
+    void initEncoder(VkExtent2D extent, VkExtent2D encode_extent)
     {
         mWidth = extent.width;
         mHeight = extent.height;
-        
+        m_extent = extent;
+        m_encode_extent = encode_extent;
         // NvEncoderInitParam encodeCLIOptions;
         // NvEncoderInitParam* pEncodeCLIOptions = &encodeCLIOptions;
         CUcontext cuContext = cudaContext->get();
-        enc = new NvEncoderCuda(cuContext, extent.width, extent.height, eFormat, 0);
-        std::cout << extent.width << extent.height << std::endl;
+        enc = new NvEncoderCuda(cuContext, encode_extent.width, encode_extent.height, eFormat, 0);
+        std::cout << encode_extent.width << encode_extent.height << std::endl;
         NV_ENC_INITIALIZE_PARAMS initializeParams = { NV_ENC_INITIALIZE_PARAMS_VER };
         NV_ENC_CONFIG encodeConfig = { NV_ENC_CONFIG_VER };
         initializeParams.encodeConfig = &encodeConfig;
         enc->CreateDefaultEncoderParams(&initializeParams, NV_ENC_CODEC_H264_GUID, NV_ENC_PRESET_P1_GUID,
                     NV_ENC_TUNING_INFO_ULTRA_LOW_LATENCY);
-        initializeParams.encodeWidth = extent.width;                     /**< [in]: Specifies the encode width. If not set ::NvEncInitializeEncoder() API will fail. */
-        initializeParams.encodeHeight = extent.height;                    /**< [in]: Specifies the encode height. If not set ::NvEncInitializeEncoder() API will fail. */
+        initializeParams.encodeWidth = encode_extent.width;                     /**< [in]: Specifies the encode width. If not set ::NvEncInitializeEncoder() API will fail. */
+        initializeParams.encodeHeight = encode_extent.height;                    /**< [in]: Specifies the encode height. If not set ::NvEncInitializeEncoder() API will fail. */
 
         encodeConfig.gopLength = NVENC_INFINITE_GOPLENGTH;
         encodeConfig.frameIntervalP = 1;
@@ -190,6 +195,11 @@ public:
         auto encodeBufferSize = encode_destination_image->getMemoryRequirements(device->deviceID).size;            
         std::cout << "bufferSize = " << encodeBufferSize << std::endl;
         encode_destination_cuimage = new Cudaimage(encode_destination_image, device, encodeBufferSize, extent);
+
+        size_t cuda_input_size = static_cast<size_t>(extent.width) * extent.height * 4;
+        cudaMalloc((void**)&d_cuda_input, cuda_input_size);
+        size_t cuda_output_size = static_cast<size_t>(encode_extent.width) * encode_extent.height * 4;
+        cudaMalloc((void**)&d_cuda_output, cuda_output_size);
     }
 
     void initDecoder(VkExtent2D extent) {
@@ -258,9 +268,27 @@ public:
         const NvEncInputFrame* encoderInputFrame =  enc->GetNextInputFrame();
         CUdeviceptr encode_deviceptr = encode_destination_cuimage->get();
 
+        cudaMemcpy(
+            (void*)d_cuda_input,        // 目标：CUDA 输入内存
+            (void*)encode_deviceptr,    // 源：Vulkan 导出的 CUDA 可访问指针
+            static_cast<size_t>(m_extent.width * m_extent.height * 4),            // 拷贝大小（原始图像总字节数：original_extent.w * original_extent.h * 4）
+            cudaMemcpyDeviceToDevice    // 拷贝类型：GPU 设备内存→GPU 设备内存
+        );
+
+        cudaUpsampleImage(
+            (const uint8_t*)d_cuda_input,
+            (uint8_t*)d_cuda_output,
+            m_extent.width,
+            m_extent.height,
+            m_encode_extent.width,
+            m_encode_extent.height
+        );
+
+        cudaDeviceSynchronize();
+
         CUcontext cuContext = cudaContext->get();
         NvEncoderCuda::CopyToDeviceFrame(cuContext,
-            (void*)encode_deviceptr,
+            (void*)d_cuda_output,
             0, 
             (CUdeviceptr)encoderInputFrame->inputPtr,
             (int)encoderInputFrame->pitch,

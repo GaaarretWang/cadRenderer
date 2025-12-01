@@ -5,7 +5,7 @@ RenderingServer::RenderingServer() = default;
 RenderingServer::~RenderingServer() = default;
 
 int RenderingServer::Init(int argc, char** argv){
-    renderer.setWidthAndHeight(width, height, upsample_scale);
+    renderer.setWidthAndHeight(width, height, upsample_scale, encode_scale);
     renderer.setKParameters(fx, fy, cx, cy);
 
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));

@@ -724,7 +724,7 @@ void main()
     vec3 worldN = getWorldNormal();
     mat4 cameraData = pc.cameraData;
     vec3 worldCamPos = vec3(cameraData[0][0], cameraData[0][1], cameraData[0][2]);
-    vec3 worldV = normalize(worldCamPos - worldViewDir);    
+    vec3 worldV = normalize(worldViewDir);    
 
     vec3 color = vec3(0.0, 0.0, 0.0);
     vec4 lightNums = lightData.values[0];

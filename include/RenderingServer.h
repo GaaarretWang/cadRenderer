@@ -31,6 +31,7 @@ public:
     std::vector<std::string> instance_names;
     std::string rendering_dir = "../";
     double upsample_scale = 2;
+    double encode_scale = 2;
     std::string color;
     std::string depth;
 

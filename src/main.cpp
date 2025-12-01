@@ -82,10 +82,14 @@ int main(int argc, char** argv){
     }
     inf.close();
 
+    double render_scale = 2;
+    double encode_scale = 2.5;
     RenderingServer rendering_server;
+    rendering_server.encode_scale = encode_scale;
     rendering_server.Init(argc, argv);
 #ifndef RENDER_TEST
     Rendering rendering_client;
+    rendering_client.upsample_scale = encode_scale;
     rendering_client.Init(rendering_server.device);
 #endif
     ConvertImage *convert_image = new ConvertImage(rendering_server.width, rendering_server.height);

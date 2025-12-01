@@ -14,12 +14,13 @@ public:
     int mFrameCount = 0;
     NvEncoderWrapper* m_encoder = nullptr;
     VkExtent2D m_extent;
+    VkExtent2D m_encode_extent;
     //构造函数
     ScreenshotHandler()
     {
     }
 
-    ScreenshotHandler(vsg::ref_ptr<vsg::Window> window, VkExtent2D extent, ScreenshotHandlerType type): m_extent(extent)
+    ScreenshotHandler(vsg::ref_ptr<vsg::Window> window, VkExtent2D extent, VkExtent2D encode_extent, ScreenshotHandlerType type): m_extent(extent), m_encode_extent(encode_extent)
     {
         if(type != NONE){
             m_encoder = new NvEncoderWrapper();
@@ -37,17 +38,17 @@ public:
             m_encoder->initCuda(instance, window);
 
             if(type == ENCODER)
-                m_encoder->initEncoder(window->extent2D());
+                m_encoder->initEncoder(m_extent, m_encode_extent);
             else if(type == DECODER){
-                m_encoder->initDecoder(window->extent2D());
+                m_encoder->initDecoder(m_extent);
             }
         }
     }
 
     void decodeImage(vsg::ref_ptr<vsg::Window> window, std::vector<std::vector<uint8_t>>& vPacket)
     {
-        auto width = window->extent2D().width;
-        auto height = window->extent2D().height;
+        auto width = m_extent.width;
+        auto height = m_extent.height;
 
         auto device = window->getDevice();
         auto physicalDevice = window->getPhysicalDevice();
@@ -212,8 +213,8 @@ public:
 
     vsg::ref_ptr<vsg::Image> screenshot_image(vsg::ref_ptr<vsg::Window> window)
     {
-        auto width = window->extent2D().width;
-        auto height = window->extent2D().height; //获取窗口的宽度和高度
+        auto width = m_extent.width;
+        auto height = m_extent.height; //获取窗口的宽度和高度
 
         auto swapchain = window->getSwapchain(); //获取与窗口相关的设备、物理设备和交换链
         VkFormat sourceImageFormat = swapchain->getImageFormat();
@@ -226,8 +227,8 @@ public:
 
     vsg::ref_ptr<vsg::Image> screenshot_depth(vsg::ref_ptr<vsg::Window> window)
     {
-        auto width = window->extent2D().width;
-        auto height = window->extent2D().height; //获取窗口大小
+        auto width = m_extent.width;
+        auto height = m_extent.height; //获取窗口大小
 
         auto device = window->getDevice();
         auto physicalDevice = window->getPhysicalDevice(); //获取设备和物理设备
@@ -241,8 +242,8 @@ public:
 
     void screenshot_cpuimage(vsg::ref_ptr<vsg::Window> window, uint8_t* &color)
     {
-        auto width = window->extent2D().width;
-        auto height = window->extent2D().height; //获取窗口的宽度和高度
+        auto width = m_extent.width;
+        auto height = m_extent.height; //获取窗口的宽度和高度
 
         auto device = window->getDevice();
         auto physicalDevice = window->getPhysicalDevice();
@@ -520,8 +521,8 @@ public:
     }
 
     void encodeImage(vsg::ref_ptr<vsg::Window> window, std::vector<std::vector<uint8_t>>& vPacket){
-        auto width = window->extent2D().width;
-        auto height = window->extent2D().height;
+        auto width = m_extent.width;
+        auto height = m_extent.height;
 
         auto device = window->getDevice();
         auto physicalDevice = window->getPhysicalDevice();
@@ -691,8 +692,8 @@ public:
 
     void screenshot_cpudepth(vsg::ref_ptr<vsg::Window> window)
     {
-        auto width = window->extent2D().width;
-        auto height = window->extent2D().height; //获取窗口大小
+        auto width = m_extent.width;
+        auto height = m_extent.height; //获取窗口大小
 
         auto device = window->getDevice();
         auto physicalDevice = window->getPhysicalDevice(); //获取设备和物理设备

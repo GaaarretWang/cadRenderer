@@ -33,7 +33,6 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::ShaderSet> point_shader;
 
     vsg::ref_ptr<ScreenshotHandler> final_screenshotHandler;
-    vsg::ref_ptr<ScreenshotHandler> screenshotHandler;
 
     vsg::ref_ptr<vsg::Window> window;
     vsg::ref_ptr<vsg::Camera> camera;
@@ -76,6 +75,9 @@ class vsgRendererServer
     int height;
     int render_width;
     int render_height;
+    int encode_width;
+    int encode_height;
+
     vsg::ref_ptr<vsg::Data> vsg_color_image;
     vsg::ref_ptr<vsg::Data> vsg_depth_image;
     vsg::ImageInfoList camera_info;
@@ -131,9 +133,11 @@ class vsgRendererServer
     }
 
 public:
-    void setWidthAndHeight(int width, int height, double scale){
-        this->render_width = width * scale;
-        this->render_height = height * scale;
+    void setWidthAndHeight(int width, int height, double render_scale, double encode_scale){
+        this->render_width = width * render_scale;
+        this->render_height = height * render_scale;
+        this->encode_width = width * encode_scale;
+        this->encode_height = height * encode_scale;
         this->width = width;
         this->height = height;
 
@@ -355,7 +359,6 @@ public:
             CADMesh::dynamic_texts.text[i]->setup(0, options);
         }
     }
-    vsg::ref_ptr<vsg::mat4Array> newmatrix;
     void repaint(std::string instance_name, uint32_t state){
         auto& matrix_index = CADMesh::id_to_matrix_index_map[instance_name];
 

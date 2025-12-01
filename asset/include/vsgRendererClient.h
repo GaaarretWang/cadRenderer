@@ -56,7 +56,8 @@ public:
         VkExtent2D extent = {};
         extent.width = render_width;
         extent.height = render_height;
-        decode_screenshotHandler = ScreenshotHandler::create(decode_window, extent, DECODER);
+        VkExtent2D encode_extent = {};
+        decode_screenshotHandler = ScreenshotHandler::create(decode_window, extent, encode_extent, DECODER);
         decode_viewer->addWindow(decode_window);
         auto decode_commandGraph = vsg::CommandGraph::create(decode_window);
         auto context = vsg::Context::create(decode_window->getOrCreateDevice());

@@ -13,7 +13,8 @@ endif()
 # set_property(TARGET tgt PROPERTY CUDA_ARCHITECTURES native)
 # set(CMAKE_CUDA_ARCHITECTURES tgt)
 find_package(CUDA REQUIRED)
-
+set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
+find_package(CUDAToolkit REQUIRED)  # 查找 CUDA 工具集
 find_package(assimp REQUIRED)
 
 find_package(flatbuffers REQUIRED)
@@ -41,7 +42,7 @@ if(UNIX)
         flatbuffers::flatbuffers
         vsgRenderer
         libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY}
-        ${ASSIMP_LIBRARIES}
+        ${ASSIMP_LIBRARIES} CUDA::cudart
     )
 elseif(WIN32)
     target_link_libraries(Rendering 
