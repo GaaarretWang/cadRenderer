@@ -542,7 +542,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
 
         auto stateGroup = vsg::StateGroup::create();
         graphicsPipelineConfig->copyTo(stateGroup);
-        stateGroup->add(pc);
+        // stateGroup->add(pc);
         stateGroup->addChild(drawCommands);
         proto_data->scene->addChild(stateGroup);
     }

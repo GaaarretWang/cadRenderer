@@ -359,7 +359,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     }
     newmatrix = vsg::mat4Array::create(2);
     vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
-                VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, newmatrix);
+                VK_SHADER_STAGE_ALL, 128, newmatrix);
+
     CADMesh::buildDrawData(pbriblShaderSet, modelGroup, pc); //读取obj文件
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup); //读取obj文件
     CADMesh::buildDynamicPointsData(point_shader, wireframeGroup); //读取obj文件
@@ -386,7 +387,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     // renderGraph->addChild(renderImGui);
     auto commandGraph = vsg::CommandGraph::create(window);
     auto commandGraph1 = vsg::CommandGraph::create(window);
-
+    commandGraph->addChild(pc);
+    commandGraph1->addChild(pc);
     auto view1 = vsg::View::create(camera, scenegraph_safe);
     // view->features = vsg::RECORD_LIGHTS;
     view1->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER;
