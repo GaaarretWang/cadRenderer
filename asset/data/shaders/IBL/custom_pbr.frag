@@ -358,10 +358,8 @@ vec3 getWorldNormal()
 #else
     result = normalize(worldNormal);
 #endif
-#ifdef VSG_TWO_SIDED_LIGHTING
     if (!gl_FrontFacing)
         result = -result;
-#endif
     return result;
 }
 // Basic Lambertian diffuse
@@ -776,6 +774,8 @@ void main()
         }
         scene_brightness = totalRealBrightness / totalBrigtness;
     }
+    if (!gl_FrontFacing)
+        scene_brightness = 1;
 
     float exposure = 3.0f;
     color = Uncharted2Tonemap(color * scene_brightness * exposure);

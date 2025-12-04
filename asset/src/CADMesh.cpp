@@ -213,7 +213,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
             default_material->value().roughnessFactor = roughness;
             default_material->value().metallicFactor = metalness;
 
-            // if (type == "face")
+            if (type == "mesh")
             {
                 vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(position.size() / 3); //分配数组空间
                 vsg::ref_ptr<vsg::vec3Array> normals = vsg::vec3Array::create(normal.size() / 3);
@@ -687,6 +687,120 @@ void CADMesh::buildSSAOData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::r
     scene->addChild(stateGroup);
 }
 
+void CADMesh::buildSSAODenoiseData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ImageView> GBufferView0, vsg::ref_ptr<vsg::ImageView> SSAOResultImageView){
+    auto rasterizationState = vsg::RasterizationState::create();
+    rasterizationState->cullMode = VK_CULL_MODE_NONE;
+    model_shaderset->defaultGraphicsPipelineStates.push_back(rasterizationState);
+    auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(model_shaderset);
+    graphicsPipelineConfig->subpass = 2;
+    auto instance_buffer = vsg::mat4Array::create(2);
+    instance_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
+    for(int i = 0; i < 2; i ++){
+        instance_buffer->set(i, vsg::mat4());
+    }
+    auto input_instance_buffer_info = vsg::BufferInfo::create(instance_buffer);
+
+    // 2个mat4，1个int，3个padding int，一共36
+    auto instance_data_buffer = vsg::floatArray::create(512);
+    instance_data_buffer->set(0, 1);
+    instance_data_buffer->set(5, 1);
+    instance_data_buffer->set(10, 1);
+    instance_data_buffer->set(15, 1);
+    auto output_instance_buffer_info = vsg::BufferInfo::create(instance_data_buffer);
+
+    vsg::BufferInfoList info_list = {output_instance_buffer_info};
+
+    auto noiseSampler = vsg::Sampler::create();
+    noiseSampler->magFilter = VK_FILTER_NEAREST;
+    noiseSampler->minFilter = VK_FILTER_NEAREST;
+    noiseSampler->mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    noiseSampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    noiseSampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    noiseSampler->addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    noiseSampler->maxAnisotropy = 1.0f;
+    noiseSampler->minLod = 0.0f;
+    noiseSampler->maxLod = 0.0f;
+
+    graphicsPipelineConfig->assignDescriptor("instanceModelMatrix", info_list);
+    graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
+    graphicsPipelineConfig->assignTexture("depthImage", depth_info);
+    graphicsPipelineConfig->assignUniform("params", params);
+    graphicsPipelineConfig->assignDescriptor("material", vsg::PbrMaterialValue::create());
+
+    vsg::ref_ptr<vsg::Sampler> in_sampler{nullptr};
+    vsg::ImageInfoList GBufferViewList0 = {vsg::ImageInfo::create(noiseSampler, GBufferView0, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL)};
+    vsg::ImageInfoList GBufferViewList1 = {vsg::ImageInfo::create(noiseSampler, SSAOResultImageView, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL)};
+    graphicsPipelineConfig->assignTexture("colorInputAttachment", GBufferViewList0);
+    graphicsPipelineConfig->assignTexture("samplerSSAO", GBufferViewList1);
+
+    // auto vertices = vsg::floatArray::create({-3, 1, 1, 1, 1, 1, 1, -3, 1});
+    // auto normals = vsg::floatArray::create({0, 0, 1, 0, 0, 1, 0, 0, 1});
+    // auto indices = vsg::intArray::create({0, 1, 2});
+    auto vertices = vsg::vec3Array::create({
+         vsg::vec3(-1, -1, 1.0f),
+         vsg::vec3(1, -1, 1.0f),
+         vsg::vec3(1, 1, 1.0f),
+         vsg::vec3(-1, 1, 1.0f)
+        });
+
+    auto normals = vsg::vec3Array::create(
+        {
+            {1.0f, 1.0f, 1.0f},
+            {1.0f, 1.0f, 1.0f},
+            {1.0f, 1.0f, 1.0f},
+            {1.0f, 1.0f, 1.0f}
+        });
+
+    auto texcoords = vsg::vec2Array::create(
+        {{0.0f, 1.0f},
+         {1.0f, 1.0f},
+         {1.0f, 0.0f},
+         {0.0f, 0.0f}
+        });
+
+    auto indices = vsg::ushortArray::create(
+        {0, 1, 2,
+         2, 3, 0});
+
+    vsg::box bounds;
+    for (uint32_t i = 0; i < vertices->size(); ++i)
+    {
+        bounds.add(vertices->at(i));
+    }
+    
+    vsg::DataList vertexArrays;
+    graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vertices);
+    graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, normals);
+    graphicsPipelineConfig->assignArray(vertexArrays, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, texcoords);
+    graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f}));
+    auto drawCommands = vsg::Commands::create();
+    drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
+    drawCommands->addChild(vsg::BindIndexBuffer::create(indices));
+
+    VkDrawIndexedIndirectCommand cmd = {
+        6,      // indexCount
+        1,     // instanceCount
+        0,         // firstIndex
+        0,         // vertexOffset
+        0          // firstInstance
+    };
+
+    auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
+    indirectBuffer->set(0, cmd);
+    auto draw_indirect = vsg::DrawIndexedIndirect::create(
+        indirectBuffer,  // 间接命令缓冲区
+        1,              // 绘制命令数量
+        sizeof(VkDrawIndexedIndirectCommand) // 命令步长
+    );
+    draw_indirect->instanceMatrix = instance_buffer;
+    drawCommands->addChild(draw_indirect);
+    graphicsPipelineConfig->init();
+
+    auto stateGroup = vsg::StateGroup::create();
+    graphicsPipelineConfig->copyTo(stateGroup);
+    stateGroup->addChild(drawCommands);
+    scene->addChild(stateGroup);
+}
 
 void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene)
 {

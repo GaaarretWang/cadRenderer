@@ -381,6 +381,28 @@ void Window::buildSwapchain()
 
         _GBufferImageView2 = ImageView::create(_GBufferImage2, VK_IMAGE_ASPECT_COLOR_BIT);
         _GBufferImageView2->compile(_device);
+
+        _SSAOResultImage = Image::create();
+        _SSAOResultImage->imageType = VK_IMAGE_TYPE_2D;
+        _SSAOResultImage->format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        _SSAOResultImage->extent.width = _extent2D.width;
+        _SSAOResultImage->extent.height = _extent2D.height;
+        _SSAOResultImage->extent.depth = 1;
+        _SSAOResultImage->mipLevels = 1;
+        _SSAOResultImage->arrayLayers = 1;
+        _SSAOResultImage->samples = VK_SAMPLE_COUNT_1_BIT;
+        _SSAOResultImage->tiling = VK_IMAGE_TILING_OPTIMAL;
+        _SSAOResultImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        _SSAOResultImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        _SSAOResultImage->flags = 0;
+        _SSAOResultImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        _SSAOResultImage->compile(_device);
+        _SSAOResultImage->allocateAndBindMemory(_device);
+
+        _SSAOResultImageView = ImageView::create(_SSAOResultImage, VK_IMAGE_ASPECT_COLOR_BIT);
+        _SSAOResultImageView->compile(_device);
+
     }
 
     bool requiresDepthRead = (_traits->depthImageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
@@ -457,6 +479,7 @@ void Window::buildSwapchain()
             attachments.push_back(_GBufferImageView0);
             attachments.push_back(_GBufferImageView1);
             attachments.push_back(_GBufferImageView2);
+            attachments.push_back(_SSAOResultImageView);
         }
 
         if (_multisampleDepthImageView)

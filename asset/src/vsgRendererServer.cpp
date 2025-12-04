@@ -41,7 +41,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     //手动初始化vulkan设备
     vsg::Names instanceExtensions;
     vsg::Names requestedLayers;
-    bool debugLayer = false;
+    bool debugLayer = true;
     bool apiDumpLayer = false;
     uint32_t vulkanVersion = VK_API_VERSION_1_1;
     instanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
@@ -146,6 +146,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     cadWindowTraits->device = device;
     cadWindowTraits->useMRT = true;
     window = vsg::Window::create(cadWindowTraits);
+    window->getOrCreateSwapchain();
 
     double nearFarRatio = 0.0001;       //近平面和远平面之间的比例
 
@@ -157,6 +158,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto wireframeGroup = vsg::Group::create();
     auto textGroup = vsg::Group::create();
     auto SSAOGroup = vsg::Group::create();
+    auto SSAODenoiseGroup = vsg::Group::create();
 
     auto rootSwitch = vsg::Switch::create();
     rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraImageNode);
@@ -168,11 +170,32 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto rootSwitch1 = vsg::Switch::create();
     rootSwitch1->addChild(MASK_SSAO, vsg::NextSubPass::create());
     rootSwitch1->addChild(MASK_SSAO, SSAOGroup);
-    
+    rootSwitch1->addChild(MASK_SSAO, vsg::NextSubPass::create());
+    auto SSAOPipelineBarrier = vsg::PipelineBarrier::create(
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,                                                            // dstStageMask
+        0
+    );
+    auto ssaoImageBarrier = vsg::ImageMemoryBarrier::create(
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,          // 前序：金字塔生成的写入
+        VK_ACCESS_SHADER_READ_BIT,           // 后续：剔除阶段的读取
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_QUEUE_FAMILY_IGNORED,
+        VK_QUEUE_FAMILY_IGNORED,
+        window->_SSAOResultImage,
+        VkImageSubresourceRange{
+            VK_IMAGE_ASPECT_COLOR_BIT,       // 关键！depthPyramidImage是R32_SFLOAT（普通颜色格式），不是深度格式，不能用DEPTH_BIT
+            0, 1, 0, 1                       // 同步所有7个mip层
+        }
+    );
+    SSAOPipelineBarrier->add(ssaoImageBarrier);
+    rootSwitch1->addChild(MASK_SSAO, SSAOPipelineBarrier);
+    rootSwitch1->addChild(MASK_SSAO, SSAODenoiseGroup);
+
     vsg::ref_ptr<vsg::Group> scenegraph_safe = vsg::Group::create();
     scenegraph_safe->addChild(rootSwitch);
     scenegraph_safe->addChild(rootSwitch1);
-    std::cout << "1" << std::endl;
     vsg::ref_ptr<vsg::PbrMaterialValue> objectMaterial;
     
     struct SetPipelineStates : public vsg::Visitor
@@ -222,7 +245,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsg::dvec3 up = {0.0, -1.0, 0.0};                        // 固定观察方向
     auto lookAt = vsg::LookAt::create(eye, centre, up);
     camera = vsg::Camera::create(perspective, lookAt, viewport);
-    window->getOrCreateSwapchain();
     VkExtent2D extent = {};
     extent.width = render_width;
     extent.height = render_height;
@@ -376,6 +398,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     CADMesh::buildDynamicTextsData(textGroup, options, project_path + "asset/data/fonts/times.vsgt"); //读取obj文件
     std::cout << "model processing done" << std::endl;
     CADMesh::buildSSAOData(IBL::customSSAOShaderSet(options), SSAOGroup, window->_GBufferImageView0, window->_GBufferImageView1, window->_GBufferImageView2, extent);
+    CADMesh::buildSSAODenoiseData(IBL::customSSAODenoiseShaderSet(options), SSAODenoiseGroup, window->_GBufferImageView0, window->_SSAOResultImageView);
 
     // HDR环境光采样
     init_directional_lights();

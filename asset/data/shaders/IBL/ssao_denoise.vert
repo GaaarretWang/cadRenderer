@@ -49,6 +49,6 @@ out gl_PerVertex{ vec4 gl_Position; };
 
 void main()
 {
-    gl_Position = vec4(vsg_Vertex.xy, 0.99, 1.0);
+    gl_Position = vec4(vsg_Vertex.xy, 1, 1.0);
 	outUV = vsg_Vertex.xy;
 }

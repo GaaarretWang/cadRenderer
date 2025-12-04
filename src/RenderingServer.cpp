@@ -45,9 +45,9 @@ int RenderingServer::Init(int argc, char** argv){
     //                                 0, 0, 0, 1));
     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.60006, 1.01482, -0.8, 1) * init_model_transforms[0]
                                * vsg::dmat4(
-                                    2, 0, 0, 0, 
-                                    0, 2, 0, 0, 
-                                    0, 0, 2, 0, 
+                                    0.2, 0, 0, 0, 
+                                    0, 0.2, 0, 0, 
+                                    0, 0, 0.2, 0, 
                                     0, 0, 0, 1));
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.991005, 1) * init_model_transforms[1]);
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.491005, 1) * init_model_transforms[1] * mat);
@@ -64,8 +64,8 @@ int RenderingServer::Init(int argc, char** argv){
     // model_paths.push_back(rendering_dir + "asset/data/geos/SeatPart.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/LandingGear.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/装配 3.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/装配 41.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoAirplaneBody.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/装配 41.fb");
+    model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoAirplaneBody.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoEngine.fb");
     // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoLandingGear.fb");
     // // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart.fb");
