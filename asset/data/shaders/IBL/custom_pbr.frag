@@ -98,6 +98,8 @@ layout(location = 6) in vec3 worldNormal;
 layout(location = 7) in vec3 worldViewDir;
 
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outNormal;
+layout(location = 2) out vec4 outWorldPos;
 
 highp float rand_1to1(highp float x ) {                              //
   // float͵һάxһ[-1,1]Χfloat 
@@ -779,4 +781,6 @@ void main()
     color = Uncharted2Tonemap(color * scene_brightness * exposure);
 	color = color * (vec3(1.0f) / Uncharted2Tonemap(vec3(11.2f)));
     outColor = LINEARtoSRGB(vec4(color, baseColor.a * extraParams.semitransparent));
+    outNormal = vec4(worldN, 0.5);
+    outWorldPos = vec4(worldViewDir, 0.5);
 }

@@ -116,6 +116,7 @@ namespace vsg
 
     extern VSG_DECLSPEC AttachmentDescription defaultColorAttachment(VkFormat imageFormat);
     extern VSG_DECLSPEC AttachmentDescription defaultDepthAttachment(VkFormat depthFormat);
+    extern VSG_DECLSPEC AttachmentDescription defaultGbufferColorAttachment(VkFormat imageFormat);
 
     /// create RenderPass with color and depth buffers
     extern VSG_DECLSPEC ref_ptr<RenderPass> createRenderPass(Device* device, VkFormat imageFormat, VkFormat depthFormat, bool requiresDepthRead = false);

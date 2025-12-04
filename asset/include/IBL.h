@@ -111,6 +111,7 @@ namespace IBL
     ptr<vsg::StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGroup> root, int width, int height,  vsg::ImageInfoList camera_data = {});
 
     vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options> options);
+    vsg::ref_ptr<vsg::ShaderSet> customSSAOShaderSet(vsg::ref_ptr<const vsg::Options> options);
 
     ptr<vsg::Node> iblDemoSceneGraph(VsgContext& context);
     

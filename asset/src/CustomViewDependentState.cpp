@@ -236,7 +236,7 @@ void CustomViewDependentState::init(ResourceRequirements& requirements)
 
         shadowMap.renderGraph = RenderGraph::create();
         shadowMap.renderGraph->addChild(shadowMap.view);
-        preRenderSwitch->addChild(MASK_ALL, shadowMap.renderGraph);
+        preRenderSwitch->addChild(MASK_DRAW, shadowMap.renderGraph);
     }
     vsg::ComputeBounds computeSceneBounds_virtual;
     computeSceneBounds_virtual.traversalMask = MASK_PBR_FULL;

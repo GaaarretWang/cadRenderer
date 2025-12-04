@@ -27,7 +27,6 @@ std::string getDirectoryPath(const std::string& path) {
     return dirPath;
 }
 
-
 void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)
 {
     // project_path = engine_path.append("Rendering/");
@@ -157,6 +156,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto envSceneGroup = vsg::Group::create();
     auto wireframeGroup = vsg::Group::create();
     auto textGroup = vsg::Group::create();
+    auto SSAOGroup = vsg::Group::create();
 
     auto rootSwitch = vsg::Switch::create();
     rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraImageNode);
@@ -165,9 +165,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowGroup);
     rootSwitch->addChild(MASK_TEXT, textGroup);
     rootSwitch->addChild(MASK_WIREFRAME, wireframeGroup);
+    auto rootSwitch1 = vsg::Switch::create();
+    rootSwitch1->addChild(MASK_SSAO, vsg::NextSubPass::create());
+    rootSwitch1->addChild(MASK_SSAO, SSAOGroup);
     
     vsg::ref_ptr<vsg::Group> scenegraph_safe = vsg::Group::create();
     scenegraph_safe->addChild(rootSwitch);
+    scenegraph_safe->addChild(rootSwitch1);
     std::cout << "1" << std::endl;
     vsg::ref_ptr<vsg::PbrMaterialValue> objectMaterial;
     
@@ -218,6 +222,11 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsg::dvec3 up = {0.0, -1.0, 0.0};                        // 固定观察方向
     auto lookAt = vsg::LookAt::create(eye, centre, up);
     camera = vsg::Camera::create(perspective, lookAt, viewport);
+    window->getOrCreateSwapchain();
+    VkExtent2D extent = {};
+    extent.width = render_width;
+    extent.height = render_height;
+
 
 
     vsg::Data::Properties vec2ArrayProps = {};
@@ -365,8 +374,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup); //读取obj文件
     CADMesh::buildDynamicPointsData(point_shader, wireframeGroup); //读取obj文件
     CADMesh::buildDynamicTextsData(textGroup, options, project_path + "asset/data/fonts/times.vsgt"); //读取obj文件
-
     std::cout << "model processing done" << std::endl;
+    CADMesh::buildSSAOData(IBL::customSSAOShaderSet(options), SSAOGroup, window->_GBufferImageView0, window->_GBufferImageView1, window->_GBufferImageView2, extent);
 
     // HDR环境光采样
     init_directional_lights();
@@ -382,26 +391,22 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto shadow_view_dependent_state = CustomViewDependentState::create(view.get());
     view->viewDependentState = shadow_view_dependent_state;
     auto renderGraph = vsg::RenderGraph::create(window, view);
-    renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
     // auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
     // renderGraph->addChild(renderImGui);
     auto commandGraph = vsg::CommandGraph::create(window);
     auto commandGraph1 = vsg::CommandGraph::create(window);
+    renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
     auto view1 = vsg::View::create(camera, scenegraph_safe);
     // view->features = vsg::RECORD_LIGHTS;
-    view1->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER;
+    // view1->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER;
+    view1->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER | MASK_SSAO;
     view1->viewDependentState = CustomViewDependentState1::create(view1.get());
     view1->viewDependentState->pre_depth_pass = view->viewDependentState;
     auto renderGraph1 = vsg::RenderGraph::create(window, view1);
-    // renderGraph1->getRenderPass()->attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    renderGraph1->clearValues[0].color = {{0.f, 0.f, 0.f, 0.f}};
     auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
     renderGraph1->addChild(renderImGui);
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
-
-    VkExtent2D extent = {};
-    extent.width = render_width;
-    extent.height = render_height;
     depthPyramidImage->imageType = VK_IMAGE_TYPE_2D;
     depthPyramidImage->format = VK_FORMAT_R32_SFLOAT; // 假设与深度附件兼容
     depthPyramidImage->mipLevels = 7; // 共 7 层
@@ -464,6 +469,39 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     commandGraph->addChild(clearDepth1);
 
 
+
+
+
+
+    VkImageSubresourceRange range0{};
+    range0.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // 颜色附件
+    range0.baseMipLevel = 0;
+    range0.levelCount = 1;
+    range0.baseArrayLayer = 0;
+    range0.layerCount = 1;
+
+    auto clearColor0 = vsg::ClearColorImage::create();
+    clearColor0->image = window->_GBufferImage0;
+    clearColor0->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 符合要求的布局
+    clearColor0->color = {0.0f, 0.0f, 0.0f, 1.0f}; // 清除颜色：黑色（RGBA）
+    clearColor0->ranges = {range0};
+
+    auto clearColor1 = vsg::ClearColorImage::create();
+    clearColor1->image = window->_GBufferImage1;
+    clearColor1->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 符合要求的布局
+    clearColor1->color = {0.0f, 0.0f, 0.0f, 1.0f}; // 清除颜色：默认法线（0,0,1）映射后的值
+    clearColor1->ranges = {range0};
+
+    auto clearColor2 = vsg::ClearColorImage::create();
+    clearColor2->image = window->_GBufferImage2;
+    clearColor2->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 符合要求的布局
+    clearColor2->color = {0.0f, 0.0f, 0.0f, 1.0f}; // 清除颜色：默认法线（0,0,1）映射后的值
+    clearColor2->ranges = {range0};
+
+    // 3. 添加到命令图（和原有深度清除逻辑一致）
+    commandGraph->addChild(clearColor0);
+    commandGraph->addChild(clearColor1);
+    commandGraph->addChild(clearColor2);
 
 
     auto computeQueueFamily = commandGraph->queueFamily;
@@ -687,8 +725,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                 0, barrier1
             ));
-
-
         }
 
         for(uint32_t i = 1; i < 7; i ++)
