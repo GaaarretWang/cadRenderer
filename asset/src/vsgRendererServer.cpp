@@ -41,7 +41,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     //手动初始化vulkan设备
     vsg::Names instanceExtensions;
     vsg::Names requestedLayers;
-    bool debugLayer = true;
+    bool debugLayer = false;
     bool apiDumpLayer = false;
     uint32_t vulkanVersion = VK_API_VERSION_1_1;
     instanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
@@ -432,7 +432,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     depthPyramidImage->imageType = VK_IMAGE_TYPE_2D;
     depthPyramidImage->format = VK_FORMAT_R32_SFLOAT; // 假设与深度附件兼容
-    depthPyramidImage->mipLevels = 7; // 共 7 层
+    depthPyramidImage->mipLevels = 10; // 共 7 层
     depthPyramidImage->usage = VK_IMAGE_USAGE_STORAGE_BIT |          // 计算着色器读写
                                 VK_IMAGE_USAGE_SAMPLED_BIT | 
                                 VK_IMAGE_USAGE_TRANSFER_SRC_BIT |     // 可能需要mipmap生成
@@ -445,13 +445,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     auto depth_pyramid_sampler = vsg::Sampler::create();
     depth_pyramid_sampler->minLod = 0;
-    depth_pyramid_sampler->maxLod = 6;
+    depth_pyramid_sampler->maxLod = 9;
     depth_pyramid_sampler->magFilter = VK_FILTER_NEAREST;  // 放大时使用 Nearest
     depth_pyramid_sampler->minFilter = VK_FILTER_NEAREST;  // 缩小时使用 Nearest
     depth_pyramid_sampler->mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST; // Mipmap 使用 Nearest
     vsg::ref_ptr<vsg::ImageView> depthPyramidImageView = vsg::ImageView::create(depthPyramidImage);
     depthPyramidImageView->subresourceRange.baseMipLevel = 0;
-    depthPyramidImageView->subresourceRange.levelCount = 7;
+    depthPyramidImageView->subresourceRange.levelCount = 10;
     vsg::ref_ptr<vsg::ImageInfo> depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, depthPyramidImageView);
 
     vsg::ref_ptr<vsg::ImageInfo> framebuffer_depthImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, window->getOrCreateDepthImageView());
@@ -695,7 +695,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                 VK_QUEUE_FAMILY_IGNORED,
                 VK_QUEUE_FAMILY_IGNORED,
                 depthPyramidImage,
-                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 7, 0, 1}
+                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 10, 0, 1}
             );
 
             auto depthToComputeBarrier = vsg::ImageMemoryBarrier::create(
@@ -750,7 +750,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             ));
         }
 
-        for(uint32_t i = 1; i < 7; i ++)
+        for(uint32_t i = 1; i < 10; i ++)
         {
             auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex_depthpyramid.comp", options);
             auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
@@ -811,7 +811,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             depthPyramidImage,
             VkImageSubresourceRange{
                 VK_IMAGE_ASPECT_COLOR_BIT,       // 关键！depthPyramidImage是R32_SFLOAT（普通颜色格式），不是深度格式，不能用DEPTH_BIT
-                0, 7, 0, 1                       // 同步所有7个mip层
+                0, 10, 0, 1                       // 同步所有7个mip层
             }
         );
 

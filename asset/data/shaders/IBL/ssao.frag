@@ -237,7 +237,7 @@ void main()
     vec3 worldPosition = texture(worldPosInputAttachment, uv).rgb;
     vec3 normal = texture(normalInputAttachment, uv).rgb;
     if(length(normal) < 0.001){
-        outColor = vec4(1);
+        outColor = vec4(1, 1, 1, 1);
         return;
     }
 
@@ -271,7 +271,7 @@ void main()
     }
 
     float factor = 1 - (occlusion / float(SSAO_KERNEL_SIZE));
-    outColor.xyz = vec3(factor);
+    outColor = vec4(factor, factor, factor, 0);
     
     return;
 }

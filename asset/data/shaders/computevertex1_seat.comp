@@ -85,7 +85,16 @@ void rasterize(vec3 p0, vec3 p1, vec3 p2, inout float out_surface[compare_image_
     vec3 p20 = p2 - p0;
     float det = p20.x * p10.y - p20.y * p10.x;
     // 剔除顺时针绕组的三角形（仅处理逆时针三角形）
-    // if (det >= 0.0f) return;
+    if (abs(det) < 1e-6f) return;
+
+    if (det > 0.0f){
+        vec3 tmp = p2;
+        p2 = p0;
+        p0 = tmp;
+        p10 = p1 - p0;
+        p20 = p2 - p0;
+        det = p20.x * p10.y - p20.y * p10.x;
+    }
 
     // 计算三角形覆盖的像素范围（浮点数坐标）
     vec2 min_p = vec2(0);
@@ -178,6 +187,14 @@ void main() {
 
     // 如果没有被完全遮挡，则设置实例可见
     if (!culled) {		
+        bool clipsNearPlane = false;
+        for(int i = 0; i < 8; ++i) {
+            if(viewPoints[i].z > 0.0f) { // 0.01 是一个安全阈值
+                clipsNearPlane = true;
+                break;
+            }
+        }
+
         ivec2 imageSize = pc.size;
 
         vec3 uv_min = vec3(100.0);
@@ -202,7 +219,7 @@ void main() {
         // 计算Mip Level（取最大边长的对数）
         float maxCoverage = max(uvWidth, uvHeight);
         int mipLevel = int(ceil(log2(maxCoverage / compare_image_size)));
-        mipLevel = clamp(mipLevel, 0, 8);
+        mipLevel = clamp(mipLevel, 0, 9);
         float mip_scale = pow(2.0, -mipLevel);
         ivec2 begin_pixel = ivec2(floor(uv_min.xy * mip_scale * imageSize));  // 起始像素坐标（向下取整后转整数）
 
@@ -271,7 +288,7 @@ void main() {
         for(int i = 0; i < 8; ++i){
             ivec2 delta = ivec2(floor(ndcs[i].xy * mip_scale * imageSize) - begin_pixel);
             int index = delta.y * compare_image_size + delta.x;
-            if(index > 0 && index < compare_image_size_square)
+            if(index >= 0 && index < compare_image_size_square)
                 final_depth[index] = max(final_depth[index], ndcs[i].z);
         }
 
@@ -282,7 +299,7 @@ void main() {
         }
         
 
-        if(!depth_culled){
+        if(!depth_culled || clipsNearPlane){
             inHighlightData.data[instanceIndex].z = 1;
             if(inHighlightData.data[instanceIndex].y == 0){
                 uint prevCount = atomicAdd(outIndirect.instanceCount, 1);

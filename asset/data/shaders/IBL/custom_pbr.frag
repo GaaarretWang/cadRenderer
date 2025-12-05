@@ -564,8 +564,7 @@ vec3 Uncharted2Tonemap(vec3 x)
 }
 
 
-vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, vec3 diffuseColor, 
-    float clearcoatPerceptualRoughness, float clearcoatMetallic, vec3 clearcoatSpecularEnvironmentR0, vec3 clearcoatSpecularEnvironmentR90, vec3 clearcoatDiffuseColor){
+vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, vec3 diffuseColor){
     vec3 R = normalize(reflect(-v, n));
 
     float NdotV = clamp(abs(dot(n, v)), 0.001, 1.0);
@@ -573,9 +572,6 @@ vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specula
     vec3 color = vec3(0);
     vec2 brdf = texture(samplerBRDFLUT, vec2(NdotV, perceptualRoughness)).rg;
     vec3 F = specularFresnel(specularEnvironmentR0, specularEnvironmentR90, NdotV);
-
-    vec2 clearcoatBrdf = texture(samplerBRDFLUT, vec2(NdotV, clearcoatPerceptualRoughness)).rg;
-    vec3 clearcoatF = specularFresnel(clearcoatSpecularEnvironmentR0, clearcoatSpecularEnvironmentR90, NdotV);
 
     vec3 N = fixCubeDir(n);
     N.y *= -1.0f;
@@ -587,9 +583,6 @@ vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specula
     color += irradiance * diffuseColor;
 	vec3 reflection = prefilteredReflection(lutR, perceptualRoughness).rgb;	
     color += reflection * (F * brdf.x + brdf.y);
-    color *= (vec3(1) - clearcoatF);
-    vec3 clearcoatReflection = prefilteredReflection(lutR, clearcoatPerceptualRoughness).rgb;	
-    color += clearcoatReflection * (clearcoatF * clearcoatBrdf.x + clearcoatBrdf.y);
 
     // float exposure = 3.0f;
     // float gamma = 2.2f;
@@ -624,19 +617,6 @@ void main()
         }
     }
 
-    vec3 clearcoatF0 = vec3(0.04);
-    float clearcoatRoughness = 0.1;
-    float clearcoatMetallic = 0;
-    vec4 clearcoatBaseColor = vec4(1.0f, 1.0f, 1.0f, 0.0f);
-    vec3 clearcoatDiffuseColor = clearcoatBaseColor.rgb * (vec3(1.0) - clearcoatF0);
-
-    float clearcoatAlphaRoughness = clearcoatRoughness * clearcoatRoughness;
-    vec3 clearcoatSpecularColor = mix(clearcoatF0, clearcoatBaseColor.rgb, clearcoatMetallic);
-    float clearcoatReflectance = max(max(clearcoatSpecularColor.r, clearcoatSpecularColor.g), clearcoatSpecularColor.b);
-    float clearcoatReflectance90 = clamp(clearcoatReflectance * 25.0, 0.0, 1.0);
-    vec3 clearcoatEnvR0 = clearcoatSpecularColor;
-    vec3 clearcoatEnvR90 = vec3(1.0) * clearcoatReflectance90;
-
     float brightnessCutoff = 0.001;
 
     float perceptualRoughness = 0.0;
@@ -646,7 +626,7 @@ void main()
 
     float ambientOcclusion = 1.0;
 
-    vec3 f0 = vec3(computeF0Base_Merged(0.04));
+    vec3 f0 = vec3(0.04);
 
 #ifdef VSG_DIFFUSE_MAP
     #ifdef VSG_GREYSCALE_DIFFUSE_MAP
@@ -732,8 +712,7 @@ void main()
     int index = 1;
 
 
-    vec3 iblColor = IBL(worldV, worldN, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, diffuseColor
-    , clearcoatRoughness, clearcoatMetallic, clearcoatEnvR0, clearcoatEnvR90, clearcoatDiffuseColor);
+    vec3 iblColor = IBL(worldV, worldN, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, diffuseColor);
     color += iblColor * envmapData.param.a;
 
     float scene_brightness = 1.0f;
@@ -777,10 +756,7 @@ void main()
     if (!gl_FrontFacing)
         scene_brightness = 1;
 
-    float exposure = 3.0f;
-    color = Uncharted2Tonemap(color * scene_brightness * exposure);
-	color = color * (vec3(1.0f) / Uncharted2Tonemap(vec3(11.2f)));
-    outColor = LINEARtoSRGB(vec4(color, baseColor.a * extraParams.semitransparent));
-    outNormal = vec4(worldN, 0.5);
-    outWorldPos = vec4(worldViewDir, 0.5);
+    outColor = vec4(color * scene_brightness, 1);
+    outNormal = vec4(worldN, 1);
+    outWorldPos = vec4(worldViewDir, 1);
 }
