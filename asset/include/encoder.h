@@ -97,7 +97,7 @@ private:
     int mWidth;
     int mHeight;
     //NvEncoderInitParam encodeCLIOptions;
-    NV_ENC_BUFFER_FORMAT eFormat = NV_ENC_BUFFER_FORMAT_ARGB;
+    NV_ENC_BUFFER_FORMAT eFormat = NV_ENC_BUFFER_FORMAT_ABGR;
     vsg::ref_ptr<vsg::Device> device;
     std::array<uint8_t, VK_UUID_SIZE> deviceUUID;
     vsg::ref_ptr<vsg::Window> window;

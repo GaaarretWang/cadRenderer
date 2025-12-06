@@ -756,7 +756,13 @@ void main()
     if (!gl_FrontFacing)
         scene_brightness = 1;
 
-    outColor = vec4(color * scene_brightness, 1);
-    outNormal = vec4(worldN, 1);
-    outWorldPos = vec4(worldViewDir, 1);
+    outColor = vec4(color * scene_brightness, baseColor.w);
+    if(baseColor.w > 0.8){
+        outNormal = vec4(worldN, 1);
+        outWorldPos = vec4(worldViewDir, 1);
+    }
+    else{
+        outNormal = vec4(worldN, 0);
+        outWorldPos = vec4(worldViewDir, 0);
+    }
 }

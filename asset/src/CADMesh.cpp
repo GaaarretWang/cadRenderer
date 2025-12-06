@@ -11,6 +11,7 @@ vsg::ImageInfoList CADMesh::depth_info;
 vsg::ref_ptr<vsg::Data> CADMesh::params;
 std::unordered_map<std::string, vsg::ImageInfoList> CADMesh::texture_name_to_image_map;
 std::unordered_map<std::string, ProtoData*> CADMesh::proto_id_to_data_map;
+std::vector<ProtoData*> CADMesh::insert_order_to_data;
 
 std::unordered_map<std::string, std::vector<MatrixIndex>> CADMesh::id_to_matrix_index_map;
 
@@ -171,6 +172,15 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
 	auto instances = datainterface.getInstances();
 	// auto instanceInfos = datainterface.getInstanceInfos();
 	std::string fbModelData = datainterface.getModelFlatbuffersData();
+    size_t lastSlash = model_path.find_last_of("/\\");
+    std::string fbFilePath = model_path.substr(0, lastSlash);
+    std::string fbFileName = model_path.substr(lastSlash + 1);
+    if(fbFileName == "window.fb"){
+        auto depthState = vsg::DepthStencilState::create();
+        depthState->depthTestEnable = VK_TRUE;
+        depthState->depthWriteEnable = VK_FALSE;
+        model_shaderset->defaultGraphicsPipelineStates.push_back(depthState);
+    }
 
     uint8_t* buffer_data;
     int buffer_size;
@@ -212,6 +222,9 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
             default_material->value().baseColorFactor = hexToRGB(color);
             default_material->value().roughnessFactor = roughness;
             default_material->value().metallicFactor = metalness;
+            if(fbFileName == "window.fb"){
+                default_material->value().baseColorFactor.w = 0.7;
+            }
 
             if (type == "mesh")
             {
@@ -254,6 +267,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     proto_data->scene = scene;
                     proto_data->back_cull = back_cull;
                     proto_id_to_data_map[proto_id] = proto_data;
+                    insert_order_to_data.push_back(proto_data);
                 }
                 proto_id_default_matrix_map[proto_id] = std::vector<vsg::dmat4>();
                 proto_id_instance_name_map[proto_id] = std::vector<std::string>();
@@ -399,6 +413,7 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
             proto_data->scene = scene;
             proto_data->back_cull = back_cull;
             proto_id_to_data_map[proto_id] = proto_data;
+            insert_order_to_data.push_back(proto_data);
         }
         proto_id_default_matrix_map[proto_id] = std::vector<vsg::dmat4>();
         proto_id_instance_name_map[proto_id] = std::vector<std::string>();
@@ -442,8 +457,7 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
 }
 
 void CADMesh::buildDrawData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::PushConstants> pc){
-    for(auto& proto_data_itr : proto_id_to_data_map){
-        ProtoData* proto_data = proto_data_itr.second;
+    for(ProtoData* proto_data : insert_order_to_data){
         if(! proto_data->back_cull){
             auto rasterizationState = vsg::RasterizationState::create();
             rasterizationState->cullMode = VK_CULL_MODE_NONE;

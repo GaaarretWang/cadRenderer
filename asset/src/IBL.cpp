@@ -1895,6 +1895,16 @@ vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options>
     shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(VIEW_DESCRIPTOR_SET));
     
     auto colorBlendState = vsg::ColorBlendState::create();
+    colorBlendState->attachments[0] = {
+        VK_TRUE,                                      // 开启混合
+        VK_BLEND_FACTOR_SRC_ALPHA,                    // 源颜色因子：取当前片元的 Alpha 值
+        VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,          // 目标颜色因子：1 - 源 Alpha（经典半透公式）
+        VK_BLEND_OP_ADD,                              // 颜色混合：源×源Alpha + 目标×(1-源Alpha)
+        VK_BLEND_FACTOR_ONE,                          // 源 Alpha 因子：1
+        VK_BLEND_FACTOR_ZERO,                         // 目标 Alpha 因子：0
+        VK_BLEND_OP_ADD,                              // Alpha 混合：源Alpha×1 + 目标Alpha×0
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+    };
     colorBlendState->attachments.resize(3, colorBlendState->attachments[0]); 
     shaderSet->defaultGraphicsPipelineStates.push_back(colorBlendState);
 

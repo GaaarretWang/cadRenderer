@@ -253,6 +253,7 @@ public:
     static vsg::ref_ptr<vsg::Data> params;
     static std::unordered_map<std::string, vsg::ImageInfoList> texture_name_to_image_map;
     static std::unordered_map<std::string, ProtoData*> proto_id_to_data_map;
+    static std::vector<ProtoData*> insert_order_to_data;
 
     static std::unordered_map<std::string, std::vector<MatrixIndex>> id_to_matrix_index_map;
 

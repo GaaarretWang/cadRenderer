@@ -163,8 +163,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto rootSwitch = vsg::Switch::create();
     rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraImageNode);
     rootSwitch->addChild(MASK_SKYBOX, drawSkyboxNode);
-    rootSwitch->addChild(MASK_PBR_FULL, modelGroup);
     rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowGroup);
+    rootSwitch->addChild(MASK_PBR_FULL, modelGroup);
     rootSwitch->addChild(MASK_TEXT, textGroup);
     rootSwitch->addChild(MASK_WIREFRAME, wireframeGroup);
     auto rootSwitch1 = vsg::Switch::create();
@@ -357,12 +357,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     CADMesh::camera_info = camera_info;
     CADMesh::depth_info = depth_info;
     CADMesh::params = params;
-    if(shadow_recevier_path != "")
-    {
-        CADMesh* shadow_recevier_mesh = new CADMesh();
-        shadow_recevier_mesh->preprocessProtoData(shadow_recevier_path.c_str(), getDirectoryPath(shadow_recevier_path).c_str(), shadow_recevier_transform, shadow_shader, shadowGroup, "shadow_receiver");
-    }
-    bool fullNormal = true;
     //---------------------------------------读取CAD模型------------------------------------------//
     for(int i = 0; i < model_paths.size(); i ++){
         std::string &path_i = model_paths[i];
@@ -388,6 +382,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             transfer_model->preprocessFBProtoData(path_i, texture_path_i.c_str(), model_transforms[i], IBL::customPbrShaderSet(options), modelGroup, instance_names[i]);
         }
     }
+
+    if(shadow_recevier_path != "")
+    {
+        CADMesh* shadow_recevier_mesh = new CADMesh();
+        shadow_recevier_mesh->preprocessProtoData(shadow_recevier_path.c_str(), getDirectoryPath(shadow_recevier_path).c_str(), shadow_recevier_transform, shadow_shader, shadowGroup, "shadow_receiver");
+    }
+
     newmatrix = vsg::mat4Array::create(2);
     vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
                 VK_SHADER_STAGE_ALL, 128, newmatrix);
