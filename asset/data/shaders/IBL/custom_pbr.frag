@@ -211,25 +211,31 @@ void poissonDiskSamples( const in vec2 randomSeed ) {                           
 }
 
 float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float area) {
-  float shadowmapSize = 2048.; //shadow mapĴС
-  float linearFrac = sqrt(max(area, 0.0));//将area映射为线性尺寸
-  float baseStridePixels = 3.0; //基础步长
-  const float lightSizeScale = 8.0; // 调节此值来放大/缩小基于 area 的影响
-  float Stride = baseStridePixels * linearFrac * lightSizeScale + 0.001; // 最小非零避免 0
-  float visibility = 0.0;
-  float cur_depth = coords.z;
-  
-  poissonDiskSamples(coords.xy);
+    float linearFrac = sqrt(max(area, 0.0));//将area映射为线性尺寸
+    float baseStridePixels = 20.0; //基础步长
+    const float lightSizeScale = 20.0; // 调节此值来放大/缩小基于 area 的影响
+    float Stride = baseStridePixels * linearFrac * lightSizeScale + 0.001; // 最小非零避免 0
+    float shadowmapSize = 2048.;
+    float visibility = 0.0;
+    float cur_depth = coords.z;
+    
+    poissonDiskSamples(coords.xy);
 
-  float ctrl = 1.0;
-     
-  for(int i =0 ; i < NUM_SAMPLES; i++)
-  {
-     float res  = texture(shadowMap, vec4(coords.xy + poissonDisk[i] * Stride / shadowmapSize, shadowMapIndex, coords.z)).r;
-     visibility += res;
-  }
+    //uniformDiskSamples(coords.xy);
 
-  return visibility / float(NUM_SAMPLES);
+    float ctrl = 1.0;
+        
+    for(int i =0 ; i < NUM_SAMPLES; i++)
+    {
+        //vec4 shadow_color = texture2D(shadowMap, coords.xy + poissonDisk[i] * Stride / shadowmapSize); 
+        //float shadow_depth = unpack(shadow_color);
+        //float res = cur_depth < shadow_depth + EPS ? 1. : 0. ;
+        //visibility += res;
+        float res  = texture(shadowMap, vec4(coords.xy + poissonDisk[i] * Stride / shadowmapSize, shadowMapIndex, coords.z)).r;
+        visibility += res;
+    }
+
+    return visibility / float(NUM_SAMPLES);
 }
 
 float findBlocker(sampler2DArrayShadow shadowMap,  vec4 coords, int shadowMapIndex) {
@@ -753,8 +759,6 @@ void main()
         }
         scene_brightness = totalRealBrightness / totalBrigtness;
     }
-    if (!gl_FrontFacing)
-        scene_brightness = 1;
 
     outColor = vec4(color * scene_brightness, baseColor.w);
     if(baseColor.w > 0.8){

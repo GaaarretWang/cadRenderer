@@ -47,10 +47,8 @@ class vsgRendererServer
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;
     vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> hdr_to_light_group_map;
-    int hdr_image_num = 3;
-
-    vsg::ref_ptr<vsg::DirectionalLight> directionalLight[4];
-    vsg::ref_ptr<vsg::Switch> directionalLightSwitch = vsg::Switch::create();
+    int hdr_image_num = 4;
+    int hdr_image_max_num = 5;
 
     std::string project_path;
     std::string shadow_recevier_path;
@@ -179,7 +177,7 @@ public:
             viewer_IBL->present();
             process_done = true;
         }
-        for(int i = 3; i > 0; i--){
+        for(int i = hdr_image_max_num; i > 0; i--){
             std::string envmapFilepath = project_path + "asset/data/textures/" + std::to_string(i) + ".hdr";
             IBL::generateEnvmap(vsgContext, envmapFilepath, i);
             IBL::generateIrradianceCube(vsgContext, i);
@@ -249,7 +247,7 @@ public:
                 directional_light->area = light_data["area"].get<float>();
                 directional_light->intensity = light_data["brightness"].get<float>();
                 auto direction = light_data["direction"].get<std::vector<float>>();
-                directional_light->direction = -vsg::normalize(vsg::vec3(direction[2], direction[0], direction[1]));
+                directional_light->direction = -vsg::normalize(vsg::vec3(-direction[2], direction[0], direction[1]));
                 directional_light->shadowMaps = 1;
                 light_i->addChild(directional_light);
             }

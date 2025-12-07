@@ -134,7 +134,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsgContext.queueFamily = queueFamily;
     //std::cout<<"IBL:创建环境光数据"<< std::endl;
     IBL::appData.options = options;
-    IBL::createResources(vsgContext);
+    IBL::createResources(vsgContext, hdr_image_max_num);
     IBL::generateBRDFLUT(vsgContext);
     preprocessEnvMap();
     std::cout << "IBL:创建环境光数据完成----创建窗口" << std::endl;
@@ -412,6 +412,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     view = vsg::View::create(camera, scenegraph_safe);
     // view->features = vsg::RECORD_LIGHTS;
     view->mask = MASK_CAMERA_IMAGE | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
+    // view->mask = MASK_SKYBOX | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
     auto shadow_view_dependent_state = CustomViewDependentState::create(view.get());
     view->viewDependentState = shadow_view_dependent_state;
     auto renderGraph = vsg::RenderGraph::create(window, view);

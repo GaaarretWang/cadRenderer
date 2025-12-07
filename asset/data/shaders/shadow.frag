@@ -159,7 +159,7 @@ void poissonDiskSamples( const in vec2 randomSeed ) {
 
 float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float area) {
     float linearFrac = sqrt(max(area, 0.0));//将area映射为线性尺寸
-    float baseStridePixels = 10.0; //基础步长
+    float baseStridePixels = 20.0; //基础步长
     const float lightSizeScale = 20.0; // 调节此值来放大/缩小基于 area 的影响
     float Stride = baseStridePixels * linearFrac * lightSizeScale + 0.001; // 最小非零避免 0
     float shadowmapSize = 2048.;

@@ -313,6 +313,8 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
     assert(model_path != nullptr);
     OBJLoader objLoader;
     std::unordered_map<std::string, int> num = objLoader.vertex_count(model_path);
+    size_t lastSlash = std::string(model_path).find_last_of("/\\");
+    std::string fileName = std::string(model_path).substr(lastSlash + 1);
 
     auto vertices = vsg::vec3Array::create(num["vertices"]); 
     auto normals = vsg::vec3Array::create(num["normals"]);
@@ -407,6 +409,10 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
                 proto_data->normal_path = "";
                 proto_data->mr_path = "";
                 proto_data->material = vsg::PbrMaterialValue::create();
+            }
+            if(fileName == "helicopter-engine.quads.obj"){
+                proto_data->material->value().roughnessFactor = 1;
+                proto_data->material->value().metallicFactor = 1;
             }
 
             proto_data->shaderset = model_shaderset;

@@ -419,7 +419,7 @@ ptr<vsg::PipelineBarrier> createImageLayoutPipelineBarrier(
     return createImageLayoutPipelineBarrier(image, oldImageLayout, newImageLayout, subresourceRange, srcStageMask, dstStageMask);
 }
 
-void createResources(VsgContext& vsgContext)
+void createResources(VsgContext& vsgContext, int hdr_image_max_num)
 {
     auto& context = vsgContext.context;
     auto& viewer = vsgContext.viewer;
@@ -452,7 +452,7 @@ void createResources(VsgContext& vsgContext)
     }
 
     // test cubemap (only used by skybox and texture generations)
-    for(int i = 1; i < 4; i++){
+    for(int i = 1; i <= hdr_image_max_num; i++){
         {
             _ImageLine tempLine;
             createImageCube(*context, 

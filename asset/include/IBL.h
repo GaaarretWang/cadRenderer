@@ -92,7 +92,7 @@ namespace IBL
     //extern VsgContext vsgContext;
     extern AppData appData;
 
-    void createResources(VsgContext &vsgContext);
+    void createResources(VsgContext &vsgContext, int hdr_image_max_num);
 
     void loadEnvmapRect(VsgContext &vsgContext);
 
