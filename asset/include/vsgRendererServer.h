@@ -8,19 +8,29 @@
 #include "convertPng.h"
 #include "ConfigShader.h"
 #include "ImGui.h"
-
-#include "HDRLightSampler.h"
+#include "MyMask.h"
+#include "CustomViewDependentState.h"
+#include "CustomViewDependentState1.h"
+#include "IBL.h"
 #include "PlaneLoader.h"
+#include "SSAOPass.h"
 
 #include "fixDepth.h"
 #include "json.hpp"
 using namespace std;
 
+struct GlobalPCData{
+    float camera_pos[3];
+    float z_far;
+    int shader_type;
+    int width;
+    int height;
+};
+
 class vsgRendererServer
 {
     public:
     vsg::ref_ptr<vsg::Device> device;
-    vsg::ref_ptr<vsg::ImageInfo> imageInfosIBL[4];
     vsg::ref_ptr<vsg::Viewer> viewer = vsg::Viewer::create();
     vsg::ref_ptr<vsg::Viewer> viewer_IBL = vsg::Viewer::create();
     vsg::ref_ptr<vsg::View> view;
@@ -28,7 +38,6 @@ class vsgRendererServer
     std::unordered_map<std::string, CADMesh*> transfered_meshes; //path, mesh*
 
     vsg::ref_ptr<vsg::ShaderSet> shadow_shader;
-    vsg::ref_ptr<vsg::ShaderSet> model_shader;
     vsg::ref_ptr<vsg::ShaderSet> line_shader;
     vsg::ref_ptr<vsg::ShaderSet> point_shader;
 
@@ -47,7 +56,7 @@ class vsgRendererServer
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;
     vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> hdr_to_light_group_map;
-    int hdr_image_num = 4;
+    int hdr_image_num = 1;
     int hdr_image_max_num = 5;
 
     std::string project_path;
@@ -154,7 +163,6 @@ public:
         //-----------------------------------------设置shader------------------------------------//
         ConfigShader config_shader;
         shadow_shader = config_shader.buildShadowShader(project_path + "asset/data/shaders/shadow.vert", project_path + "asset/data/shaders/shadow.frag");
-        model_shader = config_shader.buildModelShader(project_path + "asset/data/shaders/model.vert", project_path + "asset/data/shaders/model.frag");
         line_shader = config_shader.buildLineShader(project_path + "asset/data/shaders/line.vert", project_path + "asset/data/shaders/line.frag");
         point_shader = config_shader.buildLineShader(project_path + "asset/data/shaders/point.vert", project_path + "asset/data/shaders/point.frag");
     }
@@ -269,20 +277,6 @@ public:
     
     vsg::ref_ptr<vsg::ClearDepthStencilImage> clearDepth = vsg::ClearDepthStencilImage::create();
     vsg::ref_ptr<vsg::ClearDepthStencilImage> clearDepth1 = vsg::ClearDepthStencilImage::create();
-    vsg::ref_ptr<vsg::PipelineBarrier> preClearBarrier = vsg::PipelineBarrier::create(
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,      // 源阶段（无前置操作）
-        VK_PIPELINE_STAGE_TRANSFER_BIT,         // 目标阶段（传输操作）
-        0                                       // 依赖标志
-    );
-
-    vsg::ref_ptr<vsg::ImageMemoryBarrier> layoutTransition = vsg::ImageMemoryBarrier::create(
-        0,                                      // 源访问掩码（无依赖）
-        VK_ACCESS_TRANSFER_WRITE_BIT,           // 目标访问掩码（传输写入）
-        VK_IMAGE_LAYOUT_UNDEFINED,              // 旧布局（假设初始状态为 UNDEFINED）
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,   // 新布局
-        VK_QUEUE_FAMILY_IGNORED,
-        VK_QUEUE_FAMILY_IGNORED
-    );
     vsg::ref_ptr<vsg::Image> depthPyramidImage = vsg::Image::create();
 
     void setRealColorAndImage(unsigned char * real_color, unsigned short * real_depth){

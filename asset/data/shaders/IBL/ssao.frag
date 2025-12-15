@@ -2,82 +2,15 @@
 #extension GL_ARB_separate_shader_objects : enable
 #pragma import_defines (VSG_DIFFUSE_MAP, VSG_GREYSCALE_DIFFUSE_MAP, VSG_EMISSIVE_MAP, VSG_LIGHTMAP_MAP, VSG_NORMAL_MAP, VSG_METALLROUGHNESS_MAP, VSG_SPECULAR_MAP, VSG_TWO_SIDED_LIGHTING, VSG_WORKFLOW_SPECGLOSS, SHADOWMAP_DEBUG)
 
-#define IBL_DESCRIPTOR_SET 0
-#define VIEW_DESCRIPTOR_SET 1
 #define MATERIAL_DESCRIPTOR_SET 2
-
-const float PI = 3.14159265359;
-const float RECIPROCAL_PI = 0.31830988618;
-const float RECIPROCAL_PI2 = 0.15915494;
-const float EPSILON = 1e-6;
-const float c_MinRoughness = 0.04;
-
-#define NUM_SAMPLES 16
-#define BLOCKER_SEARCH_NUM_SAMPLES NUM_SAMPLES
-#define PCF_NUM_SAMPLES NUM_SAMPLES
-#define NUM_RINGS 10
-
-#define EPS 1e-2  //ģӰжЧкܴӰ
-#define PI 3.141592653589793
-#define PI2 6.283185307179586
-
-// 关键修正：添加 input_attachment_index = 1（对应子通道 1 输入附件列表的索引 1 → colorRef1_Read）
 layout(
-    input_attachment_index = 1,  // 强制要求：子通道输入附件列表中的索引
-    set = MATERIAL_DESCRIPTOR_SET,  // 和 CPU 侧一致（比如 2）
-    binding = 0  // 和 CPU 侧一致（比如 0）
-) uniform subpassInput colorInputAttachment;  // color attachment 1（法线）
-
+    input_attachment_index = 1,
+    set = MATERIAL_DESCRIPTOR_SET,
+    binding = 0
+) uniform subpassInput colorInputAttachment;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D normalInputAttachment;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D worldPosInputAttachment;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D samplerNoise;
-
-#ifdef VSG_EMISSIVE_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D emissiveMap;
-#endif
-
-#ifdef VSG_SPECULAR_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap;
-#endif
-
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform sampler2D cameraImage;
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
-
-layout (set = MATERIAL_DESCRIPTOR_SET, binding = 9) uniform customParams {
-	float semitransparent;
-	int width;
-	int height;
-    float z_far;
-    int shader_type;
-} extraParams;
-
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
-{
-    vec4 baseColorFactor;
-    vec4 emissiveFactor;
-    vec4 diffuseFactor;
-    vec4 specularFactor;
-    float metallicFactor;
-    float roughnessFactor;
-    float alphaMask;
-    float alphaMaskCutoff;
-} pbr;
-
-// ViewDependentState
-layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
-{
-    vec4 values[2048];
-} lightData;
-
-
-layout(set = VIEW_DESCRIPTOR_SET, binding = 2) uniform sampler2DArrayShadow shadowMaps;
-
-layout(set = IBL_DESCRIPTOR_SET, binding = 0) uniform sampler2D samplerBRDFLUT;
-layout(set = IBL_DESCRIPTOR_SET, binding = 1) uniform samplerCube samplerIrradiance;
-layout(set = IBL_DESCRIPTOR_SET, binding = 2) uniform samplerCube samplerPrefilteredEnv;
-layout(set = IBL_DESCRIPTOR_SET, binding = 3) uniform EnvmapParams{
-    vec4 param;
-}envmapData;
 
 layout(push_constant) uniform PushConstants {
     mat4 projection;

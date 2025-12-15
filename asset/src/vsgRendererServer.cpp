@@ -196,43 +196,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsg::ref_ptr<vsg::Group> scenegraph_safe = vsg::Group::create();
     scenegraph_safe->addChild(rootSwitch);
     scenegraph_safe->addChild(rootSwitch1);
-    vsg::ref_ptr<vsg::PbrMaterialValue> objectMaterial;
     
-    struct SetPipelineStates : public vsg::Visitor
-    {
-        uint32_t base = 0;
-        const vsg::AttributeBinding& binding;
-        VkVertexInputRate vir;
-        uint32_t stride;
-        VkFormat format;
-
-        SetPipelineStates(uint32_t in_base, const vsg::AttributeBinding& in_binding, VkVertexInputRate in_vir, uint32_t in_stride, VkFormat in_format) :
-            base(in_base),
-            binding(in_binding),
-            vir(in_vir),
-            stride(in_stride),
-            format(in_format) {}
-
-        void apply(Object& object) override { object.traverse(*this); }
-        void apply(vsg::VertexInputState& vis) override
-        {
-            uint32_t bindingIndex = base + static_cast<uint32_t>(vis.vertexAttributeDescriptions.size());
-            vis.vertexAttributeDescriptions.push_back(VkVertexInputAttributeDescription{binding.location, bindingIndex, (format != VK_FORMAT_UNDEFINED) ? format : binding.format, 0});
-            vis.vertexBindingDescriptions.push_back(VkVertexInputBindingDescription{bindingIndex, stride, vir});
-        }
-    };
-
-    auto addVertexAttribute = [](vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> gpc, std::string name, VkVertexInputRate vertexInputRate, vsg::Data::Properties props) -> bool {
-        const auto& attributeBinding = gpc->shaderSet->getAttributeBinding(name);
-        if (attributeBinding)
-        {
-            SetPipelineStates setVertexAttributeState(gpc->baseAttributeBinding, attributeBinding, vertexInputRate, props.stride, props.format);
-            gpc->accept(setVertexAttributeState);
-
-            return true;
-        }
-        return false;
-    };
 
     // -----------------------设置相机参数------------------------------//
     double radius = 2000.0; // 固定观察距离
@@ -249,57 +213,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     extent.width = render_width;
     extent.height = render_height;
 
-
-
-    vsg::Data::Properties vec2ArrayProps = {};
-    vec2ArrayProps.stride = sizeof(vsg::vec2);
-    vsg::Data::Properties vec3ArrayProps = {};
-    vec3ArrayProps.stride = sizeof(vsg::vec3);
-    vsg::Data::Properties vec4ValueProps = {};
-
-    auto pbriblShaderSet = IBL::customPbrShaderSet(options);//
-    auto gpc_ibl = vsg::GraphicsPipelineConfigurator::create(pbriblShaderSet);
-    addVertexAttribute(gpc_ibl, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
-    addVertexAttribute(gpc_ibl, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
-    addVertexAttribute(gpc_ibl, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, vec2ArrayProps);
-    addVertexAttribute(gpc_ibl, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vec4ValueProps);
-    gpc_ibl->assignTexture("cameraImage", camera_info);
-    gpc_ibl->assignTexture("depthImage", depth_info);
-    // auto params = vsg::floatArray::create(3);
-    // params->set(0, 1.f);
-    // params->set(1, 640.f * 2);
-    // params->set(2, 480.f * 2);
-    // gpc_ibl->assignUniform("customParams", params);//是否半透明判断
-    //gpc_ibl->assignDescriptor("material", plane_mat);
-    gpc_ibl->init();
-
-    auto wireframeShaderSet = IBL::customPbrShaderSet(options);//
-    auto rasterizationState = vsg::RasterizationState::create();
-    rasterizationState->polygonMode = VK_POLYGON_MODE_LINE;
-    wireframeShaderSet->defaultGraphicsPipelineStates.push_back(rasterizationState);
-    auto gpc_ibl_wireframe = vsg::GraphicsPipelineConfigurator::create(wireframeShaderSet);
-    addVertexAttribute(gpc_ibl_wireframe, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
-    addVertexAttribute(gpc_ibl_wireframe, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
-    addVertexAttribute(gpc_ibl_wireframe, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, vec2ArrayProps);
-    addVertexAttribute(gpc_ibl_wireframe, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vec4ValueProps);
-    // gpc_ibl_wireframe->assignTexture("cameraImage", camera_info);
-    // gpc_ibl_wireframe->assignTexture("depthImage", depth_info);
-    // gpc_ibl_wireframe->assignUniform("customParams", params);//是否半透明判断
-    //gpc_ibl->assignDescriptor("material", plane_mat);
-    gpc_ibl_wireframe->init();
-
-    // auto gpc_shadow = vsg::GraphicsPipelineConfigurator::create(shadow_shader);
-    // addVertexAttribute(gpc_shadow, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
-    // addVertexAttribute(gpc_shadow, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, vec3ArrayProps);
-    // addVertexAttribute(gpc_shadow, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, vec2ArrayProps);
-    // addVertexAttribute(gpc_shadow, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vec4ValueProps);
-    // auto extent_array = vsg::floatArray::create(2);
-    // extent_array->set(0, render_width * 1.f);
-    // extent_array->set(1, render_height * 1.f);
-    // gpc_shadow->assignDescriptor("extent", extent_array);
-    // gpc_shadow->assignTexture("cameraImage", camera_info);
-    // gpc_shadow->assignTexture("depthImage", depth_info);
-    // gpc_shadow->init();
 
     struct MyParams
     {
@@ -318,42 +231,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     params_ptr->camera_far = 65.535;
     params_ptr->shader_type = shader_type;
 
-    PlaneData planeData = createTestPlanes();
-    float subdivisions = 0.1;
-    PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
-
-    MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
-    {
-        vsg::ref_ptr<vsg::Geometry> reconstructDrawCmd = vsg::Geometry::create();
-        reconstructDrawCmd->assignArrays({mesh.vertices,
-                                    mesh.normals,
-                                    vsg::vec2Array::create(1),
-                                    vsg::vec4Value::create(1, 1, 1, 1)});
-        reconstructDrawCmd->assignIndices(mesh.indices);
-        reconstructDrawCmd->commands.push_back(vsg::DrawIndexed::create(mesh.indices->size(), 1, 0, 0, 0));
-                            
-        // auto pbrStateGroup = vsg::StateGroup::create();
-        // gpc_ibl->copyTo(pbrStateGroup);
-        // pbrStateGroup->addChild(reconstructDrawCmd);
-
-        auto wireframeStateGroup = vsg::StateGroup::create();
-        gpc_ibl_wireframe->copyTo(wireframeStateGroup);
-        wireframeStateGroup->addChild(reconstructDrawCmd);
-
-
-        // auto shadowStateGroup = vsg::StateGroup::create();
-        // gpc_shadow->copyTo(shadowStateGroup);
-        // shadowStateGroup->addChild(reconstructDrawCmd);
-
-        // rootSwitch->addChild(MASK_WIREFRAME, wireframeStateGroup);
-        // rootSwitch->addChild(MASK_PBR_FULL, pbrStateGroup);
-        // rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowStateGroup);
-    }
-    // auto params1 = vsg::floatArray::create(4);
-    // params1->set(0, 1);
-    // params1->set(1, render_width * 1.f);
-    // params1->set(2, render_height * 1.f);
-    // params1->set(3, 65.535);
     CADMesh::camera_info = camera_info;
     CADMesh::depth_info = depth_info;
     CADMesh::params = params;
@@ -393,13 +270,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
                 VK_SHADER_STAGE_ALL, 128, newmatrix);
 
-    CADMesh::buildDrawData(pbriblShaderSet, modelGroup, pc); //读取obj文件
+    CADMesh::buildDrawData(modelGroup, pc); //读取obj文件
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup); //读取obj文件
     CADMesh::buildDynamicPointsData(point_shader, wireframeGroup); //读取obj文件
     CADMesh::buildDynamicTextsData(textGroup, options, project_path + "asset/data/fonts/times.vsgt"); //读取obj文件
     std::cout << "model processing done" << std::endl;
-    CADMesh::buildSSAOData(IBL::customSSAOShaderSet(options), SSAOGroup, window->_GBufferImageView0, window->_GBufferImageView1, window->_GBufferImageView2, extent);
-    CADMesh::buildSSAODenoiseData(IBL::customSSAODenoiseShaderSet(options), SSAODenoiseGroup, window->_GBufferImageView0, window->_SSAOResultImageView);
+    SSAOPass::buildSSAOData(options, SSAOGroup, window->_GBufferImageView0, window->_GBufferImageView1, window->_GBufferImageView2, extent);
+    SSAOPass::buildSSAODenoiseData(options, SSAODenoiseGroup, window->_GBufferImageView0, window->_SSAOResultImageView);
 
     // HDR环境光采样
     init_directional_lights();
@@ -473,7 +350,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     camera_matrix->properties.dataVariance = vsg::DYNAMIC_DATA;
 
 
-    preClearBarrier->add(layoutTransition);
 
     clearDepth->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 必须为 TRANSFER_DST_OPTIMAL 或 GENERAL
     clearDepth->depthStencil = {0.0f, 0};
@@ -492,10 +368,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
         commandGraph->addChild(clearDepth);
     commandGraph->addChild(clearDepth1);
-
-
-
-
 
 
     VkImageSubresourceRange range0{};
@@ -527,7 +399,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     commandGraph->addChild(clearColor0);
     commandGraph->addChild(clearColor1);
     commandGraph->addChild(clearColor2);
-
 
     auto computeQueueFamily = commandGraph->queueFamily;
     auto computeQueueFamily1 = commandGraph1->queueFamily;
@@ -922,31 +793,26 @@ bool vsgRendererServer::render() {
     camera_matrix->dirty();
     auto t0 = std::chrono::high_resolution_clock::now();
     while (viewer->advanceToNextFrame()) {
-        static int tmp = 0;
+        if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
+            clearDepth->image = window->_multisampleDepthImage;
+        clearDepth1->image = window->_depthImage;
+
+        auto t1 = std::chrono::high_resolution_clock::now();
+        fix_depth(width, height, depth_pixels);
+
+        auto t2 = std::chrono::high_resolution_clock::now();
+        uint8_t* vsg_color_image_beginPointer = static_cast<uint8_t*>(vsg_color_image->dataPointer(0));
+        std::copy(color_pixels, color_pixels + width * height * 3, vsg_color_image_beginPointer);
+        uint16_t* vsg_depth_image_beginPointer = static_cast<uint16_t*>(vsg_depth_image->dataPointer(0));
+        std::copy(depth_pixels, depth_pixels + width * height, vsg_depth_image_beginPointer);
+
         auto t3 = std::chrono::high_resolution_clock::now();
-        if(!tmp){
-            layoutTransition->image = window->_depthImage;
-            if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
-                clearDepth->image = window->_multisampleDepthImage;
-            clearDepth1->image = window->_depthImage;
+        vsg_color_image->dirty();
+        vsg_depth_image->dirty();
 
-            auto t1 = std::chrono::high_resolution_clock::now();
-            fix_depth(width, height, depth_pixels);
-
-            auto t2 = std::chrono::high_resolution_clock::now();
-            uint8_t* vsg_color_image_beginPointer = static_cast<uint8_t*>(vsg_color_image->dataPointer(0));
-            std::copy(color_pixels, color_pixels + width * height * 3, vsg_color_image_beginPointer);
-            uint16_t* vsg_depth_image_beginPointer = static_cast<uint16_t*>(vsg_depth_image->dataPointer(0));
-            std::copy(depth_pixels, depth_pixels + width * height, vsg_depth_image_beginPointer);
-
-            t3 = std::chrono::high_resolution_clock::now();
-            vsg_color_image->dirty();
-            vsg_depth_image->dirty();
-
-            gui::global_params->render_func_times[0] = std::chrono::duration<double, std::milli>(t1 - t0).count();
-            gui::global_params->render_func_times[1] = std::chrono::duration<double, std::milli>(t2 - t1).count();
-            gui::global_params->render_func_times[2] = std::chrono::duration<double, std::milli>(t3 - t2).count();
-        }
+        gui::global_params->render_func_times[0] = std::chrono::duration<double, std::milli>(t1 - t0).count();
+        gui::global_params->render_func_times[1] = std::chrono::duration<double, std::milli>(t2 - t1).count();
+        gui::global_params->render_func_times[2] = std::chrono::duration<double, std::milli>(t3 - t2).count();
 
         auto t4 = std::chrono::high_resolution_clock::now();
         viewer->handleEvents();
