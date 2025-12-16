@@ -205,11 +205,69 @@ void CustomViewDependentState::init(ResourceRequirements& requirements)
     // if not active then don't enable shadow maps
     if (maxShadowMaps == 0) return;
 
+    {
+        computeCommandGraphShadow->submitOrder = -1;
+        vsg::DescriptorSetLayoutBindings descriptorBindings{
+            {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+        };
+        auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
+        auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
+        {
+            auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex_shadow.comp", vsg::Options::create());
+            auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
+            auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
+            computeCommandGraphShadow->addChild(bindPipeline);
+
+            auto ShadowPipelineBarrier = vsg::PipelineBarrier::create(
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,                                                            // dstStageMask
+                0
+            );
+            for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
+                ProtoData* proto_data = proto_data_itr.second;
+                auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
+                                                                                    proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info, 
+                                                                                    proto_data->output_instance_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer});
+                auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
+                computeCommandGraphShadow->addChild(bindDescriptorSet);
+                computeCommandGraphShadow->addChild(vsg::Dispatch::create(1, 1, 1));
+                auto indirect_draw_barrier = vsg::BufferMemoryBarrier::create(
+                    VK_ACCESS_NONE,
+                    VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    proto_data->draw_indirect->bufferInfo->buffer,
+                    0,
+                    VK_WHOLE_SIZE
+                );
+                auto instance_data_barrier = vsg::BufferMemoryBarrier::create(
+                    VK_ACCESS_NONE,
+                    VK_ACCESS_UNIFORM_READ_BIT, 
+                    VK_QUEUE_FAMILY_IGNORED,
+                    VK_QUEUE_FAMILY_IGNORED,
+                    proto_data->output_instance_buffer_info->buffer,
+                    0,
+                    VK_WHOLE_SIZE
+                );
+                ShadowPipelineBarrier->add(indirect_draw_barrier);
+                ShadowPipelineBarrier->add(instance_data_barrier);
+            }
+            computeCommandGraphShadow->addChild(ShadowPipelineBarrier);
+        }
+    }
+
+
     // create a switch to toggle on/off the render to texture subgraphs for each shadowmap layer
     preRenderSwitch = Switch::create();
 
     preRenderCommandGraph = CommandGraph::create();
     preRenderCommandGraph->submitOrder = -1;
+    preRenderCommandGraph->addChild(computeCommandGraphShadow);
     preRenderCommandGraph->addChild(preRenderSwitch);
 
     auto tcon = TraverseChildrenOfNode::create(view);

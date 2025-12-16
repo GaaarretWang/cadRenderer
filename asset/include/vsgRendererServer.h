@@ -14,6 +14,7 @@
 #include "IBL.h"
 #include "PlaneLoader.h"
 #include "SSAOPass.h"
+#include "OcclusionCullingPasses.h"
 
 #include "fixDepth.h"
 #include "json.hpp"
@@ -64,10 +65,6 @@ class vsgRendererServer
     vsg::dmat4 shadow_recevier_transform;
     std::unordered_set<std::string> cull_mode_none_model_paths;
 
-    struct CameraPlaneInfo{
-        vsg::vec4 n[6];
-    };
-    CameraPlaneInfo camera_plane_info;
 
 
     float fx = 386.52199190267083;//焦距(x轴上)
@@ -91,8 +88,6 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::Data> vsg_depth_image;
     vsg::ImageInfoList camera_info;
     vsg::ImageInfoList depth_info;
-    vsg::ref_ptr<vsg::mat4Array> camera_matrix = vsg::mat4Array::create(2);
-    vsg::ref_ptr<vsg::BufferInfo> camera_matrix_buffer_info;
 
     //every frame's real color and depth
     unsigned char * color_pixels = nullptr;
@@ -277,7 +272,6 @@ public:
     
     vsg::ref_ptr<vsg::ClearDepthStencilImage> clearDepth = vsg::ClearDepthStencilImage::create();
     vsg::ref_ptr<vsg::ClearDepthStencilImage> clearDepth1 = vsg::ClearDepthStencilImage::create();
-    vsg::ref_ptr<vsg::Image> depthPyramidImage = vsg::Image::create();
 
     void setRealColorAndImage(unsigned char * real_color, unsigned short * real_depth){
         color_pixels = real_color;

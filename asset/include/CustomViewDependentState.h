@@ -2,6 +2,7 @@
 
 #include <vsg/all.h>
 #include "MyMask.h"
+#include "CADMesh.h"
 
 #ifndef CUSTOMVIEWDEPENDENTSTATE_H
 #define CUSTOMVIEWDEPENDENTSTATE_H
@@ -11,9 +12,11 @@ class CustomViewDependentState : public vsg::Inherit<vsg::ViewDependentState, Cu
 public:
     vsg::dbox scene_bound_ws_virtual;
     vsg::dbox scene_bound_ws_real;
+    vsg::ref_ptr<vsg::CommandGraph> computeCommandGraphShadow;
+    std::string project_path;
 
-    CustomViewDependentState(vsg::View* in_view) :
-        vsg::Inherit<vsg::ViewDependentState, CustomViewDependentState>(in_view){}
+    CustomViewDependentState(vsg::View* in_view, vsg::ref_ptr<vsg::Device> device, int computeQueueFamily, std::string in_project_path) :
+        vsg::Inherit<vsg::ViewDependentState, CustomViewDependentState>(in_view), computeCommandGraphShadow(vsg::CommandGraph::create(device, computeQueueFamily)), project_path(in_project_path){}
 
     // to override descriptorset layout
     virtual void init(vsg::ResourceRequirements& requirements) override;
