@@ -255,7 +255,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         }
         else if(format == "fb")
         {
-            //transfer_model->transferModel(model_paths[i], fullNormal, model_transforms[i]);
             transfer_model->preprocessFBProtoData(path_i, texture_path_i.c_str(), model_transforms[i], IBL::customPbrShaderSet(options), modelGroup, instance_names[i]);
         }
     }
@@ -297,13 +296,10 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto shadow_view_dependent_state = CustomViewDependentState::create(view.get(), device, computeQueueFamily, project_path);
     view->viewDependentState = shadow_view_dependent_state;
     auto renderGraph = vsg::RenderGraph::create(window, view);
-    // auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
-    // renderGraph->addChild(renderImGui);
 
     renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
     auto view1 = vsg::View::create(camera, scenegraph_safe);
     // view->features = vsg::RECORD_LIGHTS;
-    // view1->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER;
     view1->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER | MASK_SSAO;
     view1->viewDependentState = CustomViewDependentState1::create(view1.get());
     view1->viewDependentState->pre_depth_pass = view->viewDependentState;
@@ -325,55 +321,9 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
 
 
-    clearDepth->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 必须为 TRANSFER_DST_OPTIMAL 或 GENERAL
-    clearDepth->depthStencil = {0.0f, 0};
-    VkImageSubresourceRange range{};
-    range.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
-    range.baseMipLevel = 0;
-    range.levelCount = 1;
-    range.baseArrayLayer = 0;
-    range.layerCount = 1;
-    clearDepth->ranges = {range};
-
-    clearDepth1->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 必须为 TRANSFER_DST_OPTIMAL 或 GENERAL
-    clearDepth1->depthStencil = {0.0f, 0};
-    clearDepth1->ranges = {range};
-
-    if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
-        commandGraph->addChild(clearDepth);
-    commandGraph->addChild(clearDepth1);
-
-
-    VkImageSubresourceRange range0{};
-    range0.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; // 颜色附件
-    range0.baseMipLevel = 0;
-    range0.levelCount = 1;
-    range0.baseArrayLayer = 0;
-    range0.layerCount = 1;
-
-    auto clearColor0 = vsg::ClearColorImage::create();
-    clearColor0->image = window->_GBufferImage0;
-    clearColor0->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 符合要求的布局
-    clearColor0->color = {0.0f, 0.0f, 0.0f, 1.0f}; // 清除颜色：黑色（RGBA）
-    clearColor0->ranges = {range0};
-
-    auto clearColor1 = vsg::ClearColorImage::create();
-    clearColor1->image = window->_GBufferImage1;
-    clearColor1->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 符合要求的布局
-    clearColor1->color = {0.0f, 0.0f, 0.0f, 1.0f}; // 清除颜色：默认法线（0,0,1）映射后的值
-    clearColor1->ranges = {range0};
-
-    auto clearColor2 = vsg::ClearColorImage::create();
-    clearColor2->image = window->_GBufferImage2;
-    clearColor2->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 符合要求的布局
-    clearColor2->color = {0.0f, 0.0f, 0.0f, 1.0f}; // 清除颜色：默认法线（0,0,1）映射后的值
-    clearColor2->ranges = {range0};
-
-    // 3. 添加到命令图（和原有深度清除逻辑一致）
-    commandGraph->addChild(clearColor0);
-    commandGraph->addChild(clearColor1);
-    commandGraph->addChild(clearColor2);
-
+    auto clear_image_commandgraph = vsg::CommandGraph::create(device, computeQueueFamily);
+    Utils::BuildClearCommandGraph(clear_image_commandgraph, extent, window, msaaSamples);
+    commandGraph->addChild(clear_image_commandgraph);
     auto depth_cull_command_graph1 = vsg::CommandGraph::create(device, computeQueueFamily);
     commandGraph->addChild(depth_cull_command_graph1);
     commandGraph->addChild(renderGraph);
@@ -417,9 +367,6 @@ bool vsgRendererServer::render() {
     OcclusionCullingPasses::camera_matrix->dirty();
     auto t0 = std::chrono::high_resolution_clock::now();
     while (viewer->advanceToNextFrame()) {
-        if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
-            clearDepth->image = window->_multisampleDepthImage;
-        clearDepth1->image = window->_depthImage;
 
         auto t1 = std::chrono::high_resolution_clock::now();
         fix_depth(width, height, depth_pixels);

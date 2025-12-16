@@ -13,6 +13,7 @@ namespace OcclusionCullingPasses{
         depthPyramidImage->imageType = VK_IMAGE_TYPE_2D;
         depthPyramidImage->format = VK_FORMAT_R32_SFLOAT; // 假设与深度附件兼容
         depthPyramidImage->mipLevels = 10; // 共 7 层
+        depthPyramidImage->arrayLayers = 1; // 共 7 层
         depthPyramidImage->usage = VK_IMAGE_USAGE_STORAGE_BIT |          // 计算着色器读写
                                     VK_IMAGE_USAGE_SAMPLED_BIT | 
                                     VK_IMAGE_USAGE_TRANSFER_SRC_BIT |     // 可能需要mipmap生成
@@ -33,7 +34,7 @@ namespace OcclusionCullingPasses{
         depthPyramidImageView->subresourceRange.baseMipLevel = 0;
         depthPyramidImageView->subresourceRange.levelCount = mip_level_count;
 
-        depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, depthPyramidImageView);
+        depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, depthPyramidImageView, VK_IMAGE_LAYOUT_GENERAL);
 
         framebuffer_depthImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, window->getOrCreateDepthImageView());
     }
@@ -227,11 +228,11 @@ namespace OcclusionCullingPasses{
             auto i_image_view = vsg::ImageView::create(depthPyramidImage);
             i_image_view->subresourceRange.baseMipLevel = i;
             i_image_view->subresourceRange.levelCount = 1;
-            auto i_depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, i_image_view);
+            auto i_depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, i_image_view, VK_IMAGE_LAYOUT_GENERAL);
             auto i1_image_view = vsg::ImageView::create(depthPyramidImage);
             i1_image_view->subresourceRange.baseMipLevel = i - 1;
             i1_image_view->subresourceRange.levelCount = 1;
-            auto i1_depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, i1_image_view);
+            auto i1_depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, i1_image_view, VK_IMAGE_LAYOUT_GENERAL);
             auto storageImage0 = vsg::DescriptorImage::create(vsg::ImageInfoList{i_depthPyramidImageInfo}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
             auto storageImage1 = vsg::DescriptorImage::create(vsg::ImageInfoList{i1_depthPyramidImageInfo}, 1, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
             auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageImage0, storageImage1});

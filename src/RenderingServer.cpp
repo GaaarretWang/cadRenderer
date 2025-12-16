@@ -204,7 +204,6 @@ int RenderingServer::Update(){
     auto endEncode = std::chrono::high_resolution_clock::now();
     gui::global_params->render_server_times[1] = std::chrono::duration<double, std::milli>(endEncode - startEncode).count();
 
-    
     num++;
     // if(num % 400 == 0)
     // {
