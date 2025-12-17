@@ -267,28 +267,30 @@ public:
         // nRead = fpIn.read(reinterpret_cast<char*>(pHostFrame.get()), nFrameSize).gcount();
         const NvEncInputFrame* encoderInputFrame =  enc->GetNextInputFrame();
         CUdeviceptr encode_deviceptr = encode_destination_cuimage->get();
+        void* encode_input = (void*)encode_deviceptr;
+        if(m_extent.width != m_encode_extent.width && m_extent.height != m_encode_extent.height){
+            cudaMemcpy(
+                (void*)d_cuda_input,        // 目标：CUDA 输入内存
+                (void*)encode_deviceptr,    // 源：Vulkan 导出的 CUDA 可访问指针
+                static_cast<size_t>(m_extent.width * m_extent.height * 4),            // 拷贝大小（原始图像总字节数：original_extent.w * original_extent.h * 4）
+                cudaMemcpyDeviceToDevice    // 拷贝类型：GPU 设备内存→GPU 设备内存
+            );
 
-        cudaMemcpy(
-            (void*)d_cuda_input,        // 目标：CUDA 输入内存
-            (void*)encode_deviceptr,    // 源：Vulkan 导出的 CUDA 可访问指针
-            static_cast<size_t>(m_extent.width * m_extent.height * 4),            // 拷贝大小（原始图像总字节数：original_extent.w * original_extent.h * 4）
-            cudaMemcpyDeviceToDevice    // 拷贝类型：GPU 设备内存→GPU 设备内存
-        );
+            cudaUpsampleImage(
+                (const uint8_t*)d_cuda_input,
+                (uint8_t*)d_cuda_output,
+                m_extent.width,
+                m_extent.height,
+                m_encode_extent.width,
+                m_encode_extent.height
+            );
 
-        cudaUpsampleImage(
-            (const uint8_t*)d_cuda_input,
-            (uint8_t*)d_cuda_output,
-            m_extent.width,
-            m_extent.height,
-            m_encode_extent.width,
-            m_encode_extent.height
-        );
-
-        cudaDeviceSynchronize();
-
+            cudaDeviceSynchronize();
+            encode_input = (void*)d_cuda_output;
+        }
         CUcontext cuContext = cudaContext->get();
         NvEncoderCuda::CopyToDeviceFrame(cuContext,
-            (void*)d_cuda_output,
+            encode_input,
             0, 
             (CUdeviceptr)encoderInputFrame->inputPtr,
             (int)encoderInputFrame->pitch,
