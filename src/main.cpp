@@ -84,8 +84,8 @@ int main(int argc, char** argv){
     }
     inf.close();
 
-    double render_scale = 2;
-    double encode_scale = 2.5;
+    double render_scale = 2.8;
+    double encode_scale = 2.8;
     RenderingServer rendering_server;
     rendering_server.upsample_scale = render_scale;
     rendering_server.encode_scale = encode_scale;

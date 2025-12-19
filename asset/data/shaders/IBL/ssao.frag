@@ -3,13 +3,8 @@
 #pragma import_defines (VSG_DIFFUSE_MAP, VSG_GREYSCALE_DIFFUSE_MAP, VSG_EMISSIVE_MAP, VSG_LIGHTMAP_MAP, VSG_NORMAL_MAP, VSG_METALLROUGHNESS_MAP, VSG_SPECULAR_MAP, VSG_TWO_SIDED_LIGHTING, VSG_WORKFLOW_SPECGLOSS, SHADOWMAP_DEBUG)
 
 #define MATERIAL_DESCRIPTOR_SET 2
-layout(
-    input_attachment_index = 1,
-    set = MATERIAL_DESCRIPTOR_SET,
-    binding = 0
-) uniform subpassInput colorInputAttachment;
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D normalInputAttachment;
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D worldPosInputAttachment;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2DMS normalInputAttachment;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2DMS worldPosInputAttachment;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D samplerNoise;
 
 layout(push_constant) uniform PushConstants {
@@ -160,15 +155,15 @@ const vec4 ssaoKernel[SSAO_WHOLE_KERNEL_SIZE] = vec4[](
 
 void main()
 {
-    vec4 colorData = subpassLoad(colorInputAttachment);
     mat4 cameraData = pc.cameraData;
     vec3 worldCamPos = vec3(cameraData[0][0], cameraData[0][1], cameraData[0][2]);
-    outColor = colorData;
+    ivec2 textureSize = textureSize(normalInputAttachment);
 
 
     vec2 uv = inUV * 0.5 + 0.5;
-    vec3 worldPosition = texture(worldPosInputAttachment, uv).rgb;
-    vec3 normal = texture(normalInputAttachment, uv).rgb;
+    vec3 worldPosition = texelFetch(worldPosInputAttachment, ivec2(uv*textureSize), 0).rgb;
+    vec3 normal = texelFetch(normalInputAttachment, ivec2(uv*textureSize), 0).rgb;
+    
     if(length(normal) < 0.001){
         outColor = vec4(1, 1, 1, 1);
         return;
@@ -194,7 +189,7 @@ void main()
 
         vec2 sampleUV = vec2(samplePosProj.x, samplePosProj.y) * 0.5f + 0.5f;
 
-        vec3 sceneWorldPos = texture(worldPosInputAttachment, sampleUV).rgb;
+        vec3 sceneWorldPos = texelFetch(worldPosInputAttachment, ivec2(sampleUV*textureSize), 0).rgb;
         if(length(sceneWorldPos) < 0.001)
             continue;
         float sceneDepth = length(sceneWorldPos - worldCamPos);

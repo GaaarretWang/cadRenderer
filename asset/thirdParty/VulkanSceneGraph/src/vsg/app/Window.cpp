@@ -327,7 +327,7 @@ void Window::buildSwapchain()
         _GBufferImage0->extent.depth = 1;
         _GBufferImage0->mipLevels = 1;
         _GBufferImage0->arrayLayers = 1;
-        _GBufferImage0->samples = VK_SAMPLE_COUNT_1_BIT;
+        _GBufferImage0->samples = _framebufferSamples;
         _GBufferImage0->tiling = VK_IMAGE_TILING_OPTIMAL;
         _GBufferImage0->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         _GBufferImage0->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -348,7 +348,7 @@ void Window::buildSwapchain()
         _GBufferImage1->extent.depth = 1;
         _GBufferImage1->mipLevels = 1;
         _GBufferImage1->arrayLayers = 1;
-        _GBufferImage1->samples = VK_SAMPLE_COUNT_1_BIT;
+        _GBufferImage1->samples = _framebufferSamples;
         _GBufferImage1->tiling = VK_IMAGE_TILING_OPTIMAL;
         _GBufferImage1->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         _GBufferImage1->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -369,7 +369,7 @@ void Window::buildSwapchain()
         _GBufferImage2->extent.depth = 1;
         _GBufferImage2->mipLevels = 1;
         _GBufferImage2->arrayLayers = 1;
-        _GBufferImage2->samples = VK_SAMPLE_COUNT_1_BIT;
+        _GBufferImage2->samples = _framebufferSamples;
         _GBufferImage2->tiling = VK_IMAGE_TILING_OPTIMAL;
         _GBufferImage2->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         _GBufferImage2->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -390,7 +390,7 @@ void Window::buildSwapchain()
         _SSAOResultImage->extent.depth = 1;
         _SSAOResultImage->mipLevels = 1;
         _SSAOResultImage->arrayLayers = 1;
-        _SSAOResultImage->samples = VK_SAMPLE_COUNT_1_BIT;
+        _SSAOResultImage->samples = _framebufferSamples;
         _SSAOResultImage->tiling = VK_IMAGE_TILING_OPTIMAL;
         _SSAOResultImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
         _SSAOResultImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;

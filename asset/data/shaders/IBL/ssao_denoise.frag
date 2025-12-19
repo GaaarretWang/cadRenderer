@@ -8,8 +8,8 @@ layout(
     input_attachment_index = 1,  // 强制要求：子通道输入附件列表中的索引
     set = MATERIAL_DESCRIPTOR_SET,  // 和 CPU 侧一致（比如 2）
     binding = 0  // 和 CPU 侧一致（比如 0）
-) uniform subpassInput colorInputAttachment;  // color attachment 1（法线）
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D samplerSSAO;
+) uniform subpassInputMS colorInputAttachment;  // color attachment 1（法线）
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2DMS samplerSSAO;
 
 layout(location = 0) in vec2 inUV;
 
@@ -35,21 +35,22 @@ vec4 LINEARtoSRGB(vec4 srgbIn)
 
 void main()
 {
-    vec4 colorAttachment = subpassLoad(colorInputAttachment);
+    vec4 colorAttachment = subpassLoad(colorInputAttachment, gl_SampleID);
     vec3 colorData = colorAttachment.xyz;
     vec2 uv = inUV * 0.5 + 0.5;
 
-    vec2 texelSize = 1.0 / vec2(textureSize(samplerSSAO, 0));
+    ivec2 textureSize = textureSize(samplerSSAO);
+    vec2 texelSize = 1.0 / vec2(textureSize);
     float result = 0.0;
     for (int x = -2; x <= 2; ++x) 
     {
         for (int y = -2; y <= 2; ++y) 
         {
             vec2 offset = vec2(float(x), float(y)) * texelSize;
-            result += texture(samplerSSAO, uv + offset).r;
+            result += texelFetch(samplerSSAO, ivec2((uv + offset)*textureSize), 0).r;
         }
     }
-    if(texture(samplerSSAO, uv).w > 0.5){
+    if(texelFetch(samplerSSAO, ivec2(uv*textureSize), 0).w > 0.5){
         outColor = vec4(colorData, 1);
     }else{
         float exposure = 5.0f;

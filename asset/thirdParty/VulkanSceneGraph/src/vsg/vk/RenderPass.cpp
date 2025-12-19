@@ -482,10 +482,10 @@ ref_ptr<RenderPass> vsg::createMultisampledRenderPass(Device* device, VkFormat i
 ref_ptr<RenderPass> vsg::createMRTRenderPass(Device* device, VkFormat imageFormat, VkFormat depthFormat, bool requiresDepthRead)
 {
     auto colorAttachment = defaultColorAttachment(imageFormat);
-    auto colorAttachment0 = defaultGbufferColorAttachment(imageFormat);
-    auto colorAttachment1 = defaultGbufferColorAttachment(imageFormat);
-    auto colorAttachment2 = defaultGbufferColorAttachment(imageFormat);
-    auto colorAttachment3 = defaultGbufferColorAttachment(imageFormat);
+    auto colorAttachmentColor = defaultGbufferColorAttachment(imageFormat);
+    auto colorAttachmentNormal = defaultGbufferColorAttachment(imageFormat);
+    auto colorAttachmentWorldPos = defaultGbufferColorAttachment(imageFormat);
+    auto colorAttachmentSSAONoise = defaultGbufferColorAttachment(imageFormat);
     auto depthAttachment = defaultDepthAttachment(depthFormat);
 
     if (requiresDepthRead)
@@ -493,27 +493,27 @@ ref_ptr<RenderPass> vsg::createMRTRenderPass(Device* device, VkFormat imageForma
         depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     }
 
-    RenderPass::Attachments attachments{colorAttachment, colorAttachment0, colorAttachment1, colorAttachment2, colorAttachment3, depthAttachment};
+    RenderPass::Attachments attachments{colorAttachment, colorAttachmentColor, colorAttachmentNormal, colorAttachmentWorldPos, colorAttachmentSSAONoise, depthAttachment};
 
     AttachmentReference colorAttachmentRef = {};
     colorAttachmentRef.attachment = 0;
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    AttachmentReference colorAttachmentRef0 = {};
-    colorAttachmentRef0.attachment = 1;
-    colorAttachmentRef0.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    AttachmentReference colorAttachmentRefColor = {};
+    colorAttachmentRefColor.attachment = 1;
+    colorAttachmentRefColor.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    AttachmentReference colorAttachmentRef1 = {};
-    colorAttachmentRef1.attachment = 2;
-    colorAttachmentRef1.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    AttachmentReference colorAttachmentRefNormal = {};
+    colorAttachmentRefNormal.attachment = 2;
+    colorAttachmentRefNormal.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    AttachmentReference colorAttachmentRef2 = {};
-    colorAttachmentRef2.attachment = 3;
-    colorAttachmentRef2.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    AttachmentReference colorAttachmentRefWorldPos = {};
+    colorAttachmentRefWorldPos.attachment = 3;
+    colorAttachmentRefWorldPos.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    AttachmentReference colorAttachmentRef3 = {};
-    colorAttachmentRef3.attachment = 4;
-    colorAttachmentRef3.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    AttachmentReference colorAttachmentRefSSAONoise = {};
+    colorAttachmentRefSSAONoise.attachment = 4;
+    colorAttachmentRefSSAONoise.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
     AttachmentReference depthAttachmentRef = {};
     depthAttachmentRef.attachment = 5;
@@ -521,14 +521,14 @@ ref_ptr<RenderPass> vsg::createMRTRenderPass(Device* device, VkFormat imageForma
 
     SubpassDescription subpass = {};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachments.emplace_back(colorAttachmentRef0);
-    subpass.colorAttachments.emplace_back(colorAttachmentRef1);
-    subpass.colorAttachments.emplace_back(colorAttachmentRef2);
+    subpass.colorAttachments.emplace_back(colorAttachmentRefColor);
+    subpass.colorAttachments.emplace_back(colorAttachmentRefNormal);
+    subpass.colorAttachments.emplace_back(colorAttachmentRefWorldPos);
     subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
 
     SubpassDescription subpass1 = {};
     subpass1.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass1.colorAttachments.emplace_back(colorAttachmentRef3);
+    subpass1.colorAttachments.emplace_back(colorAttachmentRefSSAONoise);
     subpass1.depthStencilAttachments.emplace_back(depthAttachmentRef);
     AttachmentReference colorRef_Read = {1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     subpass1.inputAttachments = {colorRef_Read};
@@ -580,7 +580,6 @@ ref_ptr<RenderPass> vsg::createMRTRenderPass(Device* device, VkFormat imageForma
     depthDependency_ssao.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     depthDependency_ssao.dependencyFlags = 0;
 
-// 新增：subpass1→subpass2的依赖（SSAO→降噪合成）
     SubpassDependency ssaoToDenoiseDependency = {};
     ssaoToDenoiseDependency.srcSubpass = 1;
     ssaoToDenoiseDependency.dstSubpass = 2;
@@ -613,7 +612,7 @@ ref_ptr<RenderPass> vsg::createMRTMultisampledRenderPass(Device* device, VkForma
     {
         return createMRTRenderPass(device, imageFormat, depthFormat, requiresDepthRead);
     }
-    std::cout << "createMultisampledRenderPass" << std::endl;
+    std::cout << "createMRTMultisampledRenderPass" << std::endl;
     // First attachment is multisampled target.
     AttachmentDescription colorAttachment = {};
     colorAttachment.format = imageFormat;
@@ -633,7 +632,7 @@ ref_ptr<RenderPass> vsg::createMRTMultisampledRenderPass(Device* device, VkForma
     resolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     resolveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     resolveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    resolveAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    resolveAttachment.initialLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
     resolveAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
     // Multisampled depth attachment. It won't be resolved.
@@ -647,7 +646,16 @@ ref_ptr<RenderPass> vsg::createMRTMultisampledRenderPass(Device* device, VkForma
     depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-    RenderPass::Attachments attachments{colorAttachment, resolveAttachment, depthAttachment};
+    auto colorAttachmentColor = defaultGbufferColorAttachment(imageFormat);
+    colorAttachmentColor.samples = samples;
+    auto colorAttachmentNormal = defaultGbufferColorAttachment(imageFormat);
+    colorAttachmentNormal.samples = samples;
+    auto colorAttachmentWorldPos = defaultGbufferColorAttachment(imageFormat);
+    colorAttachmentWorldPos.samples = samples;
+    auto colorAttachmentSSAONoise = defaultGbufferColorAttachment(imageFormat);
+    colorAttachmentSSAONoise.samples = samples;
+
+    RenderPass::Attachments attachments{colorAttachment, resolveAttachment, colorAttachmentColor, colorAttachmentNormal, colorAttachmentWorldPos, colorAttachmentSSAONoise, depthAttachment};
 
     if (requiresDepthRead)
     {
@@ -658,7 +666,7 @@ ref_ptr<RenderPass> vsg::createMRTMultisampledRenderPass(Device* device, VkForma
         depthResolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         depthResolveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         depthResolveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        depthResolveAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        depthResolveAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         depthResolveAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         attachments.push_back(depthResolveAttachment);
     }
@@ -671,20 +679,38 @@ ref_ptr<RenderPass> vsg::createMRTMultisampledRenderPass(Device* device, VkForma
     resolveAttachmentRef.attachment = 1;
     resolveAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    AttachmentReference colorAttachmentRefColor = {};
+    colorAttachmentRefColor.attachment = 2;
+    colorAttachmentRefColor.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    AttachmentReference colorAttachmentRefNormal = {};
+    colorAttachmentRefNormal.attachment = 3;
+    colorAttachmentRefNormal.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    AttachmentReference colorAttachmentRefWorldPos = {};
+    colorAttachmentRefWorldPos.attachment = 4;
+    colorAttachmentRefWorldPos.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    AttachmentReference colorAttachmentRefSSAONoise = {};
+    colorAttachmentRefSSAONoise.attachment = 5;
+    colorAttachmentRefSSAONoise.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
     AttachmentReference depthAttachmentRef = {};
-    depthAttachmentRef.attachment = 2;
+    depthAttachmentRef.attachment = 6;
     depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+    AttachmentReference ignoreColorReference = {VK_ATTACHMENT_UNUSED};
 
     SubpassDescription subpass;
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachments.emplace_back(colorAttachmentRef);
-    subpass.resolveAttachments.emplace_back(resolveAttachmentRef);
+    subpass.colorAttachments.emplace_back(colorAttachmentRefColor);
+    subpass.colorAttachments.emplace_back(colorAttachmentRefNormal);
+    subpass.colorAttachments.emplace_back(colorAttachmentRefWorldPos);
     subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
-
     if (requiresDepthRead)
     {
         AttachmentReference depthResolveAttachmentRef = {};
-        depthResolveAttachmentRef.attachment = 3;
+        depthResolveAttachmentRef.attachment = 7;
         depthResolveAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
         subpass.depthResolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
@@ -692,27 +718,85 @@ ref_ptr<RenderPass> vsg::createMRTMultisampledRenderPass(Device* device, VkForma
         subpass.depthStencilResolveAttachments.emplace_back(depthResolveAttachmentRef);
     }
 
-    RenderPass::Subpasses subpasses{subpass};
 
-    SubpassDependency dependency = {};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    dependency.srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    SubpassDescription subpass1 = {};
+    subpass1.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass1.colorAttachments.emplace_back(colorAttachmentRefSSAONoise);
+    subpass1.depthStencilAttachments.emplace_back(depthAttachmentRef);
+    AttachmentReference colorRef_Read = {2, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT};
+    subpass1.inputAttachments = {colorRef_Read};
 
-    SubpassDependency dependency2 = {};
-    dependency2.srcSubpass = 0;
-    dependency2.dstSubpass = VK_SUBPASS_EXTERNAL;
-    dependency2.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency2.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    dependency2.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
-    dependency2.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
-    dependency2.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    SubpassDescription subpass2 = {};
+    subpass2.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass2.colorAttachments.emplace_back(colorAttachmentRef);
+    subpass2.resolveAttachments.emplace_back(resolveAttachmentRef);
+    subpass2.depthStencilAttachments.emplace_back(depthAttachmentRef);
+    subpass2.inputAttachments = {colorRef_Read};
 
-    RenderPass::Dependencies dependencies{dependency, dependency2};
+    RenderPass::Subpasses subpasses{subpass, subpass1, subpass2};
+
+    // image layout transition
+    SubpassDependency colorDependency = {};
+    colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    colorDependency.dstSubpass = 0;
+    colorDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    colorDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    colorDependency.srcAccessMask = 0;
+    colorDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    colorDependency.dependencyFlags = 0;
+
+    // depth buffer is shared between swap chain images
+    SubpassDependency depthDependency = {};
+    depthDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    depthDependency.dstSubpass = 0;
+    depthDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depthDependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depthDependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    depthDependency.dependencyFlags = 0;
+
+    SubpassDependency colorDependency_ssao = {};
+    colorDependency_ssao.srcSubpass = 0;
+    colorDependency_ssao.dstSubpass = 1;
+    colorDependency_ssao.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    colorDependency_ssao.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    colorDependency_ssao.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    colorDependency_ssao.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    colorDependency_ssao.dependencyFlags = 0;
+
+    // depth buffer is shared between swap chain images
+    SubpassDependency depthDependency_ssao = {};
+    depthDependency_ssao.srcSubpass = 0;
+    depthDependency_ssao.dstSubpass = 1;
+    depthDependency_ssao.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depthDependency_ssao.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    depthDependency_ssao.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    depthDependency_ssao.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    depthDependency_ssao.dependencyFlags = 0;
+
+    SubpassDependency ssaoToDenoiseDependency = {};
+    ssaoToDenoiseDependency.srcSubpass = 1;
+    ssaoToDenoiseDependency.dstSubpass = 2;
+    ssaoToDenoiseDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    ssaoToDenoiseDependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    ssaoToDenoiseDependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    ssaoToDenoiseDependency.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    ssaoToDenoiseDependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    SubpassDependency depthToDenoiseDependency = {};
+    depthToDenoiseDependency.srcSubpass = 1;
+    depthToDenoiseDependency.dstSubpass = 2;
+    depthToDenoiseDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+    depthToDenoiseDependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    depthToDenoiseDependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    depthToDenoiseDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+    depthToDenoiseDependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    RenderPass::Dependencies dependencies{
+        colorDependency, depthDependency,
+        colorDependency_ssao, depthDependency_ssao,
+        ssaoToDenoiseDependency, depthToDenoiseDependency
+    };
 
     return RenderPass::create(device, attachments, subpasses, dependencies);
 }
