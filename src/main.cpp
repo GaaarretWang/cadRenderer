@@ -18,15 +18,15 @@
 ImagePair loadImagePair(const std::string& timestamp, ConvertImage* converter) {
     try {
         // 加载颜色图像
-        // std::ifstream color_file("../asset/data/dataset3/resized_factory.png", std::ios::binary);
-        std::ifstream color_file("../asset/data/dataset3/color/" + timestamp + ".png", std::ios::binary);
+        std::ifstream color_file("../asset/data/dataset3/resized_factory.png", std::ios::binary);
+        // std::ifstream color_file("../asset/data/dataset3/color/" + timestamp + ".png", std::ios::binary);
         if (!color_file) throw std::runtime_error("Failed to open color file");
         std::vector<uint8_t> color_buffer((std::istreambuf_iterator<char>(color_file)), 
                             std::istreambuf_iterator<char>());
         
         // 加载深度图像
-        // std::ifstream depth_file("../asset/data/dataset3/black_depth_1280x960.png", std::ios::binary);
-        std::ifstream depth_file("../asset/data/dataset3/depth/" + timestamp + ".png", std::ios::binary);
+        std::ifstream depth_file("../asset/data/dataset3/black_depth_1280x960.png", std::ios::binary);
+        // std::ifstream depth_file("../asset/data/dataset3/depth/" + timestamp + ".png", std::ios::binary);
         if (!depth_file) throw std::runtime_error("Failed to open depth file");
         std::vector<uint8_t> depth_buffer((std::istreambuf_iterator<char>(depth_file)), 
                             std::istreambuf_iterator<char>());

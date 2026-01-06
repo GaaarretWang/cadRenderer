@@ -11,27 +11,27 @@ int RenderingServer::Init(int argc, char** argv){
     init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
     init_model_transforms.push_back(vsg::dmat4(0.0001, 0, 0, 0, 0, 0.0001, 0, 0, 0, 0, 0.0001, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
-    int model_num = 5;
+    int model_num = 1;
     for(int i = 0; i < model_num; ++i)
-        model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.60006, 1.01482, -0.8, 1) * init_model_transforms[0]
-                                * vsg::dmat4(
-                                        0.2, 0, 0, 0, 
-                                        0, 0.2, 0, 0, 
-                                        0, 0, 0.2, 0, 
+    //     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.60006, 1.01482, -0.8, 1) * init_model_transforms[0]
+    //                             * vsg::dmat4(
+    //                                     0.2, 0, 0, 0, 
+    //                                     0, 0.2, 0, 0, 
+    //                                     0, 0, 0.2, 0, 
+    //                                     0, 0, 0, 1));
+    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoAirplaneBody.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoEngine.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoLandingGear.fb");
+    // // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart.fb");
+    // // model_paths.push_back(rendering_dir + "asset/data/geos/1118/twoSeatPartV5.fb");
+    // // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart_small.fb");
+    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/window.fb");
+        model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006 + i % 10 * 0.1, 1.01482 + i / 10 * 0.1, -0.6, 1) * init_model_transforms[0]
+                                   * vsg::dmat4(
+                                        10, 0, 0, 0, 
+                                        0, 10, 0, 0, 
+                                        0, 0, 10, 0, 
                                         0, 0, 0, 1));
-    model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoAirplaneBody.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoEngine.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoLandingGear.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/1118/twoSeatPartV5.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart_small.fb");
-    model_paths.push_back(rendering_dir + "asset/data/geos/1105/window.fb");
-        // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006 + i % 10 * 0.1, 1.01482 + i / 10 * 0.1, -0.6, 1) * init_model_transforms[0]
-        //                            * vsg::dmat4(
-        //                                 10, 0, 0, 0, 
-        //                                 0, 10, 0, 0, 
-        //                                 0, 0, 10, 0, 
-        //                                 0, 0, 0, 1));
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.0, 1) * init_model_transforms[0]
     //                            * vsg::dmat4(
     //                                 10, 0, 0, 0, 
@@ -60,8 +60,8 @@ int RenderingServer::Init(int argc, char** argv){
     // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.491005, 1) * init_model_transforms[1] * mat);
     // model_paths.push_back(rendering_dir + "asset/data/geos/大舱壁-ASM(PMI).fb");
     // model_paths.push_back(rendering_dir + "asset/data/obj/Airbus_A380V3/Airbus_A380V3.obj");
-    // for (int i = 0; i < model_num; ++i)
-    //     model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
+    for (int i = 0; i < model_num; ++i)
+        model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
         // model_paths.push_back(rendering_dir + "asset/data/geos/JIASHICANG.fb");
     // model_paths.push_back(rendering_dir + "asset/data/obj/Standtube.obj");
     // model_paths.push_back(rendering_dir + "asset/data/obj/Medieval_building/output.obj");

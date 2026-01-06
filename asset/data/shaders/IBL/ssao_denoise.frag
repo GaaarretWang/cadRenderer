@@ -53,7 +53,7 @@ void main()
     if(texelFetch(samplerSSAO, ivec2(uv*textureSize), 0).w > 0.5){
         outColor = vec4(colorData, 1);
     }else{
-        float exposure = 5.0f;
+        float exposure = 8.0f;
         vec3 color = Uncharted2Tonemap(colorData * result / 25.0 * result / 25.0 * exposure);
         // vec3 color = Uncharted2Tonemap(vec3(result / 25.0 * result / 25.0 * exposure));
         color = color * (vec3(1.0f) / Uncharted2Tonemap(vec3(11.2f)));

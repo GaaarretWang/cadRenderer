@@ -101,9 +101,9 @@ namespace gui
                         // vsg::PbrMaterial a;
                         // a.metallicFactor = 0;
                         std::string metallic_name = "metallic" + std::to_string(unique_material.size());
-                        ImGui::SliderFloat(metallic_name.c_str(), &(proto_data->material->value().metallicFactor), 0.0f, 1.0f);
+                        ImGui::SliderFloat(metallic_name.c_str(), &(proto_data->material->value().metallicFactor), 0.0f, 5.0f);
                         std::string roughness_name = "roughness" + std::to_string(unique_material.size());
-                        ImGui::SliderFloat(roughness_name.c_str(), &(proto_data->material->value().roughnessFactor), 0.0f, 1.0f);
+                        ImGui::SliderFloat(roughness_name.c_str(), &(proto_data->material->value().roughnessFactor), 0.0f, 5.0f);
                         std::string basecolor_name = "basecolor" + std::to_string(unique_material.size());
                         // float basecolor[3] = {};
                         ImGui::SliderFloat3(basecolor_name.c_str(), proto_data->material->value().baseColorFactor.data(), 0.0f, 1.0f);  

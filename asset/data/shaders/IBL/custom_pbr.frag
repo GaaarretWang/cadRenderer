@@ -535,10 +535,15 @@ float convertMetallic(vec3 diffuse, vec3 specular, float maxSpecular)
     return clamp((-b + sqrt(D)) / (2.0 * a), 0.0, 1.0);
 }
 
-vec3 specularFresnel(vec3 f0, vec3 f90, float NdotL)
+vec3 specularFresnel(vec3 f0, vec3 f90, float NdotV)
 {
     //return pbrInputs.reflectance0 + (pbrInputs.reflectance90 - pbrInputs.reflectance0) * pow(clamp(1.0 - pbrInputs.VdotH, 0.0, 1.0), 5.0);
-    return f0 + (f90 - f90 * f0) * exp2((-5.55473 * NdotL - 6.98316) * NdotL);
+    return f0 + (f90 - f90 * f0) * exp2((-5.55473 * NdotV - 6.98316) * NdotV);
+}
+
+vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
+{
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
 vec3 fixCubeDir(vec3 v){
@@ -552,9 +557,9 @@ vec3 prefilteredReflection(vec3 R, float roughness)
 	float lodf = floor(lod);
 	float lodc = ceil(lod);
     vec3 RFixed = fixCubeDir(R);
-	vec3 a = textureLod(samplerPrefilteredEnv, RFixed, lodf).rgb;
-	vec3 b = textureLod(samplerPrefilteredEnv, RFixed, lodc).rgb;
-	return mix(a, b, lod - lodf);
+	return textureLod(samplerPrefilteredEnv, RFixed, lod).rgb;
+	// vec3 b = textureLod(samplerPrefilteredEnv, RFixed, lodc).rgb;
+	// return mix(a, b, lod - lodf);
 }
 
 // From http://filmicgames.com/archives/75
@@ -573,11 +578,13 @@ vec3 Uncharted2Tonemap(vec3 x)
 vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, vec3 diffuseColor){
     vec3 R = normalize(reflect(-v, n));
 
-    float NdotV = clamp(abs(dot(n, v)), 0.001, 1.0);
+    float NdotV = clamp(dot(n, v), 0.001, 1.0);
 
     vec3 color = vec3(0);
     vec2 brdf = texture(samplerBRDFLUT, vec2(NdotV, perceptualRoughness)).rg;
-    vec3 F = specularFresnel(specularEnvironmentR0, specularEnvironmentR90, NdotV);
+    vec3 F = fresnelSchlickRoughness(NdotV, specularEnvironmentR0, perceptualRoughness);
+    vec3 kD = 1.0 - F;
+    kD *= 1.0 - metallic;     
 
     vec3 N = fixCubeDir(n);
     N.y *= -1.0f;
@@ -586,16 +593,10 @@ vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specula
     vec3 lutR = R;
     lutR.y *= -1.0f;
 	vec3 irradiance = texture(samplerIrradiance, N).rgb;
-    color += irradiance * diffuseColor;
+    color += irradiance * diffuseColor * pow(NdotV, 0.5 + 0.3 * perceptualRoughness) * kD;
 	vec3 reflection = prefilteredReflection(lutR, perceptualRoughness).rgb;	
     color += reflection * (F * brdf.x + brdf.y);
 
-    // float exposure = 3.0f;
-    // float gamma = 2.2f;
-
-	// // Tone mapping
-	// color = Uncharted2Tonemap(color * exposure);
-	// color = color * (1.0f / Uncharted2Tonemap(vec3(11.2f)));
     return color;
 }
 
@@ -704,7 +705,7 @@ void main()
     // For typical incident reflectance range (between 4% to 100%) set the grazing reflectance to 100% for typical fresnel effect.
     // For very low reflectance range on highly diffuse objects (below 4%), incrementally reduce grazing reflecance to 0%.
     float reflectance90 = clamp(reflectance * 25.0, 0.0, 1.0);
-    vec3 specularEnvironmentR0 = specularColor.rgb;
+    vec3 specularEnvironmentR0 = specularColor;
     vec3 specularEnvironmentR90 = vec3(1.0, 1.0, 1.0) * reflectance90;
 
     vec3 worldN = getWorldNormal();
