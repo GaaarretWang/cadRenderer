@@ -5,7 +5,18 @@
 
 layout(push_constant) uniform PushConstants {
     mat4 projection;
-    mat4 modelView;
+    mat4 view;
+    vec3 camera_pos;
+    float z_far;
+    float lightSizeScale;
+    float baseBrightness;
+    float ssao_radius;
+    float exposure;
+    int ssao_kernel_size;
+    int shader_type;
+    int width;
+    int height;
+    int denoise_size;
 } pc;
 
 #ifdef VSG_DISPLACEMENT_MAP
@@ -94,9 +105,9 @@ void main()
 #endif
 
 #ifdef VSG_BILLBOARD
-    mat4 mv = computeBillboadMatrix(pc.modelView * vec4(vsg_position_scaleDistance.xyz, 1.0), vsg_position_scaleDistance.w);
+    mat4 mv = computeBillboadMatrix(pc.view * vec4(vsg_position_scaleDistance.xyz, 1.0), vsg_position_scaleDistance.w);
 #else
-    mat4 mv = pc.modelView;
+    mat4 mv = pc.view;
 #endif
 
     gl_Position = (pc.projection * mv) * vertex;

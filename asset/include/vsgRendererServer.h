@@ -1,4 +1,4 @@
-﻿#ifndef VSGRENDERERSERVER_H
+#ifndef VSGRENDERERSERVER_H
 #define VSGRENDERERSERVER_H
 #pragma  once
 #include <iostream>
@@ -19,14 +19,6 @@
 #include "fixDepth.h"
 #include "json.hpp"
 using namespace std;
-
-struct GlobalPCData{
-    float camera_pos[3];
-    float z_far;
-    int shader_type;
-    int width;
-    int height;
-};
 
 class vsgRendererServer
 {
@@ -57,15 +49,14 @@ class vsgRendererServer
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;
     vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> hdr_to_light_group_map;
-    int hdr_image_num = 1;
+    int hdr_image_num = 2;
     int hdr_image_max_num = 5;
 
     std::string project_path;
     std::string shadow_recevier_path;
     vsg::dmat4 shadow_recevier_transform;
     std::unordered_set<std::string> cull_mode_none_model_paths;
-
-
+    vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data = vsg::Value<GlobalPCData>::create();
 
     float fx = 386.52199190267083;//焦距(x轴上)
     float fy = 387.32300428823663;//焦距(y轴上)
@@ -81,8 +72,6 @@ class vsgRendererServer
     int render_height;
     int encode_width;
     int encode_height;
-
-    vsg::ref_ptr<vsg::mat4Array> newmatrix;
 
     vsg::ref_ptr<vsg::Data> vsg_color_image;
     vsg::ref_ptr<vsg::Data> vsg_depth_image;
@@ -208,7 +197,6 @@ public:
         auto command = vsg::Commands::create();
         IBL::updateHDRTextures(command, hdr_image_num);
 
-
         auto physicalDevice = window->getPhysicalDevice();
         auto fence = vsg::Fence::create(device);
         auto queueFamilyIndex = physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
@@ -250,7 +238,7 @@ public:
                 directional_light->area = light_data["area"].get<float>();
                 directional_light->intensity = light_data["brightness"].get<float>();
                 auto direction = light_data["direction"].get<std::vector<float>>();
-                directional_light->direction = -vsg::normalize(vsg::vec3(-direction[2], direction[0], direction[1]));
+                directional_light->direction = -vsg::normalize(vsg::vec3(direction[0], direction[1], direction[2]));
                 directional_light->shadowMaps = 1;
                 light_i->addChild(directional_light);
             }

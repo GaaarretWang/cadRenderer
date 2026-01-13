@@ -48,14 +48,6 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform sampler2D cameraImage;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
 
-layout (set = MATERIAL_DESCRIPTOR_SET, binding = 9) uniform customParams {
-	float semitransparent;
-	int width;
-	int height;
-    float z_far;
-    int shader_type;
-} extraParams;
-
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
 {
     vec4 baseColorFactor;
@@ -101,6 +93,22 @@ layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outWorldPos;
 
+layout(push_constant) uniform PushConstants {
+    mat4 projection;
+    mat4 view;
+    vec3 camera_pos;
+    float z_far;
+    float lightSizeScale;
+    float baseBrightness;
+    float ssao_radius;
+    float exposure;
+    int ssao_kernel_size;
+    int shader_type;
+    int width;
+    int height;
+    int denoise_size;
+} pc;
+
 highp float rand_1to1(highp float x ) {                              //
   // float͵һάxһ[-1,1]Χfloat 
   // -1 -1
@@ -124,54 +132,6 @@ float unpack(vec4 rgbaDepth) {                             //
 }
 
 vec2 poissonDisk[NUM_SAMPLES];
-
-const vec2 poisson_disk_16[16] = vec2[](
-    vec2(0.0, 0.0),
-    vec2(-0.238106, -0.755803),
-    vec2(0.170175, -0.260688),
-    vec2(-0.43408, -0.498101),
-    vec2(0.373171, -0.780257),
-    vec2(-0.463182, 0.531746),
-    vec2(0.626333, -0.216372),
-    vec2(-0.714433, -0.478762),
-    vec2(0.1245, -0.74086),
-    vec2(-0.020945, -0.411869),
-    vec2(-0.319201, 0.947306),
-    vec2(-0.95049, -0.310755),
-    vec2(-0.841205, -0.029836),
-    vec2(-0.184626, 0.141477),
-    vec2(0.3125, 0.752811),
-    vec2(0.250246, 0.112324)
-);
-
-const vec2 poisson_disk_25[25] = vec2[](
-    vec2(-0.978698, -0.0884121),
-    vec2(-0.841121, 0.521165),
-    vec2(-0.71746, -0.50322),
-    vec2(-0.702933, 0.903134),
-    vec2(-0.663198, 0.15482),
-    vec2(-0.495102, -0.232887),
-    vec2(-0.364238, -0.961791),
-    vec2(-0.345866, -0.564379),
-    vec2(-0.325663, 0.64037),
-    vec2(-0.182714, 0.321329),
-    vec2(-0.142613, -0.0227363),
-    vec2(-0.0564287, -0.36729),
-    vec2(-0.0185858, 0.918882),
-    vec2(0.0381787, -0.728996),
-    vec2(0.16599, 0.093112),
-    vec2(0.253639, 0.719535),
-    vec2(0.369549, -0.655019),
-    vec2(0.423627, 0.429975),
-    vec2(0.530747, -0.364971),
-    vec2(0.566027, -0.940489),
-    vec2(0.639332, 0.0284127),
-    vec2(0.652089, 0.669668),
-    vec2(0.773797, 0.345012),
-    vec2(0.968871, 0.840449),
-    vec2(0.991882, -0.657338)
-);
-
 void uniformDiskSamples( const in vec2 randomSeed ) {                              //
   //Բ̲
 
@@ -213,8 +173,7 @@ void poissonDiskSamples( const in vec2 randomSeed ) {                           
 float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float area) {
     float linearFrac = sqrt(max(area, 0.0));//将area映射为线性尺寸
     float baseStridePixels = 20.0; //基础步长
-    const float lightSizeScale = 20.0; // 调节此值来放大/缩小基于 area 的影响
-    float Stride = baseStridePixels * linearFrac * lightSizeScale + 0.001; // 最小非零避免 0
+    float Stride = baseStridePixels * linearFrac * pc.lightSizeScale + 0.001; // 最小非零避免 0
     float shadowmapSize = 2048.;
     float visibility = 0.0;
     float cur_depth = coords.z;
@@ -314,12 +273,6 @@ struct PBRInfo
     vec3 specularColor;           // color contribution from specular lighting
 };
 
-layout(push_constant) uniform PushConstants {
-    mat4 projection;
-    mat4 view;
-    mat4 invView;
-    mat4 cameraData;
-} pc;
 
 
 vec4 SRGBtoLINEAR(vec4 srgbIn)
@@ -546,18 +499,13 @@ vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
-vec3 fixCubeDir(vec3 v){
-	return vec3(v.x, -v.z, v.y);
-}
-
 vec3 prefilteredReflection(vec3 R, float roughness)
 {
 	const float MAX_REFLECTION_LOD = 9.0; // todo: param/const
 	float lod = roughness * MAX_REFLECTION_LOD;
 	float lodf = floor(lod);
 	float lodc = ceil(lod);
-    vec3 RFixed = fixCubeDir(R);
-	return textureLod(samplerPrefilteredEnv, RFixed, lod).rgb;
+	return textureLod(samplerPrefilteredEnv, R, lod).rgb;
 	// vec3 b = textureLod(samplerPrefilteredEnv, RFixed, lodc).rgb;
 	// return mix(a, b, lod - lodf);
 }
@@ -586,15 +534,9 @@ vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specula
     vec3 kD = 1.0 - F;
     kD *= 1.0 - metallic;     
 
-    vec3 N = fixCubeDir(n);
-    N.y *= -1.0f;
-    // N.xz *= -1.0f;
-    // vec3 lutR = fixCubeDir(R);
-    vec3 lutR = R;
-    lutR.y *= -1.0f;
-	vec3 irradiance = texture(samplerIrradiance, N).rgb;
+	vec3 irradiance = texture(samplerIrradiance, n).rgb;
     color += irradiance * diffuseColor * pow(NdotV, 0.5 + 0.3 * perceptualRoughness) * kD;
-	vec3 reflection = prefilteredReflection(lutR, perceptualRoughness).rgb;	
+	vec3 reflection = prefilteredReflection(R, perceptualRoughness).rgb;	
     color += reflection * (F * brdf.x + brdf.y);
 
     return color;
@@ -614,9 +556,9 @@ void main()
         return;
     }
     
-    if(extraParams.shader_type == 1){
+    if(pc.shader_type == 1){
         float cadDepth = -eyePos.z / 65.535;
-        vec2 screen_uv = vec2(gl_FragCoord.x / extraParams.width, gl_FragCoord.y / extraParams.height);
+        vec2 screen_uv = vec2(gl_FragCoord.x / pc.width, gl_FragCoord.y / pc.height);
         float cameraDepth = texture(depthImage, screen_uv).r;
         if(cadDepth > cameraDepth){
             outColor = texture(cameraImage, screen_uv);
@@ -709,8 +651,7 @@ void main()
     vec3 specularEnvironmentR90 = vec3(1.0, 1.0, 1.0) * reflectance90;
 
     vec3 worldN = getWorldNormal();
-    mat4 cameraData = pc.cameraData;
-    vec3 worldCamPos = vec3(cameraData[0][0], cameraData[0][1], cameraData[0][2]);
+    vec3 worldCamPos = pc.camera_pos;
     vec3 worldV = normalize(worldCamPos - worldViewDir);    
 
     vec3 color = vec3(0.0, 0.0, 0.0);
@@ -725,8 +666,8 @@ void main()
     float scene_brightness = 1.0f;
     if (numDirectionalLights>0){
         int shadowMapIndex = 0;
-        float totalBrigtness = 2.0f;
-        float totalRealBrightness = 2.0f;
+        float totalBrigtness = pc.baseBrightness;
+        float totalRealBrightness = pc.baseBrightness;
         for(int i = 0; i<numDirectionalLights; ++i){
             vec4 lightColor = lightData.values[index++];
             float area = lightData.values[index].w;
@@ -756,6 +697,15 @@ void main()
                 ++shadowMapIndex;
                 shadowMapSettings.r -= 1.0;
             }
+
+            if (shadowMapSettings.r > 0.0)
+            {
+                // skip lightData and shadowMap entries for shadow maps that we haven't visited for this light
+                // so subsequent light pointions are correct.
+                index += 4 * int(shadowMapSettings.r);
+                shadowMapIndex += int(shadowMapSettings.r);
+            }
+
             totalRealBrightness += brightness * visibility;
         }
         scene_brightness = totalRealBrightness / totalBrigtness;

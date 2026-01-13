@@ -10,8 +10,17 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D samplerNois
 layout(push_constant) uniform PushConstants {
     mat4 projection;
     mat4 view;
-    mat4 invView;
-    mat4 cameraData;
+    vec3 camera_pos;
+    float z_far;
+    float lightSizeScale;
+    float baseBrightness;
+    float ssao_radius;
+    float exposure;
+    int ssao_kernel_size;
+    int shader_type;
+    int width;
+    int height;
+    int denoise_size;
 } pc;
 
 layout(location = 0) in vec2 inUV;
@@ -19,8 +28,6 @@ layout(location = 0) in vec2 inUV;
 layout(location = 0) out vec4 outColor;
 
 #define SSAO_WHOLE_KERNEL_SIZE 128
-#define SSAO_KERNEL_SIZE 64
-#define SSAO_RADIUS 0.1
 
 const vec4 ssaoKernel[SSAO_WHOLE_KERNEL_SIZE] = vec4[](
     vec4(0.006057f, -0.020636f, 0.005974f, 0.0f),
@@ -155,8 +162,7 @@ const vec4 ssaoKernel[SSAO_WHOLE_KERNEL_SIZE] = vec4[](
 
 void main()
 {
-    mat4 cameraData = pc.cameraData;
-    vec3 worldCamPos = vec3(cameraData[0][0], cameraData[0][1], cameraData[0][2]);
+    vec3 worldCamPos = pc.camera_pos;
     ivec2 textureSize = textureSize(normalInputAttachment);
 
 
@@ -178,9 +184,9 @@ void main()
 
     // Calculate occlusion value.
 	float occlusion = 0.0f;
-    for(uint i = 0; i < SSAO_KERNEL_SIZE; i++) {
-        vec3 samplePos = TBN * ssaoKernel[i * (SSAO_WHOLE_KERNEL_SIZE / SSAO_KERNEL_SIZE)].xyz;
-        samplePos = samplePos * SSAO_RADIUS + worldPosition;
+    for(uint i = 0; i < pc.ssao_kernel_size; i++) {
+        vec3 samplePos = TBN * ssaoKernel[i * (SSAO_WHOLE_KERNEL_SIZE / pc.ssao_kernel_size)].xyz;
+        samplePos = samplePos * pc.ssao_radius + worldPosition;
 
         float sampleDepth = length(samplePos - worldCamPos);
 
@@ -194,11 +200,11 @@ void main()
             continue;
         float sceneDepth = length(sceneWorldPos - worldCamPos);
 
-        float rangeCheck = step(abs(sampleDepth - sceneDepth), SSAO_RADIUS);
+        float rangeCheck = step(abs(sampleDepth - sceneDepth), pc.ssao_radius);
         occlusion += step(sceneDepth, sampleDepth) * rangeCheck;
     }
 
-    float factor = 1 - (occlusion / float(SSAO_KERNEL_SIZE));
+    float factor = 1 - (occlusion / float(pc.ssao_kernel_size));
     outColor = vec4(factor, factor, factor, 0);
     
     return;

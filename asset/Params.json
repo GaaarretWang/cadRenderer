@@ -1,0 +1,120 @@
+{
+    "dynamic_objects": {
+        "line_color": [
+            1.0,
+            1.0,
+            1.0
+        ],
+        "point_color": [
+            1.0,
+            1.0,
+            1.0
+        ]
+    },
+    "material_params": {
+        "helicopter-engine.quads.obj0": {
+            "baseColorFactor": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+            ],
+            "metallicFactor": 1.0,
+            "roughnessFactor": 0.1459999978542328
+        },
+        "helicopter-engine.quads.obj1": {
+            "baseColorFactor": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+            ],
+            "metallicFactor": 1.0,
+            "roughnessFactor": 0.5320000052452087
+        },
+        "helicopter-engine.quads.obj2": {
+            "baseColorFactor": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+            ],
+            "metallicFactor": 1.0,
+            "roughnessFactor": 0.2150000035762787
+        },
+        "helicopter-engine.quads.obj4": {
+            "baseColorFactor": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+            ],
+            "metallicFactor": 1.0,
+            "roughnessFactor": 0.10499999672174454
+        },
+        "helicopter-engine.quads.obj6": {
+            "baseColorFactor": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+            ],
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 3.4790000915527344
+        },
+        "helicopter-engine.quads.obj7": {
+            "baseColorFactor": [
+                0.800000011920929,
+                0.800000011920929,
+                0.800000011920929,
+                1.0
+            ],
+            "metallicFactor": 1.0,
+            "roughnessFactor": 0.09099999815225601
+        },
+        "shadow_receiver2.obj0": {
+            "baseColorFactor": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "metallicFactor": 1.0,
+            "roughnessFactor": 1.0
+        },
+        "sphere.obj0": {
+            "baseColorFactor": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "metallicFactor": 1.00600004196167,
+            "roughnessFactor": 0.0
+        },
+        "sphere_diffuse.obj0": {
+            "baseColorFactor": [
+                1.0,
+                1.0,
+                1.0,
+                1.0
+            ],
+            "metallicFactor": 1.0,
+            "roughnessFactor": 1.00600004196167
+        }
+    },
+    "render_params": {
+        "baseBrightness": 10.0,
+        "denoise_size": 5,
+        "exposure": 12.937000274658203,
+        "lightSizeScale": 2.1489999294281006,
+        "model_scale": 100.0,
+        "model_translate": [
+            180000.0,
+            -180000.0,
+            60000.0
+        ],
+        "ssao_kernel_size": 64,
+        "ssao_radius": 0.13300000131130219
+    }
+}

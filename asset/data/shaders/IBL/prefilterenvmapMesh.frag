@@ -12,7 +12,7 @@ layout(push_constant) uniform FragPushConsts {
 } pcFrag;
 
 const float PI = 3.1415926536;
-const uint numSamples = 32;
+const uint numSamples = 1024u;
 
 // Based omn http://byteblacksmith.com/improvements-to-the-canonical-one-liner-glsl-rand-for-opengl-es-2-0/
 float random(vec2 co)

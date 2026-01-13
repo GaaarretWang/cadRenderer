@@ -38,15 +38,6 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform sampler2D cameraImage;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
 
-layout (set = MATERIAL_DESCRIPTOR_SET, binding = 9) uniform params {
-	float semitransparent;
-	int width;
-	int height;
-    float z_far;
-    int shader_type;
-} extraParams;
-
-
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
 {
     vec4 baseColorFactor;
@@ -76,6 +67,21 @@ layout(location = 5) in vec3 viewDir;
 
 layout(location = 0) out vec4 outColor;
 
+layout(push_constant) uniform PushConstants {
+    mat4 projection;
+    mat4 view;
+    vec3 camera_pos;
+    float z_far;
+    float lightSizeScale;
+    float baseBrightness;
+    float ssao_radius;
+    float exposure;
+    int ssao_kernel_size;
+    int shader_type;
+    int width;
+    int height;
+    int denoise_size;
+} pc;
 
 // Encapsulate the various inputs used by the various functions in the shading equation
 // We store values in this struct to simplify the integration of alternative implementations
@@ -160,7 +166,7 @@ void poissonDiskSamples( const in vec2 randomSeed ) {
 float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float area) {
     float linearFrac = sqrt(max(area, 0.0));//将area映射为线性尺寸
     float baseStridePixels = 20.0; //基础步长
-    const float lightSizeScale = 20.0; // 调节此值来放大/缩小基于 area 的影响
+    const float lightSizeScale = pc.lightSizeScale; // 调节此值来放大/缩小基于 area 的影响
     float Stride = baseStridePixels * linearFrac * lightSizeScale + 0.001; // 最小非零避免 0
     float shadowmapSize = 2048.;
     float visibility = 0.0;
@@ -238,9 +244,9 @@ float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex){
 
 void main()
 {
-    vec2 screen_uv = vec2(gl_FragCoord.x / extraParams.width, gl_FragCoord.y / extraParams.height);
-    if(extraParams.shader_type != 0){
-        float cadDepth = -eyePos.z / extraParams.z_far;
+    vec2 screen_uv = vec2(gl_FragCoord.x / pc.width, gl_FragCoord.y / pc.height);
+    if(pc.shader_type != 0){
+        float cadDepth = -eyePos.z / pc.z_far;
         float cameraDepth = texture(depthImage, screen_uv).r;
         if(cadDepth > cameraDepth){
             outColor = texture(cameraImage, screen_uv);
@@ -257,13 +263,12 @@ void main()
     int numSpotLights = int(lightNums[3]);
     int index = 1;
 
-    float scene_brightness = 0.0;
-    // index used to step through the shadowMaps array
+    float scene_brightness = 1.0f;
     int shadowMapIndex = 0;
     if (numDirectionalLights>0)
     {
-        float totalBrigtness = 3.0f;
-        float totalRealBrightness = 3.0f;
+        float totalBrigtness = pc.baseBrightness;
+        float totalRealBrightness = pc.baseBrightness;
         // directional lights
         for(int i = 0; i<numDirectionalLights; ++i)
         {

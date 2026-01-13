@@ -7,8 +7,17 @@
 layout(push_constant) uniform PushConstants {
     mat4 projection;
     mat4 view;
-    mat4 invView;
-    mat4 cameraData;
+    vec3 camera_pos;
+    float z_far;
+    float lightSizeScale;
+    float baseBrightness;
+    float ssao_radius;
+    float exposure;
+    int ssao_kernel_size;
+    int shader_type;
+    int width;
+    int height;
+    int denoise_size;
 } pc;
 
 #ifdef VSG_DISPLACEMENT_MAP

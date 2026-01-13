@@ -1,11 +1,38 @@
+#ifndef IMGUI_H
 #pragma once
-
+#define IMGUI_H
 #include <vsg/all.h>
 #include <vsgImGui/imgui.h>
 #include <vsgImGui/Texture.h>
 #include <vsgImGui/RenderImGui.h>
 #include <vsgImGui/SendEventsToImGui.h>
+// 移除直接包含 vsgRendererServer.h，改为前向声明
+class vsgRendererServer;
 #include <CADMesh.h>
+// 引入JSON库
+#include <nlohmann/json.hpp>
+#include <fstream>
+#include <filesystem>
+#include <string>
+#include <unordered_map>
+
+// 简化JSON命名空间
+using json = nlohmann::json;
+namespace fs = std::filesystem;
+
+struct GlobalPCData{
+    vsg::vec3 camera_pos;
+    float z_far;
+    float lightSizeScale = 20;
+    float baseBrightness = 2;
+    float ssao_radius = 0.1;
+    float exposure = 8;
+    int ssao_kernel_size = 64;
+    int shader_type;
+    int width;
+    int height;
+    int denoise_size = 5;
+};
 
 namespace gui
 {
@@ -49,128 +76,40 @@ namespace gui
     };
     extern vsg::ref_ptr<Params> global_params;
 
+    // 工具函数：提取路径最后一个/后的内容作为Key
+    inline std::string extractMaterialKey(const std::string& full_path)
+    {
+        size_t last_slash = full_path.find_last_of('/');
+        if (last_slash == std::string::npos)
+            return full_path;
+        return full_path.substr(last_slash + 1);
+    }
+
     class MyGui : public Inherit<Command, MyGui>
     {
     public:
-        MyGui(vsg::ref_ptr<vsg::Options> options = {})
-        {
-        }
+        vsg::ref_ptr<vsg::Value<GlobalPCData>> m_pc_data;
+        std::string m_json_path; // JSON文件路径
+        json m_json_data;        // 存储JSON数据
+        vsgRendererServer* m_renderer; // 仅声明指针，前向声明已足够
 
-        void compile(vsg::Context& context) override
-        {
-        }
+        // 调整构造函数参数顺序，匹配你的创建代码：MyGui::create(this, pc_data, json_path)
+        MyGui(vsgRendererServer* renderer,
+              vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data, 
+              const std::string& json_path,
+              vsg::ref_ptr<vsg::Options> options = {});
 
-        // Example here taken from the Dear imgui comments (mostly)
-        void record(vsg::CommandBuffer& cb) const override
-        {
-            if (!global_params->showGui) return;
+        void compile(vsg::Context& context) override;
 
-            ImGui::Begin("GUI"); // Create a window called "Hello, world!" and append into it.
-            
-            ImGui::Text("Current FPS (ms):\t%.3f", global_params->currentFps);
-            ImGui::Text("Render Timings (ms):");
-            ImGui::Separator();
+        // 声明加载参数函数（实现放cpp）
+        void loadParams();
 
-            ImGui::Text("Step\t\tTime");
-            ImGui::Text("1. advanceToNextFrame\t%.3f", global_params->render_func_times[0]);
-            ImGui::Text("2. fix_depth\t\t%.3f", global_params->render_func_times[1]);
-            ImGui::Text("3. copy color/depth\t%.3f", global_params->render_func_times[2]);
-            ImGui::Text("4. mark dirty\t\t%.3f", global_params->render_func_times[3]);
-            ImGui::Text("5. handleEvents\t\t%.3f", global_params->render_func_times[4]);
-            ImGui::Text("6. update\t\t%.3f", global_params->render_func_times[5]);
-            ImGui::Text("7. recordAndSubmit\t%.3f", global_params->render_func_times[6]);
-            ImGui::Text("8. present\t\t%.3f", global_params->render_func_times[7]);
+        // 保存参数到JSON文件（保留历史Key）
+        void saveParams() const;
 
-            ImGui::Separator();
-            ImGui::Text("Server Timing:");
-            ImGui::Text("render():\t\t%.3f ms", global_params->render_server_times[0]);
-            ImGui::Text("getEncodeImage():\t%.3f ms", global_params->render_server_times[1]);
-            ImGui::Separator();
-
-            
-            
-            std::unordered_set<vsg::PbrMaterial*> unique_material;
-            for(auto& id_data: CADMesh::proto_id_to_data_map){
-                std::string id = id_data.first;
-                ProtoData* proto_data = id_data.second;
-                ImGui::Text(id.c_str());
-                if(proto_data->material != nullptr){
-                    vsg::PbrMaterial* pbr_ptr = reinterpret_cast<PbrMaterial*>(proto_data->material->dataPointer());
-                    if(unique_material.find(pbr_ptr) == unique_material.end()){
-                        float metallic = pbr_ptr->metallicFactor;
-                        // vsg::PbrMaterial a;
-                        // a.metallicFactor = 0;
-                        std::string metallic_name = "metallic" + std::to_string(unique_material.size());
-                        ImGui::SliderFloat(metallic_name.c_str(), &(proto_data->material->value().metallicFactor), 0.0f, 5.0f);
-                        std::string roughness_name = "roughness" + std::to_string(unique_material.size());
-                        ImGui::SliderFloat(roughness_name.c_str(), &(proto_data->material->value().roughnessFactor), 0.0f, 5.0f);
-                        std::string basecolor_name = "basecolor" + std::to_string(unique_material.size());
-                        // float basecolor[3] = {};
-                        ImGui::SliderFloat3(basecolor_name.c_str(), proto_data->material->value().baseColorFactor.data(), 0.0f, 1.0f);  
-                        // proto_data->material->value().baseColorFactor = vec4(basecolor[0], basecolor[1], basecolor[2], 1.0);
-                                              // pbr_ptr->metallicFactor = metallic;
-                        // std::cout << "proto_data->material->value().metallicFactor " << proto_data->material->value().metallicFactor << std::endl;
-                        // proto_data->material->value().metallicFactor = 0.f;
-                        // std::cout << "proto_data->material->value().metallicFactor " << proto_data->material->value().metallicFactor << std::endl;
-                        proto_data->material->dirty();
-                        // ImGui::SliderFloat("roughness", &(pbr_ptr->roughnessFactor), 0.01f, 1.0f);
-                        unique_material.insert(pbr_ptr);
-                    }
-                }
-            }
-            ImGui::Separator();
-            ImGui::Text("dynamic objects:");
-            std::string line_color_str = "line color";
-            ImGui::SliderFloat3(line_color_str.c_str(), CADMesh::dynamic_lines.colors->value().data(), 0.0f, 1.0f);
-            CADMesh::dynamic_lines.colors->dirty();
-            std::string point_color_str = "point color";
-            ImGui::SliderFloat3(point_color_str.c_str(), CADMesh::dynamic_points.colors->value().data(), 0.0f, 1.0f);
-            CADMesh::dynamic_points.colors->dirty();
-            // ImGui::Text("Material Control");
-            // ImGui::ColorEdit3("base color", (float*)&params->baseColor);
-            // ImGui::SliderFloat("metallic", &params->metallic, 0.0f, 1.0f);
-            // ImGui::SliderFloat("roughness", &params->roughness, 0.01f, 1.0f);
-
-            // ImGui::InputFloat4("cube translate scale", (float*) & params->cubeTransform);
-
-            // ImGui::End();
-
-            // ImGui::Begin("Light Control");
-
-            // // ImGui::Text("Resolotion is : 720*425");
-            // //ImGui::Text("Current FPS is : ");
-            // //ImGui::InputFloat("Current FPS is : ", &currentFps);
-            // auto& lightParams = params->lightParams;
-            // if (ImGui::CollapsingHeader("Environment"))
-            // {
-            //     ImGui::Checkbox("enabled", &lightParams.envmapEnabled);
-            //     if (lightParams.envmapEnabled)
-            //         ImGui::SliderFloat("intensity", &lightParams.envmapStrength, 0.0f, 2.0f);
-            // }
-            // if (ImGui::CollapsingHeader("Directional"))
-            // {
-            //     ImGui::SliderInt("count", &lightParams.directionalLightCount, 0, 4);
-            //     for (int i = 0; i < lightParams.directionalLightCount; i++)
-            //     {
-            //         ImGui::Text("light #%d", i + 1);
-            //         ImGui::PushID(i);
-            //         ImGui::ColorEdit4("color(rgb) intensity(a)", lightParams.lightColor[i]);
-            //         ImGui::SliderFloat("shadowIntensity", &lightParams.lightShadowStrength[i], 0.0f, 1.0f);
-            //         ImGui::SliderFloat2("dir theta/phi", lightParams.lightDirectionsThetaPhi[i], 0, 1);
-            //         ImGui::PopID();
-            //     }
-            // }
-            // if (ImGui::CollapsingHeader("Debug Output"))
-            // {
-            //     // ImGui::SliderFloat3("model translate1", params->model_translate, 0.0f, 100.0f);
-
-            //     ImGui::InputFloat3("model translate", params->model_translate);
-            //     ImGui::SliderFloat("model scale", &params->model_scale, 1.00f, 100.0f);
-            //     ImGui::Text("Resolotion is : 1440*850");
-            //     ImGui::Text("%.2f", params->currentFps);
-            // }
-            ImGui::End();
-        }
+        // 声明record函数（实现放cpp）
+        void record(vsg::CommandBuffer& cb) const override;
     };
 
 } // namespace gui
+#endif

@@ -37,15 +37,21 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap
 
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform sampler2D cameraImage;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
-
-layout (set = MATERIAL_DESCRIPTOR_SET, binding = 9) uniform params {
-	float semitransparent;
-	int width;
-	int height;
+layout(push_constant) uniform PushConstants {
+    mat4 projection;
+    mat4 view;
+    vec3 camera_pos;
     float z_far;
+    float lightSizeScale;
+    float baseBrightness;
+    float ssao_radius;
+    float exposure;
+    int ssao_kernel_size;
     int shader_type;
-} extraParams;
-
+    int width;
+    int height;
+    int denoise_size;
+} pc;
 
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
 {
@@ -78,12 +84,12 @@ layout(location = 0) out vec4 outColor;
 void main()
 {
     if (length(gl_PointCoord - 0.5) > 0.5) discard;
-    vec2 screen_uv = vec2(gl_FragCoord.x / extraParams.width, gl_FragCoord.y / extraParams.height);
+    vec2 screen_uv = vec2(gl_FragCoord.x / pc.width, gl_FragCoord.y / pc.height);
     outColor = vertexColor;
-    if(extraParams.shader_type == 0){
+    if(pc.shader_type == 0){
         return;
     }else{
-        float cadDepth = -eyePos.z / extraParams.z_far;
+        float cadDepth = -eyePos.z / pc.z_far;
         float cameraDepth = texture(depthImage, screen_uv).r;
         if(cadDepth > cameraDepth){
             outColor = texture(cameraImage, screen_uv);

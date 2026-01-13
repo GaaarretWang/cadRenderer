@@ -18,7 +18,7 @@ void main()
 {
 	mat4 _proj = pc.proj;
 	//outUVW = vec3(inPos.x, -inPos.z, inPos.y);
-	outUVW = vec3(inPos.x, inPos.y, inPos.z);
+	outUVW = normalize(vec3(inPos.x, inPos.y, inPos.z));
 
 	mat4 proj = pc.proj;
 	proj[2][2] = 0;

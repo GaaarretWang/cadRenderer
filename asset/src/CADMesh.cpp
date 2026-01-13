@@ -8,7 +8,6 @@
 
 vsg::ImageInfoList CADMesh::camera_info;
 vsg::ImageInfoList CADMesh::depth_info;
-vsg::ref_ptr<vsg::Data> CADMesh::params;
 std::unordered_map<std::string, vsg::ImageInfoList> CADMesh::texture_name_to_image_map;
 std::unordered_map<std::string, ProtoData*> CADMesh::proto_id_to_data_map;
 std::vector<ProtoData*> CADMesh::insert_order_to_data;
@@ -502,7 +501,6 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         }
         graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
         graphicsPipelineConfig->assignTexture("depthImage", depth_info);
-        graphicsPipelineConfig->assignUniform("params", params);
         if(proto_data->material != nullptr){
             proto_data->material->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
             graphicsPipelineConfig->assignDescriptor("material", proto_data->material);
@@ -581,7 +579,6 @@ void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset
     auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(model_shaderset);
     graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
     graphicsPipelineConfig->assignTexture("depthImage", depth_info);
-    graphicsPipelineConfig->assignUniform("params", params);//是否半透明判断
     
     dynamic_lines.colors = vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f});
     dynamic_lines.colors->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
@@ -639,7 +636,6 @@ void CADMesh::buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderse
     auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(model_shaderset);
     graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
     graphicsPipelineConfig->assignTexture("depthImage", depth_info);
-    graphicsPipelineConfig->assignUniform("params", params);//是否半透明判断
     
     dynamic_points.colors = vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f});
     dynamic_points.colors->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;

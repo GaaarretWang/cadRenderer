@@ -214,26 +214,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     extent.height = render_height;
 
 
-    struct MyParams
-    {
-        float semi_transparent;
-        int width;
-        int height;
-        float camera_far;
-        int shader_type;
-    };
-    
-    auto params = vsg::ubyteArray::create(sizeof(MyParams));
-    auto* params_ptr = reinterpret_cast<MyParams*>(params->dataPointer());
-    params_ptr->semi_transparent = 1;
-    params_ptr->width = render_width;
-    params_ptr->height = render_height;
-    params_ptr->camera_far = 65.535;
-    params_ptr->shader_type = shader_type;
+    pc_data->value().width = render_width;
+    pc_data->value().height = render_height;
+    pc_data->value().z_far = 65.535;
+    pc_data->value().shader_type = shader_type;
 
     CADMesh::camera_info = camera_info;
     CADMesh::depth_info = depth_info;
-    CADMesh::params = params;
     //---------------------------------------读取CAD模型------------------------------------------//
     for(int i = 0; i < model_paths.size(); i ++){
         std::string &path_i = model_paths[i];
@@ -265,9 +252,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         shadow_recevier_mesh->preprocessProtoData(shadow_recevier_path.c_str(), getDirectoryPath(shadow_recevier_path).c_str(), shadow_recevier_transform, shadow_shader, shadowGroup, "shadow_receiver");
     }
 
-    newmatrix = vsg::mat4Array::create(2);
     vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
-                VK_SHADER_STAGE_ALL, 128, newmatrix);
+                VK_SHADER_STAGE_ALL, 128, pc_data);
 
     CADMesh::buildDrawData(modelGroup, pc); //读取obj文件
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup); //读取obj文件
@@ -304,7 +290,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     view1->viewDependentState = CustomViewDependentState1::create(view1.get());
     view1->viewDependentState->pre_depth_pass = view->viewDependentState;
     auto renderGraph1 = vsg::RenderGraph::create(window, view1);
-    auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(options));
+    auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(this, pc_data, engine_path + "asset/Params.json"));
     renderGraph1->addChild(renderImGui);
     std::this_thread::sleep_for(std::chrono::seconds(1));
     
@@ -354,14 +340,11 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 }
 
 bool vsgRendererServer::render() {
-    newmatrix->set(0, (vsg::mat4)camera->viewMatrix->inverse());
     if (camera->viewMatrix->is_compatible(typeid(vsg::LookAt))){
         vsg::LookAt* lookAt = dynamic_cast<vsg::LookAt*>(camera->viewMatrix.get());
-        vsg::mat4 data = {};
-        data[0] = vsg::vec4(lookAt->eye, 0.0f);
-        newmatrix->set(1, data);
+        pc_data->value().camera_pos = lookAt->eye;
     }
-    newmatrix->dirty();
+    pc_data->dirty();
     OcclusionCullingPasses::camera_matrix->set(0, (vsg::mat4)camera->viewMatrix->transform());
     OcclusionCullingPasses::camera_matrix->set(1, vsg::mat4(camera->projectionMatrix->transform() * camera->viewMatrix->transform()));
     OcclusionCullingPasses::camera_matrix->dirty();
@@ -405,7 +388,7 @@ bool vsgRendererServer::render() {
         gui::global_params->render_func_times[6] = std::chrono::duration<double, std::milli>(t7 - t6).count();
         gui::global_params->render_func_times[7] = std::chrono::duration<double, std::milli>(t8 - t7).count();
 
-        view->viewDependentState->draw_shadow = false;
+        view->viewDependentState->draw_shadow = true;
 
         return true;
     }

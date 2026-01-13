@@ -15,6 +15,22 @@ layout(location = 0) in vec2 inUV;
 
 layout(location = 0) out vec4 outColor;
 
+layout(push_constant) uniform PushConstants {
+    mat4 projection;
+    mat4 view;
+    vec3 camera_pos;
+    float z_far;
+    float lightSizeScale;
+    float baseBrightness;
+    float ssao_radius;
+    float exposure;
+    int ssao_kernel_size;
+    int shader_type;
+    int width;
+    int height;
+    int denoise_size;
+} pc;
+
 // From http://filmicgames.com/archives/75
 vec3 Uncharted2Tonemap(vec3 x)
 {
@@ -42,9 +58,10 @@ void main()
     ivec2 textureSize = textureSize(samplerSSAO);
     vec2 texelSize = 1.0 / vec2(textureSize);
     float result = 0.0;
-    for (int x = -2; x <= 2; ++x) 
+    int denoise_size = pc.denoise_size / 2;
+    for (int x = -denoise_size; x <= denoise_size; ++x) 
     {
-        for (int y = -2; y <= 2; ++y) 
+        for (int y = -denoise_size; y <= denoise_size; ++y) 
         {
             vec2 offset = vec2(float(x), float(y)) * texelSize;
             result += texelFetch(samplerSSAO, ivec2((uv + offset)*textureSize), 0).r;
@@ -53,8 +70,8 @@ void main()
     if(texelFetch(samplerSSAO, ivec2(uv*textureSize), 0).w > 0.5){
         outColor = vec4(colorData, 1);
     }else{
-        float exposure = 8.0f;
-        vec3 color = Uncharted2Tonemap(colorData * result / 25.0 * result / 25.0 * exposure);
+        float exposure = pc.exposure;
+        vec3 color = Uncharted2Tonemap(colorData * result / (denoise_size * 2 + 1) / (denoise_size * 2 + 1) * exposure);
         // vec3 color = Uncharted2Tonemap(vec3(result / 25.0 * result / 25.0 * exposure));
         color = color * (vec3(1.0f) / Uncharted2Tonemap(vec3(11.2f)));
         outColor = LINEARtoSRGB(vec4(color, 1));
