@@ -57,8 +57,6 @@ namespace gui
             // 加载GlobalPCData中的渲染参数
             if (render_params.contains("baseBrightness"))
                 m_pc_data->value().baseBrightness = render_params["baseBrightness"];
-            if (render_params.contains("lightSizeScale"))
-                m_pc_data->value().lightSizeScale = render_params["lightSizeScale"];
             if (render_params.contains("ssao_radius"))
                 m_pc_data->value().ssao_radius = render_params["ssao_radius"];
             if (render_params.contains("ssao_kernel_size"))
@@ -67,6 +65,23 @@ namespace gui
                 m_pc_data->value().exposure = render_params["exposure"];
             if (render_params.contains("denoise_size"))
                 m_pc_data->value().denoise_size = render_params["denoise_size"];
+            if (render_params.contains("shadow bias")){
+                m_renderer->view->viewDependentState->shadowMapBias = render_params["shadow bias"];
+                m_shadowmap_bias = render_params["shadow bias"];
+            }
+            if (render_params.contains("blocker_sample_num"))
+                m_pc_data->value().blocker_sample_num = render_params["blocker_sample_num"];
+            if (render_params.contains("pcf_sample_num"))
+                m_pc_data->value().pcf_sample_num = render_params["pcf_sample_num"];
+
+            if (render_params.contains("shadow_type"))
+                m_pc_data->value().shadow_type = render_params["shadow_type"];
+            if (render_params.contains("pcf_softness"))
+                pcf_softness = render_params["pcf_softness"];
+            if (render_params.contains("pcss_softness"))
+                pcss_softness = render_params["pcss_softness"];
+            if (render_params.contains("pcss_softness_falloff"))
+                pcss_softness_falloff = render_params["pcss_softness_falloff"];
         }
 
         // 3. 加载材质参数（按需加载当前场景的material）
@@ -147,12 +162,18 @@ namespace gui
             json& render_params = new_json_data["render_params"];
             const auto& pc_data = m_pc_data->value();
             render_params["baseBrightness"] = pc_data.baseBrightness;
-            render_params["lightSizeScale"] = pc_data.lightSizeScale;
             render_params["ssao_radius"] = pc_data.ssao_radius;
             render_params["ssao_kernel_size"] = pc_data.ssao_kernel_size;
             render_params["exposure"] = pc_data.exposure;
             render_params["denoise_size"] = pc_data.denoise_size;
-            
+            render_params["shadow bias"] = m_renderer->view->viewDependentState->shadowMapBias;
+            render_params["blocker_sample_num"] = pc_data.blocker_sample_num;
+            render_params["pcf_sample_num"] = pc_data.pcf_sample_num;
+            render_params["shadow_type"] = pc_data.shadow_type;
+            render_params["pcf_softness"] = pcf_softness;
+            render_params["pcss_softness"] = pcss_softness;
+            render_params["pcss_softness_falloff"] = pcss_softness_falloff;
+
             // 保存Params中的系统参数
             if (global_params)
             {
@@ -240,6 +261,9 @@ namespace gui
         ImGui::Text("hdr num:");
         for(int i = 1; i <= m_renderer->hdr_image_max_num; ++i){
             std::string num_str = std::to_string(i);
+            if(i > 1) {
+                ImGui::SameLine(0.0f, 5.0f);
+            }
             if(ImGui::Button(num_str.c_str())){
                 m_renderer->hdr_image_num = i;
                 m_renderer->updateEnvLighting();
@@ -252,13 +276,43 @@ namespace gui
 
         ImGui::Separator();
         ImGui::Text("Global Render Params:");
-        ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 10.0f);
-        ImGui::SliderFloat("lightSizeScale", &(m_pc_data->value().lightSizeScale), 0.0f, 40.0f);
+        if (ImGui::RadioButton("PCF", m_pc_data->value().shadow_type == 0)){
+            m_pc_data->value().shadow_type = 0;
+        }
+        ImGui::SameLine(); // 让两个选项并排显示（可选）
+        if (ImGui::RadioButton("PCSS", m_pc_data->value().shadow_type == 1))
+        {
+            m_pc_data->value().shadow_type = 1;
+        }
+
+        if (m_pc_data->value().shadow_type == 0)
+        {
+            ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 10.0f);
+            ImGui::SliderFloat("pcf_softness", &(pcf_softness), 0.0f, 100.0f);
+            m_pc_data->value().softness = pcf_softness;
+        }
+        else if(m_pc_data->value().shadow_type == 1)
+        {
+            ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 10.0f);
+            ImGui::SliderFloat("pcss_softness", &(pcss_softness), 0.0f, 2.0f);
+            ImGui::SliderFloat("pcss_softness_falloff", &(pcss_softness_falloff), 0.0f, 100.f);
+            m_pc_data->value().softness = pcss_softness;
+            m_pc_data->value().softness_falloff = pcss_softness_falloff;
+        }
+        ImGui::SliderInt("blocker_sample_num", &(m_pc_data->value().blocker_sample_num), 8, 64);
+        ImGui::SliderInt("pcf_sample_num", &(m_pc_data->value().pcf_sample_num), 8, 64);
+        ImGui::SliderFloat("shadow bias", &m_shadowmap_bias, 0.0f, 0.002f, "%.4f");
+
         ImGui::SliderFloat("ssao_radius", &(m_pc_data->value().ssao_radius), 0.0f, 2.0f);
         ImGui::SliderInt("ssao_kernel_size", &(m_pc_data->value().ssao_kernel_size), 16, 128);
-        ImGui::SliderFloat("exposure", &(m_pc_data->value().exposure), 0.0f, 16.f);
         ImGui::SliderInt("denoise_size", &(m_pc_data->value().denoise_size), 1, 9);
 
+        ImGui::SliderFloat("exposure", &(m_pc_data->value().exposure), 0.0f, 16.f);
+        if(m_renderer->view->viewDependentState->shadowMapBias != m_shadowmap_bias){
+            m_renderer->view->viewDependentState->shadowMapBias = m_shadowmap_bias;
+            m_renderer->view->viewDependentState->draw_shadow = true;
+        }
+        
         ImGui::Separator();
         ImGui::Text("Step\t\tTime");
         ImGui::Text("1. advanceToNextFrame\t%.3f", global_params->render_func_times[0]);

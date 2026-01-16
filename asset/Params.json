@@ -59,7 +59,7 @@
                 0.800000011920929,
                 1.0
             ],
-            "metallicFactor": 0.972000002861023,
+            "metallicFactor": 1.0740000009536743,
             "roughnessFactor": 3.4790000915527344
         },
         "helicopter-engine.quads.obj7": {
@@ -104,17 +104,26 @@
         }
     },
     "render_params": {
-        "baseBrightness": 10.0,
+        "baseBrightness": 0.19300000369548798,
+        "blocker_sample_num": 20,
         "denoise_size": 5,
-        "exposure": 12.937000274658203,
-        "lightSizeScale": 2.1489999294281006,
+        "exposure": 14.611000061035156,
         "model_scale": 100.0,
         "model_translate": [
             180000.0,
             -180000.0,
             60000.0
         ],
+        "pcf_sample_num": 17,
+        "pcf_softness": 5.784999847412109,
+        "pcss_softness": 0.04899999871850014,
+        "pcss_softness_falloff": 28.649999618530273,
+        "shadow bias": 9.999999747378752e-05,
+        "shadow_sample_num": 32,
+        "shadow_type": 1,
+        "softness": 0.07800000160932541,
+        "softness_falloff": 31.128999710083008,
         "ssao_kernel_size": 64,
-        "ssao_radius": 0.13300000131130219
+        "ssao_radius": 0.14900000393390656
     }
 }

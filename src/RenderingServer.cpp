@@ -55,6 +55,23 @@ int RenderingServer::Init(int argc, char** argv){
     // model_paths.push_back(rendering_dir + "asset/data/geos/大舱壁-ASM(PMI).fb");
     // model_paths.push_back(rendering_dir + "asset/data/obj/Airbus_A380V3/Airbus_A380V3.obj");
 
+    model_transforms.push_back(vsg::dmat4(
+                                0.00000001, 0, 0, 0, 
+                                0, 0.00000001, 0, 0, 
+                                0, 0, 0.00000001, 0, 
+                                0, 0, 0, 1));
+    model_paths.push_back(rendering_dir + "asset/data/obj/sphere.obj");
+    instance_names.push_back("sphere");
+
+    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, 1, 1) * init_model_transforms[0]
+    //                         * vsg::dmat4(
+    //                             10, 0, 0, 0, 
+    //                             0, 10, 0, 0, 
+    //                             0, 0, 10, 0, 
+    //                             0, 0, 0, 1));
+    // model_paths.push_back(rendering_dir + "asset/data/obj/Whole engine.obj");
+    // instance_names.push_back("Whole engine");    
+    
     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.9, 1) * init_model_transforms[0]
                             * vsg::dmat4(
                                 10, 0, 0, 0, 
@@ -65,21 +82,14 @@ int RenderingServer::Init(int argc, char** argv){
     instance_names.push_back("helicopter-engine");
 
 
-    model_transforms.push_back(vsg::dmat4(
-                                0.1, 0, 0, 0, 
-                                0, 0.1, 0, 0, 
-                                0, 0, 0.1, 0, 
-                                0, 1, 0, 1));
-    model_paths.push_back(rendering_dir + "asset/data/obj/sphere.obj");
-    instance_names.push_back("sphere");
 
-    model_transforms.push_back(vsg::dmat4(
-                                0.1, 0, 0, 0, 
-                                0, 0.1, 0, 0, 
-                                0, 0, 0.1, 0, 
-                                0, 2, 0, 1));
-    model_paths.push_back(rendering_dir + "asset/data/obj/sphere_diffuse.obj");
-    instance_names.push_back("sphere_diffuse");
+    // model_transforms.push_back(vsg::dmat4(
+    //                             0.1, 0, 0, 0, 
+    //                             0, 0.1, 0, 0, 
+    //                             0, 0, 0.1, 0, 
+    //                             0, 2, 0, 1));
+    // model_paths.push_back(rendering_dir + "asset/data/obj/sphere_diffuse.obj");
+    // instance_names.push_back("sphere_diffuse");
 
     // for(int i = 0; i < model_num; ++i)
     // {

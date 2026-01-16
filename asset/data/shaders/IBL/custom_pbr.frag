@@ -12,9 +12,6 @@ const float RECIPROCAL_PI2 = 0.15915494;
 const float EPSILON = 1e-6;
 const float c_MinRoughness = 0.04;
 
-#define NUM_SAMPLES 16
-#define BLOCKER_SEARCH_NUM_SAMPLES NUM_SAMPLES
-#define PCF_NUM_SAMPLES NUM_SAMPLES
 #define NUM_RINGS 10
 
 #define EPS 1e-2  //ģӰжЧкܴӰ
@@ -68,6 +65,7 @@ layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
 
 
 layout(set = VIEW_DESCRIPTOR_SET, binding = 2) uniform sampler2DArrayShadow shadowMaps;
+layout(set = VIEW_DESCRIPTOR_SET, binding = 3) uniform sampler2DArray shadowMapsSampler;
 
 layout(set = IBL_DESCRIPTOR_SET, binding = 0) uniform sampler2D samplerBRDFLUT;
 layout(set = IBL_DESCRIPTOR_SET, binding = 1) uniform samplerCube samplerIrradiance;
@@ -98,15 +96,20 @@ layout(push_constant) uniform PushConstants {
     mat4 view;
     vec3 camera_pos;
     float z_far;
-    float lightSizeScale;
+    float softness;
     float baseBrightness;
     float ssao_radius;
     float exposure;
+    float softness_falloff;
     int ssao_kernel_size;
     int shader_type;
     int width;
     int height;
     int denoise_size;
+    int blocker_sample_num;
+    int pcf_sample_num;
+    int shadow_type;
+    uint frame_num;
 } pc;
 
 highp float rand_1to1(highp float x ) {                              //
@@ -131,127 +134,195 @@ float unpack(vec4 rgbaDepth) {                             //
     return dot(rgbaDepth, bitShift);
 }
 
-vec2 poissonDisk[NUM_SAMPLES];
-void uniformDiskSamples( const in vec2 randomSeed ) {                              //
-  //Բ̲
+vec2 poissonDisk[64] = {
+	vec2(0.0617981, 0.07294159),
+	vec2(0.6470215, 0.7474022),
+	vec2(-0.5987766, -0.7512833),
+	vec2(-0.693034, 0.6913887),
+	vec2(0.6987045, -0.6843052),
+	vec2(-0.9402866, 0.04474335),
+	vec2(0.8934509, 0.07369385),
+	vec2(0.1592735, -0.9686295),
+	vec2(-0.05664673, 0.995282),
+	vec2(-0.1203411, -0.1301079),
+	vec2(0.1741608, -0.1682285),
+	vec2(-0.09369049, 0.3196758),
+	vec2(0.185363, 0.3213367),
+	vec2(-0.1493771, -0.3147511),
+	vec2(0.4452095, 0.2580113),
+	vec2(-0.1080467, -0.5329178),
+	vec2(0.1604507, 0.5460774),
+	vec2(-0.4037193, -0.2611179),
+	vec2(0.5947998, -0.2146744),
+	vec2(0.3276062, 0.9244621),
+	vec2(-0.6518704, -0.2503952),
+	vec2(-0.3580975, 0.2806469),
+	vec2(0.8587891, 0.4838005),
+	vec2(-0.1596546, -0.8791054),
+	vec2(-0.3096867, 0.5588146),
+	vec2(-0.5128918, 0.1448544),
+	vec2(0.8581337, -0.424046),
+	vec2(0.1562584, -0.5610626),
+	vec2(-0.7647934, 0.2709858),
+	vec2(-0.3090832, 0.9020988),
+	vec2(0.3935608, 0.4609676),
+	vec2(0.3929337, -0.5010948),
+	vec2(-0.8682281, -0.1990303),
+	vec2(-0.01973724, 0.6478714),
+	vec2(-0.3897587, -0.4665619),
+	vec2(-0.7416366, -0.4377831),
+	vec2(-0.5523247, 0.4272514),
+	vec2(-0.5325066, 0.8410385),
+	vec2(0.3085465, -0.7842533),
+	vec2(0.8400612, -0.200119),
+	vec2(0.6632416, 0.3067062),
+	vec2(-0.4462856, -0.04265022),
+	vec2(0.06892014, 0.812484),
+	vec2(0.5149567, -0.7502338),
+	vec2(0.6464897, -0.4666451),
+	vec2(-0.159861, 0.1038342),
+	vec2(0.6455986, 0.04419327),
+	vec2(-0.7445076, 0.5035095),
+	vec2(0.9430245, 0.3139912),
+	vec2(0.0349884, -0.7968109),
+	vec2(-0.9517487, 0.2963554),
+	vec2(-0.7304786, -0.01006928),
+	vec2(-0.5862702, -0.5531025),
+	vec2(0.3029106, 0.09497032),
+	vec2(0.09025345, -0.3503742),
+	vec2(0.4356628, -0.0710125),
+	vec2(0.4112572, 0.7500054),
+	vec2(0.3401214, -0.3047142),
+	vec2(-0.2192158, -0.6911137),
+	vec2(-0.4676369, 0.6570358),
+	vec2(0.6295372, 0.5629555),
+	vec2(0.1253822, 0.9892166),
+	vec2(-0.1154335, 0.8248222),
+	vec2(-0.4230408, -0.7129914),
+};
 
-  float randNum = rand_2to1(randomSeed);
-  float sampleX = rand_1to1( randNum ) ;
-  float sampleY = rand_1to1( sampleX ) ;
+// void uniformDiskSamples( const in vec2 randomSeed ) {                              //
+//   //Բ̲
 
-  float angle = sampleX * PI2;
-  float radius = sqrt(sampleY);
+//   float randNum = rand_2to1(randomSeed);
+//   float sampleX = rand_1to1( randNum ) ;
+//   float sampleY = rand_1to1( sampleX ) ;
 
-  for( int i = 0; i < NUM_SAMPLES; i ++ ) {
-    poissonDisk[i] = vec2( radius * cos(angle) , radius * sin(angle)  );
+//   float angle = sampleX * PI2;
+//   float radius = sqrt(sampleY);
 
-    sampleX = rand_1to1( sampleY ) ;
-    sampleY = rand_1to1( sampleX ) ;
+//   for( int i = 0; i < pc.shadow_sample_num; i ++ ) {
+//     poissonDisk[i] = vec2( radius * cos(angle) , radius * sin(angle)  );
 
-    angle = sampleX * PI2;
-    radius = sqrt(sampleY);
-  }
+//     sampleX = rand_1to1( sampleY ) ;
+//     sampleY = rand_1to1( sampleX ) ;
+
+//     angle = sampleX * PI2;
+//     radius = sqrt(sampleY);
+//   }
+// }
+
+// void poissonDiskSamples( const in vec2 randomSeed ) {         
+//     float ANGLE_STEP = PI2 * float( NUM_RINGS ) / float( pc.shadow_sample_num );
+//     float INV_NUM_SAMPLES = 1.0 / float( pc.shadow_sample_num );
+
+//     float angle = rand_2to1( randomSeed ) * PI2;
+//     float radius = INV_NUM_SAMPLES;
+//     float radiusStep = radius;
+
+//     for( int i = 0; i < pc.shadow_sample_num; i ++ ) {
+//         poissonDisk[i] = vec2( cos( angle ), sin( angle ) ) * pow( radius, 0.75 );
+//         radius += radiusStep;
+//         angle += ANGLE_STEP;
+//     }
+// }
+
+vec2 Rotate(vec2 pos, vec2 rotationTrig)
+{
+	return vec2(pos.x * rotationTrig.x - pos.y * rotationTrig.y, pos.y * rotationTrig.x + pos.x * rotationTrig.y);
 }
 
-void poissonDiskSamples( const in vec2 randomSeed ) {                              //
-  //Բ̲
+float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float area, float random) {
+    float rotationAngle = random * 3.1415926;
+	vec2 rotationTrig = vec2(cos(rotationAngle), sin(rotationAngle));
 
-  float ANGLE_STEP = PI2 * float( NUM_RINGS ) / float( NUM_SAMPLES );
-  float INV_NUM_SAMPLES = 1.0 / float( NUM_SAMPLES );
-
-  float angle = rand_2to1( randomSeed ) * PI2;
-  float radius = INV_NUM_SAMPLES;
-  float radiusStep = radius;
-
-  for( int i = 0; i < NUM_SAMPLES; i ++ ) {
-    poissonDisk[i] = vec2( cos( angle ), sin( angle ) ) * pow( radius, 0.75 );
-    radius += radiusStep;
-    angle += ANGLE_STEP;
-  }
-}
-
-float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float area) {
     float linearFrac = sqrt(max(area, 0.0));//将area映射为线性尺寸
     float baseStridePixels = 20.0; //基础步长
-    float Stride = baseStridePixels * linearFrac * pc.lightSizeScale + 0.001; // 最小非零避免 0
+    const float softness = pc.softness; // 调节此值来放大/缩小基于 area 的影响
+    float Stride = baseStridePixels * linearFrac * softness + 0.001; // 最小非零避免 0
     float shadowmapSize = 2048.;
     float visibility = 0.0;
     float cur_depth = coords.z;
     
-    poissonDiskSamples(coords.xy);
-
-    //uniformDiskSamples(coords.xy);
-
     float ctrl = 1.0;
         
-    for(int i =0 ; i < NUM_SAMPLES; i++)
+    for(int i =0 ; i < pc.pcf_sample_num; i++)
     {
-        //vec4 shadow_color = texture2D(shadowMap, coords.xy + poissonDisk[i] * Stride / shadowmapSize); 
-        //float shadow_depth = unpack(shadow_color);
-        //float res = cur_depth < shadow_depth + EPS ? 1. : 0. ;
-        //visibility += res;
-        float res  = texture(shadowMap, vec4(coords.xy + poissonDisk[i] * Stride / shadowmapSize, shadowMapIndex, coords.z)).r;
+        float res  = texture(shadowMap, vec4(coords.xy + Rotate(poissonDisk[i * 64 / pc.pcf_sample_num] * Stride / shadowmapSize, rotationTrig), shadowMapIndex, coords.z)).r;
         visibility += res;
     }
 
-    return visibility / float(NUM_SAMPLES);
+    return visibility / float(pc.pcf_sample_num);
 }
 
-float findBlocker(sampler2DArrayShadow shadowMap,  vec4 coords, int shadowMapIndex) {
-  int blockerNum = 0;
-  float block_depth = 0.;
-  float shadowmapSize = 2048.;
-  float Stride = 20.;
+vec2 findBlocker(sampler2DArrayShadow shadowMap,  vec4 coords, int shadowMapIndex, float search_size, vec2 rotationTrig) {
+    float blockerNum = 0;
+    float block_depth = 0.;
 
-  poissonDiskSamples(coords.xy);
-
-  for(int i = 0; i < NUM_SAMPLES; i++){ //Ƽ˰汾
-      vec2 xy=vec2(coords.xy + poissonDisk[i] * Stride / shadowmapSize);
-	  float dp = 1.0; //
-	  while (texture(shadowMap, vec4(xy, shadowMapIndex, dp)).r < 1.0 && dp>=0.0)
-		{
-			dp -= 0.01;
-		}
-		if (dp >=0.0) {
-			blockerNum++;
-			block_depth += dp;
-		}
-  }
-  if(blockerNum == 0){
-    return 1.;
-  }
-  return float(block_depth) / float(blockerNum);
+    for(int i = 0; i < pc.blocker_sample_num; i++){ //Ƽ˰汾
+        vec2 xy=coords.xy + Rotate(poissonDisk[i * 64 / pc.blocker_sample_num] * search_size, rotationTrig);
+        float depthInShadowmap = texture(shadowMapsSampler, vec3(xy, shadowMapIndex)).r;
+        if(depthInShadowmap - 0.0001 > coords.z){
+            block_depth += depthInShadowmap;
+            blockerNum += 1.0;
+        }
+    }
+    return vec2(1 - block_depth / blockerNum, blockerNum);
 }
 
-float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex){
+float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float area, float random){
+    float d_Receiver = 1 - coords.z;
+	float rotationAngle = random * 3.1415926;
+	vec2 rotationTrig = vec2(cos(rotationAngle), sin(rotationAngle));
 
-  // STEP 1: avgblocker depth
-  float d_Blocker = findBlocker(shadowMap, coords,shadowMapIndex);
-  float w_Light = 1.; // ԴСǣֱӿԴ
-  float d_Receiver = coords.z;
+    //todo: pc.softness
+    float searchSize = pc.softness * clamp(d_Receiver - 0.02, 0.0, 1.0) / d_Receiver;
+    vec2 blockerInfo = findBlocker(shadowMap, coords,shadowMapIndex, searchSize, rotationTrig);
+	if (blockerInfo.y < 1)
+	{
+		//There are no occluders so early out (this saves filtering)
+		return 0.0;
+	}
+    float d_Blocker = blockerInfo.x;
+    float w_penumbra = d_Receiver - d_Blocker;
 
-  // STEP 2: penumbra size
-  float w_penumbra = w_Light * (d_Receiver - d_Blocker) / d_Blocker;
+    //todo: pc.softness_falloff
+    w_penumbra = 1.0 - pow(1.0 - w_penumbra, sqrt(area) * pc.softness_falloff);
+    float filterRadiusUV = w_penumbra * pc.softness;
 
-  // STEP 3: filtering
-  //1
-  float Stride = 20.;
-  float shadowmapSize = 2048.;
-  float visibility = 0.;
-  float cur_depth = coords.z;
+    float Stride = 20.;
+    float shadowmapSize = 2048.;
+    float visibility = 0.;
+    float cur_depth = coords.z;
 
-  //2 
-  //poissonDiskSamples(coords.xy); findBlockerѾ
+    //float ctrl = 1.0;
+    //float bias = getBias(ctrl);
 
-  //3
+    for(int i = 0; i < pc.pcf_sample_num; i++){
+        float res  = texture(shadowMap, vec4(coords.xy + Rotate(poissonDisk[i * 64 / pc.pcf_sample_num] * filterRadiusUV, rotationTrig), shadowMapIndex, coords.z)).r;
+        visibility += res;
+    }
 
-  for(int i = 0; i < NUM_SAMPLES; i++){
-     float res  = texture(shadowMap, vec4(coords.xy + poissonDisk[i] * Stride / shadowmapSize* w_penumbra, shadowMapIndex, coords.z)).r;
-     visibility += res;
-  }
-
-  return visibility / float(NUM_SAMPLES);
+    return visibility / float(pc.pcf_sample_num);
 }
+
+float ValueNoise(vec3 pos)
+{
+	vec3 Noise_skew = pos + 0.2127 + pos.x * pos.y * pos.z * 0.3713;
+	vec3 Noise_rnd = 4.789 * sin(489.123 * (Noise_skew));
+	return fract(Noise_rnd.x * Noise_rnd.y * Noise_rnd.z * (1.0 + Noise_skew.x) * pc.frame_num);
+}
+
 
 // Encapsulate the various inputs used by the various functions in the shading equation
 // We store values in this struct to simplify the integration of alternative implementations
@@ -689,8 +760,13 @@ void main()
                 if (sm_tc.x >= 0.0 && sm_tc.x <= 1.0 && sm_tc.y >= 0.0 && sm_tc.y <= 1.0 && sm_tc.z >= 0.0)
                 {
                     matched = true;
-                    visibility = 1 - PCF(shadowMaps,sm_tc,shadowMapIndex,area);
-
+                    // poissonDiskSamples(sm_tc.xy); 
+                    float random = ValueNoise(sm_tc.xyz);
+                    if(pc.shadow_type == 0){
+                        visibility = 1 - PCF(shadowMaps,sm_tc,shadowMapIndex,area, random);
+                    }else if(pc.shadow_type == 1){
+                        visibility = 1 - PCSS(shadowMaps,sm_tc,shadowMapIndex, area, random);
+                    }
                 }else{
                   visibility = 1.0;
                 }

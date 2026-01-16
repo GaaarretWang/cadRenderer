@@ -171,7 +171,6 @@ void CopyAndReleaseImage::CopyData::record(CommandBuffer& commandBuffer) const
 
 void CopyAndReleaseImage::record(CommandBuffer& commandBuffer) const
 {
-    std::cout << "CopyAndReleaseImage::record(CommandBuffer& commandBuffer) const" << std::endl;
     std::scoped_lock lock(_mutex);
 
     _readyToClear.clear();

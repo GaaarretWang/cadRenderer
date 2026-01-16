@@ -12,6 +12,7 @@ class CustomViewDependentState1 : public vsg::Inherit<vsg::ViewDependentState, C
 public:
     vsg::dbox scene_bound_ws_virtual;
     vsg::dbox scene_bound_ws_real;
+    vsg::ref_ptr<vsg::DescriptorImage> shadowMapSamplerImages;
 
     CustomViewDependentState1(vsg::View* in_view) :
         vsg::Inherit<vsg::ViewDependentState, CustomViewDependentState1>(in_view){}

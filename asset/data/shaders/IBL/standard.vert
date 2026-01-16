@@ -9,15 +9,20 @@ layout(push_constant) uniform PushConstants {
     mat4 view;
     vec3 camera_pos;
     float z_far;
-    float lightSizeScale;
+    float softness;
     float baseBrightness;
     float ssao_radius;
     float exposure;
+    float softness_falloff;
     int ssao_kernel_size;
     int shader_type;
     int width;
     int height;
     int denoise_size;
+    int blocker_sample_num;
+    int pcf_sample_num;
+    int shadow_type;
+    uint frame_num;
 } pc;
 
 #ifdef VSG_DISPLACEMENT_MAP

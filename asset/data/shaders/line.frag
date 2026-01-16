@@ -2,8 +2,8 @@
 #extension GL_ARB_separate_shader_objects : enable
 #pragma import_defines (VSG_DIFFUSE_MAP, VSG_GREYSCALE_DIFFUSE_MAP, VSG_EMISSIVE_MAP, VSG_LIGHTMAP_MAP, VSG_NORMAL_MAP, VSG_METALLROUGHNESS_MAP, VSG_SPECULAR_MAP, VSG_TWO_SIDED_LIGHTING, VSG_WORKFLOW_SPECGLOSS, SHADOWMAP_DEBUG)
 
-#define VIEW_DESCRIPTOR_SET 0
-#define MATERIAL_DESCRIPTOR_SET 1
+#define VIEW_DESCRIPTOR_SET 1
+#define MATERIAL_DESCRIPTOR_SET 2
 
 const float PI = 3.14159265359;
 const float RECIPROCAL_PI = 0.31830988618;
@@ -42,15 +42,20 @@ layout(push_constant) uniform PushConstants {
     mat4 view;
     vec3 camera_pos;
     float z_far;
-    float lightSizeScale;
+    float softness;
     float baseBrightness;
     float ssao_radius;
     float exposure;
+    float softness_falloff;
     int ssao_kernel_size;
     int shader_type;
     int width;
     int height;
     int denoise_size;
+    int blocker_sample_num;
+    int pcf_sample_num;
+    int shadow_type;
+    uint frame_num;
 } pc;
 
 

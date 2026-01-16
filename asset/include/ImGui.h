@@ -23,15 +23,20 @@ namespace fs = std::filesystem;
 struct GlobalPCData{
     vsg::vec3 camera_pos;
     float z_far;
-    float lightSizeScale = 20;
+    float softness = 1;
     float baseBrightness = 2;
     float ssao_radius = 0.1;
     float exposure = 8;
+    float softness_falloff = 1;
     int ssao_kernel_size = 64;
     int shader_type;
     int width;
     int height;
     int denoise_size = 5;
+    int blocker_sample_num = 16;
+    int pcf_sample_num = 16;
+    int shadow_type = 1;
+    uint32_t frame_num = 0;
 };
 
 namespace gui
@@ -92,6 +97,10 @@ namespace gui
         std::string m_json_path; // JSON文件路径
         json m_json_data;        // 存储JSON数据
         vsgRendererServer* m_renderer; // 仅声明指针，前向声明已足够
+        mutable float m_shadowmap_bias; // 仅声明指针，前向声明已足够
+        mutable float pcf_softness;
+        mutable float pcss_softness;
+        mutable float pcss_softness_falloff;
 
         // 调整构造函数参数顺序，匹配你的创建代码：MyGui::create(this, pc_data, json_path)
         MyGui(vsgRendererServer* renderer,

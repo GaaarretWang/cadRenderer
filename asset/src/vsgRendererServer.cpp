@@ -344,6 +344,7 @@ bool vsgRendererServer::render() {
         vsg::LookAt* lookAt = dynamic_cast<vsg::LookAt*>(camera->viewMatrix.get());
         pc_data->value().camera_pos = lookAt->eye;
     }
+    pc_data->value().frame_num = ++frame_num;
     pc_data->dirty();
     OcclusionCullingPasses::camera_matrix->set(0, (vsg::mat4)camera->viewMatrix->transform());
     OcclusionCullingPasses::camera_matrix->set(1, vsg::mat4(camera->projectionMatrix->transform() * camera->viewMatrix->transform()));
@@ -387,8 +388,6 @@ bool vsgRendererServer::render() {
         gui::global_params->render_func_times[5] = std::chrono::duration<double, std::milli>(t6 - t5).count();
         gui::global_params->render_func_times[6] = std::chrono::duration<double, std::milli>(t7 - t6).count();
         gui::global_params->render_func_times[7] = std::chrono::duration<double, std::milli>(t8 - t7).count();
-
-        view->viewDependentState->draw_shadow = true;
 
         return true;
     }

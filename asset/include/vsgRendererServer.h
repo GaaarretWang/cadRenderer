@@ -85,6 +85,8 @@ class vsgRendererServer
 
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;//多重采样的倍数
 
+    uint32_t frame_num = 0;
+
     vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(string windowTitle, int num,  vsg::ref_ptr<vsg::Options> options)
     {
         auto windowTraits = vsg::WindowTraits::create();

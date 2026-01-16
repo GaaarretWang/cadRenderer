@@ -14,6 +14,7 @@ public:
     vsg::dbox scene_bound_ws_real;
     vsg::ref_ptr<vsg::CommandGraph> computeCommandGraphShadow;
     std::string project_path;
+    vsg::ref_ptr<vsg::DescriptorImage> shadowMapSamplerImages;
 
     CustomViewDependentState(vsg::View* in_view, vsg::ref_ptr<vsg::Device> device, int computeQueueFamily, std::string in_project_path) :
         vsg::Inherit<vsg::ViewDependentState, CustomViewDependentState>(in_view), computeCommandGraphShadow(vsg::CommandGraph::create(device, computeQueueFamily)), project_path(in_project_path){}

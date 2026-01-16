@@ -148,13 +148,13 @@ namespace vsg
 
         // shadow map hints
         double maxShadowDistance = 1e8;
-        double shadowMapBias = 0.005;
+        double shadowMapBias = 0.001;
         double lambda = 0.5;
 
         // Shadow backend.
         ref_ptr<CommandGraph> preRenderCommandGraph;
         ref_ptr<Switch> preRenderSwitch;
-        bool draw_shadow = true;
+        mutable bool draw_shadow = true;
 
         struct ShadowMap
         {

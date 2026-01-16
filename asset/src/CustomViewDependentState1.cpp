@@ -135,6 +135,7 @@ void CustomViewDependentState1::init(ResourceRequirements& requirements)
 
     // set up ShadowMaps
     auto shadowMapSampler = Sampler::create();
+    auto shadowMapSamplerNoCompare = Sampler::create();
 #define HARDWARE_PCF 1
 #if HARDWARE_PCF == 1
     shadowMapSampler->minFilter = VK_FILTER_LINEAR;
@@ -145,6 +146,13 @@ void CustomViewDependentState1::init(ResourceRequirements& requirements)
     shadowMapSampler->addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     shadowMapSampler->compareEnable = VK_TRUE;
     shadowMapSampler->compareOp = VK_COMPARE_OP_LESS;
+
+    shadowMapSamplerNoCompare->minFilter = VK_FILTER_LINEAR;
+    shadowMapSamplerNoCompare->magFilter = VK_FILTER_LINEAR;
+    shadowMapSamplerNoCompare->mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    shadowMapSamplerNoCompare->addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    shadowMapSamplerNoCompare->addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    shadowMapSamplerNoCompare->addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 #else
     shadowMapSampler->minFilter = VK_FILTER_NEAREST;
     shadowMapSampler->magFilter = VK_FILTER_NEAREST;
@@ -152,6 +160,13 @@ void CustomViewDependentState1::init(ResourceRequirements& requirements)
     shadowMapSampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     shadowMapSampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     shadowMapSampler->addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+
+    shadowMapSamplerNoCompare->minFilter = VK_FILTER_NEAREST;
+    shadowMapSamplerNoCompare->magFilter = VK_FILTER_NEAREST;
+    shadowMapSamplerNoCompare->mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    shadowMapSamplerNoCompare->addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    shadowMapSamplerNoCompare->addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    shadowMapSamplerNoCompare->addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 #endif
 
     if (maxShadowMaps > 0)
@@ -166,8 +181,10 @@ void CustomViewDependentState1::init(ResourceRequirements& requirements)
         depthImageView->subresourceRange.layerCount = maxShadowMaps;
 
         auto depthImageInfo = ImageInfo::create(shadowMapSampler, depthImageView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-
         shadowMapImages = DescriptorImage::create(ImageInfoList{depthImageInfo}, 2);
+
+        auto depthImageSamplerInfo = ImageInfo::create(shadowMapSamplerNoCompare, depthImageView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
+        shadowMapSamplerImages = DescriptorImage::create(ImageInfoList{depthImageSamplerInfo}, 3);
     }
     else
     {
@@ -190,18 +207,21 @@ void CustomViewDependentState1::init(ResourceRequirements& requirements)
         depthImageView->subresourceRange.layerCount = 1;
 
         auto depthImageInfo = ImageInfo::create(shadowMapSampler, depthImageView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-
         shadowMapImages = DescriptorImage::create(ImageInfoList{depthImageInfo}, 2);
+
+        auto depthImageSamplerInfo = ImageInfo::create(shadowMapSamplerNoCompare, depthImageView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
+        shadowMapSamplerImages = DescriptorImage::create(ImageInfoList{depthImageSamplerInfo}, 3);
     }
 
     DescriptorSetLayoutBindings descriptorBindings{
         VkDescriptorSetLayoutBinding{0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}, // lightData
         VkDescriptorSetLayoutBinding{1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}, // viewportData
         VkDescriptorSetLayoutBinding{2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},                      // shadow map 2D texture array
+        VkDescriptorSetLayoutBinding{3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr},                      // shadow map 2D texture array
     };
 
     descriptorSetLayout = DescriptorSetLayout::create(descriptorBindings);
-    descriptorSet = DescriptorSet::create(descriptorSetLayout, Descriptors{descriptor, shadowMapImages});
+    descriptorSet = DescriptorSet::create(descriptorSetLayout, Descriptors{descriptor, shadowMapImages, shadowMapSamplerImages});
 
     descriptorSetLayout = pre_depth_pass->descriptorSetLayout;
     descriptorSet = pre_depth_pass->descriptorSet;
