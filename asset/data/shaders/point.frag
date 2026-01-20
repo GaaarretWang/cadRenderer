@@ -40,17 +40,14 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
 layout(push_constant) uniform PushConstants {
     mat4 projection;
     mat4 view;
+    mat4 last_view;
     vec3 camera_pos;
-    float z_far;
     float softness;
     float baseBrightness;
     float ssao_radius;
     float exposure;
     float softness_falloff;
     int ssao_kernel_size;
-    int shader_type;
-    int width;
-    int height;
     int denoise_size;
     int blocker_sample_num;
     int pcf_sample_num;
@@ -69,6 +66,13 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
     float alphaMask;
     float alphaMaskCutoff;
 } pbr;
+
+layout(std430, set = MATERIAL_DESCRIPTOR_SET, binding = 12) buffer ConstantBuffer {
+    float z_far;
+    int shader_type;
+    int width;
+    int height;
+}constantBuffer;
 
 // ViewDependentState
 layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
@@ -89,12 +93,12 @@ layout(location = 0) out vec4 outColor;
 void main()
 {
     if (length(gl_PointCoord - 0.5) > 0.5) discard;
-    vec2 screen_uv = vec2(gl_FragCoord.x / pc.width, gl_FragCoord.y / pc.height);
+    vec2 screen_uv = vec2(gl_FragCoord.x / constantBuffer.width, gl_FragCoord.y / constantBuffer.height);
     outColor = vertexColor;
-    if(pc.shader_type == 0){
+    if(constantBuffer.shader_type == 0){
         return;
     }else{
-        float cadDepth = -eyePos.z / pc.z_far;
+        float cadDepth = -eyePos.z / constantBuffer.z_far;
         float cameraDepth = texture(depthImage, screen_uv).r;
         if(cadDepth > cameraDepth){
             outColor = texture(cameraImage, screen_uv);

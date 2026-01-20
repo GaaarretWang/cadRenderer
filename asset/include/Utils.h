@@ -93,9 +93,16 @@ namespace Utils{
         clearColor2->color = {0.0f, 0.0f, 0.0f, 1.0f}; // 清除颜色：默认法线（0,0,1）映射后的值
         clearColor2->ranges = {range0};
 
+        auto clearColor3 = vsg::ClearColorImage::create();
+        clearColor3->image = window->_ShadowWriteImage;
+        clearColor3->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 符合要求的布局
+        clearColor3->color = {1, -2, 0.0f, 1.0f}; // 清除颜色：默认法线（0,0,1）映射后的值
+        clearColor3->ranges = {range0};
+
         clear_image_commandgraph->addChild(clearColor0);
         clear_image_commandgraph->addChild(clearColor1);
         clear_image_commandgraph->addChild(clearColor2);
+        clear_image_commandgraph->addChild(clearColor3);
 
         // auto clearCmd = vsg::ClearAttachments::create();
         // VkClearRect clearRect{};

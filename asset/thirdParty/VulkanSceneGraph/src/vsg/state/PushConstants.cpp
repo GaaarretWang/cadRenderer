@@ -17,12 +17,12 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 using namespace vsg;
 
 PushConstants::PushConstants() :
-    Inherit(2) // slot 0
+    Inherit(4) // slot 0
 {
 }
 
 PushConstants::PushConstants(VkShaderStageFlags in_stageFlags, uint32_t in_offset, Data* in_data) :
-    Inherit(2), // slot 0
+    Inherit(4), // slot 0
     stageFlags(in_stageFlags),
     offset(in_offset),
     data(in_data)

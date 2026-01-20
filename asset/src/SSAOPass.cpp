@@ -165,11 +165,38 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAODenoiseShaderSet(vsg::ref_ptr<c
         VK_SHADER_STAGE_FRAGMENT_BIT,     // 仅片段着色器读取
         vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM})
     );
+
+    shaderSet->addDescriptorBinding(
+        "shadowInputAttachment",          // 名称（需和 GLSL 中一致）
+        "",                               // 无预编译宏（必启用，因为 subpass 1 必须读）
+        MATERIAL_DESCRIPTOR_SET,  // 输入附件专属的 descriptor set
+        1,             // binding 索引（和 GLSL 中 input_attachment_index 对应）
+        VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,  // 类型必须是输入附件！
+        1,                                // 数组大小（1 个）
+        VK_SHADER_STAGE_FRAGMENT_BIT,     // 仅片段着色器读取
+        vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM})
+    );
     shaderSet->addDescriptorBinding("samplerSSAO", "", MATERIAL_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+    
+    
+    auto colorBlendState = vsg::ColorBlendState::create();
+    colorBlendState->attachments[0] = {
+        VK_FALSE,                                      // 开启混合
+        VK_BLEND_FACTOR_SRC_ALPHA,                    // 源颜色因子：取当前片元的 Alpha 值
+        VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,          // 目标颜色因子：1 - 源 Alpha（经典半透公式）
+        VK_BLEND_OP_ADD,                              // 颜色混合：源×源Alpha + 目标×(1-源Alpha)
+        VK_BLEND_FACTOR_ONE,                          // 源 Alpha 因子：1
+        VK_BLEND_FACTOR_ZERO,                         // 目标 Alpha 因子：0
+        VK_BLEND_OP_ADD,                              // Alpha 混合：源Alpha×1 + 目标Alpha×0
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+    };
+    colorBlendState->attachments.resize(2, colorBlendState->attachments[0]); 
+    shaderSet->defaultGraphicsPipelineStates.push_back(colorBlendState);
+
     return shaderSet;
 }
 
-void SSAOPass::buildSSAODenoiseData(vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ImageView> GBufferView0, vsg::ref_ptr<vsg::ImageView> SSAOResultImageView){
+void SSAOPass::buildSSAODenoiseData(vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ImageView> GBufferView0, vsg::ref_ptr<vsg::ImageView> ShadowWriteView, vsg::ref_ptr<vsg::ImageView> SSAOResultImageView){
     vsg::ref_ptr<vsg::ShaderSet> model_shaderset = SSAOPass::customSSAODenoiseShaderSet(options);
     auto rasterizationState = vsg::RasterizationState::create();
     rasterizationState->cullMode = VK_CULL_MODE_NONE;
@@ -180,8 +207,10 @@ void SSAOPass::buildSSAODenoiseData(vsg::ref_ptr<vsg::Options> options, vsg::ref
     auto noiseSampler = Utils::createNearestSampler();
 
     vsg::ImageInfoList GBufferViewList0 = {vsg::ImageInfo::create(noiseSampler, GBufferView0, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL)};
+    vsg::ImageInfoList GBufferViewListShadow = {vsg::ImageInfo::create(noiseSampler, ShadowWriteView, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL)};
     vsg::ImageInfoList GBufferViewList1 = {vsg::ImageInfo::create(noiseSampler, SSAOResultImageView, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL)};
     graphicsPipelineConfig->assignTexture("colorInputAttachment", GBufferViewList0);
+    graphicsPipelineConfig->assignTexture("shadowInputAttachment", GBufferViewListShadow);
     graphicsPipelineConfig->assignTexture("samplerSSAO", GBufferViewList1);
 
     auto vertices = vsg::vec3Array::create({

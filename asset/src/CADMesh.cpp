@@ -5,6 +5,7 @@
 #include <communication/dataInterface.h>
 #include <vsgXchange/all.h>
 #include <random>
+#include "Utils.h"
 
 vsg::ImageInfoList CADMesh::camera_info;
 vsg::ImageInfoList CADMesh::depth_info;
@@ -461,7 +462,7 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
     }
 }
 
-void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::PushConstants> pc){
+void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::PushConstants> pc, vsg::BufferInfoList constant_data_buffer_info_list, vsg::ref_ptr<vsg::ImageView> ShadowSampleImageView){
     for(ProtoData* proto_data : insert_order_to_data){
         if(! proto_data->back_cull){
             auto rasterizationState = vsg::RasterizationState::create();
@@ -490,6 +491,12 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
 
         vsg::BufferInfoList info_list = {proto_data->output_instance_buffer_info};
         graphicsPipelineConfig->assignDescriptor("instanceModelMatrix", info_list);
+        graphicsPipelineConfig->assignDescriptor("ConstantBuffer", constant_data_buffer_info_list);
+        
+        auto noiseSampler = Utils::createNearestSampler();
+        vsg::ImageInfoList ShadowSampleViewList = {vsg::ImageInfo::create(noiseSampler, ShadowSampleImageView, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL)};
+        graphicsPipelineConfig->assignTexture("shadowsampler", ShadowSampleViewList);
+
         if(proto_data->diffuse_path != ""){
             graphicsPipelineConfig->assignTexture("diffuseMap", texture_name_to_image_map[proto_data->diffuse_path]);
         }
@@ -523,6 +530,9 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
             graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->colors);
         else
             graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f}));
+
+        static float instance_id = 0;
+        graphicsPipelineConfig->assignArray(vertexArrays, "vsg_InstanceID", VK_VERTEX_INPUT_RATE_INSTANCE, vsg::vec4Value::create(vsg::vec4{++instance_id, 1.0f, 1.0f, 1.0f}));
         auto drawCommands = vsg::Commands::create();
         drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
         drawCommands->addChild(vsg::BindIndexBuffer::create(proto_data->indices));
@@ -570,7 +580,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
     }
 }
 
-void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene)
+void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList constant_data_buffer_info_list)
 {
     dynamic_lines.vertices = vsg::vec3Array::create(20000); 
     dynamic_lines.vertices->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
@@ -579,7 +589,8 @@ void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset
     auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(model_shaderset);
     graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
     graphicsPipelineConfig->assignTexture("depthImage", depth_info);
-    
+    graphicsPipelineConfig->assignDescriptor("ConstantBuffer", constant_data_buffer_info_list);
+
     dynamic_lines.colors = vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f});
     dynamic_lines.colors->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
     vsg::DataList vertexArrays;
@@ -627,7 +638,7 @@ void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset
     scene->addChild(stateGroup);
 }
 
-void CADMesh::buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene)
+void CADMesh::buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList constant_data_buffer_info_list)
 {
     dynamic_points.vertices = vsg::vec3Array::create(20000); 
     dynamic_points.vertices->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
@@ -636,7 +647,8 @@ void CADMesh::buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderse
     auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(model_shaderset);
     graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
     graphicsPipelineConfig->assignTexture("depthImage", depth_info);
-    
+    graphicsPipelineConfig->assignDescriptor("ConstantBuffer", constant_data_buffer_info_list);
+
     dynamic_points.colors = vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f});
     dynamic_points.colors->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
     vsg::DataList vertexArrays;

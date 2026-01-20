@@ -57,7 +57,8 @@ class vsgRendererServer
     vsg::dmat4 shadow_recevier_transform;
     std::unordered_set<std::string> cull_mode_none_model_paths;
     vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data = vsg::Value<GlobalPCData>::create();
-
+    vsg::ref_ptr<vsg::Value<GlobalConstantData>> constant_data = vsg::Value<GlobalConstantData>::create();
+    vsg::BufferInfoList constant_data_buffer_info_list;
     float fx = 386.52199190267083;//焦距(x轴上)
     float fy = 387.32300428823663;//焦距(y轴上)
     float cx = 326.5103569741365;//图像中心点(x轴)

@@ -104,21 +104,21 @@
         }
     },
     "render_params": {
-        "baseBrightness": 0.19300000369548798,
-        "blocker_sample_num": 20,
+        "baseBrightness": 0.02800000086426735,
+        "blocker_sample_num": 8,
         "denoise_size": 5,
-        "exposure": 14.611000061035156,
+        "exposure": 16.0,
         "model_scale": 100.0,
         "model_translate": [
             180000.0,
             -180000.0,
             60000.0
         ],
-        "pcf_sample_num": 17,
+        "pcf_sample_num": 8,
         "pcf_softness": 5.784999847412109,
-        "pcss_softness": 0.04899999871850014,
-        "pcss_softness_falloff": 28.649999618530273,
-        "shadow bias": 9.999999747378752e-05,
+        "pcss_softness": 0.061000000685453415,
+        "pcss_softness_falloff": 42.42399978637695,
+        "shadow bias": 0.00039999998989515007,
         "shadow_sample_num": 32,
         "shadow_type": 1,
         "softness": 0.07800000160932541,

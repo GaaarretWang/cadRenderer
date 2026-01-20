@@ -57,12 +57,20 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
     float alphaMaskCutoff;
 } pbr;
 
+layout(std430, set = MATERIAL_DESCRIPTOR_SET, binding = 12) buffer ConstantBuffer {
+    float z_far;
+    int shader_type;
+    int width;
+    int height;
+}constantBuffer;
+
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 13) uniform sampler2DMS shadowInputAttachment;
+
 // ViewDependentState
 layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
 {
     vec4 values[2048];
 } lightData;
-
 
 layout(set = VIEW_DESCRIPTOR_SET, binding = 2) uniform sampler2DArrayShadow shadowMaps;
 layout(set = VIEW_DESCRIPTOR_SET, binding = 3) uniform sampler2DArray shadowMapsSampler;
@@ -83,6 +91,7 @@ layout(location = 1) in vec3 normalDir;
 layout(location = 2) in vec4 vertexColor;
 layout(location = 3) in vec2 texCoord0;
 layout(location = 4) in float highlight;
+layout(location = 5) in float InstanceID;
 
 layout(location = 6) in vec3 worldNormal;
 layout(location = 7) in vec3 worldViewDir;
@@ -90,21 +99,19 @@ layout(location = 7) in vec3 worldViewDir;
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outWorldPos;
+layout(location = 3) out vec4 outShadow;
 
 layout(push_constant) uniform PushConstants {
     mat4 projection;
     mat4 view;
+    mat4 last_view;
     vec3 camera_pos;
-    float z_far;
     float softness;
     float baseBrightness;
     float ssao_radius;
     float exposure;
     float softness_falloff;
     int ssao_kernel_size;
-    int shader_type;
-    int width;
-    int height;
     int denoise_size;
     int blocker_sample_num;
     int pcf_sample_num;
@@ -627,9 +634,9 @@ void main()
         return;
     }
     
-    if(pc.shader_type == 1){
+    if(constantBuffer.shader_type == 1){
         float cadDepth = -eyePos.z / 65.535;
-        vec2 screen_uv = vec2(gl_FragCoord.x / pc.width, gl_FragCoord.y / pc.height);
+        vec2 screen_uv = vec2(gl_FragCoord.x / constantBuffer.width, gl_FragCoord.y / constantBuffer.height);
         float cameraDepth = texture(depthImage, screen_uv).r;
         if(cadDepth > cameraDepth){
             outColor = texture(cameraImage, screen_uv);
@@ -786,6 +793,21 @@ void main()
         }
         scene_brightness = totalRealBrightness / totalBrigtness;
     }
+    vec4 last_ndc = pc.projection * pc.last_view * vec4(worldViewDir, 1);
+    ivec2 last_coord = ivec2(((last_ndc.x / last_ndc.w) / 2 + 0.5) * constantBuffer.width, ((last_ndc.y / last_ndc.w) / 2 + 0.5) * constantBuffer.height);
+    float old_shadow = 1;
+    float oldInstanceID = -1;
+    if(last_coord.x >= 0 && last_coord.y >= 0 && last_coord.x < constantBuffer.width && last_coord.y < constantBuffer.height){
+        vec2 shadowdataold_shadow = texelFetch(shadowInputAttachment, last_coord, gl_SampleID).rg;
+        oldInstanceID = shadowdataold_shadow.y;
+        old_shadow = shadowdataold_shadow.x;
+    }
+
+    float old_weight = max(0.0, 0.7 - length(last_coord - gl_FragCoord.xy) / 50.0);
+    if(abs(oldInstanceID - InstanceID) > 0.1)
+        scene_brightness = scene_brightness;
+    else
+        scene_brightness = old_shadow * old_weight + scene_brightness * (1 - old_weight);
 
     outColor = vec4(color * scene_brightness, baseColor.w);
     if(baseColor.w > 0.8){
@@ -796,4 +818,6 @@ void main()
         outNormal = vec4(worldN, 0);
         outWorldPos = vec4(worldViewDir, 0);
     }
+
+    outShadow = vec4(scene_brightness, InstanceID, (1 - gl_FragCoord.z), 1);
 }

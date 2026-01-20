@@ -213,11 +213,12 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     extent.width = render_width;
     extent.height = render_height;
 
-
-    pc_data->value().width = render_width;
-    pc_data->value().height = render_height;
-    pc_data->value().z_far = 65.535;
-    pc_data->value().shader_type = shader_type;
+    constant_data->value().width = render_width;
+    constant_data->value().height = render_height;
+    constant_data->value().z_far = 65.535;
+    constant_data->value().shader_type = shader_type;
+    constant_data->dirty();
+    constant_data_buffer_info_list = {vsg::BufferInfo::create(constant_data)};
 
     CADMesh::camera_info = camera_info;
     CADMesh::depth_info = depth_info;
@@ -255,13 +256,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
                 VK_SHADER_STAGE_ALL, 128, pc_data);
 
-    CADMesh::buildDrawData(modelGroup, pc); //读取obj文件
-    CADMesh::buildDynamicLinesData(line_shader, wireframeGroup); //读取obj文件
-    CADMesh::buildDynamicPointsData(point_shader, wireframeGroup); //读取obj文件
+    CADMesh::buildDrawData(modelGroup, pc, constant_data_buffer_info_list, window->_ShadowSampleImageView); //读取obj文件
+    CADMesh::buildDynamicLinesData(line_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
+    CADMesh::buildDynamicPointsData(point_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
     CADMesh::buildDynamicTextsData(textGroup, options, project_path + "asset/data/fonts/times.vsgt"); //读取obj文件
     std::cout << "model processing done" << std::endl;
     SSAOPass::buildSSAOData(options, SSAOGroup, window->_GBufferImageView0, window->_GBufferImageView1, window->_GBufferImageView2, extent);
-    SSAOPass::buildSSAODenoiseData(options, SSAODenoiseGroup, window->_GBufferImageView0, window->_SSAOResultImageView);
+    SSAOPass::buildSSAODenoiseData(options, SSAODenoiseGroup, window->_GBufferImageView0, window->_ShadowWriteImageView, window->_SSAOResultImageView);
 
     // HDR环境光采样
     init_directional_lights();
@@ -303,10 +304,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     OcclusionCullingPasses::generateCameraData(fx, fy, cx, cy, width, height, near_plane, far_plane, camera);
 
-
-
-
-
     auto clear_image_commandgraph = vsg::CommandGraph::create(device, computeQueueFamily);
     Utils::BuildClearCommandGraph(clear_image_commandgraph, extent, window, msaaSamples);
     commandGraph->addChild(clear_image_commandgraph);
@@ -345,7 +342,11 @@ bool vsgRendererServer::render() {
         pc_data->value().camera_pos = lookAt->eye;
     }
     pc_data->value().frame_num = ++frame_num;
+    static vsg::mat4 last_view = vsg::mat4(camera->viewMatrix->transform());
+    pc_data->value().last_view = last_view;
+    last_view = vsg::mat4(camera->viewMatrix->transform());
     pc_data->dirty();
+
     OcclusionCullingPasses::camera_matrix->set(0, (vsg::mat4)camera->viewMatrix->transform());
     OcclusionCullingPasses::camera_matrix->set(1, vsg::mat4(camera->projectionMatrix->transform() * camera->viewMatrix->transform()));
     OcclusionCullingPasses::camera_matrix->dirty();

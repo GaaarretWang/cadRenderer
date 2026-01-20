@@ -50,6 +50,15 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
     float alphaMaskCutoff;
 } pbr;
 
+layout(std430, set = MATERIAL_DESCRIPTOR_SET, binding = 12) buffer ConstantBuffer {
+    float z_far;
+    int shader_type;
+    int width;
+    int height;
+}constantBuffer;
+
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 13) uniform sampler2DMS shadowInputAttachment;
+
 // ViewDependentState
 layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
 {
@@ -65,23 +74,22 @@ layout(location = 2) in vec4 vertexColor;
 layout(location = 3) in vec2 texCoord0;
 layout(location = 4) in vec3 worldViewDir;
 layout(location = 5) in vec3 viewDir;
+layout(location = 6) in float InstanceID;
 
 layout(location = 0) out vec4 outColor;
+layout(location = 3) out vec4 outShadow;
 
 layout(push_constant) uniform PushConstants {
     mat4 projection;
     mat4 view;
+    mat4 last_view;
     vec3 camera_pos;
-    float z_far;
     float softness;
     float baseBrightness;
     float ssao_radius;
     float exposure;
     float softness_falloff;
     int ssao_kernel_size;
-    int shader_type;
-    int width;
-    int height;
     int denoise_size;
     int blocker_sample_num;
     int pcf_sample_num;
@@ -320,9 +328,9 @@ float ValueNoise(vec3 pos)
 
 void main()
 {
-    vec2 screen_uv = vec2(gl_FragCoord.x / pc.width, gl_FragCoord.y / pc.height);
-    if(pc.shader_type != 0){
-        float cadDepth = -eyePos.z / pc.z_far;
+    vec2 screen_uv = vec2(gl_FragCoord.x / constantBuffer.width, gl_FragCoord.y / constantBuffer.height);
+    if(constantBuffer.shader_type != 0){
+        float cadDepth = -eyePos.z / constantBuffer.z_far;
         float cameraDepth = texture(depthImage, screen_uv).r;
         if(cadDepth > cameraDepth){
             outColor = texture(cameraImage, screen_uv);
@@ -400,7 +408,26 @@ void main()
         }
         scene_brightness = totalRealBrightness / totalBrigtness;
     }
+
+    vec4 last_ndc = pc.projection * pc.last_view * vec4(worldViewDir, 1);
+    ivec2 last_coord = ivec2(((last_ndc.x / last_ndc.w) / 2 + 0.5) * constantBuffer.width, ((last_ndc.y / last_ndc.w) / 2 + 0.5) * constantBuffer.height);
+    float old_shadow = 1;
+    float oldInstanceID = -1;
+    if(last_coord.x >= 0 && last_coord.y >= 0 && last_coord.x < constantBuffer.width && last_coord.y < constantBuffer.height){
+        vec2 shadowdataold_shadow = texelFetch(shadowInputAttachment, last_coord, gl_SampleID).rg;
+        oldInstanceID = shadowdataold_shadow.y;
+        old_shadow = shadowdataold_shadow.x;
+    }
+
+    float old_weight = max(0.0, 0.7 - length(last_coord - gl_FragCoord.xy) / 50.0);
+    if(abs(oldInstanceID - InstanceID) > 0.1)
+        scene_brightness = scene_brightness;
+    else
+        scene_brightness = old_shadow * old_weight + scene_brightness * (1 - old_weight);
+
     vec3 color = vec3(scene_brightness);
     outColor.rgb = texture(cameraImage, screen_uv).rgb * color;
     outColor.a = 1;
+    
+    outShadow = vec4(scene_brightness, InstanceID, gl_FragCoord.z, 1);
 }

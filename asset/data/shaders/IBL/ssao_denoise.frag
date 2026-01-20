@@ -9,26 +9,31 @@ layout(
     set = MATERIAL_DESCRIPTOR_SET,  // 和 CPU 侧一致（比如 2）
     binding = 0  // 和 CPU 侧一致（比如 0）
 ) uniform subpassInputMS colorInputAttachment;  // color attachment 1（法线）
+
+layout(
+    input_attachment_index = 2,  // 强制要求：子通道输入附件列表中的索引
+    set = MATERIAL_DESCRIPTOR_SET,  // 和 CPU 侧一致（比如 2）
+    binding = 1  // 和 CPU 侧一致（比如 0）
+) uniform subpassInputMS shadowInputAttachment;  // color attachment 1（法线）
+
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2DMS samplerSSAO;
 
 layout(location = 0) in vec2 inUV;
 
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outShadow;
 
 layout(push_constant) uniform PushConstants {
     mat4 projection;
     mat4 view;
+    mat4 last_view;
     vec3 camera_pos;
-    float z_far;
     float softness;
     float baseBrightness;
     float ssao_radius;
     float exposure;
     float softness_falloff;
     int ssao_kernel_size;
-    int shader_type;
-    int width;
-    int height;
     int denoise_size;
     int blocker_sample_num;
     int pcf_sample_num;
@@ -81,6 +86,8 @@ void main()
         color = color * (vec3(1.0f) / Uncharted2Tonemap(vec3(11.2f)));
         outColor = LINEARtoSRGB(vec4(color, 1));
     }
-
+    
+    vec4 shadow = subpassLoad(shadowInputAttachment, gl_SampleID);
+    outShadow = vec4(shadow.rgb, 1);
     return;
 }

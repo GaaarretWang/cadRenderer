@@ -21,23 +21,21 @@ using json = nlohmann::json;
 namespace fs = std::filesystem;
 
 struct GlobalPCData{
+    vsg::mat4 last_view;
     vsg::vec3 camera_pos;
-    float z_far;
     float softness = 1;
     float baseBrightness = 2;
     float ssao_radius = 0.1;
     float exposure = 8;
     float softness_falloff = 1;
     int ssao_kernel_size = 64;
-    int shader_type;
-    int width;
-    int height;
     int denoise_size = 5;
     int blocker_sample_num = 16;
     int pcf_sample_num = 16;
     int shadow_type = 1;
     uint32_t frame_num = 0;
 };
+
 
 namespace gui
 {

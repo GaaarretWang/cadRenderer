@@ -6,17 +6,14 @@
 layout(push_constant) uniform PushConstants {
     mat4 projection;
     mat4 view;
+    mat4 last_view;
     vec3 camera_pos;
-    float z_far;
     float softness;
     float baseBrightness;
     float ssao_radius;
     float exposure;
     float softness_falloff;
     int ssao_kernel_size;
-    int shader_type;
-    int width;
-    int height;
     int denoise_size;
     int blocker_sample_num;
     int pcf_sample_num;
@@ -32,7 +29,7 @@ layout(location = 0) in vec3 vsg_Vertex;
 layout(location = 1) in vec3 vsg_Normal;
 layout(location = 2) in vec2 vsg_TexCoord0;
 layout(location = 3) in vec4 vsg_Color;
-
+layout(location = 4) in vec4 vsg_InstanceID;
 
 #ifdef VSG_BILLBOARD
 layout(location = 4) in vec4 vsg_position_scaleDistance;
@@ -47,6 +44,7 @@ layout(location = 3) out vec2 texCoord0;
 layout(location = 4) out vec3 worldViewDir;
 
 layout(location = 5) out vec3 viewDir;
+layout(location = 6) out float InstanceID;
 
 out gl_PerVertex{ vec4 gl_Position; };
 
@@ -119,6 +117,7 @@ void main()
     viewDir = - (mv * vertex).xyz;
     normalDir = (mv * normal).xyz;
     vertexColor = vsg_Color;
+    InstanceID = vsg_InstanceID.x;
     texCoord0 = vsg_TexCoord0;
     worldViewDir = (vertex).xyz;
 }

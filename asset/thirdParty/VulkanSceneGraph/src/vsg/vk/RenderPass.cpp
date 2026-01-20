@@ -486,6 +486,8 @@ ref_ptr<RenderPass> vsg::createMRTRenderPass(Device* device, VkFormat imageForma
     auto colorAttachmentNormal = defaultGbufferColorAttachment(imageFormat);
     auto colorAttachmentWorldPos = defaultGbufferColorAttachment(imageFormat);
     auto colorAttachmentSSAONoise = defaultGbufferColorAttachment(imageFormat);
+    auto colorAttachmentShadowWrite = defaultGbufferColorAttachment(imageFormat);
+    auto colorAttachmentShadowSample = defaultGbufferColorAttachment(imageFormat);
     auto depthAttachment = defaultDepthAttachment(depthFormat);
 
     if (requiresDepthRead)
@@ -493,7 +495,7 @@ ref_ptr<RenderPass> vsg::createMRTRenderPass(Device* device, VkFormat imageForma
         depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     }
 
-    RenderPass::Attachments attachments{colorAttachment, colorAttachmentColor, colorAttachmentNormal, colorAttachmentWorldPos, colorAttachmentSSAONoise, depthAttachment};
+    RenderPass::Attachments attachments{colorAttachment, colorAttachmentColor, colorAttachmentNormal, colorAttachmentWorldPos, colorAttachmentSSAONoise, colorAttachmentShadowWrite, colorAttachmentShadowSample, depthAttachment};
 
     AttachmentReference colorAttachmentRef = {};
     colorAttachmentRef.attachment = 0;
@@ -515,8 +517,16 @@ ref_ptr<RenderPass> vsg::createMRTRenderPass(Device* device, VkFormat imageForma
     colorAttachmentRefSSAONoise.attachment = 4;
     colorAttachmentRefSSAONoise.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+    AttachmentReference colorAttachmentRefShadowWrite = {};
+    colorAttachmentRefShadowWrite.attachment = 5;
+    colorAttachmentRefShadowWrite.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    AttachmentReference colorAttachmentRefShadowSample = {};
+    colorAttachmentRefShadowSample.attachment = 6;
+    colorAttachmentRefShadowSample.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
     AttachmentReference depthAttachmentRef = {};
-    depthAttachmentRef.attachment = 5;
+    depthAttachmentRef.attachment = 7;
     depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
     SubpassDescription subpass = {};
@@ -524,6 +534,7 @@ ref_ptr<RenderPass> vsg::createMRTRenderPass(Device* device, VkFormat imageForma
     subpass.colorAttachments.emplace_back(colorAttachmentRefColor);
     subpass.colorAttachments.emplace_back(colorAttachmentRefNormal);
     subpass.colorAttachments.emplace_back(colorAttachmentRefWorldPos);
+    subpass.colorAttachments.emplace_back(colorAttachmentRefShadowWrite);
     subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
 
     SubpassDescription subpass1 = {};
@@ -531,13 +542,15 @@ ref_ptr<RenderPass> vsg::createMRTRenderPass(Device* device, VkFormat imageForma
     subpass1.colorAttachments.emplace_back(colorAttachmentRefSSAONoise);
     subpass1.depthStencilAttachments.emplace_back(depthAttachmentRef);
     AttachmentReference colorRef_Read = {1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+    AttachmentReference colorRef_ShadowWrite = {5, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
     subpass1.inputAttachments = {colorRef_Read};
 
     SubpassDescription subpass2 = {};
     subpass2.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass2.colorAttachments.emplace_back(colorAttachmentRef);
+    subpass2.colorAttachments.emplace_back(colorAttachmentRefShadowSample);
     subpass2.depthStencilAttachments.emplace_back(depthAttachmentRef);
-    subpass2.inputAttachments = {colorRef_Read};
+    subpass2.inputAttachments = {colorRef_Read, colorRef_ShadowWrite};
 
     RenderPass::Subpasses subpasses{subpass, subpass1, subpass2};
 

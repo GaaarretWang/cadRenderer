@@ -403,6 +403,47 @@ void Window::buildSwapchain()
         _SSAOResultImageView = ImageView::create(_SSAOResultImage, VK_IMAGE_ASPECT_COLOR_BIT);
         _SSAOResultImageView->compile(_device);
 
+        _ShadowWriteImage = Image::create();
+        _ShadowWriteImage->imageType = VK_IMAGE_TYPE_2D;
+        _ShadowWriteImage->format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        _ShadowWriteImage->extent.width = _extent2D.width;
+        _ShadowWriteImage->extent.height = _extent2D.height;
+        _ShadowWriteImage->extent.depth = 1;
+        _ShadowWriteImage->mipLevels = 1;
+        _ShadowWriteImage->arrayLayers = 1;
+        _ShadowWriteImage->samples = _framebufferSamples;
+        _ShadowWriteImage->tiling = VK_IMAGE_TILING_OPTIMAL;
+        _ShadowWriteImage->usage = VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        _ShadowWriteImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        _ShadowWriteImage->flags = 0;
+        _ShadowWriteImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        _ShadowWriteImage->compile(_device);
+        _ShadowWriteImage->allocateAndBindMemory(_device);
+
+        _ShadowWriteImageView = ImageView::create(_ShadowWriteImage, VK_IMAGE_ASPECT_COLOR_BIT);
+        _ShadowWriteImageView->compile(_device);
+
+        _ShadowSampleImage = Image::create();
+        _ShadowSampleImage->imageType = VK_IMAGE_TYPE_2D;
+        _ShadowSampleImage->format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        _ShadowSampleImage->extent.width = _extent2D.width;
+        _ShadowSampleImage->extent.height = _extent2D.height;
+        _ShadowSampleImage->extent.depth = 1;
+        _ShadowSampleImage->mipLevels = 1;
+        _ShadowSampleImage->arrayLayers = 1;
+        _ShadowSampleImage->samples = _framebufferSamples;
+        _ShadowSampleImage->tiling = VK_IMAGE_TILING_OPTIMAL;
+        _ShadowSampleImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        _ShadowSampleImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        _ShadowSampleImage->flags = 0;
+        _ShadowSampleImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        _ShadowSampleImage->compile(_device);
+        _ShadowSampleImage->allocateAndBindMemory(_device);
+
+        _ShadowSampleImageView = ImageView::create(_ShadowSampleImage, VK_IMAGE_ASPECT_COLOR_BIT);
+        _ShadowSampleImageView->compile(_device);
     }
 
     bool requiresDepthRead = (_traits->depthImageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
@@ -480,6 +521,8 @@ void Window::buildSwapchain()
             attachments.push_back(_GBufferImageView1);
             attachments.push_back(_GBufferImageView2);
             attachments.push_back(_SSAOResultImageView);
+            attachments.push_back(_ShadowWriteImageView);
+            attachments.push_back(_ShadowSampleImageView);
         }
 
         if (_multisampleDepthImageView)

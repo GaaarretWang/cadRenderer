@@ -182,6 +182,12 @@ namespace vsg
         ref_ptr<Image> _SSAOResultImage;
         ref_ptr<ImageView> _SSAOResultImageView;
 
+        ref_ptr<Image> _ShadowWriteImage;
+        ref_ptr<ImageView> _ShadowWriteImageView;
+        
+        ref_ptr<Image> _ShadowSampleImage;
+        ref_ptr<ImageView> _ShadowSampleImageView;
+
         // only used when multisampling and with Traits::requiresDepthRead == true
         ref_ptr<Image> _multisampleDepthImage;
         ref_ptr<ImageView> _multisampleDepthImageView;
