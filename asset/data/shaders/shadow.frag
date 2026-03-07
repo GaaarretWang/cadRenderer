@@ -75,6 +75,7 @@ layout(location = 3) in vec2 texCoord0;
 layout(location = 4) in vec3 worldViewDir;
 layout(location = 5) in vec3 viewDir;
 layout(location = 6) in float InstanceID;
+layout(location = 7) in vec4 ndc;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 3) out vec4 outShadow;
@@ -89,6 +90,7 @@ layout(push_constant) uniform PushConstants {
     float ssao_radius;
     float exposure;
     float softness_falloff;
+    float shadow_bias;
     int ssao_kernel_size;
     int denoise_size;
     int blocker_sample_num;
@@ -318,7 +320,232 @@ float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float
 
     return visibility / float(pc.pcf_sample_num);
 }
+vec2 fibonacciSpiralDirection[64] =
+{
+    vec2 (1, 0),
+    vec2 (-0.7373688780783197, 0.6754902942615238),
+    vec2 (0.08742572471695988, -0.9961710408648278),
+    vec2 (0.6084388609788625, 0.793600751291696),
+    vec2 (-0.9847134853154288, -0.174181950379311),
+    vec2 (0.8437552948123969, -0.5367280526263233),
+    vec2 (-0.25960430490148884, 0.9657150743757782),
+    vec2 (-0.46090702471337114, -0.8874484292452536),
+    vec2 (0.9393212963241182, 0.3430386308741014),
+    vec2 (-0.924345556137805, 0.3815564084749356),
+    vec2 (0.423845995047909, -0.9057342725556143),
+    vec2 (0.29928386444487326, 0.9541641203078969),
+    vec2 (-0.8652112097532296, -0.501407581232427),
+    vec2 (0.9766757736281757, -0.21471942904125949),
+    vec2 (-0.5751294291397363, 0.8180624302199686),
+    vec2 (-0.12851068979899202, -0.9917081236973847),
+    vec2 (0.764648995456044, 0.6444469828838233),
+    vec2 (-0.9991460540072823, 0.04131782619737919),
+    vec2 (0.7088294143034162, -0.7053799411794157),
+    vec2 (-0.04619144594036213, 0.9989326054954552),
+    vec2 (-0.6407091449636957, -0.7677836880006569),
+    vec2 (0.9910694127331615, 0.1333469877603031),
+    vec2 (-0.8208583369658855, 0.5711318504807807),
+    vec2 (0.21948136924637865, -0.9756166914079191),
+    vec2 (0.4971808749652937, 0.8676469198750981),
+    vec2 (-0.952692777196691, -0.30393498034490235),
+    vec2 (0.9077911335843911, -0.4194225289437443),
+    vec2 (-0.38606108220444624, 0.9224732195609431),
+    vec2 (-0.338452279474802, -0.9409835569861519),
+    vec2 (0.8851894374032159, 0.4652307598491077),
+    vec2 (-0.9669700052147743, 0.25489019011123065),
+    vec2 (0.5408377383579945, -0.8411269468800827),
+    vec2 (0.16937617250387435, 0.9855514761735877),
+    vec2 (-0.7906231749427578, -0.6123030256690173),
+    vec2 (0.9965856744766464, -0.08256508601054027),
+    vec2 (-0.6790793464527829, 0.7340648753490806),
+    vec2 (0.0048782771634473775, -0.9999881011351668),
+    vec2 (0.6718851669348499, 0.7406553331023337),
+    vec2 (-0.9957327006438772, -0.09228428288961682),
+    vec2 (0.7965594417444921, -0.6045602168251754),
+    vec2 (-0.17898358311978044, 0.9838520605119474),
+    vec2 (-0.5326055939855515, -0.8463635632843003),
+    vec2 (0.9644371617105072, 0.26431224169867934),
+    vec2 (-0.8896863018294744, 0.4565723210368687),
+    vec2 (0.34761681873279826, -0.9376366819478048),
+    vec2 (0.3770426545691533, 0.9261958953890079),
+    vec2 (-0.9036558571074695, -0.4282593745796637),
+    vec2 (0.9556127564793071, -0.2946256262683552),
+    vec2 (-0.50562235513749, 0.8627549095688868),
+    vec2 (-0.2099523790012021, -0.9777116131824024),
+    vec2 (0.8152470554454873, 0.5791133210240138),
+    vec2 (-0.9923232342597708, 0.12367133357503751),
+    vec2 (0.6481694844288681, -0.7614961060013474),
+    vec2 (0.036443223183926, 0.9993357251114194),
+    vec2 (-0.7019136816142636, -0.7122620188966349),
+    vec2 (0.998695384655528, 0.05106396643179117),
+    vec2 (-0.7709001090366207, 0.6369560596205411),
+    vec2 (0.13818011236605823, -0.9904071165669719),
+    vec2 (0.5671206801804437, 0.8236347091470047),
+    vec2 (-0.9745343917253847, -0.22423808629319533),
+    vec2 (0.8700619819701214, -0.49294233692210304),
+    vec2 (-0.30857886328244405, 0.9511987621603146),
+    vec2 (-0.4149890815356195, -0.9098263912451776),
+    vec2 (0.9205789302157817, 0.3905565685566777)
+};
+vec2 ComputeFibonacciSpiralDiskSampleClumped(const in int sampleIndex, const in float sampleCountInverse, out float sampleDistNorm)
+{
+    // Samples not biased away from the center - sample 0 at (0, 0) is important for blocker search near shadow contact points.
+    sampleDistNorm = sampleIndex * sampleCountInverse;
 
+    // Third power chosen arbitrarily - center area is floatly that much more important
+    sampleDistNorm = sampleDistNorm * sampleDistNorm * sampleDistNorm;
+
+    return fibonacciSpiralDirection[sampleIndex] * sampleDistNorm;
+}
+
+// Samples uniformly spread across the disk kernel
+vec2 ComputeFibonacciSpiralDiskSampleUniform(const in int sampleIndex, const in float sampleCountInverse, const in float sampleBias, out float sampleDistNorm)
+{
+    // Samples biased away from the center, so that sample 0 doesn't fall at (0, 0), or it will not be affected by sample jitter and create a visible edge.
+    sampleDistNorm = sampleIndex * sampleCountInverse + sampleBias;
+
+    // sqrt results in uniform distribution
+    sampleDistNorm = sqrt(sampleDistNorm);
+
+    return fibonacciSpiralDirection[sampleIndex] * sampleDistNorm;
+}
+
+void FilterScaleOffset(vec3 coord, float maxSampleZDistance, out vec2 filterScalePos, out vec2 filterScaleNeg, out vec2 filterOffset)
+{
+    float d = maxSampleZDistance / coord.z;
+    vec2 target = (coord.xy + 0.5) * 0.5;
+
+    filterScalePos = (1 - target) * d;
+    filterScaleNeg = target * d;
+    filterOffset = (target - coord.xy) * d;
+}
+
+bool BlockerSearch_Area(inout float closestBlocker, float maxSampleZDistance, vec3 posTCShadowmap, vec2 minCoord, vec2 maxCoord, vec2 sampleJitter, int sampleCount, int shadowMapIndex)
+{
+    #define NEARPLANE 1
+    maxSampleZDistance = min(1 - posTCShadowmap.z, maxSampleZDistance);
+
+    float sampleCountInverse = 1.0f / sampleCount;
+
+    vec2 filterScalePos, filterScaleNeg;
+    vec2 filterOffset;
+    FilterScaleOffset(posTCShadowmap, maxSampleZDistance, filterScalePos, filterScaleNeg, filterOffset);
+
+    closestBlocker = NEARPLANE;
+    for (int i = 0; i < sampleCount && i < 64; ++i)
+    {
+        float sampleDistNorm;
+        vec2 offset = ComputeFibonacciSpiralDiskSampleClumped(i, sampleCountInverse, sampleDistNorm);
+        offset = vec2(offset.x *  sampleJitter.y + offset.y * sampleJitter.x,
+                       offset.x * -sampleJitter.x + offset.y * sampleJitter.y);
+
+        offset = offset * vec2(offset.x > 0 ? filterScalePos.x : filterScaleNeg.x, offset.y > 0 ? filterScalePos.y : filterScaleNeg.y) + filterOffset * sampleDistNorm;
+        float zoffset = maxSampleZDistance * sampleDistNorm;
+
+        vec2 pos = posTCShadowmap.xy + offset;
+        float blocker = texture(shadowMapsSampler, vec3(pos, shadowMapIndex)).r;
+        if (!(pos.x < minCoord.x || pos.y < minCoord.y || pos.x > maxCoord.x || pos.y > maxCoord.y) &&
+            (blocker > posTCShadowmap.z + zoffset) &&
+            (closestBlocker > blocker))
+        {
+            closestBlocker = blocker;
+        }
+    }
+
+    return NEARPLANE > closestBlocker;
+}
+
+float PCSS_Area(vec3 posTCShadowmap, float maxSampleZDistance, vec2 minCoord, vec2 maxCoord, vec2 sampleJitter, int sampleCount, int shadowMapIndex)
+{
+    float biasFactor = 1;
+    float sampleCountInverse = 1.0f / (sampleCount + biasFactor);
+    float sampleBias = biasFactor * sampleCountInverse;
+
+    vec2 filterScalePos, filterScaleNeg;
+    vec2 filterOffset;
+    FilterScaleOffset(posTCShadowmap, maxSampleZDistance, filterScalePos, filterScaleNeg, filterOffset);
+
+    float sum = 0.0;
+    for (int i = 0; i < sampleCount && i < 64; ++i)
+    {
+        float sampleDistNorm;
+        vec2 offset = ComputeFibonacciSpiralDiskSampleUniform(i, sampleCountInverse, sampleBias, sampleDistNorm);
+        offset = vec2(offset.x *  sampleJitter.y + offset.y * sampleJitter.x,
+                       offset.x * -sampleJitter.x + offset.y * sampleJitter.y);
+
+        offset = offset * vec2(offset.x > 0 ? filterScalePos.x : filterScaleNeg.x, offset.y > 0 ? filterScalePos.y : filterScaleNeg.y) + filterOffset * sampleDistNorm;
+        float zoffset = maxSampleZDistance * sampleDistNorm;
+
+        vec2 pos = posTCShadowmap.xy + offset;
+        sum += (pos.x < minCoord.x || pos.y < minCoord.y || pos.x > maxCoord.x || pos.y > maxCoord.y) ? 
+                1.0 : texture(shadowMaps, vec4(pos, shadowMapIndex, posTCShadowmap.z + zoffset)).r;
+    }
+
+    return sum / sampleCount;
+}
+
+//From  Next Generation Post Processing in Call of Duty: Advanced Warfare [Jimenez 2014]
+// http://advances.realtimerendering.com/s2014/index.html
+float InterleavedGradientNoise(vec2 pixCoord, uint frameCount)
+{
+    const vec3 magic = vec3(0.06711056f, 0.00583715f, 52.9829189f);
+    vec2 frameMagicScale = vec2(2.083f, 4.867f);
+    pixCoord += frameCount * frameMagicScale;
+    return fract(magic.z * fract(dot(pixCoord, magic.xy)));
+}
+
+float PenumbraSizePunctual(float Reciever, float Blocker)
+{
+    return abs((Reciever - Blocker) / Blocker);
+}
+
+float PenumbraSizeDirectional(float Reciever, float Blocker, float rangeScale)
+{
+    return abs(Reciever - Blocker) * rangeScale;
+}
+
+// TODO: This PCSS variant works for other types of lights as well, but is not well tested there, so we're introducing it only for area lights for now.
+float SampleShadow_PCSS_Area(vec3 posTCShadowmap, vec2 posSS, float shadowSoftness, float minFilterRadius, int blockerSampleCount, int filterSampleCount, float depthBias, int shadowMapIndex, float area)
+{
+    posTCShadowmap.z += depthBias;
+
+    // This is a modified PCSS. Instead of performing both the blocker search and filtering phases using a flat disc of samples centered around
+    // the shaded point, it adds a z offset to sample points extruding them in a cone shape - pyramid, actually - towards the light. The base of the pyramid
+    // is the near plane of the area light (surface of the area light when near plane is at 0), the apex at the shaded point, and samples lie on the 4 sides
+    // of the pyramid.
+    //
+    // The idea is that only casters within the volume of that pyramid would contribute to the shadow. In other words any casters caught by a sample with
+    // z further away from the light than z of that sample don't contribute to the shadow.
+    //
+    // The maximum heigh of the pyramid is the z distance between the shaded point and the near plane. Lowering that height is necessary to keep
+    // the sampling kernel sizes reasonable and is controlled by maxSampleZDistance. Higher maxSampleZDistance values result in wider penumbras.
+
+    // Rescale the softness param so that the default 1 gives a very soft shadow without pushing it to edge, where artifacts start to show up.
+    // This way setting softness to slightly more than 1 will get the shadow close to the raytraced reference, but with a more stable default.
+    float maxSampleZDistance = shadowSoftness * 0.1 * sqrt(area);
+
+    float sampleJitterAngle = InterleavedGradientNoise(posSS.xy, pc.frame_num) * 2.0 * PI;
+    vec2 sampleJitter = vec2(sin(sampleJitterAngle), cos(sampleJitterAngle));
+
+    vec2 minCoord = vec2(0);
+    vec2 maxCoord = vec2(1);
+
+    //1) Blocker Search
+    float blocker = 0.0;
+    bool blockerFound = BlockerSearch_Area(blocker, maxSampleZDistance, posTCShadowmap, minCoord, maxCoord, sampleJitter, blockerSampleCount, shadowMapIndex);
+
+    //2) Penumbra Estimation
+    maxSampleZDistance *= PenumbraSizePunctual(posTCShadowmap.z, blocker);
+    // Extend the sampling cone only up to a certain margin before the blocker. Extending it past that distance will make samples miss the blocker and the shadow will fade.
+    maxSampleZDistance = min(maxSampleZDistance, (blocker - posTCShadowmap.z) * 0.9);
+    // minFilterRadius can extend the cone past the above, so min&max instead of clamp.
+    maxSampleZDistance = max(maxSampleZDistance, minFilterRadius / 100);
+
+    //3) Filter
+    // We can't early out of the function if blockers are not found since Vulkan triggers a warning otherwise
+    bool withinShadowmap = posTCShadowmap.x > 0 && posTCShadowmap.y > 0 && posTCShadowmap.x < 1 && posTCShadowmap.y < 1;
+    return blockerFound && withinShadowmap ? PCSS_Area(posTCShadowmap, maxSampleZDistance, minCoord, maxCoord, sampleJitter, filterSampleCount, shadowMapIndex) : 1.0f;
+}
 float ValueNoise(vec3 pos)
 {
 	vec3 Noise_skew = pos + 0.2127 + pos.x * pos.y * pos.z * 0.3713;
@@ -384,9 +611,10 @@ void main()
                     // poissonDiskSamples(sm_tc.xy); 
                     float random = ValueNoise(sm_tc.xyz);
                     if(pc.shadow_type == 0){
-                        visibility = 1 - PCF(shadowMaps,sm_tc,shadowMapIndex,area, random);
+                        visibility = PCF(shadowMaps,sm_tc,shadowMapIndex,area, random);
                     }else if(pc.shadow_type == 1){
-                        visibility = 1 - PCSS(shadowMaps,sm_tc,shadowMapIndex, area, random);
+                        // visibility = 1 - PCSS(sm_tc,shadowMapIndex, area, random);
+                        visibility = SampleShadow_PCSS_Area(sm_tc.xyz, vec2(gl_FragCoord.xy), pc.softness, pc.softness_falloff, pc.blocker_sample_num, pc.pcf_sample_num, pc.shadow_bias, shadowMapIndex, area);
                     }
                 }else{
                     visibility = 1.0;
@@ -408,7 +636,6 @@ void main()
         }
         scene_brightness = totalRealBrightness / totalBrigtness;
     }
-
     vec4 last_ndc = pc.projection * pc.last_view * vec4(worldViewDir, 1);
     ivec2 last_coord = ivec2(((last_ndc.x / last_ndc.w) / 2 + 0.5) * constantBuffer.width, ((last_ndc.y / last_ndc.w) / 2 + 0.5) * constantBuffer.height);
     float old_shadow = 1;
@@ -419,15 +646,29 @@ void main()
         old_shadow = shadowdataold_shadow.x;
     }
 
-    float old_weight = max(0.0, 0.7 - length(last_coord - gl_FragCoord.xy) / 50.0);
-    if(abs(oldInstanceID - InstanceID) > 0.1)
-        scene_brightness = scene_brightness;
-    else
-        scene_brightness = old_shadow * old_weight + scene_brightness * (1 - old_weight);
+    float current_shadow_value = scene_brightness; // 暂时保存当前帧的阴影值
+    if (abs(oldInstanceID - InstanceID) < 0.1)
+    {
+        float historyLuma = old_shadow;
+        float currentLuma = current_shadow_value;
 
-    vec3 color = vec3(scene_brightness);
-    outColor.rgb = texture(cameraImage, screen_uv).rgb * color;
+        float diff = abs(currentLuma - historyLuma) / max(max(currentLuma, historyLuma), 0.2); // 计算相对差异
+
+        float weight_sq = (1.0 - diff);
+        weight_sq = weight_sq * weight_sq;
+        
+        const float feedbackMin = 0.96; // 最小反馈 (当前帧差异大时)
+        const float feedbackMax = 0.91; // 最大反馈 (当前帧差异小时)
+
+        float feedback = (1.0 - weight_sq) * feedbackMin + weight_sq * feedbackMax;
+
+        scene_brightness = mix(current_shadow_value, old_shadow, feedback);
+
+        // 钳制最终结果
+        scene_brightness = clamp(scene_brightness, 0.0, 1.0);
+    }
+
+    outColor.rgb = texture(cameraImage, screen_uv).rgb * scene_brightness;
     outColor.a = 1;
-    
     outShadow = vec4(scene_brightness, InstanceID, gl_FragCoord.z, 1);
 }

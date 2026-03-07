@@ -1,159 +1,154 @@
 ﻿#include "RenderingServer.h"
+#include <json.hpp>
+#include <fstream>
+#include <algorithm>
+#include <cctype>
 
 RenderingServer::RenderingServer() = default;
 
 RenderingServer::~RenderingServer() = default;
 
+bool RenderingServer::loadSceneFromJSON(const std::string& scene_name_or_id) {
+    std::string json_path = rendering_dir + "asset/data/Scenes.json";
+    std::ifstream json_file(json_path);
+
+    if (!json_file.is_open()) {
+        std::cerr << "错误：无法打开场景配置文件 " << json_path << std::endl;
+        return false;
+    }
+
+    nlohmann::json json_data = nlohmann::json::parse(json_file);
+    json_file.close();
+
+    // 清空现有场景数据
+    clearSceneData();
+
+    // 查找场景
+    nlohmann::json* target_scene = nullptr;
+
+    // 尝试按ID查找
+    if (std::all_of(scene_name_or_id.begin(), scene_name_or_id.end(), ::isdigit)) {
+        int scene_id = std::stoi(scene_name_or_id);
+        for (auto& scene : json_data["scenes"]) {
+            if (scene["id"] == scene_id) {
+                target_scene = &scene;
+                break;
+            }
+        }
+    }
+
+    // 尝试按名称查找
+    if (!target_scene) {
+        for (auto& scene : json_data["scenes"]) {
+            if (scene["name"] == scene_name_or_id) {
+                target_scene = &scene;
+                break;
+            }
+        }
+    }
+
+    if (!target_scene) {
+        std::cerr << "错误：未找到场景 '" << scene_name_or_id << "'" << std::endl;
+        return false;
+    }
+
+    // 加载场景中的模型
+    for (auto& model : (*target_scene)["models"]) {
+        std::string model_path = rendering_dir + model["path"].get<std::string>();
+        model_paths.push_back(model_path);
+
+        // 计算最终变换矩阵
+        vsg::dmat4 final_transform;
+        bool first_matrix = true;
+
+        for (auto& matrix_array : model["transform_sequence"]) {
+            vsg::dmat4 current_matrix = parseMatrixFromJSON(matrix_array);
+
+            if (first_matrix) {
+                final_transform = current_matrix;
+                first_matrix = false;
+            } else {
+                final_transform = final_transform * current_matrix;
+            }
+        }
+
+        model_transforms.push_back(final_transform);
+        instance_names.push_back(model["instance_name"].get<std::string>());
+    }
+
+    // 加载shadow_receiver配置
+    if (target_scene->contains("shadow_receiver_path") && target_scene->contains("shadow_receiver_transform")) {
+        std::string shadow_path = rendering_dir + (*target_scene)["shadow_receiver_path"].get<std::string>();
+        renderer.shadow_recevier_path = shadow_path;
+
+        // 计算shadow_receiver变换矩阵
+        vsg::dmat4 shadow_final_transform;
+        bool first_shadow_matrix = true;
+
+        for (auto& matrix_array : (*target_scene)["shadow_receiver_transform"]) {
+            vsg::dmat4 current_matrix = parseMatrixFromJSON(matrix_array);
+
+            if (first_shadow_matrix) {
+                shadow_final_transform = current_matrix;
+                first_shadow_matrix = false;
+            } else {
+                shadow_final_transform = shadow_final_transform * current_matrix;
+            }
+        }
+
+        renderer.shadow_recevier_transform = shadow_final_transform;
+        std::cout << "已设置shadow_receiver: " << shadow_path << std::endl;
+    } else {
+        // 如果没有配置，使用默认值（保持向后兼容）
+        renderer.shadow_recevier_path = rendering_dir + "asset/data/obj/shadow_receiver2.obj";
+        renderer.shadow_recevier_transform = vsg::dmat4();
+        std::cout << "使用默认shadow_receiver配置" << std::endl;
+    }
+
+    std::cout << "成功加载场景 '" << scene_name_or_id << "'，包含 " << model_paths.size() << " 个模型" << std::endl;
+    return true;
+}
+
+vsg::dmat4 RenderingServer::parseMatrixFromJSON(const nlohmann::json& matrix_array) {
+    if (matrix_array.size() != 16) {
+        throw std::runtime_error("矩阵数组必须包含16个元素");
+    }
+
+    return vsg::dmat4(
+        matrix_array[0].get<double>(), matrix_array[1].get<double>(), matrix_array[2].get<double>(), matrix_array[3].get<double>(),
+        matrix_array[4].get<double>(), matrix_array[5].get<double>(), matrix_array[6].get<double>(), matrix_array[7].get<double>(),
+        matrix_array[8].get<double>(), matrix_array[9].get<double>(), matrix_array[10].get<double>(), matrix_array[11].get<double>(),
+        matrix_array[12].get<double>(), matrix_array[13].get<double>(), matrix_array[14].get<double>(), matrix_array[15].get<double>()
+    );
+}
+
 int RenderingServer::Init(int argc, char** argv){
     renderer.setWidthAndHeight(width, height, upsample_scale, encode_scale);
     renderer.setKParameters(fx, fy, cx, cy);
 
-    init_model_transforms.push_back(vsg::dmat4(0.000132165, 0, 0, 0, 0, 0.000132165, 0, 0, 0, 0, 0.000132165, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
-    init_model_transforms.push_back(vsg::dmat4(0.0001, 0, 0, 0, 0, 0.0001, 0, 0, 0, 0, 0.0001, 0, -0.00434349, 8.06674e-09, 0.0100961, 1));
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 1.01482, -0.591005, 1) * init_model_transforms[0]);
-    int model_num = 1;
-    // for(int i = 0; i < model_num; ++i)
-    //     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.60006, 1.01482, -0.8, 1) * init_model_transforms[0]
-    //                             * vsg::dmat4(
-    //                                     0.2, 0, 0, 0, 
-    //                                     0, 0.2, 0, 0, 
-    //                                     0, 0, 0.2, 0, 
-    //                                     0, 0, 0, 1));
-    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoAirplaneBody.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoEngine.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoLandingGear.fb");
-    // // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart.fb");
-    // // model_paths.push_back(rendering_dir + "asset/data/geos/1118/twoSeatPartV5.fb");
-    // // model_paths.push_back(rendering_dir + "asset/data/geos/1105/twoSeatPart_small.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/1105/window.fb");
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.0, 1) * init_model_transforms[0]
-    //                            * vsg::dmat4(
-    //                                 10, 0, 0, 0, 
-    //                                 0, 10, 0, 0, 
-    //                                 0, 0, 10, 0, 
-    //                                 0, 0, 0, 1));
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.30006, 1.01482, -0.8, 1) * init_model_transforms[0]
-    //                            * vsg::dmat4(
-    //                                 0.2, 0, 0, 0, 
-    //                                 0, 0.2, 0, 0, 
-    //                                 0, 0, 0.2, 0, 
-    //                                 0, 0, 0, 1));
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.40006, 1.01482, -0.8, 1) * init_model_transforms[0]
-    //                            * vsg::dmat4(
-    //                                 0.2, 0, 0, 0, 
-    //                                 0, 0.2, 0, 0, 
-    //                                 0, 0, 0.2, 0, 
-    //                                 0, 0, 0, 1));
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.50006, 1.01482, -0.8, 1) * init_model_transforms[0]
-    //                            * vsg::dmat4(
-    //                                 0.2, 0, 0, 0, 
-    //                                 0, 0.2, 0, 0, 
-    //                                 0, 0, 0.2, 0, 
-    //                                 0, 0, 0, 1));
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.991005, 1) * init_model_transforms[1]);
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0.24006, 0.81482, -0.491005, 1) * init_model_transforms[1] * mat);
-    // model_paths.push_back(rendering_dir + "asset/data/geos/大舱壁-ASM(PMI).fb");
-    // model_paths.push_back(rendering_dir + "asset/data/obj/Airbus_A380V3/Airbus_A380V3.obj");
-
-    // model_transforms.push_back(vsg::dmat4(
-    //                             1, 0, 0, 0, 
-    //                             0, 1, 0, 0, 
-    //                             0, 0, 1, 0, 
-    //                             0, 0, 0, 1));
-    // model_paths.push_back(rendering_dir + "asset/data/obj/sphere.obj");
-    // instance_names.push_back("sphere");
-
-    // model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, 1, 1) * init_model_transforms[0]
-    //                         * vsg::dmat4(
-    //                             10, 0, 0, 0, 
-    //                             0, 10, 0, 0, 
-    //                             0, 0, 10, 0, 
-    //                             0, 0, 0, 1));
-    // model_paths.push_back(rendering_dir + "asset/data/obj/Whole engine.obj");
-    // instance_names.push_back("Whole engine");    
-    
-    model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006, 1.01482, -0.9, 1) * init_model_transforms[0]
-                            * vsg::dmat4(
-                                10, 0, 0, 0, 
-                                0, 10, 0, 0, 
-                                0, 0, 10, 0, 
-                                0, 0, 0, 1));
-    model_paths.push_back(rendering_dir + "asset/data/obj/helicopter-engine/helicopter-engine.quads.obj");
-    instance_names.push_back("helicopter-engine");
-
-
-
-    // model_transforms.push_back(vsg::dmat4(
-    //                             0.1, 0, 0, 0, 
-    //                             0, 0.1, 0, 0, 
-    //                             0, 0, 0.1, 0, 
-    //                             0, 2, 0, 1));
-    // model_paths.push_back(rendering_dir + "asset/data/obj/sphere_diffuse.obj");
-    // instance_names.push_back("sphere_diffuse");
-
-    // for(int i = 0; i < model_num; ++i)
-    // {
-    //     model_transforms.push_back(vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -0.20006 + i % 10 * 0.1, 1.01482 + i / 10 * 0.1, -0.6, 1) * init_model_transforms[0]
-    //                             * vsg::dmat4(
-    //                                 10, 0, 0, 0, 
-    //                                 0, 10, 0, 0, 
-    //                                 0, 0, 10, 0, 
-    //                                 0, 0, 0, 1));
-    //     model_paths.push_back(rendering_dir + "asset/data/obj/Whole engine.obj");
-    // }
-        // model_paths.push_back(rendering_dir + "asset/data/geos/JIASHICANG.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/obj/Standtube.obj");
-    // model_paths.push_back(rendering_dir + "asset/data/obj/Medieval_building/output.obj");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/handNode_0.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/YIBIAOPAN.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/zhijiaC.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/SeatPart.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/LandingGear.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/装配 3.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/装配 41.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/Engine.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/plane1.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/plane2.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/LandingGear1.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/seatPart1.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/plane3.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/plane4.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/plane4.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/plane4.fb");
-    // model_paths.push_back(rendering_dir + "asset/data/geos/plane4.fb");
-    
-    // instance_names.push_back("大舱壁-ASM(PMI)");
-    // instance_names.push_back("小舱壁-ASM-修改焊接后0");
-    // instance_names.push_back("大舱壁-ASM(PMI)");
-    // instance_names.push_back("Medieval_building");
-    // instance_names.push_back("Medieval_building1");
-    // for (int i = 0; i < model_num; ++i)
-    //     instance_names.push_back("YIBIAOPAN" + std::to_string(i));
-    // instance_names.push_back("YIBIAOPAN2");
-    // instance_names.push_back("YIBIAOPAN3");
-    // instance_names.push_back("YIBIAOPAN4");
-    // instance_names.push_back("texture");
-    // instance_names.push_back("plane1");
-    // instance_names.push_back("plane2");
-    // instance_names.push_back("plane3");
-    // instance_names.push_back("plane4");
+    // 场景数据已迁移到JSON文件，通过命令行参数加载
 
     vsg::CommandLine arguments(&argc, argv);
 
+    // 添加命令行参数处理
+    std::string scene_to_load = "0"; // 默认加载第一个场景
+    arguments.read("--scene", scene_to_load);
+    arguments.read("-s", scene_to_load);
+
+    // 加载场景
+    if (!loadSceneFromJSON(scene_to_load)) {
+        std::cerr << "错误：无法加载场景 '" << scene_to_load << "'，程序将退出" << std::endl;
+        return -1;
+    }
+
     renderer.setUpShader(rendering_dir);
-    // vsg::dmat4 plane_transform = vsg::translate(0.0, 1.5, 0.0) * vsg::rotate(90.0, 1.0, 0.0, 0.0) * vsg::translate(0.0, 0.0, 1.0);
-    vsg::dmat4 plane_transform = vsg::dmat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, -0.78, 1);
-    // vsg::vec3 light_direction = vsg::normalize(vsg::vec3(0, 1, 0));
-    //vsg::vec3 light_direction = vsg::normalize(vsg::vec3(-1.0, 0.2, -1.0));
-    renderer.shadow_recevier_path = rendering_dir + "asset/data/obj/shadow_receiver2.obj";
-    renderer.shadow_recevier_transform = vsg::dmat4();
     renderer.shader_type = shader_type;
     renderer.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/twoAirplaneBody.fb");
+    renderer.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/twoAirplaneBody_white.fb");
     renderer.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/window.fb");
 
     // renderer.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/window.fb");
-    renderer.initRenderer(rendering_dir, model_transforms, model_paths, instance_names, plane_transform);
+    renderer.initRenderer(rendering_dir, model_transforms, model_paths, instance_names, vsg::dmat4());
     
     device = renderer.device;
     return 0;
@@ -205,14 +200,14 @@ int RenderingServer::Update(){
     // renderer.updateObjectPose("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", matrix);
     // renderer.repaint("YIBIAOPAN128A9D3E8-D181-40BA-A99F-DDDF0B3F3384352", 1);
     auto cameralookat = renderer.camera->viewMatrix.cast<vsg::LookAt>();
-    // renderer.updateCamera(vsg::dvec3(0.467534, 1.59309, -0.859118), 
-    //                     vsg::dvec3(0.577326, 1.11943, -0.703542), 
-    //                     vsg::dvec3(-0.287307, 0.238132, 0.927765));
     if(cameara_pos_bool){//停止位姿变化
         vsg::dvec3 centre = {lookat_vector[0], lookat_vector[1], lookat_vector[2]};                    // 固定观察点
         vsg::dvec3 eye = {lookat_vector[3], lookat_vector[4], lookat_vector[5]};// 固定相机位置
         vsg::dvec3 up = {lookat_vector[6], lookat_vector[7], lookat_vector[8]};                       // 固定观察方向
         renderer.updateCamera(centre, eye, up);
+    renderer.updateCamera(vsg::dvec3(-0.326470, 0.600668, -0.649556), 
+                        vsg::dvec3(1.197728, -0.131292, -0.120896), 
+                        vsg::dvec3(-0.246774, 0.174593, 0.953216));
 
         auto color_pixels = all_images[frame_count % all_images.size()].color.get();
         auto depth_pixels = all_images[frame_count % all_images.size()].depth.get();
@@ -263,8 +258,15 @@ int RenderingServer::Update(){
     //     renderer.updateEnvLighting();
     //     std::cout << "update env lighting, hdr_image_num: " << renderer.hdr_image_num << std::endl;
     // }
-    
+
     frame_count ++;
     // std::cout << "frame_count " << frame_count << std::endl;
     return 0;
+}
+
+void RenderingServer::clearSceneData() {
+    model_paths.clear();
+    model_transforms.clear();
+    instance_names.clear();
+    // 注意：不清除 shadow_receiver_path 和 shadow_receiver_transform，因为它们会在 loadSceneFromJSON 中被覆盖
 }

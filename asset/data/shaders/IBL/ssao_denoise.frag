@@ -33,6 +33,7 @@ layout(push_constant) uniform PushConstants {
     float ssao_radius;
     float exposure;
     float softness_falloff;
+    float shadow_bias;
     int ssao_kernel_size;
     int denoise_size;
     int blocker_sample_num;

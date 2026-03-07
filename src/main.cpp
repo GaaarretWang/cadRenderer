@@ -18,14 +18,16 @@
 ImagePair loadImagePair(const std::string& timestamp, ConvertImage* converter) {
     try {
         // 加载颜色图像
-        std::ifstream color_file("../asset/data/dataset3/resized_factory.png", std::ios::binary);
+        // std::ifstream color_file("../asset/data/dataset3/resized_factory.png", std::ios::binary);
+        std::ifstream color_file("../asset/data/dataset3/1711699289.885392.png", std::ios::binary);
         // std::ifstream color_file("../asset/data/dataset3/color/" + timestamp + ".png", std::ios::binary);
         if (!color_file) throw std::runtime_error("Failed to open color file");
         std::vector<uint8_t> color_buffer((std::istreambuf_iterator<char>(color_file)), 
                             std::istreambuf_iterator<char>());
         
         // 加载深度图像
-        std::ifstream depth_file("../asset/data/dataset3/black_depth_1280x960.png", std::ios::binary);
+        // std::ifstream depth_file("../asset/data/dataset3/black_depth_1280x960.png", std::ios::binary);
+        std::ifstream depth_file("../asset/data/dataset3/depth1711699289.885392.png", std::ios::binary);
         // std::ifstream depth_file("../asset/data/dataset3/depth/" + timestamp + ".png", std::ios::binary);
         if (!depth_file) throw std::runtime_error("Failed to open depth file");
         std::vector<uint8_t> depth_buffer((std::istreambuf_iterator<char>(depth_file)), 
@@ -47,10 +49,16 @@ ImagePair loadImagePair(const std::string& timestamp, ConvertImage* converter) {
 }
 
 int main(int argc, char** argv){
+    // 解析命令行参数
+    vsg::CommandLine arguments(&argc, argv);
+    int max_frames = 0; // 0表示无限运行
+    arguments.read("--frames", max_frames);
+    arguments.read("-f", max_frames);
+
     std::vector<std::vector<double>> camera_pos;
     std::vector<std::string> camera_pos_timestamp;
     int frame =  0;
-    
+
     std::ifstream inf;//文件读操作
     std::string line;
     inf.open("../asset/data/cameraPose/vsg_pose.txt");         
@@ -131,12 +139,14 @@ int main(int argc, char** argv){
 
     auto startTime = std::chrono::high_resolution_clock::now();
     int frameCount = 0;
-    while(true){
+    int total_frames_rendered = 0;
+    while((max_frames <= 0 || total_frames_rendered < max_frames)){
         //std::this_thread::sleep_for(std::chrono::milliseconds(100));
         rendering_server.lookat_vector = camera_pos[frame];
         
         // 增量帧计数器
         frameCount++;
+        total_frames_rendered++;
 
         // 计算经过的时间
         auto currentTime = std::chrono::high_resolution_clock::now();
@@ -171,4 +181,8 @@ int main(int argc, char** argv){
         if(frame >= num_images)
             frame = 0;
     }
+
+    // 达到指定帧数，程序停止
+    std::cout << "Program stopped after " << total_frames_rendered << " frames" << std::endl;
+    return 0;
 }

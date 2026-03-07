@@ -209,6 +209,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsg::dvec3 up = {0.0, -1.0, 0.0};                        // 固定观察方向
     auto lookAt = vsg::LookAt::create(eye, centre, up);
     camera = vsg::Camera::create(perspective, lookAt, viewport);
+    pending_camera_matrix = lookAt->transform();
+    camera_dirty = false;
     VkExtent2D extent = {};
     extent.width = render_width;
     extent.height = render_height;
@@ -222,6 +224,11 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     CADMesh::camera_info = camera_info;
     CADMesh::depth_info = depth_info;
+    if(shadow_recevier_path != "")
+    {
+        CADMesh* shadow_recevier_mesh = new CADMesh();
+        shadow_recevier_mesh->preprocessProtoData(shadow_recevier_path.c_str(), getDirectoryPath(shadow_recevier_path).c_str(), shadow_recevier_transform, shadow_shader, shadowGroup, "shadow_receiver");
+    }
     //---------------------------------------读取CAD模型------------------------------------------//
     for(int i = 0; i < model_paths.size(); i ++){
         std::string &path_i = model_paths[i];
@@ -247,11 +254,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         }
     }
 
-    if(shadow_recevier_path != "")
-    {
-        CADMesh* shadow_recevier_mesh = new CADMesh();
-        shadow_recevier_mesh->preprocessProtoData(shadow_recevier_path.c_str(), getDirectoryPath(shadow_recevier_path).c_str(), shadow_recevier_transform, shadow_shader, shadowGroup, "shadow_receiver");
-    }
 
     vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
                 VK_SHADER_STAGE_ALL, 128, pc_data);
@@ -342,10 +344,17 @@ bool vsgRendererServer::render() {
         pc_data->value().camera_pos = lookAt->eye;
     }
     pc_data->value().frame_num = ++frame_num;
-    static vsg::mat4 last_view = vsg::mat4(camera->viewMatrix->transform());
-    pc_data->value().last_view = last_view;
-    last_view = vsg::mat4(camera->viewMatrix->transform());
+    pc_data->value().last_view = vsg::mat4(camera->viewMatrix->transform());
     pc_data->dirty();
+
+    // 检查并应用待更新的相机矩阵
+    if (camera_dirty) {
+        auto lookat = camera->viewMatrix.cast<vsg::LookAt>();
+        if (lookat) {
+            lookat->set(pending_camera_matrix);
+        }
+        camera_dirty = false;
+    }
 
     OcclusionCullingPasses::camera_matrix->set(0, (vsg::mat4)camera->viewMatrix->transform());
     OcclusionCullingPasses::camera_matrix->set(1, vsg::mat4(camera->projectionMatrix->transform() * camera->viewMatrix->transform()));

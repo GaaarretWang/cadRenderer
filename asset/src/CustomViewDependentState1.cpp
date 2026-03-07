@@ -136,7 +136,7 @@ void CustomViewDependentState1::init(ResourceRequirements& requirements)
     // set up ShadowMaps
     auto shadowMapSampler = Sampler::create();
     auto shadowMapSamplerNoCompare = Sampler::create();
-#define HARDWARE_PCF 1
+// #define HARDWARE_PCF 1
 #if HARDWARE_PCF == 1
     shadowMapSampler->minFilter = VK_FILTER_LINEAR;
     shadowMapSampler->magFilter = VK_FILTER_LINEAR;
@@ -145,7 +145,7 @@ void CustomViewDependentState1::init(ResourceRequirements& requirements)
     shadowMapSampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     shadowMapSampler->addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     shadowMapSampler->compareEnable = VK_TRUE;
-    shadowMapSampler->compareOp = VK_COMPARE_OP_LESS;
+    shadowMapSampler->compareOp = VK_COMPARE_OP_GREATER;
 
     shadowMapSamplerNoCompare->minFilter = VK_FILTER_LINEAR;
     shadowMapSamplerNoCompare->magFilter = VK_FILTER_LINEAR;
@@ -160,6 +160,8 @@ void CustomViewDependentState1::init(ResourceRequirements& requirements)
     shadowMapSampler->addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     shadowMapSampler->addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     shadowMapSampler->addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    shadowMapSampler->compareEnable = VK_TRUE;
+    shadowMapSampler->compareOp = VK_COMPARE_OP_GREATER;
 
     shadowMapSamplerNoCompare->minFilter = VK_FILTER_NEAREST;
     shadowMapSamplerNoCompare->magFilter = VK_FILTER_NEAREST;

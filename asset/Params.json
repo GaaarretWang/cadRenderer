@@ -12,65 +12,75 @@
         ]
     },
     "material_params": {
+        "Whole engine.obj0": {
+            "baseColorFactor": [
+                0.3269999921321869,
+                0.35199999809265137,
+                0.35199999809265137,
+                1.0
+            ],
+            "metallicFactor": 0.9369999766349792,
+            "roughnessFactor": 0.5789999961853027
+        },
         "helicopter-engine.quads.obj0": {
             "baseColorFactor": [
-                0.800000011920929,
-                0.800000011920929,
-                0.800000011920929,
+                1.0,
+                1.0,
+                1.0,
                 1.0
             ],
             "metallicFactor": 1.0,
-            "roughnessFactor": 0.1459999978542328
+            "roughnessFactor": 0.0
         },
         "helicopter-engine.quads.obj1": {
             "baseColorFactor": [
-                0.800000011920929,
-                0.800000011920929,
-                0.800000011920929,
+                1.0,
+                1.0,
+                1.0,
                 1.0
             ],
             "metallicFactor": 1.0,
-            "roughnessFactor": 0.5320000052452087
+            "roughnessFactor": 1.00600004196167
         },
         "helicopter-engine.quads.obj2": {
             "baseColorFactor": [
-                0.800000011920929,
-                0.800000011920929,
-                0.800000011920929,
+                1.0,
+                1.0,
+                1.0,
                 1.0
             ],
             "metallicFactor": 1.0,
-            "roughnessFactor": 0.2150000035762787
+            "roughnessFactor": 0.9779999852180481
         },
         "helicopter-engine.quads.obj4": {
             "baseColorFactor": [
-                0.800000011920929,
-                0.800000011920929,
-                0.800000011920929,
+                0.2800000011920929,
+                0.32499998807907104,
+                0.34299999475479126,
                 1.0
             ],
             "metallicFactor": 1.0,
-            "roughnessFactor": 0.10499999672174454
+            "roughnessFactor": 0.7850000262260437
         },
         "helicopter-engine.quads.obj6": {
             "baseColorFactor": [
-                0.800000011920929,
-                0.800000011920929,
-                0.800000011920929,
+                1.0,
+                1.0,
+                1.0,
                 1.0
             ],
-            "metallicFactor": 1.0740000009536743,
-            "roughnessFactor": 3.4790000915527344
+            "metallicFactor": 1.0190000534057617,
+            "roughnessFactor": 0.7720000147819519
         },
         "helicopter-engine.quads.obj7": {
             "baseColorFactor": [
-                0.800000011920929,
-                0.800000011920929,
-                0.800000011920929,
+                1.0,
+                1.0,
+                1.0,
                 1.0
             ],
             "metallicFactor": 1.0,
-            "roughnessFactor": 0.09099999815225601
+            "roughnessFactor": 1.0049999952316284
         },
         "shadow_receiver2.obj0": {
             "baseColorFactor": [
@@ -101,13 +111,483 @@
             ],
             "metallicFactor": 1.0,
             "roughnessFactor": 1.00600004196167
+        },
+        "twoAirplaneBody_white.fb236ED760-A91B-42DB-A280-61F109E51FAA1": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5099999904632568
+        },
+        "twoAirplaneBody_white.fb236ED760-A91B-42DB-A280-61F109E51FAA2": {
+            "baseColorFactor": [
+                0.0,
+                0.125490203499794,
+                0.35686275362968445,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5509999990463257
+        },
+        "twoAirplaneBody_white.fb453D14BE-5E11-4D0D-875D-FCDCBC8BFB171": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5509999990463257
+        },
+        "twoAirplaneBody_white.fb6C604115-8FC5-4A87-BF85-2571DDF009C01": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5789999961853027
+        },
+        "twoAirplaneBody_white.fb765C73BE-0A14-4043-A7D7-576E734859CE1": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5230000019073486
+        },
+        "twoAirplaneBody_white.fb765C73BE-0A14-4043-A7D7-576E734859CE2": {
+            "baseColorFactor": [
+                0.7176470756530762,
+                0.7882353067398071,
+                0.8274509906768799,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5099999904632568
+        },
+        "twoAirplaneBody_white.fb765C73BE-0A14-4043-A7D7-576E734859CE3": {
+            "baseColorFactor": [
+                0.0,
+                0.125490203499794,
+                0.35686275362968445,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.4959999918937683
+        },
+        "twoAirplaneBody_white.fb79A9745D-109C-4B64-87A1-F931CE2BBAD51": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5370000004768372
+        },
+        "twoAirplaneBody_white.fb79A9745D-109C-4B64-87A1-F931CE2BBAD52": {
+            "baseColorFactor": [
+                0.0,
+                0.5215686559677124,
+                0.6784313917160034,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5649999976158142
+        },
+        "twoAirplaneBody_white.fb79A9745D-109C-4B64-87A1-F931CE2BBAD53": {
+            "baseColorFactor": [
+                0.0,
+                0.125490203499794,
+                0.35686275362968445,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5099999904632568
+        },
+        "twoAirplaneBody_white.fbA744E2C1-80B3-46DD-95D6-ABC06B6A5FB71": {
+            "baseColorFactor": [
+                0.23529411852359772,
+                0.23137255012989044,
+                0.23137255012989044,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5230000019073486
+        },
+        "twoAirplaneBody_white.fbA8E5AB4B-6D63-4E39-9A41-1284CB6FBF351": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5509999990463257
+        },
+        "twoAirplaneBody_white.fbAC9796FB-96C7-45C1-8086-530C7A74B58A1": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.4819999933242798
+        },
+        "twoAirplaneBody_white.fbB4A1604D-AACA-4648-87DA-3CA1F616AAC21": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.6200000047683716
+        },
+        "twoAirplaneBody_white.fbB4A1604D-AACA-4648-87DA-3CA1F616AAC22": {
+            "baseColorFactor": [
+                0.0,
+                0.125490203499794,
+                0.35686275362968445,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5099999904632568
+        },
+        "twoAirplaneBody_white.fbBA04A15D-756F-4FCB-8481-ECC54542EAFB1": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.46799999475479126
+        },
+        "twoAirplaneBody_white.fbBA04A15D-756F-4FCB-8481-ECC54542EAFB2": {
+            "baseColorFactor": [
+                0.7176470756530762,
+                0.7882353067398071,
+                0.8274509906768799,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5230000019073486
+        },
+        "twoAirplaneBody_white.fbBA04A15D-756F-4FCB-8481-ECC54542EAFB3": {
+            "baseColorFactor": [
+                0.0,
+                0.125490203499794,
+                0.35686275362968445,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.4959999918937683
+        },
+        "twoAirplaneBody_white.fbC02B7EC0-718F-4120-AC15-A21761A9946F1": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.6060000061988831
+        },
+        "twoAirplaneBody_white.fbC05F1E20-F9C7-4661-B093-94D4608196EA1": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5509999990463257
+        },
+        "twoAirplaneBody_white.fbC5373CF0-95B8-472F-A7BE-23F12C78B7121": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5370000004768372
+        },
+        "twoAirplaneBody_white.fbD2CC9C53-A412-4230-A979-443B305B3CDA1": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5230000019073486
+        },
+        "twoAirplaneBody_white.fbD87FE310-5829-4430-BBC6-8AD2DD7C03E31": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5230000019073486
+        },
+        "twoAirplaneBody_white.fbD87FE310-5829-4430-BBC6-8AD2DD7C03E32": {
+            "baseColorFactor": [
+                0.0,
+                0.125490203499794,
+                0.35686275362968445,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.4959999918937683
+        },
+        "twoAirplaneBody_white.fbD87FE310-5829-4430-BBC6-8AD2DD7C03E33": {
+            "baseColorFactor": [
+                0.0,
+                0.5215686559677124,
+                0.6784313917160034,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5099999904632568
+        },
+        "twoAirplaneBody_white.fbFD696351-7F28-4F96-8E8D-744BF7EF5F5E1": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.4959999918937683
+        },
+        "twoEngine.fb2DAAFA42-25E1-4C87-8B5A-6210940B08831": {
+            "baseColorFactor": [
+                0.09803921729326248,
+                0.09803921729326248,
+                0.09803921729326248,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5379999876022339
+        },
+        "twoEngine.fb74AD1C8B-16AD-45C4-A3A5-58CD55EF4CBC1": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.4959999918937683
+        },
+        "twoEngine.fb74AD1C8B-16AD-45C4-A3A5-58CD55EF4CBC2": {
+            "baseColorFactor": [
+                0.6274510025978088,
+                0.6274510025978088,
+                0.6274510025978088,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5370000004768372
+        },
+        "twoEngine.fb74AD1C8B-16AD-45C4-A3A5-58CD55EF4CBC3": {
+            "baseColorFactor": [
+                0.5372549295425415,
+                0.5529412031173706,
+                0.5529412031173706,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5230000019073486
+        },
+        "twoEngine.fb74AD1C8B-16AD-45C4-A3A5-58CD55EF4CBC4": {
+            "baseColorFactor": [
+                0.0,
+                0.20000000298023224,
+                0.6274510025978088,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5509999990463257
+        },
+        "twoEngine.fbB4565868-DEF5-4344-9902-69048F3288751": {
+            "baseColorFactor": [
+                0.09803921729326248,
+                0.09803921729326248,
+                0.09803921729326248,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.46799999475479126
+        },
+        "twoEngine.fbF9943F6A-D43A-4268-A02A-730C59DC26B51": {
+            "baseColorFactor": [
+                0.09803921729326248,
+                0.09803921729326248,
+                0.09803921729326248,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5230000019073486
+        },
+        "twoLandingGear.fb8A5C8AAF-12D4-42E1-A7C0-16B66D8507031": {
+            "baseColorFactor": [
+                0.7764706015586853,
+                0.7568627595901489,
+                0.7372549176216125,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.46799999475479126
+        },
+        "twoLandingGear.fb8A5C8AAF-12D4-42E1-A7C0-16B66D8507032": {
+            "baseColorFactor": [
+                0.529411792755127,
+                0.5490196347236633,
+                0.5490196347236633,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5230000019073486
+        },
+        "twoLandingGear.fb8A5C8AAF-12D4-42E1-A7C0-16B66D8507033": {
+            "baseColorFactor": [
+                0.03921568766236305,
+                0.03921568766236305,
+                0.03921568766236305,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5099999904632568
+        },
+        "twoLandingGear.fb8A5C8AAF-12D4-42E1-A7C0-16B66D8507034": {
+            "baseColorFactor": [
+                0.8980392217636108,
+                0.9176470637321472,
+                0.929411768913269,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5230000019073486
+        },
+        "twoLandingGear.fb8A5C8AAF-12D4-42E1-A7C0-16B66D8507035": {
+            "baseColorFactor": [
+                0.7921568751335144,
+                0.8196078538894653,
+                0.9333333373069763,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5230000019073486
+        },
+        "twoLandingGear.fb8A5C8AAF-12D4-42E1-A7C0-16B66D8507036": {
+            "baseColorFactor": [
+                0.8980392217636108,
+                0.8980392217636108,
+                0.8980392217636108,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.4959999918937683
+        },
+        "twoSeatPart_white.fb07B747CE-6A15-4E4E-9BF9-3D89766541661": {
+            "baseColorFactor": [
+                0.9686274528503418,
+                0.8941176533699036,
+                0.5411764979362488,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5649999976158142
+        },
+        "twoSeatPart_white.fb530391E3-CBA6-45AE-9802-7F255C346CBD1": {
+            "baseColorFactor": [
+                0.9686274528503418,
+                0.8941176533699036,
+                0.5411764979362488,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5509999990463257
+        },
+        "twoSeatPart_white.fb5BD867F0-4411-4CC1-B6A2-2A43FA2F03D91": {
+            "baseColorFactor": [
+                0.9686274528503418,
+                0.8941176533699036,
+                0.5411764979362488,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5649999976158142
+        },
+        "twoSeatPart_white.fb886B6772-CA77-4E28-97F8-46565E8EA3CD1": {
+            "baseColorFactor": [
+                0.9686274528503418,
+                0.8941176533699036,
+                0.5411764979362488,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.4959999918937683
+        },
+        "twoSeatPart_white.fbD246215B-3420-4959-A044-B7AC8D4BD92E1": {
+            "baseColorFactor": [
+                0.9686274528503418,
+                0.8941176533699036,
+                0.5411764979362488,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5920000076293945
+        },
+        "twoSeatPart_white.fbDEA2DEA4-E61A-400B-964A-E1980CECF8D91": {
+            "baseColorFactor": [
+                0.9686274528503418,
+                0.8941176533699036,
+                0.5411764979362488,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5649999976158142
+        },
+        "twoSeatPart_white.fbFFAE6D17-AAD2-4088-AB41-7E6A6BAB89F01": {
+            "baseColorFactor": [
+                0.9686274528503418,
+                0.8941176533699036,
+                0.5411764979362488,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.4959999918937683
+        },
+        "window.fbFCFB1C7C-26A1-4FF6-B4C5-3717A7C06A0A1": {
+            "baseColorFactor": [
+                0.09803921729326248,
+                0.4470588266849518,
+                0.7490196228027344,
+                0.699999988079071
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.5370000004768372
         }
     },
     "render_params": {
-        "baseBrightness": 0.02800000086426735,
+        "baseBrightness": 0.2759999930858612,
         "blocker_sample_num": 8,
         "denoise_size": 5,
-        "exposure": 16.0,
+        "exposure": 11.708000183105469,
         "model_scale": 100.0,
         "model_translate": [
             180000.0,
@@ -116,14 +596,14 @@
         ],
         "pcf_sample_num": 8,
         "pcf_softness": 5.784999847412109,
-        "pcss_softness": 0.061000000685453415,
-        "pcss_softness_falloff": 42.42399978637695,
-        "shadow bias": 0.00039999998989515007,
+        "pcss_softness": 20.100000381469727,
+        "pcss_softness_falloff": 0.10899999737739563,
+        "shadow bias": 0.0,
         "shadow_sample_num": 32,
         "shadow_type": 1,
         "softness": 0.07800000160932541,
         "softness_falloff": 31.128999710083008,
         "ssao_kernel_size": 64,
-        "ssao_radius": 0.14900000393390656
+        "ssao_radius": 0.656000018119812
     }
 }

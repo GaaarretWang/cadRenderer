@@ -1,4 +1,5 @@
 ﻿#include <vsgRendererServer.h>
+#include <json.hpp>
 #include <chrono>
 #include <thread>  // 用于线程睡眠
 
@@ -26,7 +27,7 @@ public:
     float cx = 326.5103569741365;//图像中心点(x轴)
     float cy = 237.40293732598795;//图像中心点(y轴)
     std::vector<vsg::dmat4> model_transforms;
-    std::vector<vsg::dmat4> init_model_transforms;
+    std::vector<vsg::dmat4> init_model_transforms; // 已弃用：场景数据已迁移到JSON文件
     std::vector<std::string> model_paths;
     std::vector<std::string> instance_names;
     std::string rendering_dir = "../";
@@ -39,6 +40,13 @@ public:
     int num = 0;
     vsg::ref_ptr<vsg::Device> device;
     std::vector<std::vector<uint8_t>> vPacket;
+
+private:
+    // 场景加载相关方法
+    bool loadSceneFromJSON(const std::string& scene_name_or_id);
+    vsg::dmat4 parseMatrixFromJSON(const nlohmann::json& matrix_array);
+    void clearSceneData();
+
 public:
 
     RenderingServer();

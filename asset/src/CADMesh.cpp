@@ -493,7 +493,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         graphicsPipelineConfig->assignDescriptor("instanceModelMatrix", info_list);
         graphicsPipelineConfig->assignDescriptor("ConstantBuffer", constant_data_buffer_info_list);
         
-        auto noiseSampler = Utils::createNearestSampler();
+        auto noiseSampler = Utils::createNearestClampSampler();
         vsg::ImageInfoList ShadowSampleViewList = {vsg::ImageInfo::create(noiseSampler, ShadowSampleImageView, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL)};
         graphicsPipelineConfig->assignTexture("shadowsampler", ShadowSampleViewList);
 

@@ -87,6 +87,8 @@ class vsgRendererServer
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;//多重采样的倍数
 
     uint32_t frame_num = 0;
+    vsg::dmat4 pending_camera_matrix;
+    bool camera_dirty = false;
 
     vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(string windowTitle, int num,  vsg::ref_ptr<vsg::Options> options)
     {
@@ -268,13 +270,13 @@ public:
 
     void updateCamera(vsg::dvec3 centre, vsg::dvec3 eye, vsg::dvec3 up){
         auto lookat = vsg::LookAt::create(eye, centre, up);
-        auto cameralookat = camera->viewMatrix.cast<vsg::LookAt>();
-        cameralookat->set(lookat->transform());
+        pending_camera_matrix = lookat->transform();
+        camera_dirty = true;
     }
 
     void updateCamera(vsg::dmat4 view_matrix){
-        auto lookat = camera->viewMatrix.cast<vsg::LookAt>();
-        lookat->set(view_matrix);
+        pending_camera_matrix = view_matrix;
+        camera_dirty = true;
     }
     
     void updateObjectPose(std::string instance_name, vsg::dmat4 model_matrix){

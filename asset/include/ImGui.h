@@ -28,6 +28,7 @@ struct GlobalPCData{
     float ssao_radius = 0.1;
     float exposure = 8;
     float softness_falloff = 1;
+    float shadow_bias = 0.0001;
     int ssao_kernel_size = 64;
     int denoise_size = 5;
     int blocker_sample_num = 16;

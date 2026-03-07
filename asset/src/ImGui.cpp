@@ -66,8 +66,7 @@ namespace gui
             if (render_params.contains("denoise_size"))
                 m_pc_data->value().denoise_size = render_params["denoise_size"];
             if (render_params.contains("shadow bias")){
-                m_renderer->view->viewDependentState->shadowMapBias = render_params["shadow bias"];
-                m_shadowmap_bias = render_params["shadow bias"];
+                m_pc_data->value().shadow_bias = render_params["shadow bias"];
             }
             if (render_params.contains("blocker_sample_num"))
                 m_pc_data->value().blocker_sample_num = render_params["blocker_sample_num"];
@@ -166,7 +165,7 @@ namespace gui
             render_params["ssao_kernel_size"] = pc_data.ssao_kernel_size;
             render_params["exposure"] = pc_data.exposure;
             render_params["denoise_size"] = pc_data.denoise_size;
-            render_params["shadow bias"] = m_renderer->view->viewDependentState->shadowMapBias;
+            render_params["shadow bias"] = pc_data.shadow_bias;
             render_params["blocker_sample_num"] = pc_data.blocker_sample_num;
             render_params["pcf_sample_num"] = pc_data.pcf_sample_num;
             render_params["shadow_type"] = pc_data.shadow_type;
@@ -294,24 +293,20 @@ namespace gui
         else if(m_pc_data->value().shadow_type == 1)
         {
             ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 10.0f);
-            ImGui::SliderFloat("pcss_softness", &(pcss_softness), 0.0f, 2.0f);
-            ImGui::SliderFloat("pcss_softness_falloff", &(pcss_softness_falloff), 0.0f, 100.f);
+            ImGui::SliderFloat("pcss_softness", &(pcss_softness), 0.0f, 1000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
+            ImGui::SliderFloat("pcss_softness_falloff", &(pcss_softness_falloff), 0.0f, 5.f);
             m_pc_data->value().softness = pcss_softness;
             m_pc_data->value().softness_falloff = pcss_softness_falloff;
         }
-        ImGui::SliderInt("blocker_sample_num", &(m_pc_data->value().blocker_sample_num), 8, 64);
-        ImGui::SliderInt("pcf_sample_num", &(m_pc_data->value().pcf_sample_num), 8, 64);
-        ImGui::SliderFloat("shadow bias", &m_shadowmap_bias, 0.0f, 0.002f, "%.4f");
+        ImGui::SliderInt("blocker_sample_num", &(m_pc_data->value().blocker_sample_num), 1, 64);
+        ImGui::SliderInt("pcf_sample_num", &(m_pc_data->value().pcf_sample_num), 1, 64);
+        ImGui::SliderFloat("shadow bias", &(m_pc_data->value().shadow_bias), 0.0f, 0.02f, "%.4f");
 
         ImGui::SliderFloat("ssao_radius", &(m_pc_data->value().ssao_radius), 0.0f, 2.0f);
         ImGui::SliderInt("ssao_kernel_size", &(m_pc_data->value().ssao_kernel_size), 16, 128);
         ImGui::SliderInt("denoise_size", &(m_pc_data->value().denoise_size), 1, 9);
 
-        ImGui::SliderFloat("exposure", &(m_pc_data->value().exposure), 0.0f, 16.f);
-        if(m_renderer->view->viewDependentState->shadowMapBias != m_shadowmap_bias){
-            m_renderer->view->viewDependentState->shadowMapBias = m_shadowmap_bias;
-            m_renderer->view->viewDependentState->draw_shadow = true;
-        }
+        ImGui::SliderFloat("exposure", &(m_pc_data->value().exposure), 0.0f, 50.f);
         
         ImGui::Separator();
         ImGui::Text("Step\t\tTime");
