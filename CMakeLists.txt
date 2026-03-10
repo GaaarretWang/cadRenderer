@@ -1,60 +1,70 @@
-cmake_minimum_required(VERSION 3.7)
+# 项目基本信息
+cmake_minimum_required(VERSION 3.18)
+project(Rendering VERSION 1.1.0 LANGUAGES CXX C CUDA)
 
-project(Rendering
-        VERSION 1.1.0
-        DESCRIPTION "Set of example programs that test and illustrate how to use the VulkanSceneGraph"
-        LANGUAGES CXX C CUDA
-)
+# 全局编译选项
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
 
+# Windows 特定定义
 if(WIN32)
     add_compile_definitions(NOMINMAX)
 endif()
 
-# set_property(TARGET tgt PROPERTY CUDA_ARCHITECTURES native)
-# set(CMAKE_CUDA_ARCHITECTURES tgt)
+# 外部依赖查找（统一管理）
 find_package(CUDA REQUIRED)
-set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
-find_package(CUDAToolkit REQUIRED)  # 查找 CUDA 工具集
+find_package(CUDAToolkit REQUIRED)
 find_package(assimp REQUIRED)
-
 find_package(flatbuffers REQUIRED)
 
-# set the use of C++17 globally as all examples require it
-set(CMAKE_CXX_STANDARD 17)
-aux_source_directory(src SRCS)
+# 第三方库路径变量
+set(VIDEO_CODEC_SDK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/Video_Codec_SDK_12.0.16")
+set(CAD_DATA_MANAGER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager")
 
-add_executable(Rendering ${SRCS})
+# 构建核心渲染库
 add_subdirectory(asset)
 
-target_include_directories(Rendering PUBLIC
+# 主可执行文件
+aux_source_directory(src SRCS)
+add_executable(Rendering ${SRCS})
+
+target_include_directories(Rendering PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/include
-    ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/include
+    ${CAD_DATA_MANAGER_DIR}/include
+    ${VIDEO_CODEC_SDK_DIR}/Utils
+    ${CUDA_INCLUDE_DIRS}
 )
+
+# 平台特定链接配置
 if(UNIX)
-    target_link_directories(Rendering PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Lib/linux/stubs/x86_64
-        ${CMAKE_CURRENT_SOURCE_DIR}/asset/thirdParty/CADDataManager/lib/
+    target_link_directories(Rendering PRIVATE
+        ${VIDEO_CODEC_SDK_DIR}/Lib/linux/stubs/x86_64
+        ${CAD_DATA_MANAGER_DIR}/lib
     )
 
-    target_link_libraries(Rendering 
+    target_link_libraries(Rendering PRIVATE
+        vsgRenderer
         vsgImGui::vsgImGui
         vsgXchange::vsgXchange
         flatbuffers::flatbuffers
-        vsgRenderer
-        libnvcuvid.so libnvidia-encode.so ${CUDA_CUDA_LIBRARY}
-        ${ASSIMP_LIBRARIES} CUDA::cudart
+        nvcuvid
+        nvidia-encode
+        CUDA::cudart
+        ${ASSIMP_LIBRARIES}
     )
 elseif(WIN32)
-    target_link_libraries(Rendering 
+    target_link_libraries(Rendering PRIVATE
         vsgRenderer
     )
 
-    set(CAD_DATA_MANAGER_DLL "${CMAKE_SOURCE_DIR}/asset/thirdParty/CADDataManager/winlib/cadDataManager.dll")
+    # 复制 DLL 到输出目录
     add_custom_command(TARGET Rendering POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CAD_DATA_MANAGER_DLL}"
-        $<TARGET_FILE_DIR:Rendering>  # 复制到目标输出目录（Debug/Release）
+            "${CAD_DATA_MANAGER_DIR}/winlib/cadDataManager.dll"
+            $<TARGET_FILE_DIR:Rendering>
     )
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}-pthread")
+# 线程支持
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
