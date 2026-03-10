@@ -4,7 +4,7 @@
 #include <vsg/all.h>
 #include <CADMesh.h>
 #include "communication/dataInterface.h"
-#include "convertPng.h"
+#include "ImageUtils.h"
 #include <string>
 #include <chrono>
 #include <fstream>
@@ -16,32 +16,33 @@
 // #define RENDER_TEST
 // simplelogger::Logger* logger = simplelogger::LoggerFactory::CreateConsoleLogger();
 
-ImagePair loadImagePair(const std::string& timestamp, ConvertImage* converter) {
+ImagePair loadImagePair(const std::string& timestamp, int width, int height) {
     try {
         // 加载颜色图像
         // std::ifstream color_file("../asset/data/dataset3/resized_factory.png", std::ios::binary);
         std::ifstream color_file("../asset/data/dataset3/1711699289.885392.png", std::ios::binary);
         // std::ifstream color_file("../asset/data/dataset3/color/" + timestamp + ".png", std::ios::binary);
         if (!color_file) throw std::runtime_error("Failed to open color file");
-        std::vector<uint8_t> color_buffer((std::istreambuf_iterator<char>(color_file)), 
+        std::vector<uint8_t> color_buffer((std::istreambuf_iterator<char>(color_file)),
                             std::istreambuf_iterator<char>());
-        
+
         // 加载深度图像
         // std::ifstream depth_file("../asset/data/dataset3/black_depth_1280x960.png", std::ios::binary);
         std::ifstream depth_file("../asset/data/dataset3/depth1711699289.885392.png", std::ios::binary);
         // std::ifstream depth_file("../asset/data/dataset3/depth/" + timestamp + ".png", std::ios::binary);
         if (!depth_file) throw std::runtime_error("Failed to open depth file");
-        std::vector<uint8_t> depth_buffer((std::istreambuf_iterator<char>(depth_file)), 
+        std::vector<uint8_t> depth_buffer((std::istreambuf_iterator<char>(depth_file)),
                             std::istreambuf_iterator<char>());
-        
+
         // 转换图像数据
         std::string color_str(color_buffer.begin(), color_buffer.end());
         std::string depth_str(depth_buffer.begin(), depth_buffer.end());
-        
+
         ImagePair result;
-        result.color.reset(converter->convertColor(color_str));
-        result.depth.reset(converter->convertDepth(depth_str));
-        
+        int w = width, h = height;
+        result.color.reset(ImageUtils::convertColor(color_str, w, h));
+        result.depth.reset(ImageUtils::convertDepth(depth_str, w, h));
+
         return result;
     } catch (const std::exception& e) {
         std::cerr << "Error loading " << timestamp << ": " << e.what() << std::endl;
@@ -117,27 +118,26 @@ int main(int argc, char** argv){
     rendering_client.upsample_scale = encode_scale;
     rendering_client.Init(rendering_server.device);
 #endif
-    ConvertImage *convert_image = new ConvertImage(rendering_server.width, rendering_server.height);
 
     int num_images = camera_pos.size();
     // 确定并行线程数 (不超过硬件支持的核心数)
     const unsigned int num_threads = std::min<unsigned int>(
-        std::thread::hardware_concurrency(), 
+        std::thread::hardware_concurrency(),
         num_images
     );
-    
+
     // 分批处理图像
     std::vector<std::future<std::vector<ImagePair>>> futures;
     const int batch_size = (num_images + num_threads - 1) / num_threads;
-    
+
     for (unsigned int t = 0; t < num_threads; ++t) {
         futures.emplace_back(std::async(std::launch::async, [&, t] {
             std::vector<ImagePair> batch_results;
             const int start = t * batch_size;
             const int end = std::min(start + batch_size, num_images);
-            
+
             for (int i = start; i < end; ++i) {
-                batch_results.push_back(loadImagePair(camera_pos_timestamp[i], convert_image));
+                batch_results.push_back(loadImagePair(camera_pos_timestamp[i], rendering_server.width, rendering_server.height));
             }
             return batch_results;
         }));
@@ -208,7 +208,7 @@ int main(int argc, char** argv){
         std::string ref_path = ref_dir + "/scene_" + scene_id_str + ".png";
 
         if(save_ref){
-            bool ok = ConvertImage::savePNG(ref_path, window_image.data(), rw, rh, 4);
+            bool ok = ImageUtils::savePNG(ref_path, window_image.data(), rw, rh, 4);
             if(ok){
                 std::cout << "Reference saved: " << ref_path << std::endl;
             } else {
@@ -218,7 +218,7 @@ int main(int argc, char** argv){
         }
 
         if(compare_ref){
-            auto cmp = ConvertImage::compareWithRef(window_image.data(), rw, rh, 4, ref_path);
+            auto cmp = ImageUtils::compareWithRef(window_image.data(), rw, rh, 4, ref_path);
             std::cout << "Compare result: " << cmp.message << std::endl;
             if(!cmp.valid){
                 std::cerr << "FAIL: comparison invalid" << std::endl;

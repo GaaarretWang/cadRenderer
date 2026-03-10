@@ -22,6 +22,7 @@ if(UNIX)
 
     target_include_directories(vsgRenderer PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/vsgXchange/src/stbi
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/CADDataManager/include
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Utils
         ${CUDA_INCLUDE_DIRS}
@@ -55,6 +56,7 @@ elseif(WIN32)
 
     target_include_directories(vsgRenderer PUBLIC
         ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/vsgXchange/src/stbi
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/cadDataManager/include
         ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/Video_Codec_SDK_12.0.16/Utils
         ${CUDA_INCLUDE_DIRS}

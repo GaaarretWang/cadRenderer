@@ -35,8 +35,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     // Set up shaders after options->paths is initialized
     setUpShader();
 
-    std::cout << "SERVER: Init Vulkan Device" << std::endl;
-    
+    vsg::info("SERVER: Init Vulkan Device");
+
     //手动初始化vulkan设备
     vsg::Names instanceExtensions;
     vsg::Names requestedLayers;
@@ -63,8 +63,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     vsg::Names validatedNames = vsg::validateInstancelayerNames(requestedLayers);
 
-    std::cout << "mainV2: Create Instance" << std::endl;
-    
+    vsg::info("mainV2: Create Instance");
+
     vsg_color_image = vsg::ubvec3Array2D::create(width, height);
     vsg_depth_image = vsg::ushortArray2D::create(width, height);
     vsg_color_image->properties.format = VK_FORMAT_R8G8B8_UNORM;
@@ -79,18 +79,18 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     try {
         instance = vsg::Instance::create(instanceExtensions, validatedNames, vulkanVersion);//问题语
     } catch (const vsg::Exception& ex) {
-        std::cout << "-----Error creating Vulkan Instance: " << ex.message << "----result code: "<< ex.result <<std::endl;
+        vsg::error("Error creating Vulkan Instance: ", ex.message, ", result code: ", ex.result);
         return;
     }
-    catch (...) {
-        std::cout << "-----Error creating Vulkan Instance: unknown error" << std::endl;
+    catch (const std::exception& e) {
+        vsg::error("Error creating Vulkan Instance: ", e.what());
         return;
     }
 
     auto [physicalDevice, queueFamily] = instance->getPhysicalDeviceAndQueueFamily(VK_QUEUE_GRAPHICS_BIT);
     if (!physicalDevice || queueFamily < 0)
     {
-        std::cout << "Could not create PhysicalDevice" << std::endl;
+        vsg::error("Could not create PhysicalDevice");
         return;
     }
 
@@ -122,7 +122,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         device = vsg::Device::create(physicalDevice, queueSettings, validatedNames, deviceExtensions, deviceFeatures);
     }
     catch (const vsg::Exception& ex) {
-        std::cout << "-----Error creating Vulkan Device: " << ex.message << "----result code: " << ex.result << std::endl;
+        vsg::error("Error creating Vulkan Device: ", ex.message, ", result code: ", ex.result);
         return;
     }
     auto context = vsg::Context::create(device);
@@ -131,12 +131,11 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsgContext.context = context;
     vsgContext.device = device;
     vsgContext.queueFamily = queueFamily;
-    //std::cout<<"IBL:创建环境光数据"<< std::endl;
     IBL::appData.options = options;
     IBL::createResources(vsgContext, hdr_image_max_num);
     IBL::generateBRDFLUT(vsgContext);
     preprocessEnvMap();
-    std::cout << "IBL:创建环境光数据完成----创建窗口" << std::endl;
+    vsg::info("IBL: Environment lighting data created, creating window");
 
 
     //创建窗口数据
@@ -223,10 +222,10 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     CADMesh::camera_info = camera_info;
     CADMesh::depth_info = depth_info;
-    if(shadow_recevier_path != "" && shader_type != CAMERA_DEPTH)
+    if(shadow_receiver_path != "" && shader_type != CAMERA_DEPTH)
     {
-        CADMesh* shadow_recevier_mesh = new CADMesh();
-        shadow_recevier_mesh->preprocessProtoData(shadow_recevier_path.c_str(), getDirectoryPath(shadow_recevier_path).c_str(), shadow_recevier_transform, shadow_shader, shadowGroup, "shadow_receiver");
+        CADMesh* shadow_receiver_mesh = new CADMesh();
+        shadow_receiver_mesh->preprocessProtoData(shadow_receiver_path.c_str(), getDirectoryPath(shadow_receiver_path).c_str(), shadow_receiver_transform, shadow_shader, shadowGroup, "shadow_receiver");
     }
     //---------------------------------------读取CAD模型------------------------------------------//
     for(int i = 0; i < model_paths.size(); i ++){
@@ -257,7 +256,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     CADMesh::scene_original_transforms = model_transforms;
     if(shader_type != CAMERA_DEPTH) {
         CADMesh::scene_instance_names.push_back("shadow_receiver");
-        CADMesh::scene_original_transforms.push_back(shadow_recevier_transform);
+        CADMesh::scene_original_transforms.push_back(shadow_receiver_transform);
     }
 
 
@@ -267,8 +266,9 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     CADMesh::buildDrawData(modelGroup, pc, constant_data_buffer_info_list, window->_ShadowSampleImageView); //读取obj文件
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
     CADMesh::buildDynamicPointsData(point_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
-    CADMesh::buildDynamicTextsData(textGroup, options, vsg::findFile("fonts/times.vsgt", options->paths)); //读取obj文件
-    std::cout << "model processing done" << std::endl;
+    CADMesh::buildDynamicTextsData(textGroup, options, vsg::findFile("fonts/times.vsgt", options->paths));
+    vsg::info("Model processing done");
+
     SSAOPass::buildSSAOData(options, SSAOGroup, window->_GBufferImageView0, window->_GBufferImageView1, window->_GBufferImageView2, extent);
     SSAOPass::buildSSAODenoiseData(options, SSAODenoiseGroup, window->_GBufferImageView0, window->_ShadowWriteImageView, window->_SSAOResultImageView);
 
@@ -387,7 +387,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     VkExtent2D depthExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
     depth_cuimage = new Cudaimage(depth_interop_image, device, depthBufferSize, depthExtent);
 
-    std::cout << "CUDA-Vulkan depth interop image created, buffer size = " << depthBufferSize << std::endl;
+    vsg::info("CUDA-Vulkan depth interop image created, buffer size = ", depthBufferSize);
 
     // 初始化 GPU copy 基础设施（用于 vkCmdCopyImage: interop → depth_info image）
     auto interopPhysicalDevice = window->getPhysicalDevice();
@@ -395,8 +395,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     depth_copy_commandPool = vsg::CommandPool::create(device, interopQueueFamilyIndex);
     depth_copy_fence = vsg::Fence::create(device);
     depth_copy_queue = device->getQueue(interopQueueFamilyIndex);
-
-    std::cout << "4" << std::endl;
 }
 
 bool vsgRendererServer::render() {

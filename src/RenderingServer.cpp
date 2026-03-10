@@ -13,7 +13,7 @@ bool RenderingServer::loadSceneFromJSON(const std::string& scene_name_or_id) {
     std::ifstream json_file(json_path);
 
     if (!json_file.is_open()) {
-        std::cerr << "错误：无法打开场景配置文件 " << json_path << std::endl;
+        vsg::error("Failed to open scene config file: ", json_path);
         return false;
     }
 
@@ -52,7 +52,7 @@ bool RenderingServer::loadSceneFromJSON(const std::string& scene_name_or_id) {
     }
 
     if (!target_scene) {
-        std::cerr << "错误：未找到场景 '" << scene_name_or_id << "'" << std::endl;
+        vsg::error("Scene not found: '", scene_name_or_id, "'");
         return false;
     }
 
@@ -77,7 +77,7 @@ bool RenderingServer::loadSceneFromJSON(const std::string& scene_name_or_id) {
     // 加载shadow_receiver配置
     if (target_scene->contains("shadow_receiver_path") && target_scene->contains("shadow_receiver_transform")) {
         std::string shadow_path = rendering_dir + (*target_scene)["shadow_receiver_path"].get<std::string>();
-        renderer.shadow_recevier_path = shadow_path;
+        renderer.shadow_receiver_path = shadow_path;
 
         // 读取shadow_receiver变换矩阵（单个矩阵）
         vsg::dmat4 shadow_final_transform;
@@ -86,16 +86,16 @@ bool RenderingServer::loadSceneFromJSON(const std::string& scene_name_or_id) {
             shadow_final_transform = parseMatrixFromJSON(shadow_transforms[0]);
         }
 
-        renderer.shadow_recevier_transform = shadow_final_transform;
-        std::cout << "已设置shadow_receiver: " << shadow_path << std::endl;
+        renderer.shadow_receiver_transform = shadow_final_transform;
+        vsg::info("Shadow receiver set: ", shadow_path);
     } else {
         // 如果没有配置，使用默认值（保持向后兼容）
-        renderer.shadow_recevier_path = rendering_dir + "asset/data/obj/shadow_receiver2.obj";
-        renderer.shadow_recevier_transform = vsg::dmat4();
-        std::cout << "使用默认shadow_receiver配置" << std::endl;
+        renderer.shadow_receiver_path = rendering_dir + "asset/data/obj/shadow_receiver2.obj";
+        renderer.shadow_receiver_transform = vsg::dmat4();
+        vsg::info("Using default shadow receiver config");
     }
 
-    std::cout << "成功加载场景 '" << scene_name_or_id << "'，包含 " << model_paths.size() << " 个模型" << std::endl;
+    vsg::info("Scene '", scene_name_or_id, "' loaded successfully with ", model_paths.size(), " models");
     return true;
 }
 
@@ -132,12 +132,12 @@ int RenderingServer::Init(int argc, char** argv){
             model_paths.push_back(rendering_dir + "asset/data/obj/sphere.obj");
             instance_names.push_back("test_sphere");
             model_transforms.push_back(vsg::dmat4(1.0));
-            renderer.shadow_recevier_path = rendering_dir + "asset/data/obj/shadow_receiver2.obj";
-            renderer.shadow_recevier_transform = vsg::dmat4(1.0);
+            renderer.shadow_receiver_path = rendering_dir + "asset/data/obj/shadow_receiver2.obj";
+            renderer.shadow_receiver_transform = vsg::dmat4(1.0);
         }
         loaded_scene_id = -1;
     } else if (!loadSceneFromJSON(scene_to_load)) {
-        std::cerr << "错误：无法加载场景 '" << scene_to_load << "'，程序将退出" << std::endl;
+        vsg::error("Failed to load scene '", scene_to_load, "', program will exit");
         return -1;
     }
 

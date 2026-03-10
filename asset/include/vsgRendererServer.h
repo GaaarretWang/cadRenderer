@@ -5,7 +5,6 @@
 #include <unordered_set>
 #include <screenshot.h>
 #include <vsg/all.h>
-#include "convertPng.h"
 #include "ConfigShader.h"
 #include "ImGui.h"
 #include "MyMask.h"
@@ -18,7 +17,6 @@
 
 #include "fixDepth.h"
 #include "json.hpp"
-using namespace std;
 
 class vsgRendererServer
 {
@@ -53,8 +51,8 @@ class vsgRendererServer
     int hdr_image_num = 2;
     int hdr_image_max_num = 7;
 
-    std::string shadow_recevier_path;
-    vsg::dmat4 shadow_recevier_transform;
+    std::string shadow_receiver_path;
+    vsg::dmat4 shadow_receiver_transform;
     std::unordered_set<std::string> cull_mode_none_model_paths;
     vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data = vsg::Value<GlobalPCData>::create();
     vsg::ref_ptr<vsg::Value<GlobalConstantData>> constant_data = vsg::Value<GlobalConstantData>::create();
@@ -99,7 +97,7 @@ class vsgRendererServer
     vsg::dmat4 pending_camera_matrix;
     bool camera_dirty = false;
 
-    vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(string windowTitle, int num,  vsg::ref_ptr<vsg::Options> options)
+    vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(std::string windowTitle, int num,  vsg::ref_ptr<vsg::Options> options)
     {
         auto windowTraits = vsg::WindowTraits::create();
         windowTraits->samples = msaaSamples;  // 设置多重采样
