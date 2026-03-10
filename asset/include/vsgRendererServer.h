@@ -49,10 +49,10 @@ class vsgRendererServer
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;
     vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> hdr_to_light_group_map;
+    std::unordered_map<int, float> hdr_base_brightness; // 每个HDR的baseBrightness
     int hdr_image_num = 2;
-    int hdr_image_max_num = 5;
+    int hdr_image_max_num = 7;
 
-    std::string project_path;
     std::string shadow_recevier_path;
     vsg::dmat4 shadow_recevier_transform;
     std::unordered_set<std::string> cull_mode_none_model_paths;
@@ -78,6 +78,15 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::Data> vsg_depth_image;
     vsg::ImageInfoList camera_info;
     vsg::ImageInfoList depth_info;
+
+    // CUDA-Vulkan interop深度图像
+    vsg::ref_ptr<vsg::Image> depth_interop_image;
+    Cudaimage* depth_cuimage = nullptr; // interop的CUDA映射
+
+    // GPU copy 基础设施（interop → depth_info image）
+    vsg::ref_ptr<vsg::CommandPool> depth_copy_commandPool;
+    vsg::ref_ptr<vsg::Fence> depth_copy_fence;
+    vsg::ref_ptr<vsg::Queue> depth_copy_queue;
 
     //every frame's real color and depth
     unsigned char * color_pixels = nullptr;
@@ -148,16 +157,16 @@ public:
         this->cy = cy;
     }
 
-    void setUpShader(std::string project_path){
+    void setUpShader(){
         //-----------------------------------------设置shader------------------------------------//
         ConfigShader config_shader;
-        shadow_shader = config_shader.buildShadowShader(project_path + "asset/data/shaders/shadow.vert", project_path + "asset/data/shaders/shadow.frag");
-        line_shader = config_shader.buildLineShader(project_path + "asset/data/shaders/line.vert", project_path + "asset/data/shaders/line.frag");
-        point_shader = config_shader.buildLineShader(project_path + "asset/data/shaders/point.vert", project_path + "asset/data/shaders/point.frag");
+        shadow_shader = config_shader.buildShadowShader(vsg::findFile("shaders/shadow.vert", options->paths), vsg::findFile("shaders/shadow.frag", options->paths));
+        line_shader = config_shader.buildLineShader(vsg::findFile("shaders/line.vert", options->paths), vsg::findFile("shaders/line.frag", options->paths));
+        point_shader = config_shader.buildLineShader(vsg::findFile("shaders/point.vert", options->paths), vsg::findFile("shaders/point.frag", options->paths));
     }
 
     void preprocessEnvMap(){
-        std::string envmapFilepath = project_path + "asset/data/textures/" + std::to_string(hdr_image_num) + ".hdr";
+        std::string envmapFilepath = vsg::findFile("textures/" + std::to_string(hdr_image_num) + ".hdr", options->paths);
         IBL::generateEnvmap(vsgContext, envmapFilepath, -1);
         IBL::generateIrradianceCube(vsgContext, -1);
         IBL::generatePrefilteredEnvmapCube(vsgContext, -1);
@@ -175,7 +184,7 @@ public:
             process_done = true;
         }
         for(int i = hdr_image_max_num; i > 0; i--){
-            std::string envmapFilepath = project_path + "asset/data/textures/" + std::to_string(i) + ".hdr";
+            std::string envmapFilepath = vsg::findFile("textures/" + std::to_string(i) + ".hdr", options->paths);
             IBL::generateEnvmap(vsgContext, envmapFilepath, i);
             IBL::generateIrradianceCube(vsgContext, i);
             IBL::generatePrefilteredEnvmapCube(vsgContext, i);
@@ -195,9 +204,11 @@ public:
         }
 
         IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
-        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, camera_info);
+        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, camera_info,
+                               shader_type == CAMERA_DEPTH ? depth_info : vsg::ImageInfoList{},
+                               shader_type == CAMERA_DEPTH ? vsg::ref_ptr<vsg::Data>(pc_data) : vsg::ref_ptr<vsg::Data>{});
     }
-    
+
     void updateEnvMap(){
         auto command = vsg::Commands::create();
         IBL::updateHDRTextures(command, hdr_image_num);
@@ -207,13 +218,15 @@ public:
         auto queueFamilyIndex = physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
         auto commandPool = vsg::CommandPool::create(device, queueFamilyIndex);
         auto queue = device->getQueue(queueFamilyIndex);
-        
+
         vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
             command->record(commandBuffer);
         });
 
         IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
-        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, camera_info);
+        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, camera_info,
+                               shader_type == CAMERA_DEPTH ? depth_info : vsg::ImageInfoList{},
+                               shader_type == CAMERA_DEPTH ? vsg::ref_ptr<vsg::Data>(pc_data) : vsg::ref_ptr<vsg::Data>{});
     }
 
     void update_directional_lights(){
@@ -222,7 +235,7 @@ public:
     }
 
     void init_directional_lights(){
-        std::string json_path = project_path + "asset/LightInfo.json";
+        std::string json_path = vsg::findFile("json/LightInfo.json", options->paths);
         std::ifstream json_file(json_path);
         
         if (!json_file.is_open()) {
@@ -233,11 +246,26 @@ public:
         json json_data = json::parse(json_file);
         json_file.close();
 
+        // Read hdr_image_max_num from JSON if present
+        if (json_data.contains("hdr_image_max_num")) {
+            hdr_image_max_num = json_data["hdr_image_max_num"].get<int>();
+        }
+
         for (auto& [hdr_idx_str, hdr_data] : json_data.items()) {
+            // Skip non-HDR entries (like hdr_image_max_num)
+            if (!hdr_data.is_object() || !hdr_data.contains("lights")) {
+                continue;
+            }
             std::cout << hdr_idx_str << std::endl;
             int hdr_idx = std::stoi(hdr_idx_str);
             vsg::ref_ptr<vsg::Group> light_i = vsg::Group::create();
             lightGroups[hdr_idx] = light_i;
+
+            // 读取 baseBrightness（如果存在）
+            if (hdr_data.contains("baseBrightness")) {
+                hdr_base_brightness[hdr_idx] = hdr_data["baseBrightness"].get<float>();
+            }
+
             for (auto& light_data : hdr_data["lights"]) {
                 auto directional_light = vsg::DirectionalLight::create();
                 directional_light->area = light_data["area"].get<float>();
@@ -282,13 +310,22 @@ public:
     void updateObjectPose(std::string instance_name, vsg::dmat4 model_matrix){
         auto& matrix_index = CADMesh::id_to_matrix_index_map[instance_name];
 
-        for(int i = 0; i < matrix_index.size(); i ++){
-            auto proto = matrix_index[i].proto_data;
-            auto index = matrix_index[i].index;
-            proto->instance_buffer->set(index, vsg::mat4(model_matrix));
-            proto->instance_buffer->dirty();
+        bool is_model_level = (CADMesh::model_name_to_global_index.count(instance_name) > 0);
+
+        if (is_model_level) {
+            uint32_t model_idx = CADMesh::model_name_to_global_index[instance_name];
+            CADMesh::global_model_matrix_buffer->set(model_idx, vsg::mat4(model_matrix));
+            CADMesh::global_model_matrix_buffer->dirty();
+        } else {
+            for(int i = 0; i < matrix_index.size(); i++){
+                auto proto = matrix_index[i].proto_data;
+                auto index = matrix_index[i].index;
+                proto->instance_buffer->set(index, vsg::mat4(model_matrix));
+                proto->instance_buffer->dirty();
+            }
         }
-        view->viewDependentState->draw_shadow = true;
+        auto* cvds_pose = static_cast<CustomViewDependentState*>(view->viewDependentState.get());
+        cvds_pose->draw_shadow_pose = true;
     }
 
     void updateEnvLighting(){
@@ -296,7 +333,8 @@ public:
         update_directional_lights();
         IBL::textures.params->dirty();
         viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
-        view->viewDependentState->draw_shadow = true;
+        auto* cvds_light = static_cast<CustomViewDependentState*>(view->viewDependentState.get());
+        cvds_light->draw_shadow_light = true;
     }
 
     bool render();
@@ -343,7 +381,7 @@ public:
         for(int i = 0; i < matrix_index.size(); i ++){
             auto proto = matrix_index[i].proto_data;
             auto index = matrix_index[i].index;
-            proto->highlight_buffer->set(index / 2 * 4, state);
+            proto->highlight_buffer->set(index * 4, state);
             proto->highlight_buffer->dirty();
         }
     }
@@ -355,6 +393,9 @@ public:
     void getEncodeImage(std::vector<std::vector<uint8_t>>& vPacket){
         final_screenshotHandler->encodeImage(window, vPacket);
     }
+
+    // GPU端拷贝: interop image → depth_info image (vkCmdCopyImage)
+    void copyInteropToDepthImage();
 };
 
 #endif //VSGR_RENDERER_SERVER_H

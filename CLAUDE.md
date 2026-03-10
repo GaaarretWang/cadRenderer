@@ -46,8 +46,6 @@ This file contains development rules and guidelines for the cadRenderer project.
     - 渲染测试需要等待程序自然完成，不能强制中断
     - 确保测试脚本让程序自然退出，检查"Program stopped"字样
 
-在编译后运行类似./Rendering --scene 5 --frames 2 2>&1 | tail -30的指令并查看是否有Program stopped字样来确保渲染能正常运行
-
 ## Project-Specific Guidelines
 
 ### Architecture

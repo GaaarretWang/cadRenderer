@@ -15,9 +15,43 @@ std::vector<ProtoData*> CADMesh::insert_order_to_data;
 
 std::unordered_map<std::string, std::vector<MatrixIndex>> CADMesh::id_to_matrix_index_map;
 
+std::vector<vsg::dmat4> CADMesh::global_model_matrices;
+vsg::ref_ptr<vsg::mat4Array> CADMesh::global_model_matrix_buffer;
+vsg::ref_ptr<vsg::BufferInfo> CADMesh::global_model_matrix_buffer_info;
+vsg::ref_ptr<vsg::mat4Array> CADMesh::last_global_model_matrix_buffer;
+vsg::ref_ptr<vsg::BufferInfo> CADMesh::last_global_model_matrix_buffer_info;
+std::unordered_map<std::string, uint32_t> CADMesh::model_name_to_global_index;
+
 DynamicLines CADMesh::dynamic_lines;
 DynamicPoints CADMesh::dynamic_points;
 DynamicTexts CADMesh::dynamic_texts;
+
+std::vector<std::string> CADMesh::scene_instance_names;
+std::vector<vsg::dmat4> CADMesh::scene_original_transforms;
+std::string CADMesh::scenes_json_path;
+int CADMesh::current_scene_id = -1;
+vsg::View* CADMesh::active_view = nullptr;
+
+void CADMesh::copyCurrentToLastMatrices()
+{
+    // 拷贝全局模型矩阵到上一帧缓冲
+    if (global_model_matrix_buffer && last_global_model_matrix_buffer) {
+        for (size_t i = 0; i < global_model_matrix_buffer->size(); i++) {
+            last_global_model_matrix_buffer->set(i, global_model_matrix_buffer->at(i));
+        }
+        last_global_model_matrix_buffer->dirty();
+    }
+
+    // 拷贝每个proto的实例矩阵到上一帧缓冲
+    for (ProtoData* proto_data : insert_order_to_data) {
+        if (proto_data->instance_buffer && proto_data->last_instance_buffer) {
+            for (size_t i = 0; i < proto_data->instance_buffer->size(); i++) {
+                proto_data->last_instance_buffer->set(i, proto_data->instance_buffer->at(i));
+            }
+            proto_data->last_instance_buffer->dirty();
+        }
+    }
+}
 
 template<typename T>
 vsg::vec3 CADMesh::toVec3(const flatbuffers::Vector<T>* flat_vector, int begin)
@@ -88,15 +122,25 @@ vsg::vec4 CADMesh::hexToRGB(const std::string& color)
 void CADMesh::preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)
 {
     if(proto_ids.size() > 0){
+        // 注册全局 model 矩阵
+        uint32_t model_idx;
+        if (model_name_to_global_index.count(model_instance_name) == 0) {
+            model_idx = global_model_matrices.size();
+            global_model_matrices.push_back(modelMatrix);
+            model_name_to_global_index[model_instance_name] = model_idx;
+        } else {
+            model_idx = model_name_to_global_index[model_instance_name];
+        }
+
         for(auto& id: proto_ids){
             for(int i = 0; i < proto_id_default_matrix_map[id].size(); i ++){
                 auto matrix = proto_id_default_matrix_map[id][i];
                 auto proto_instance_name = proto_id_instance_name_map[id][i];
                 proto_id_to_data_map[id]->instance_matrix.push_back(matrix);
-                proto_id_to_data_map[id]->instance_matrix.push_back(modelMatrix);
+                proto_id_to_data_map[id]->instance_model_indices.push_back(model_idx);
 
                 auto proto_data = proto_id_to_data_map[id];
-                id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[id][i]].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 2));
+                id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[id][i]].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
                 id_to_matrix_index_map[model_instance_name].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
             }
         }
@@ -184,6 +228,15 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
 
     uint8_t* buffer_data;
     int buffer_size;
+    // 注册全局 model 矩阵
+    uint32_t model_idx;
+    if (model_name_to_global_index.count(model_instance_name) == 0) {
+        model_idx = global_model_matrices.size();
+        global_model_matrices.push_back(modelMatrix);
+        model_name_to_global_index[model_instance_name] = model_idx;
+    } else {
+        model_idx = model_name_to_global_index[model_instance_name];
+    }
     for (auto it = MapInfo.begin(); it != MapInfo.end(); ++it){
         auto info = it->second;
         for (int o = 0; o < info.size(); o++) {
@@ -281,12 +334,12 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     proto_id_instance_name_map[proto_id].push_back(proto_instance_ids[m_i]);
 
                     proto_data->instance_matrix.push_back(transforms_matrix);
-                    proto_data->instance_matrix.push_back(modelMatrix);
+                    proto_data->instance_model_indices.push_back(model_idx);
 
                     // std::cout << "proto_instance_ids[m_i] " << model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i] << std::endl;
                     if(id_to_matrix_index_map.find(model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i]) == id_to_matrix_index_map.end())
                         id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i]] = std::vector<MatrixIndex>();
-                    id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i]].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 2));
+                    id_to_matrix_index_map[model_instance_name + proto_data->proto_id + proto_id_instance_name_map[proto_id][m_i]].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
 
                     if(id_to_matrix_index_map.find(model_instance_name) == id_to_matrix_index_map.end())
                         id_to_matrix_index_map[model_instance_name] = std::vector<MatrixIndex>();
@@ -301,10 +354,20 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
 void CADMesh::preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)
 {
     if(proto_ids.size() > 0){
+        // 注册全局 model 矩阵
+        uint32_t model_idx;
+        if (model_name_to_global_index.count(model_instance_name) == 0) {
+            model_idx = global_model_matrices.size();
+            global_model_matrices.push_back(modelMatrix);
+            model_name_to_global_index[model_instance_name] = model_idx;
+        } else {
+            model_idx = model_name_to_global_index[model_instance_name];
+        }
+
         for(auto& id: proto_ids){
             proto_id_to_data_map[id]->instance_matrix.push_back(proto_id_to_data_map[id]->instance_matrix[0]);
-            proto_id_to_data_map[id]->instance_matrix.push_back(modelMatrix);
-                    
+            proto_id_to_data_map[id]->instance_model_indices.push_back(model_idx);
+
             auto proto_data = proto_id_to_data_map[id];
             id_to_matrix_index_map[model_instance_name].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
         }
@@ -423,8 +486,17 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
         }
         proto_id_default_matrix_map[proto_id] = std::vector<vsg::dmat4>();
         proto_id_instance_name_map[proto_id] = std::vector<std::string>();
+        // 注册全局 model 矩阵
+        uint32_t model_idx;
+        if (model_name_to_global_index.count(model_instance_name) == 0) {
+            model_idx = global_model_matrices.size();
+            global_model_matrices.push_back(modelMatrix);
+            model_name_to_global_index[model_instance_name] = model_idx;
+        } else {
+            model_idx = model_name_to_global_index[model_instance_name];
+        }
         proto_data->instance_matrix.push_back(vsg::dmat4());
-        proto_data->instance_matrix.push_back(modelMatrix);
+        proto_data->instance_model_indices.push_back(model_idx);
         proto_id_default_matrix_map[proto_id].push_back(vsg::dmat4());
         proto_id_instance_name_map[proto_id].push_back("0");
 
@@ -472,21 +544,32 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(proto_data->shaderset);
         graphicsPipelineConfig->subpass = 0;
         proto_data->instance_buffer = vsg::mat4Array::create(proto_data->instance_matrix.size());
-        proto_data->instance_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
+        proto_data->instance_buffer->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
         for(int i = 0; i < proto_data->instance_matrix.size(); i ++){
             proto_data->instance_buffer->set(i, vsg::mat4(proto_data->instance_matrix[i]));
         }
         proto_data->input_instance_buffer_info = vsg::BufferInfo::create(proto_data->instance_buffer);
 
-        proto_data->highlight_buffer = vsg::uintArray::create(proto_data->instance_matrix.size() / 2 * 4);
+        // 创建上一帧proto矩阵缓冲区
+        proto_data->last_instance_buffer = vsg::mat4Array::create(proto_data->instance_matrix.size());
+        proto_data->last_instance_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
+        for(int i = 0; i < proto_data->instance_matrix.size(); i ++){
+            proto_data->last_instance_buffer->set(i, vsg::mat4(proto_data->instance_matrix[i]));
+        }
+        proto_data->last_instance_buffer_info = vsg::BufferInfo::create(proto_data->last_instance_buffer);
+
+        proto_data->highlight_buffer = vsg::uintArray::create(proto_data->instance_matrix.size() * 4);
         proto_data->highlight_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
-        for(int i = 0; i < proto_data->instance_matrix.size() / 2 * 4; i ++){
-            proto_data->highlight_buffer->set(i, 0);
+        for(int i = 0; i < proto_data->instance_matrix.size(); i++){
+            proto_data->highlight_buffer->set(i * 4, 0);
+            proto_data->highlight_buffer->set(i * 4 + 1, 0);
+            proto_data->highlight_buffer->set(i * 4 + 2, 0);
+            proto_data->highlight_buffer->set(i * 4 + 3, proto_data->instance_model_indices[i]);
         }
         proto_data->input_highlight_buffer_info = vsg::BufferInfo::create(proto_data->highlight_buffer);
 
         // 2个mat4，1个int，3个padding int，一共36
-        auto instance_data_buffer = vsg::floatArray::create(proto_data->instance_matrix.size() / 2 * 512);
+        auto instance_data_buffer = vsg::floatArray::create(proto_data->instance_matrix.size() * 512);
         proto_data->output_instance_buffer_info = vsg::BufferInfo::create(instance_data_buffer);
 
         vsg::BufferInfoList info_list = {proto_data->output_instance_buffer_info};
@@ -506,6 +589,8 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         if(proto_data->mr_path != ""){
             graphicsPipelineConfig->assignTexture("mrMap", texture_name_to_image_map[proto_data->mr_path]);
         }
+
+        //todo
         graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
         graphicsPipelineConfig->assignTexture("depthImage", depth_info);
         if(proto_data->material != nullptr){
@@ -545,7 +630,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
 
         VkDrawIndexedIndirectCommand cmd = {
             proto_data->indices->size(),      // indexCount
-            proto_data->instance_matrix.size() / 2,     // instanceCount
+            proto_data->instance_matrix.size(),     // instanceCount
             0,         // firstIndex
             0,         // vertexOffset
             0          // firstInstance
@@ -563,6 +648,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
             sizeof(VkDrawIndexedIndirectCommand) // 命令步长
         );
         draw_indirect->instanceMatrix = proto_data->instance_buffer;
+        draw_indirect->highlightBuffer = proto_data->highlight_buffer;
         proto_data->draw_indirect = draw_indirect;
         drawCommands->addChild(draw_indirect);
         // auto draw_indexed = vsg::DrawIndexed::create(proto_data->indices->size(), proto_data->instance_matrix.size() / 2, 0, 0, 0);
@@ -577,6 +663,25 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
             stateGroup->add(pc);
         stateGroup->addChild(drawCommands);
         proto_data->scene->addChild(stateGroup);
+    }
+
+    // 创建全局 model 矩阵缓冲区
+    global_model_matrix_buffer = vsg::mat4Array::create(global_model_matrices.size());
+    global_model_matrix_buffer->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
+    for (size_t i = 0; i < global_model_matrices.size(); i++)
+        global_model_matrix_buffer->set(i, vsg::mat4(global_model_matrices[i]));
+    global_model_matrix_buffer_info = vsg::BufferInfo::create(global_model_matrix_buffer);
+
+    // 创建上一帧全局 model 矩阵缓冲区
+    last_global_model_matrix_buffer = vsg::mat4Array::create(global_model_matrices.size());
+    last_global_model_matrix_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
+    for (size_t i = 0; i < global_model_matrices.size(); i++)
+        last_global_model_matrix_buffer->set(i, vsg::mat4(global_model_matrices[i]));
+    last_global_model_matrix_buffer_info = vsg::BufferInfo::create(last_global_model_matrix_buffer);
+
+    // 设置所有 draw_indirect 的 globalModelMatrix
+    for (ProtoData* proto_data : insert_order_to_data) {
+        proto_data->draw_indirect->globalModelMatrix = global_model_matrix_buffer;
     }
 }
 

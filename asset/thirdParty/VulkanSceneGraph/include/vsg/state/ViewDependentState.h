@@ -154,7 +154,6 @@ namespace vsg
         // Shadow backend.
         ref_ptr<CommandGraph> preRenderCommandGraph;
         ref_ptr<Switch> preRenderSwitch;
-        mutable bool draw_shadow = true;
 
         struct ShadowMap
         {

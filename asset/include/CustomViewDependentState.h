@@ -10,14 +10,16 @@
 class CustomViewDependentState : public vsg::Inherit<vsg::ViewDependentState, CustomViewDependentState>
 {
 public:
-    vsg::dbox scene_bound_ws_virtual;
+    mutable vsg::dbox scene_bound_ws_virtual;
     vsg::dbox scene_bound_ws_real;
+    mutable bool draw_shadow_light = true;  // 光照变化时设置
+    mutable bool draw_shadow_pose = true;   // 模型位姿变化时设置
     vsg::ref_ptr<vsg::CommandGraph> computeCommandGraphShadow;
-    std::string project_path;
+    vsg::ref_ptr<vsg::Options> options;
     vsg::ref_ptr<vsg::DescriptorImage> shadowMapSamplerImages;
 
-    CustomViewDependentState(vsg::View* in_view, vsg::ref_ptr<vsg::Device> device, int computeQueueFamily, std::string in_project_path) :
-        vsg::Inherit<vsg::ViewDependentState, CustomViewDependentState>(in_view), computeCommandGraphShadow(vsg::CommandGraph::create(device, computeQueueFamily)), project_path(in_project_path){}
+    CustomViewDependentState(vsg::View* in_view, vsg::ref_ptr<vsg::Device> device, int computeQueueFamily, vsg::ref_ptr<vsg::Options> in_options) :
+        vsg::Inherit<vsg::ViewDependentState, CustomViewDependentState>(in_view), computeCommandGraphShadow(vsg::CommandGraph::create(device, computeQueueFamily)), options(in_options){}
 
     // to override descriptorset layout
     virtual void init(vsg::ResourceRequirements& requirements) override;

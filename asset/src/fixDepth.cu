@@ -31,29 +31,21 @@ __global__ static void convert_4_to_channels(int w, int h, unsigned short * dept
     }  
 }  
 
-unsigned short * depth_pixels_cuda;
+// CUDA-Vulkan interop版本：CPU深度上传到interop内存，原地inpainting，无需D2H回传
+void fix_depth_interop(int w, int h, unsigned short * host_depth, void* depth_device_ptr){
+    unsigned short* interop_ptr = static_cast<unsigned short*>(depth_device_ptr);
 
-void allocate_fix_depth_memory(int w, int h){
-    cudaMalloc((void**)&depth_pixels_cuda, w * h * sizeof(unsigned short));  
-}
+    // CPU → interop GPU内存（直接写入Vulkan可采样的内存）
+    cudaMemcpy(interop_ptr, host_depth, sizeof(unsigned short) * w * h, cudaMemcpyHostToDevice);
 
+    dim3 block(16, 16);
+    dim3 grid((w + block.x - 1) / block.x,
+              (h + block.y - 1) / block.y);
 
-// color, albedo, normal, fmv, id
-void fix_depth(int w, int h, unsigned short * depth_pixels){
-    cudaMemcpy(depth_pixels_cuda, depth_pixels, sizeof(unsigned short) * w * h, cudaMemcpyHostToDevice);
-    // cudaMemcpy(h_cuda_pictures_4->albedo, host_pictures[1], sizeof(float) * w * h * 4, cudaMemcpyHostToDevice);
-    // cudaMemcpy(h_cuda_pictures_4->normal, host_pictures[2], sizeof(float) * w * h * 4, cudaMemcpyHostToDevice);
-    // cudaMemcpy(h_cuda_pictures_4->fmv, host_pictures[3], sizeof(float) * w * h * 4, cudaMemcpyHostToDevice);
-    // cudaMemcpy(h_cuda_pictures_4->id, host_pictures[4], sizeof(float) * w * h * 4, cudaMemcpyHostToDevice);
-    // cudaMemcpy(h_mask->angular_gaze, gaze_data, sizeof(float) * h_mask->m_gaze_length * 2, cudaMemcpyHostToDevice);
-
-    dim3 block(16, 16);  
-    dim3 grid((w + block.x - 1) / block.x,   
-              (h + block.y - 1) / block.y);  
-
+    // 在interop内存上原地运行inpainting kernel
     for(int iterate_num = 0; iterate_num < 15; iterate_num++){
-        convert_4_to_channels<<<grid, block>>>(w, h, depth_pixels_cuda);  
+        convert_4_to_channels<<<grid, block>>>(w, h, interop_ptr);
     }
-    cudaDeviceSynchronize();  
-    cudaMemcpy(depth_pixels, depth_pixels_cuda, sizeof(unsigned short) * w * h, cudaMemcpyDeviceToHost);
-}  
+    cudaDeviceSynchronize();
+    // 无需 cudaMemcpyDeviceToHost — Vulkan直接采样此内存
+}

@@ -19,56 +19,99 @@ void normalize(std::vector<double>& v) {
     }
 }
 
-MeshData convertPlaneDataToMesh(const PlaneData& planeData) {
-    MeshData meshData;
+MeshData convertPlaneDataToWireframe(const PlaneData& planeData, float subdivision_length) {
+    // 第一遍：计算所有平面的总顶点数和总线段数
+    size_t totalVertices = 0;
+    size_t totalLineSegments = 0;
 
-    size_t totalVertices = planeData.origin.size() * 4;
-    size_t totalIndices = planeData.origin.size() * 6;
+    struct PlaneGrid {
+        int N; // U 方向细分数
+        int M; // V 方向细分数
+    };
+    std::vector<PlaneGrid> grids(planeData.origin.size());
 
-    meshData.vertices = vsg::vec3Array::create(totalVertices);
-    meshData.normals = vsg::vec3Array::create(totalVertices);
-    meshData.indices = vsg::uintArray::create(totalIndices);
+    for (size_t p = 0; p < planeData.origin.size(); ++p) {
+        const auto& u = planeData.u[p];
+        const auto& v = planeData.v[p];
+        double lenU = std::sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2]);
+        double lenV = std::sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
 
+        // 选择 N, M 使得 ||U||/N ≈ ||V||/M（小格近似正方形）
+        int N = std::max(1, static_cast<int>(std::round(lenU / subdivision_length)));
+        int M = std::max(1, static_cast<int>(std::round(lenV / subdivision_length)));
+        grids[p] = {N, M};
 
-    for (size_t i = 0; i < planeData.origin.size(); ++i) {
-        const auto& origin = planeData.origin[i];
-        const auto& normal = planeData.normals[i];
-        const auto& u = planeData.u[i];
-        const auto& v = planeData.v[i];
-
-        // 创建四个顶点
-        std::array<vsg::vec3, 4> vertices;
-
-        // 左下角
-        vertices[0] = vsg::vec3(origin[0], origin[1], origin[2]);
-
-        // 右下角
-        vertices[1] = vsg::vec3(origin[0] + u[0], origin[1] + u[1], origin[2] + u[2]);
-
-        // 右上角
-        vertices[2] = vsg::vec3(origin[0] + u[0] + v[0], origin[1] + u[1] + v[1], origin[2] + u[2] + v[2]);
-
-        // 左上角
-        vertices[3] = vsg::vec3(origin[0] + v[0], origin[1] + v[1], origin[2] + v[2]);
-
-        // 添加顶点到meshData
-        size_t baseIndex = i * 4;
-        for (size_t j = 0; j < 4; ++j) {
-            meshData.vertices->set(baseIndex + j, vertices[j]);
-            meshData.normals->set(baseIndex + j, vsg::vec3(normal[0], normal[1], normal[2]));
-        }
-
-        // 添加索引（两个三角形）
-        size_t indexBase = i * 6;
-        meshData.indices->set(indexBase, baseIndex);
-        meshData.indices->set(indexBase + 1, baseIndex + 1);
-        meshData.indices->set(indexBase + 2, baseIndex + 2);
-        meshData.indices->set(indexBase + 3, baseIndex);
-        meshData.indices->set(indexBase + 4, baseIndex + 2);
-        meshData.indices->set(indexBase + 5, baseIndex + 3);
+        totalVertices += (N + 1) * (M + 1);
+        // 水平线 (M+1) + 垂直线 (N+1) + 对角线 (N+M-1) = 2N + 2M + 1
+        totalLineSegments += 2 * N + 2 * M + 1;
     }
 
-    std::cout << "MeshData: vertices size = " << meshData.vertices->size() << "---------------------------------------------------------------"<< std::endl;
+    MeshData meshData;
+    meshData.vertices = vsg::vec3Array::create(totalVertices);
+    meshData.normals = vsg::vec3Array::create(totalVertices);
+    meshData.indices = vsg::uintArray::create(totalLineSegments * 2); // 每条线段 2 个索引
+
+    size_t vertexOffset = 0;
+    size_t indexOffset = 0;
+
+    for (size_t p = 0; p < planeData.origin.size(); ++p) {
+        const auto& origin = planeData.origin[p];
+        const auto& normal = planeData.normals[p];
+        const auto& u = planeData.u[p];
+        const auto& v = planeData.v[p];
+        int N = grids[p].N;
+        int M = grids[p].M;
+
+        // 生成 (N+1)*(M+1) 个顶点网格
+        // vertex(i,j) = origin + i*(U/N) + j*(V/M)
+        auto vertexIdx = [&](int i, int j) -> uint32_t {
+            return static_cast<uint32_t>(vertexOffset + i * (M + 1) + j);
+        };
+
+        for (int i = 0; i <= N; ++i) {
+            for (int j = 0; j <= M; ++j) {
+                double fi = static_cast<double>(i) / N;
+                double fj = static_cast<double>(j) / M;
+                vsg::vec3 pos(
+                    origin[0] + fi * u[0] + fj * v[0],
+                    origin[1] + fi * u[1] + fj * v[1],
+                    origin[2] + fi * u[2] + fj * v[2]
+                );
+                meshData.vertices->set(vertexIdx(i, j), pos);
+                meshData.normals->set(vertexIdx(i, j), vsg::vec3(normal[0], normal[1], normal[2]));
+            }
+        }
+
+        // 水平线 (M+1 条): 每条从 vertex(0,j) 到 vertex(N,j)
+        for (int j = 0; j <= M; ++j) {
+            meshData.indices->set(indexOffset++, vertexIdx(0, j));
+            meshData.indices->set(indexOffset++, vertexIdx(N, j));
+        }
+
+        // 垂直线 (N+1 条): 每条从 vertex(i,0) 到 vertex(i,M)
+        for (int i = 0; i <= N; ++i) {
+            meshData.indices->set(indexOffset++, vertexIdx(i, 0));
+            meshData.indices->set(indexOffset++, vertexIdx(i, M));
+        }
+
+        // 对角线 (N+M-1 条): 沿 d=i-j 方向的共线对角线
+        // d 从 -(M-1) 到 (N-1)
+        // 每条对角线从 vertex(max(0,d), max(0,-d)) 到 vertex(min(N,M+d), min(M,N-d))
+        for (int d = -(M - 1); d <= (N - 1); ++d) {
+            int i_start = std::max(0, d);
+            int j_start = std::max(0, -d);
+            int i_end = std::min(N, M + d);
+            int j_end = std::min(M, N - d);
+            meshData.indices->set(indexOffset++, vertexIdx(i_start, j_start));
+            meshData.indices->set(indexOffset++, vertexIdx(i_end, j_end));
+        }
+
+        vertexOffset += (N + 1) * (M + 1);
+    }
+
+    std::cout << "Wireframe: vertices=" << meshData.vertices->size()
+              << " lines=" << (meshData.indices->size() / 2)
+              << " indices=" << meshData.indices->size() << std::endl;
 
     return meshData;
 }
@@ -111,49 +154,4 @@ PlaneData createTestPlanes() {
     // planeData.v.push_back({0.0, size, 0.0});
 
     return planeData;
-}
-
-PlaneData subdividePlanes(const PlaneData& originalPlaneData, float subdivision_length) {
-    PlaneData subdividedPlaneData;
-
-    for (size_t i = 0; i < originalPlaneData.origin.size(); ++i) {
-        const auto& originalOrigin = originalPlaneData.origin[i];
-        const auto& originalNormal = originalPlaneData.normals[i];
-        const auto& originalU = originalPlaneData.u[i];
-        const auto& originalV = originalPlaneData.v[i];
-
-        double subdivisions_U = std::sqrt(originalU[0] * originalU[0] + originalU[1] * originalU[1] + originalU[2] * originalU[2]) / subdivision_length + 1;
-        double subdivisions_V = std::sqrt(originalV[0] * originalV[0] + originalV[1] * originalV[1] + originalV[2] * originalV[2]) / subdivision_length + 1;
-        // 计算单位子平面的 u 和 v 向量
-        std::cout << subdivisions_U << subdivisions_V << std::endl;
-        std::vector<double> subU = {
-            originalU[0] / subdivisions_U,
-            originalU[1] / subdivisions_U,
-            originalU[2] / subdivisions_U
-        };
-        std::vector<double> subV = {
-            originalV[0] / subdivisions_V,
-            originalV[1] / subdivisions_V,
-            originalV[2] / subdivisions_V
-        };
-
-        for (int row = 0; row < subdivisions_U; ++row) {
-            for (int col = 0; col < subdivisions_V; ++col) {
-                // 计算子平面的原点
-                std::vector<double> subOrigin = {
-                    originalOrigin[0] + col * subU[0] + row * subV[0],
-                    originalOrigin[1] + col * subU[1] + row * subV[1],
-                    originalOrigin[2] + col * subU[2] + row * subV[2]
-                };
-
-                // 添加子平面数据
-                subdividedPlaneData.origin.push_back(subOrigin);
-                subdividedPlaneData.normals.push_back(originalNormal);
-                subdividedPlaneData.u.push_back(subU);
-                subdividedPlaneData.v.push_back(subV);
-            }
-        }
-    }
-
-    return subdividedPlaneData;
 }

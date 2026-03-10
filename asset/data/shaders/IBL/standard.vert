@@ -29,6 +29,7 @@ layout(binding = 6) uniform sampler2D displacementMap;
 
 struct InstanceData {
     mat4 modelMatrix;
+    mat4 lastModelMatrix;
     vec4 highlight[10];
 };
 
@@ -58,6 +59,7 @@ layout(location = 4) out float highlight;
 layout(location = 5) out float InstanceID;
 layout(location = 6) out vec3 worldNormal;
 layout(location = 7) out vec3 worldViewDir;
+layout(location = 8) out vec3 lastWorldPos;
 
 #define VIEW_DESCRIPTOR_SET 1
 layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
@@ -91,13 +93,16 @@ void main()
     vec4 vertex = vec4(vsg_Vertex, 1.0);
     InstanceData instanceModelMatrixi = instanceMatrices.instanceModelMatrix[gl_InstanceIndex];
     mat4 model = instanceModelMatrixi.modelMatrix;
+    mat4 lastModel = instanceModelMatrixi.lastModelMatrix;
     vec4 modelVertex = model * vertex;
+    vec4 lastVertex = lastModel * vertex;
     vec4 viewVertex = pc.view * modelVertex;
     vec4 normal = vec4(vsg_Normal, 0.0);
 
     gl_Position = pc.projection * viewVertex;
 
     worldViewDir = (modelVertex).xyz;
+    lastWorldPos = lastVertex.xyz;
     eyePos = viewVertex.xyz;
 
     worldNormal = mat3(model) * normal.xyz;

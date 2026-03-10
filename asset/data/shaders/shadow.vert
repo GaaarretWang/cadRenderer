@@ -28,6 +28,7 @@ layout(binding = 6) uniform sampler2D displacementMap;
 
 struct InstanceData {
     mat4 modelMatrix;
+    mat4 lastModelMatrix;
     vec4 highlight[10];
 };
 
@@ -57,7 +58,7 @@ layout(location = 4) out vec3 worldViewDir;
 
 layout(location = 5) out vec3 viewDir;
 layout(location = 6) out float InstanceID;
-layout(location = 7) out vec4 ndc;
+layout(location = 8) out vec3 lastWorldPos;
 
 out gl_PerVertex{ vec4 gl_Position; };
 
@@ -85,7 +86,9 @@ void main()
     vec4 vertex = vec4(vsg_Vertex, 1.0);
     InstanceData instanceModelMatrixi = instanceMatrices.instanceModelMatrix[gl_InstanceIndex];
     mat4 model = instanceModelMatrixi.modelMatrix;
+    mat4 lastModel = instanceModelMatrixi.lastModelMatrix;
     vertex = model * vertex;
+    vec4 lastVertex = lastModel * vec4(vsg_Vertex, 1.0);
     vec4 normal = vec4(vsg_Normal, 0.0);
     mat4 mv = pc.view;
 
@@ -97,7 +100,5 @@ void main()
     InstanceID = vsg_InstanceID.x;
     texCoord0 = vsg_TexCoord0;
     worldViewDir = (vertex).xyz;
-    ndc = (pc.projection * mv) * vertex;
-    ndc.xyz /= ndc.w;
-    ndc.w = 1/ndc.w;
+    lastWorldPos = lastVertex.xyz;
 }

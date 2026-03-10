@@ -9,7 +9,7 @@ RenderingServer::RenderingServer() = default;
 RenderingServer::~RenderingServer() = default;
 
 bool RenderingServer::loadSceneFromJSON(const std::string& scene_name_or_id) {
-    std::string json_path = rendering_dir + "asset/data/Scenes.json";
+    std::string json_path = rendering_dir + "asset/data/json/Scenes.json";
     std::ifstream json_file(json_path);
 
     if (!json_file.is_open()) {
@@ -26,8 +26,12 @@ bool RenderingServer::loadSceneFromJSON(const std::string& scene_name_or_id) {
     // 查找场景
     nlohmann::json* target_scene = nullptr;
 
-    // 尝试按ID查找
-    if (std::all_of(scene_name_or_id.begin(), scene_name_or_id.end(), ::isdigit)) {
+    // 尝试按ID查找（支持负数ID）
+    bool is_numeric = !scene_name_or_id.empty() &&
+        (scene_name_or_id[0] == '-' ?
+            std::all_of(scene_name_or_id.begin() + 1, scene_name_or_id.end(), ::isdigit) && scene_name_or_id.size() > 1 :
+            std::all_of(scene_name_or_id.begin(), scene_name_or_id.end(), ::isdigit));
+    if (is_numeric) {
         int scene_id = std::stoi(scene_name_or_id);
         for (auto& scene : json_data["scenes"]) {
             if (scene["id"] == scene_id) {
@@ -52,24 +56,18 @@ bool RenderingServer::loadSceneFromJSON(const std::string& scene_name_or_id) {
         return false;
     }
 
+    // 记录加载的场景ID
+    loaded_scene_id = (*target_scene)["id"].get<int>();
+
     // 加载场景中的模型
     for (auto& model : (*target_scene)["models"]) {
         std::string model_path = rendering_dir + model["path"].get<std::string>();
         model_paths.push_back(model_path);
 
-        // 计算最终变换矩阵
+        // 读取变换矩阵（单个矩阵，不再做序列相乘）
         vsg::dmat4 final_transform;
-        bool first_matrix = true;
-
-        for (auto& matrix_array : model["transform_sequence"]) {
-            vsg::dmat4 current_matrix = parseMatrixFromJSON(matrix_array);
-
-            if (first_matrix) {
-                final_transform = current_matrix;
-                first_matrix = false;
-            } else {
-                final_transform = final_transform * current_matrix;
-            }
+        if (model.contains("transform_sequence") && model["transform_sequence"].size() > 0) {
+            final_transform = parseMatrixFromJSON(model["transform_sequence"][0]);
         }
 
         model_transforms.push_back(final_transform);
@@ -81,19 +79,11 @@ bool RenderingServer::loadSceneFromJSON(const std::string& scene_name_or_id) {
         std::string shadow_path = rendering_dir + (*target_scene)["shadow_receiver_path"].get<std::string>();
         renderer.shadow_recevier_path = shadow_path;
 
-        // 计算shadow_receiver变换矩阵
+        // 读取shadow_receiver变换矩阵（单个矩阵）
         vsg::dmat4 shadow_final_transform;
-        bool first_shadow_matrix = true;
-
-        for (auto& matrix_array : (*target_scene)["shadow_receiver_transform"]) {
-            vsg::dmat4 current_matrix = parseMatrixFromJSON(matrix_array);
-
-            if (first_shadow_matrix) {
-                shadow_final_transform = current_matrix;
-                first_shadow_matrix = false;
-            } else {
-                shadow_final_transform = shadow_final_transform * current_matrix;
-            }
+        auto& shadow_transforms = (*target_scene)["shadow_receiver_transform"];
+        if (shadow_transforms.size() > 0) {
+            shadow_final_transform = parseMatrixFromJSON(shadow_transforms[0]);
         }
 
         renderer.shadow_recevier_transform = shadow_final_transform;
@@ -114,12 +104,12 @@ vsg::dmat4 RenderingServer::parseMatrixFromJSON(const nlohmann::json& matrix_arr
         throw std::runtime_error("矩阵数组必须包含16个元素");
     }
 
-    return vsg::dmat4(
-        matrix_array[0].get<double>(), matrix_array[1].get<double>(), matrix_array[2].get<double>(), matrix_array[3].get<double>(),
-        matrix_array[4].get<double>(), matrix_array[5].get<double>(), matrix_array[6].get<double>(), matrix_array[7].get<double>(),
-        matrix_array[8].get<double>(), matrix_array[9].get<double>(), matrix_array[10].get<double>(), matrix_array[11].get<double>(),
-        matrix_array[12].get<double>(), matrix_array[13].get<double>(), matrix_array[14].get<double>(), matrix_array[15].get<double>()
-    );
+    // JSON存储行主序，vsg使用列主序，需要转置
+    vsg::dmat4 mat;
+    for (int row = 0; row < 4; row++)
+        for (int col = 0; col < 4; col++)
+            mat[col][row] = matrix_array[row * 4 + col].get<double>();
+    return mat;
 }
 
 int RenderingServer::Init(int argc, char** argv){
@@ -136,12 +126,25 @@ int RenderingServer::Init(int argc, char** argv){
     arguments.read("-s", scene_to_load);
 
     // 加载场景
-    if (!loadSceneFromJSON(scene_to_load)) {
+    if (scene_to_load == "-1") {
+        // ID=-1: 不从JSON加载，使用已有数据或默认测试数据
+        if (model_paths.empty()) {
+            model_paths.push_back(rendering_dir + "asset/data/obj/sphere.obj");
+            instance_names.push_back("test_sphere");
+            model_transforms.push_back(vsg::dmat4(1.0));
+            renderer.shadow_recevier_path = rendering_dir + "asset/data/obj/shadow_receiver2.obj";
+            renderer.shadow_recevier_transform = vsg::dmat4(1.0);
+        }
+        loaded_scene_id = -1;
+    } else if (!loadSceneFromJSON(scene_to_load)) {
         std::cerr << "错误：无法加载场景 '" << scene_to_load << "'，程序将退出" << std::endl;
         return -1;
     }
 
-    renderer.setUpShader(rendering_dir);
+    // 传递场景元数据给CADMesh
+    CADMesh::scenes_json_path = rendering_dir + "asset/data/json/Scenes.json";
+    CADMesh::current_scene_id = loaded_scene_id;
+
     renderer.shader_type = shader_type;
     renderer.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/twoAirplaneBody.fb");
     renderer.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/twoAirplaneBody_white.fb");
@@ -168,8 +171,7 @@ int RenderingServer::Update(){
 
     // static PlaneData planeData = createTestPlanes();
     // static float subdivisions = 0.1;
-    // static PlaneData subdividedPlaneData = subdividePlanes(planeData, subdivisions);
-    // static MeshData mesh = convertPlaneDataToMesh(subdividedPlaneData);
+    // static MeshData mesh = convertPlaneDataToWireframe(planeData, subdivisions);
     // float* vertices_pointer = static_cast<float*>(mesh.vertices->dataPointer(0));
     // size_t vertices_size = mesh.vertices->size() * 3;
     // uint32_t* indices_pointer = static_cast<uint32_t*>(mesh.indices->dataPointer(0));
@@ -205,9 +207,6 @@ int RenderingServer::Update(){
         vsg::dvec3 eye = {lookat_vector[3], lookat_vector[4], lookat_vector[5]};// 固定相机位置
         vsg::dvec3 up = {lookat_vector[6], lookat_vector[7], lookat_vector[8]};                       // 固定观察方向
         renderer.updateCamera(centre, eye, up);
-    renderer.updateCamera(vsg::dvec3(-0.326470, 0.600668, -0.649556), 
-                        vsg::dvec3(1.197728, -0.131292, -0.120896), 
-                        vsg::dvec3(-0.246774, 0.174593, 0.953216));
 
         auto color_pixels = all_images[frame_count % all_images.size()].color.get();
         auto depth_pixels = all_images[frame_count % all_images.size()].depth.get();

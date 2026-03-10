@@ -3,19 +3,95 @@
 #include <vsgRendererServer.h>
 #include <iomanip> // 用于std::setw格式化JSON
 
+namespace vsgserver {
+    vsgRendererServer* renderer = nullptr;
+}
+
+// 辅助函数：vsg列主序矩阵 → 行主序JSON数组（16个double）
+static json matrixToRowMajorJson(const vsg::dmat4& mat)
+{
+    json arr = json::array();
+    for (int row = 0; row < 4; row++)
+        for (int col = 0; col < 4; col++)
+            arr.push_back(mat[col][row]);
+    return arr;
+}
+
+// 辅助函数：行主序JSON数组（16个double） → vsg列主序矩阵
+static vsg::dmat4 rowMajorJsonToMatrix(const json& arr)
+{
+    vsg::dmat4 mat;
+    for (int row = 0; row < 4; row++)
+        for (int col = 0; col < 4; col++)
+            mat[col][row] = arr[row * 4 + col].get<double>();
+    return mat;
+}
+
+// InstanceTransformState 实现
+vsg::dmat4 InstanceTransformState::computeUserTransform() const
+{
+    double tx = translate[0], ty = translate[1], tz = translate[2];
+    double rx = rotate[0] * M_PI / 180.0;
+    double ry = rotate[1] * M_PI / 180.0;
+    double rz = rotate[2] * M_PI / 180.0;
+    double s = scale_percent / 100.0;
+
+    auto T = vsg::translate(tx, ty, tz);
+    auto Rz = vsg::rotate(rz, 0.0, 0.0, 1.0);
+    auto Ry = vsg::rotate(ry, 0.0, 1.0, 0.0);
+    auto Rx = vsg::rotate(rx, 1.0, 0.0, 0.0);
+    auto S = vsg::scale(s, s, s);
+
+    return T * Rz * Ry * Rx * S;
+}
+
+// final = T * original * Rz * Ry * Rx * S
+// 平移在左侧（世界空间），旋转和缩放在右侧（局部空间）
+vsg::dmat4 InstanceTransformState::computeFinalTransform() const
+{
+    double tx = translate[0], ty = translate[1], tz = translate[2];
+    double rx = rotate[0] * M_PI / 180.0;
+    double ry = rotate[1] * M_PI / 180.0;
+    double rz = rotate[2] * M_PI / 180.0;
+    double s = scale_percent / 100.0;
+
+    auto T = vsg::translate(tx, ty, tz);
+    auto Rz = vsg::rotate(rz, 0.0, 0.0, 1.0);
+    auto Ry = vsg::rotate(ry, 0.0, 1.0, 0.0);
+    auto Rx = vsg::rotate(rx, 1.0, 0.0, 0.0);
+    auto S = vsg::scale(s, s, s);
+
+    return T * original_transform * Rz * Ry * Rx * S;
+}
+
 namespace gui
 {
-    vsg::ref_ptr<Params> global_params = Params::create();  // ✅ 在 cpp 中初始化
+    vsg::ref_ptr<Params> global_params = Params::create();
 
     // 实现构造函数
     MyGui::MyGui(vsgRendererServer* renderer,
-                 vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data, 
-                 const std::string& json_path,
+                 vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data,
+                 const std::string& scenes_json_path,
+                 const std::string& materials_json_path,
                  vsg::ref_ptr<vsg::Options> options)
-        : m_renderer(renderer), m_pc_data(pc_data), m_json_path(json_path)
+        : m_renderer(renderer), m_pc_data(pc_data),
+          m_scenes_json_path(scenes_json_path), m_materials_json_path(materials_json_path)
     {
         // 加载JSON文件初始化参数
         loadParams();
+        // 初始化实例变换状态
+        initInstanceStates();
+    }
+
+    void MyGui::initInstanceStates()
+    {
+        m_instance_states.clear();
+        for (size_t i = 0; i < CADMesh::scene_instance_names.size(); i++) {
+            InstanceTransformState state;
+            state.instance_name = CADMesh::scene_instance_names[i];
+            state.original_transform = CADMesh::scene_original_transforms[i];
+            m_instance_states.push_back(state);
+        }
     }
 
     void MyGui::compile(vsg::Context& context)
@@ -26,146 +102,220 @@ namespace gui
     // 实现加载JSON参数
     void MyGui::loadParams()
     {
-        std::cout << m_json_path << std::endl;
-        // 1. 读取JSON文件，若无则创建空JSON
-        if (fs::exists(m_json_path))
+        loadRenderParams();
+        loadMaterialParams();
+    }
+
+    // 从Scenes.json加载当前场景的渲染参数
+    void MyGui::loadRenderParams()
+    {
+        std::cout << "Loading render params from: " << m_scenes_json_path << std::endl;
+        if (!fs::exists(m_scenes_json_path))
         {
-            try
+            std::cerr << "Scenes JSON not found: " << m_scenes_json_path << std::endl;
+            return;
+        }
+
+        try
+        {
+            json scenes_data;
+            std::ifstream file(m_scenes_json_path);
+            if (file.is_open())
             {
-                std::ifstream file(m_json_path);
-                if (file.is_open())
+                file >> scenes_data;
+                file.close();
+            }
+
+            // 按当前场景ID查找
+            int scene_id = CADMesh::current_scene_id;
+            json* target_scene = nullptr;
+            if (scenes_data.contains("scenes"))
+            {
+                for (auto& scene : scenes_data["scenes"])
                 {
-                    file >> m_json_data;
-                    file.close();
-                }
-            }
-            catch (const std::exception& e)
-            {
-                std::cerr << "Failed to load JSON file: " << e.what() << std::endl;
-                m_json_data = json::object(); // 加载失败则初始化空对象
-            }
-        }
-        else
-        {
-            m_json_data = json::object(); // 文件不存在则创建空JSON
-        }
-
-        // 2. 加载系统渲染参数
-        if (m_json_data.contains("render_params"))
-        {
-            auto& render_params = m_json_data["render_params"];
-            // 加载GlobalPCData中的渲染参数
-            if (render_params.contains("baseBrightness"))
-                m_pc_data->value().baseBrightness = render_params["baseBrightness"];
-            if (render_params.contains("ssao_radius"))
-                m_pc_data->value().ssao_radius = render_params["ssao_radius"];
-            if (render_params.contains("ssao_kernel_size"))
-                m_pc_data->value().ssao_kernel_size = render_params["ssao_kernel_size"];
-            if (render_params.contains("exposure"))
-                m_pc_data->value().exposure = render_params["exposure"];
-            if (render_params.contains("denoise_size"))
-                m_pc_data->value().denoise_size = render_params["denoise_size"];
-            if (render_params.contains("shadow bias")){
-                m_pc_data->value().shadow_bias = render_params["shadow bias"];
-            }
-            if (render_params.contains("blocker_sample_num"))
-                m_pc_data->value().blocker_sample_num = render_params["blocker_sample_num"];
-            if (render_params.contains("pcf_sample_num"))
-                m_pc_data->value().pcf_sample_num = render_params["pcf_sample_num"];
-
-            if (render_params.contains("shadow_type"))
-                m_pc_data->value().shadow_type = render_params["shadow_type"];
-            if (render_params.contains("pcf_softness"))
-                pcf_softness = render_params["pcf_softness"];
-            if (render_params.contains("pcss_softness"))
-                pcss_softness = render_params["pcss_softness"];
-            if (render_params.contains("pcss_softness_falloff"))
-                pcss_softness_falloff = render_params["pcss_softness_falloff"];
-        }
-
-        // 3. 加载材质参数（按需加载当前场景的material）
-        if (m_json_data.contains("material_params"))
-        {
-            auto& material_params = m_json_data["material_params"];
-            for (auto& id_data : CADMesh::proto_id_to_data_map)
-            {
-                std::string id = id_data.first;
-                ProtoData* proto_data = id_data.second;
-                if (proto_data->material == nullptr)
-                    continue;
-                
-                // 提取材质Key
-                std::string mat_key = extractMaterialKey(id);
-                if (material_params.contains(mat_key))
-                {
-                    auto& mat_data = material_params[mat_key];
-                    vsg::PbrMaterial& pbr_mat = proto_data->material->value();
-                    
-                    // 加载材质参数
-                    if (mat_data.contains("metallicFactor"))
-                        pbr_mat.metallicFactor = mat_data["metallicFactor"];
-                    if (mat_data.contains("roughnessFactor"))
-                        pbr_mat.roughnessFactor = mat_data["roughnessFactor"];
-                    if (mat_data.contains("baseColorFactor"))
+                    if (scene["id"] == scene_id)
                     {
-                        auto& base_color = mat_data["baseColorFactor"];
-                        pbr_mat.baseColorFactor = vsg::vec4(
-                            base_color[0], base_color[1], base_color[2], base_color[3]
-                        );
+                        target_scene = &scene;
+                        break;
                     }
-                    proto_data->material->dirty(); // 标记脏数据，触发更新
+                }
+            }
+
+            if (target_scene == nullptr)
+            {
+                std::cerr << "Scene id " << scene_id << " not found in Scenes.json" << std::endl;
+                return;
+            }
+
+            // 加载 render_params
+            if (target_scene->contains("render_params"))
+            {
+                auto& render_params = (*target_scene)["render_params"];
+                if (render_params.contains("hdr_image_num"))
+                    m_renderer->hdr_image_num = render_params["hdr_image_num"];
+                if (render_params.contains("baseBrightness"))
+                    m_pc_data->value().baseBrightness = render_params["baseBrightness"];
+                if (render_params.contains("ssao_radius"))
+                    m_pc_data->value().ssao_radius = render_params["ssao_radius"];
+                if (render_params.contains("ssao_kernel_size"))
+                    m_pc_data->value().ssao_kernel_size = render_params["ssao_kernel_size"];
+                if (render_params.contains("exposure"))
+                    m_pc_data->value().exposure = render_params["exposure"];
+                if (render_params.contains("denoise_size"))
+                    m_pc_data->value().denoise_size = render_params["denoise_size"];
+                if (render_params.contains("shadow_bias"))
+                    m_pc_data->value().shadow_bias = render_params["shadow_bias"];
+                if (render_params.contains("blocker_sample_num"))
+                    m_pc_data->value().blocker_sample_num = render_params["blocker_sample_num"];
+                if (render_params.contains("pcf_sample_num"))
+                    m_pc_data->value().pcf_sample_num = render_params["pcf_sample_num"];
+                if (render_params.contains("shadow_type"))
+                    m_pc_data->value().shadow_type = render_params["shadow_type"];
+                if (render_params.contains("pcf_softness"))
+                    pcf_softness = render_params["pcf_softness"];
+                if (render_params.contains("pcss_softness"))
+                    pcss_softness = render_params["pcss_softness"];
+                if (render_params.contains("pcss_softness_falloff"))
+                    pcss_softness_falloff = render_params["pcss_softness_falloff"];
+            }
+
+            // 加载 line_point_style
+            if (target_scene->contains("line_point_style"))
+            {
+                auto& lp_style = (*target_scene)["line_point_style"];
+                if (lp_style.contains("line_color"))
+                {
+                    auto& color = lp_style["line_color"];
+                    auto& line_colors = CADMesh::dynamic_lines.colors->value();
+                    line_colors = vsg::vec4(color[0], color[1], color[2], 1.0f);
+                    CADMesh::dynamic_lines.colors->dirty();
+                }
+                if (lp_style.contains("point_color"))
+                {
+                    auto& color = lp_style["point_color"];
+                    auto& point_colors = CADMesh::dynamic_points.colors->value();
+                    point_colors = vsg::vec4(color[0], color[1], color[2], 1.0f);
+                    CADMesh::dynamic_points.colors->dirty();
                 }
             }
         }
-
-        // 4. 加载动态对象参数
-        if (m_json_data.contains("dynamic_objects"))
+        catch (const std::exception& e)
         {
-            auto& dynamic = m_json_data["dynamic_objects"];
-            if (dynamic.contains("line_color"))
+            std::cerr << "Failed to load render params: " << e.what() << std::endl;
+        }
+    }
+
+    // 从Materials.json加载材质参数
+    void MyGui::loadMaterialParams()
+    {
+        if (!fs::exists(m_materials_json_path))
+        {
+            std::cerr << "Materials JSON not found: " << m_materials_json_path << std::endl;
+            return;
+        }
+
+        try
+        {
+            json mat_data;
+            std::ifstream file(m_materials_json_path);
+            if (file.is_open())
             {
-                auto& color = dynamic["line_color"];
-                auto& line_colors = CADMesh::dynamic_lines.colors->value();
-                line_colors = vsg::vec4(color[0], color[1], color[2], 1.0f);
-                CADMesh::dynamic_lines.colors->dirty();
+                file >> mat_data;
+                file.close();
             }
-            if (dynamic.contains("point_color"))
+
+            if (mat_data.contains("material_params"))
             {
-                auto& color = dynamic["point_color"];
-                auto& point_colors = CADMesh::dynamic_points.colors->value();
-                point_colors = vsg::vec4(color[0], color[1], color[2], 1.0f);
-                CADMesh::dynamic_points.colors->dirty();
+                auto& material_params = mat_data["material_params"];
+                for (auto& id_data : CADMesh::proto_id_to_data_map)
+                {
+                    std::string id = id_data.first;
+                    ProtoData* proto_data = id_data.second;
+                    if (proto_data->material == nullptr)
+                        continue;
+
+                    std::string mat_key = extractMaterialKey(id);
+                    if (material_params.contains(mat_key))
+                    {
+                        auto& md = material_params[mat_key];
+                        vsg::PbrMaterial& pbr_mat = proto_data->material->value();
+
+                        if (md.contains("metallicFactor"))
+                            pbr_mat.metallicFactor = md["metallicFactor"];
+                        if (md.contains("roughnessFactor"))
+                            pbr_mat.roughnessFactor = md["roughnessFactor"];
+                        if (md.contains("baseColorFactor"))
+                        {
+                            auto& base_color = md["baseColorFactor"];
+                            pbr_mat.baseColorFactor = vsg::vec4(
+                                base_color[0], base_color[1], base_color[2], base_color[3]
+                            );
+                        }
+                        proto_data->material->dirty();
+                    }
+                }
             }
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << "Failed to load material params: " << e.what() << std::endl;
         }
     }
 
     // 实现保存参数到JSON文件
     void MyGui::saveParams() const
     {
+        saveRenderParams();
+        saveMaterialParams();
+    }
+
+    // 保存渲染参数到Scenes.json的当前场景
+    void MyGui::saveRenderParams() const
+    {
         try
         {
-            json new_json_data;
-
-            // 1. 先加载原有JSON数据（保留历史Key）
-            if (fs::exists(m_json_path))
+            json scenes_data;
+            if (fs::exists(m_scenes_json_path))
             {
-                std::ifstream file(m_json_path);
+                std::ifstream file(m_scenes_json_path);
                 if (file.is_open())
                 {
-                    file >> new_json_data;
+                    file >> scenes_data;
                     file.close();
                 }
             }
 
-            // 2. 更新系统渲染参数
-            json& render_params = new_json_data["render_params"];
+            // 查找当前场景
+            int scene_id = CADMesh::current_scene_id;
+            json* target_scene = nullptr;
+            if (scenes_data.contains("scenes"))
+            {
+                for (auto& scene : scenes_data["scenes"])
+                {
+                    if (scene["id"] == scene_id)
+                    {
+                        target_scene = &scene;
+                        break;
+                    }
+                }
+            }
+
+            if (target_scene == nullptr)
+            {
+                std::cerr << "Scene id " << scene_id << " not found, cannot save render params" << std::endl;
+                return;
+            }
+
+            // 更新 render_params
             const auto& pc_data = m_pc_data->value();
+            json& render_params = (*target_scene)["render_params"];
+            render_params["hdr_image_num"] = m_renderer->hdr_image_num;
             render_params["baseBrightness"] = pc_data.baseBrightness;
             render_params["ssao_radius"] = pc_data.ssao_radius;
             render_params["ssao_kernel_size"] = pc_data.ssao_kernel_size;
             render_params["exposure"] = pc_data.exposure;
             render_params["denoise_size"] = pc_data.denoise_size;
-            render_params["shadow bias"] = pc_data.shadow_bias;
+            render_params["shadow_bias"] = pc_data.shadow_bias;
             render_params["blocker_sample_num"] = pc_data.blocker_sample_num;
             render_params["pcf_sample_num"] = pc_data.pcf_sample_num;
             render_params["shadow_type"] = pc_data.shadow_type;
@@ -173,19 +323,56 @@ namespace gui
             render_params["pcss_softness"] = pcss_softness;
             render_params["pcss_softness_falloff"] = pcss_softness_falloff;
 
-            // 保存Params中的系统参数
-            if (global_params)
+            // 更新 line_point_style
+            json& lp_style = (*target_scene)["line_point_style"];
+            lp_style["line_color"] = {
+                CADMesh::dynamic_lines.colors->value().r,
+                CADMesh::dynamic_lines.colors->value().g,
+                CADMesh::dynamic_lines.colors->value().b
+            };
+            lp_style["point_color"] = {
+                CADMesh::dynamic_points.colors->value().r,
+                CADMesh::dynamic_points.colors->value().g,
+                CADMesh::dynamic_points.colors->value().b
+            };
+
+            // 写回文件
+            std::ofstream file(m_scenes_json_path);
+            if (file.is_open())
             {
-                render_params["model_scale"] = global_params->model_scale;
-                render_params["model_translate"] = {
-                    global_params->model_translate[0],
-                    global_params->model_translate[1],
-                    global_params->model_translate[2]
-                };
+                file << std::setw(4) << scenes_data << std::endl;
+                file.close();
+                std::cout << "Render params saved to: " << m_scenes_json_path << " (scene_id=" << scene_id << ")" << std::endl;
+            }
+            else
+            {
+                std::cerr << "Failed to open file for writing: " << m_scenes_json_path << std::endl;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            std::cerr << "Failed to save render params: " << e.what() << std::endl;
+        }
+    }
+
+    // 保存材质参数到Materials.json
+    void MyGui::saveMaterialParams() const
+    {
+        try
+        {
+            json mat_json;
+            // 先加载原有数据（保留历史Key）
+            if (fs::exists(m_materials_json_path))
+            {
+                std::ifstream file(m_materials_json_path);
+                if (file.is_open())
+                {
+                    file >> mat_json;
+                    file.close();
+                }
             }
 
-            // 3. 更新材质参数（保留历史Key，覆盖当前场景的材质）
-            json& material_params = new_json_data["material_params"];
+            json& material_params = mat_json["material_params"];
             std::unordered_set<vsg::PbrMaterial*> unique_material;
             for (auto& id_data : CADMesh::proto_id_to_data_map)
             {
@@ -193,16 +380,14 @@ namespace gui
                 ProtoData* proto_data = id_data.second;
                 if (proto_data->material == nullptr)
                     continue;
-                
+
                 vsg::PbrMaterial* pbr_ptr = reinterpret_cast<PbrMaterial*>(proto_data->material->dataPointer());
                 if (unique_material.find(pbr_ptr) != unique_material.end())
                     continue;
-                
-                // 提取材质Key
+
                 std::string mat_key = extractMaterialKey(id);
                 vsg::PbrMaterial& pbr_mat = proto_data->material->value();
-                
-                // 保存材质参数
+
                 material_params[mat_key]["metallicFactor"] = pbr_mat.metallicFactor;
                 material_params[mat_key]["roughnessFactor"] = pbr_mat.roughnessFactor;
                 material_params[mat_key]["baseColorFactor"] = {
@@ -211,52 +396,31 @@ namespace gui
                     pbr_mat.baseColorFactor.b,
                     pbr_mat.baseColorFactor.a
                 };
-                
+
                 unique_material.insert(pbr_ptr);
             }
 
-            // 4. 更新动态对象参数
-            json& dynamic_objects = new_json_data["dynamic_objects"];
-            dynamic_objects["line_color"] = {
-                CADMesh::dynamic_lines.colors->value().r,
-                CADMesh::dynamic_lines.colors->value().g,
-                CADMesh::dynamic_lines.colors->value().b
-            };
-            dynamic_objects["point_color"] = {
-                CADMesh::dynamic_points.colors->value().r,
-                CADMesh::dynamic_points.colors->value().g,
-                CADMesh::dynamic_points.colors->value().b
-            };
-
-            // 5. 写入JSON文件（格式化输出，便于阅读）
-            std::ofstream file(m_json_path);
+            std::ofstream file(m_materials_json_path);
             if (file.is_open())
             {
-                file << std::setw(4) << new_json_data << std::endl;
+                file << std::setw(4) << mat_json << std::endl;
                 file.close();
-                std::cout << "Params saved to: " << m_json_path << std::endl;
+                std::cout << "Material params saved to: " << m_materials_json_path << std::endl;
             }
             else
             {
-                std::cerr << "Failed to open file for writing: " << m_json_path << std::endl;
+                std::cerr << "Failed to open file for writing: " << m_materials_json_path << std::endl;
             }
         }
         catch (const std::exception& e)
         {
-            std::cerr << "Failed to save params: " << e.what() << std::endl;
+            std::cerr << "Failed to save material params: " << e.what() << std::endl;
         }
     }
 
-    // 实现record函数（核心GUI渲染逻辑）
-    void MyGui::record(vsg::CommandBuffer& cb) const
+    // 渲染参数面板
+    void MyGui::drawRenderParams() const
     {
-        if (!global_params->showGui) return;
-
-        ImGui::Begin("GUI"); // Create a window called "Hello, world!" and append into it.
-        if (ImGui::Button("Save Params"))
-            saveParams();
-
-        ImGui::Separator();
         ImGui::Text("hdr num:");
         for(int i = 1; i <= m_renderer->hdr_image_max_num; ++i){
             std::string num_str = std::to_string(i);
@@ -266,19 +430,20 @@ namespace gui
             if(ImGui::Button(num_str.c_str())){
                 m_renderer->hdr_image_num = i;
                 m_renderer->updateEnvLighting();
+                // 自动更新 baseBrightness 为对应HDR的值
+                auto it = m_renderer->hdr_base_brightness.find(i);
+                if (it != m_renderer->hdr_base_brightness.end()) {
+                    m_pc_data->value().baseBrightness = it->second;
+                }
             }
         }
-
-        ImGui::Separator();
-        ImGui::Text("Current FPS (ms):\t%.3f", global_params->currentFps);
-        ImGui::Text("Render Timings (ms):");
 
         ImGui::Separator();
         ImGui::Text("Global Render Params:");
         if (ImGui::RadioButton("PCF", m_pc_data->value().shadow_type == 0)){
             m_pc_data->value().shadow_type = 0;
         }
-        ImGui::SameLine(); // 让两个选项并排显示（可选）
+        ImGui::SameLine();
         if (ImGui::RadioButton("PCSS", m_pc_data->value().shadow_type == 1))
         {
             m_pc_data->value().shadow_type = 1;
@@ -307,8 +472,12 @@ namespace gui
         ImGui::SliderInt("denoise_size", &(m_pc_data->value().denoise_size), 1, 9);
 
         ImGui::SliderFloat("exposure", &(m_pc_data->value().exposure), 0.0f, 50.f);
-        
-        ImGui::Separator();
+    }
+
+    // 性能信息面板
+    void MyGui::drawPerformanceInfo() const
+    {
+        ImGui::Text("Current FPS (ms):\t%.3f", global_params->currentFps);
         ImGui::Text("Step\t\tTime");
         ImGui::Text("1. advanceToNextFrame\t%.3f", global_params->render_func_times[0]);
         ImGui::Text("2. fix_depth\t\t%.3f", global_params->render_func_times[1]);
@@ -323,38 +492,290 @@ namespace gui
         ImGui::Text("Server Timing:");
         ImGui::Text("render():\t\t%.3f ms", global_params->render_server_times[0]);
         ImGui::Text("getEncodeImage():\t%.3f ms", global_params->render_server_times[1]);
-        ImGui::Separator();
+    }
 
+    // 材质控制面板
+    void MyGui::drawMaterialControls() const
+    {
         std::unordered_set<vsg::PbrMaterial*> unique_material;
         for(auto& id_data: CADMesh::proto_id_to_data_map){
             std::string id = id_data.first;
             ProtoData* proto_data = id_data.second;
-            ImGui::Text(id.c_str());
+            ImGui::Text("%s", id.c_str());
             if(proto_data->material != nullptr){
                 vsg::PbrMaterial* pbr_ptr = reinterpret_cast<PbrMaterial*>(proto_data->material->dataPointer());
                 if(unique_material.find(pbr_ptr) == unique_material.end()){
-                    float metallic = pbr_ptr->metallicFactor;
                     std::string metallic_name = "metallic" + std::to_string(unique_material.size());
                     ImGui::SliderFloat(metallic_name.c_str(), &(proto_data->material->value().metallicFactor), 0.0f, 5.0f);
                     std::string roughness_name = "roughness" + std::to_string(unique_material.size());
                     ImGui::SliderFloat(roughness_name.c_str(), &(proto_data->material->value().roughnessFactor), 0.0f, 5.0f);
                     std::string basecolor_name = "basecolor" + std::to_string(unique_material.size());
-                    ImGui::SliderFloat3(basecolor_name.c_str(), proto_data->material->value().baseColorFactor.data(), 0.0f, 1.0f);  
+                    ImGui::SliderFloat3(basecolor_name.c_str(), proto_data->material->value().baseColorFactor.data(), 0.0f, 1.0f);
                     proto_data->material->dirty();
                     unique_material.insert(pbr_ptr);
                 }
             }
         }
-        ImGui::Separator();
-        ImGui::Text("dynamic objects:");
-        std::string line_color_str = "line color";
-        ImGui::SliderFloat3(line_color_str.c_str(), CADMesh::dynamic_lines.colors->value().data(), 0.0f, 1.0f);
+    }
+
+    // 线/点样式控制面板
+    void MyGui::drawLinePointControls() const
+    {
+        ImGui::SliderFloat3("line color", CADMesh::dynamic_lines.colors->value().data(), 0.0f, 1.0f);
         CADMesh::dynamic_lines.colors->dirty();
-        std::string point_color_str = "point color";
-        ImGui::SliderFloat3(point_color_str.c_str(), CADMesh::dynamic_points.colors->value().data(), 0.0f, 1.0f);
+        ImGui::SliderFloat3("point color", CADMesh::dynamic_points.colors->value().data(), 0.0f, 1.0f);
         CADMesh::dynamic_points.colors->dirty();
-        
+    }
+
+    // 变换应用方法
+    void MyGui::applyTranslation() const
+    {
+        for (auto& state : m_instance_states) {
+            if (!state.selected) continue;
+            state.translate[0] += m_input_translate[0];
+            state.translate[1] += m_input_translate[1];
+            state.translate[2] += m_input_translate[2];
+            vsgserver::renderer->updateObjectPose(state.instance_name, state.computeFinalTransform());
+        }
+        m_input_translate[0] = m_input_translate[1] = m_input_translate[2] = 0.f;
+    }
+
+    void MyGui::applyRotation() const
+    {
+        for (auto& state : m_instance_states) {
+            if (!state.selected) continue;
+            state.rotate[0] += m_input_rotate[0];
+            state.rotate[1] += m_input_rotate[1];
+            state.rotate[2] += m_input_rotate[2];
+            vsgserver::renderer->updateObjectPose(state.instance_name, state.computeFinalTransform());
+        }
+        m_input_rotate[0] = m_input_rotate[1] = m_input_rotate[2] = 0.f;
+    }
+
+    void MyGui::applyScale() const
+    {
+        for (auto& state : m_instance_states) {
+            if (!state.selected) continue;
+            state.scale_percent = state.scale_percent * m_input_scale / 100.0f;
+            vsgserver::renderer->updateObjectPose(state.instance_name, state.computeFinalTransform());
+        }
+        m_input_scale = 100.0f;
+    }
+
+    void MyGui::resetSelectedInstances() const
+    {
+        for (auto& state : m_instance_states) {
+            if (!state.selected) continue;
+            state.translate[0] = state.translate[1] = state.translate[2] = 0.f;
+            state.rotate[0] = state.rotate[1] = state.rotate[2] = 0.f;
+            state.scale_percent = 100.0f;
+            vsgserver::renderer->updateObjectPose(state.instance_name, state.original_transform);
+        }
+    }
+
+    // 保存变换到Scenes.json
+    void MyGui::saveTransformsToScenesJson() const
+    {
+        try {
+            std::string json_path = CADMesh::scenes_json_path;
+            json scenes_data;
+
+            // 读取现有文件
+            if (fs::exists(json_path)) {
+                std::ifstream file(json_path);
+                if (file.is_open()) {
+                    file >> scenes_data;
+                    file.close();
+                }
+            }
+
+            if (!scenes_data.contains("scenes"))
+                scenes_data["scenes"] = json::array();
+
+            int scene_id = CADMesh::current_scene_id;
+
+            // 查找目标场景
+            json* target_scene = nullptr;
+            int target_idx = -1;
+            for (size_t i = 0; i < scenes_data["scenes"].size(); i++) {
+                if (scenes_data["scenes"][i]["id"] == scene_id) {
+                    target_scene = &scenes_data["scenes"][i];
+                    target_idx = static_cast<int>(i);
+                    break;
+                }
+            }
+
+            // ID=-1：完全删除旧条目后重建
+            if (scene_id == -1 && target_scene != nullptr) {
+                scenes_data["scenes"].erase(scenes_data["scenes"].begin() + target_idx);
+                target_scene = nullptr;
+            }
+
+            // 如果不存在则创建新条目
+            if (target_scene == nullptr) {
+                json new_scene;
+                new_scene["id"] = scene_id;
+                new_scene["name"] = (scene_id == -1) ? "custom_scene" : "scene_" + std::to_string(scene_id);
+                new_scene["description"] = "Saved from Instance Transform UI";
+                new_scene["models"] = json::array();
+                scenes_data["scenes"].push_back(new_scene);
+                target_scene = &scenes_data["scenes"].back();
+            }
+
+            // 更新每个model的transform_sequence（行主序保存）
+            auto& models = (*target_scene)["models"];
+            for (auto& state : m_instance_states) {
+                if (state.instance_name == "shadow_receiver") continue;
+
+                // 查找对应的model条目
+                bool found = false;
+                for (auto& model : models) {
+                    if (model["instance_name"] == state.instance_name) {
+                        vsg::dmat4 final_mat = state.computeFinalTransform();
+                        model["transform_sequence"] = json::array({matrixToRowMajorJson(final_mat)});
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found && scene_id == -1) {
+                    json new_model;
+                    new_model["instance_name"] = state.instance_name;
+                    new_model["path"] = "";
+                    vsg::dmat4 final_mat = state.computeFinalTransform();
+                    new_model["transform_sequence"] = json::array({matrixToRowMajorJson(final_mat)});
+                    models.push_back(new_model);
+                }
+            }
+
+            // 保存shadow_receiver变换（行主序）
+            for (auto& state : m_instance_states) {
+                if (state.instance_name == "shadow_receiver") {
+                    vsg::dmat4 final_mat = state.computeFinalTransform();
+                    (*target_scene)["shadow_receiver_transform"] = json::array({matrixToRowMajorJson(final_mat)});
+                    break;
+                }
+            }
+
+            // 写回文件
+            std::ofstream file(json_path);
+            if (file.is_open()) {
+                file << std::setw(4) << scenes_data << std::endl;
+                file.close();
+                std::cout << "Transforms saved to: " << json_path << " (scene_id=" << scene_id << ")" << std::endl;
+            } else {
+                std::cerr << "Failed to open Scenes.json for writing: " << json_path << std::endl;
+            }
+
+            // 保存后更新original_transform，使Reset恢复到新保存的矩阵
+            for (auto& state : m_instance_states) {
+                state.original_transform = state.computeFinalTransform();
+                state.translate[0] = state.translate[1] = state.translate[2] = 0.f;
+                state.rotate[0] = state.rotate[1] = state.rotate[2] = 0.f;
+                state.scale_percent = 100.0f;
+            }
+
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to save transforms: " << e.what() << std::endl;
+        }
+    }
+
+    // 实例变换面板（独立窗口）
+    void MyGui::drawInstanceTransformPanel() const
+    {
+        if (m_instance_states.empty()) return;
+
+        ImGui::SetNextWindowPos(ImVec2(370, 10), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(350, 500), ImGuiCond_Always);
+        ImGui::Begin("Instance Transforms");
+
+        // 全选/全不选按钮
+        if (ImGui::Button("Select All")) {
+            for (auto& state : m_instance_states)
+                state.selected = true;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Deselect All")) {
+            for (auto& state : m_instance_states)
+                state.selected = false;
+        }
+
+        // 实例列表
+        ImGui::BeginChild("InstanceList", ImVec2(0, 150), true);
+        for (auto& state : m_instance_states) {
+            ImGui::Checkbox(state.instance_name.c_str(), &state.selected);
+        }
+        ImGui::EndChild();
+
+        ImGui::Separator();
+
+        // --- Translation ---
+        ImGui::Text("--- Translation (m) ---");
+        ImGui::InputFloat3("T XYZ", m_input_translate);
+        if (ImGui::Button("Apply Translation"))
+            applyTranslation();
+
+        ImGui::Separator();
+
+        // --- Rotation ---
+        ImGui::Text("--- Rotation (deg) ---");
+        ImGui::InputFloat3("R XYZ", m_input_rotate);
+        if (ImGui::Button("Apply Rotation"))
+            applyRotation();
+
+        ImGui::Separator();
+
+        // --- Scale ---
+        ImGui::Text("--- Scale (%%) ---");
+        ImGui::InputFloat("%", &m_input_scale);
+        if (ImGui::Button("Apply Scale"))
+            applyScale();
+
+        ImGui::Separator();
+
+        // 重置和保存按钮
+        if (ImGui::Button("Reset Selected"))
+            resetSelectedInstances();
+        ImGui::SameLine();
+        if (ImGui::Button("Save to Scenes.json"))
+            saveTransformsToScenesJson();
+
+        // 显示选中实例的当前TRS
+        ImGui::Separator();
+        for (auto& state : m_instance_states) {
+            if (!state.selected) continue;
+            ImGui::Text("%s: T(%.2f,%.2f,%.2f) R(%.1f,%.1f,%.1f) S(%.1f%%)",
+                state.instance_name.c_str(),
+                state.translate[0], state.translate[1], state.translate[2],
+                state.rotate[0], state.rotate[1], state.rotate[2],
+                state.scale_percent);
+        }
+
         ImGui::End();
+    }
+
+    // 重构后的record函数
+    void MyGui::record(vsg::CommandBuffer& cb) const
+    {
+        if (!global_params->showGui) return;
+
+        ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(350, 600), ImGuiCond_Always);
+        ImGui::Begin("GUI");
+        if (ImGui::Button("Save Params"))
+            saveParams();
+
+        if (ImGui::CollapsingHeader("Render Params", ImGuiTreeNodeFlags_DefaultOpen))
+            drawRenderParams();
+        if (ImGui::CollapsingHeader("Performance"))
+            drawPerformanceInfo();
+        if (ImGui::CollapsingHeader("Materials"))
+            drawMaterialControls();
+        if (ImGui::CollapsingHeader("Lines & Points"))
+            drawLinePointControls();
+        ImGui::End();
+
+        // 独立窗口
+        drawInstanceTransformPanel();
     }
 
 } // namespace gui

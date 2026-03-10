@@ -1684,12 +1684,10 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
     viewer->addRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
-ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGroup> root, int width, int height, vsg::ImageInfoList camera_data)
+ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGroup> root, int width, int height, vsg::ImageInfoList camera_data, vsg::ImageInfoList depth_data, vsg::ref_ptr<vsg::Data> shadow_pc_data)
 {
     auto searchPaths = appData.options->paths;
     searchPaths.push_back("./data");
-    //auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreenquad.vert", searchPaths);
-    //auto fragShaderFilepath = vsg::findFile("shaders/IBL/irradianceCube.frag", searchPaths);
     auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skybox.vert", searchPaths);
     auto fragShaderFilepath = vsg::findFile("shaders/IBL/skybox.frag", searchPaths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
@@ -1705,33 +1703,59 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGr
     auto tonemapParams = floatArray::create(4);
     tonemapParams->set(0, 3.0f); //exposure
     tonemapParams->set(1, 2.2f); //gamma
-    tonemapParams->set(2, width * 1.f); //gamma
-    tonemapParams->set(3, height * 1.f); //gamma
+    tonemapParams->set(2, width * 1.f); //width
+    tonemapParams->set(3, height * 1.f); //height
+
+    bool hasShadowInSkybox = (depth_data.size() > 0 && shadow_pc_data);
 
     auto skyBoxShaderSet = ShaderSet::create(shaderStages, shaderCompileSettings);
     skyBoxShaderSet->addAttributeBinding("inPos", "", 0, VK_FORMAT_R32G32B32_SFLOAT, gSkyboxCube.vertices);
-    // vsg这块的API不支持绑定一个DescriptorImage（vsg::Data和vsg::Image是兄弟关系，这里只接收Data）
-    //skyBoxShaderSet->addDescriptorBinding("envmap", "", 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, textures.envmapCube);
-    // 但是Data在创建Layout和做绑定的时候没有真正使用，所以这里先随便用个Data代替一下
     skyBoxShaderSet->addDescriptorBinding("envmap", "", 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vec4Array2D::create(1, 1, vsg::Data::Properties{Constants::EnvmapCube::format}));
     skyBoxShaderSet->addDescriptorBinding("tonemapParams", "", 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, tonemapParams);
     if(camera_data.size() > 0) skyBoxShaderSet->addDescriptorBinding("cameraImage", "CAMERA_IMAGE", 0, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
-    skyBoxShaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT, 0, 128);
+    if(depth_data.size() > 0) skyBoxShaderSet->addDescriptorBinding("depthImage", "CAMERA_DEPTH", 0, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ushortArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
+
+    if(hasShadowInSkybox) {
+        // CAMERA_DEPTH + shadow: 扩展push constant范围, 添加VIEW_DESCRIPTOR_SET绑定
+        skyBoxShaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 256);
+
+        #define VIEW_DESCRIPTOR_SET 1
+        skyBoxShaderSet->addDescriptorBinding("lightData", "", VIEW_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array::create(64));
+        skyBoxShaderSet->addDescriptorBinding("viewportData", "", VIEW_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Value::create(0,0, 1280, 1024));
+        skyBoxShaderSet->addDescriptorBinding("shadowMaps", "", VIEW_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
+        skyBoxShaderSet->addDescriptorBinding("shadowMapsSampler", "", VIEW_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
+        skyBoxShaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(VIEW_DESCRIPTOR_SET));
+
+        // 支持4个attachment输出 (outColor + location 1,2,3)
+        auto colorBlendState = vsg::ColorBlendState::create();
+        colorBlendState->attachments.resize(4, colorBlendState->attachments[0]);
+        skyBoxShaderSet->defaultGraphicsPipelineStates.push_back(colorBlendState);
+    } else {
+        skyBoxShaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
+    }
 
     vsg::DataList pipelineInputs;
 
-    auto pplcfg = vsg::GraphicsPipelineConfigurator::create(skyBoxShaderSet);   
+    auto pplcfg = vsg::GraphicsPipelineConfigurator::create(skyBoxShaderSet);
     auto rasterState = RasterizationState::create();
     rasterState->cullMode = VK_CULL_MODE_NONE;
     pplcfg->pipelineStates.push_back(rasterState);
     auto depthState = vsg::DepthStencilState::create();
-    depthState->depthTestEnable = VK_FALSE;
-    depthState->depthWriteEnable = VK_FALSE;
+    if(depth_data.size() > 0) {
+        // 有深度数据时，启用深度写入（用于相机深度前置渲染）
+        depthState->depthTestEnable = VK_TRUE;
+        depthState->depthWriteEnable = VK_TRUE;
+        depthState->depthCompareOp = VK_COMPARE_OP_ALWAYS; // 始终通过深度测试（skybox始终写入）
+    } else {
+        depthState->depthTestEnable = VK_FALSE;
+        depthState->depthWriteEnable = VK_FALSE;
+    }
     pplcfg->pipelineStates.push_back(depthState);
     pplcfg->assignArray(pipelineInputs, "inPos", VK_VERTEX_INPUT_RATE_VERTEX, gSkyboxCube.vertices);
     pplcfg->assignTexture("envmap", ImageInfoList{textures.envmapCubeInfo});
     pplcfg->assignDescriptor("tonemapParams", tonemapParams);
     if(camera_data.size() > 0) pplcfg->assignTexture("cameraImage", camera_data);
+    if(depth_data.size() > 0) pplcfg->assignTexture("depthImage", depth_data);
     pplcfg->init();
 
     auto drawCmds = Commands::create();
@@ -1739,6 +1763,13 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGr
     drawCmds->addChild(BindIndexBuffer::create(gSkyboxCube.indices));
     drawCmds->addChild(DrawIndexed::create(gSkyboxCube.indices->size(), 1, 0, 0, 0));
     pplcfg->copyTo(root);
+
+    // 在CAMERA_DEPTH+shadow模式下, 添加push constant绑定shadow参数
+    if(hasShadowInSkybox) {
+        auto pc = vsg::PushConstants::create(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, shadow_pc_data);
+        root->stateCommands.push_back(pc);
+    }
+
     root->addChild(drawCmds);
     return root;
 }
@@ -1862,8 +1893,6 @@ vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options>
     shaderSet->addDescriptorBinding("emissiveMap", "VSG_EMISSIVE_MAP", MATERIAL_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
     shaderSet->addDescriptorBinding("specularMap", "VSG_SPECULAR_MAP", MATERIAL_DESCRIPTOR_SET, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
     shaderSet->addDescriptorBinding("displacementMap", "VSG_DISPLACEMENT_MAP", MATERIAL_DESCRIPTOR_SET, 6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_VERTEX_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
-    shaderSet->addDescriptorBinding("cameraImage", "", MATERIAL_DESCRIPTOR_SET, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec3Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8_UNORM}));
-    shaderSet->addDescriptorBinding("depthImage", "", MATERIAL_DESCRIPTOR_SET, 8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ushortArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
     shaderSet->addDescriptorBinding("material", "", MATERIAL_DESCRIPTOR_SET, 10, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::PbrMaterialValue::create());
     shaderSet->addDescriptorBinding("instanceModelMatrix", "", MATERIAL_DESCRIPTOR_SET, 11, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, vsg::floatArray::create());
     shaderSet->addDescriptorBinding("ConstantBuffer", "", MATERIAL_DESCRIPTOR_SET, 12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray::create());

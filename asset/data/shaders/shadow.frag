@@ -75,7 +75,7 @@ layout(location = 3) in vec2 texCoord0;
 layout(location = 4) in vec3 worldViewDir;
 layout(location = 5) in vec3 viewDir;
 layout(location = 6) in float InstanceID;
-layout(location = 7) in vec4 ndc;
+layout(location = 8) in vec3 lastWorldPos;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 3) out vec4 outShadow;
@@ -636,7 +636,7 @@ void main()
         }
         scene_brightness = totalRealBrightness / totalBrigtness;
     }
-    vec4 last_ndc = pc.projection * pc.last_view * vec4(worldViewDir, 1);
+    vec4 last_ndc = pc.projection * pc.last_view * vec4(lastWorldPos, 1);
     ivec2 last_coord = ivec2(((last_ndc.x / last_ndc.w) / 2 + 0.5) * constantBuffer.width, ((last_ndc.y / last_ndc.w) / 2 + 0.5) * constantBuffer.height);
     float old_shadow = 1;
     float oldInstanceID = -1;

@@ -20,11 +20,11 @@ layout(set = 0, binding = 1) buffer InIndirect {
 
 struct MatrixData {
     mat4 protoMatrix;
-    mat4 modelMatrix;
 };
 
 struct InstanceData {
     mat4 modelMatrix;
+    mat4 lastModelMatrix;
     vec4 highlight[10];
 };
 
@@ -40,11 +40,23 @@ layout(set = 0, binding = 4) buffer OutIndirectMatrix {
     InstanceData instanceModelMatrix[];
 }outIndirectMatrix;
 
+layout(set = 0, binding = 5) buffer GlobalModelMatrices {
+    mat4 matrices[];
+} globalModelMatrices;
+
+layout(set = 0, binding = 6) buffer LastGlobalModelMatrices {
+    mat4 matrices[];
+} lastGlobalModelMatrices;
+
+layout(set = 0, binding = 7) buffer LastInIndirectMatrix {
+    MatrixData instanceModelMatrix[];
+} lastInIndirectMatrix;
+
 layout (local_size_x = 32) in;
 
 void main() {
 	uint instanceIndex = gl_GlobalInvocationID.x;
-    
+
     if (instanceIndex >= 1) {
         return;
     }
@@ -52,8 +64,10 @@ void main() {
     outIndirect.instanceCount = inIndirect.instanceCount;
     for(int i = 0; i < outIndirect.instanceCount; i ++){
         MatrixData cur_data = inIndirectMatrix.instanceModelMatrix[i];
+        uint modelIndex = inHighlightData.data[i].w;
         InstanceData out_data;
-        out_data.modelMatrix = cur_data.modelMatrix * cur_data.protoMatrix;
+        out_data.modelMatrix = globalModelMatrices.matrices[modelIndex] * cur_data.protoMatrix;
+        out_data.lastModelMatrix = lastGlobalModelMatrices.matrices[modelIndex] * lastInIndirectMatrix.instanceModelMatrix[i].protoMatrix;
         out_data.highlight[0].x = inHighlightData.data[i].x;
         outIndirectMatrix.instanceModelMatrix[i] = out_data;
     }

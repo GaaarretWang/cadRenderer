@@ -230,16 +230,20 @@ void CustomViewDependentState::init(ResourceRequirements& requirements)
     {
         computeCommandGraphShadow->submitOrder = -1;
         vsg::DescriptorSetLayoutBindings descriptorBindings{
-            {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         };
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
         auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
         {
-            auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex_shadow.comp", vsg::Options::create());
+            auto shaderPath = vsg::findFile("shaders/computevertex_shadow.comp", options->paths);
+            auto computeShader = vsg::read_cast<vsg::ShaderStage>(shaderPath, options);
             auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
             auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
             computeCommandGraphShadow->addChild(bindPipeline);
@@ -252,9 +256,11 @@ void CustomViewDependentState::init(ResourceRequirements& requirements)
             for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
                 ProtoData* proto_data = proto_data_itr.second;
                 auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
-                                                                                    proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info, 
-                                                                                    proto_data->output_instance_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-                auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer});
+                                                                                    proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info,
+                                                                                    proto_data->output_instance_buffer_info, CADMesh::global_model_matrix_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                auto lastGlobalModelBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{CADMesh::last_global_model_matrix_buffer_info}, 6, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                auto lastProtoBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->last_instance_buffer_info}, 7, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+                auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer, lastGlobalModelBuffer, lastProtoBuffer});
                 auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
                 computeCommandGraphShadow->addChild(bindDescriptorSet);
                 computeCommandGraphShadow->addChild(vsg::Dispatch::create(1, 1, 1));
@@ -337,7 +343,17 @@ void CustomViewDependentState::init(ResourceRequirements& requirements)
 void CustomViewDependentState::traverse(RecordTraversal& rt) const
 {
     if (!view->features) return;
-    if (!draw_shadow) return;
+    if (!draw_shadow_light && !draw_shadow_pose) return;
+
+    // 仅在模型位姿变化时重新计算bounds
+    if (draw_shadow_pose) {
+        vsg::ComputeBounds computeSceneBounds_virtual;
+        computeSceneBounds_virtual.traversalMask = MASK_PBR_FULL;
+        view->accept(computeSceneBounds_virtual);
+        scene_bound_ws_virtual = computeSceneBounds_virtual.bounds;
+    }
+    // 否则使用缓存的 scene_bound_ws_virtual
+
     // useful reference : https://learn.microsoft.com/en-us/windows/win32/dxtecharts/cascaded-shadow-maps
     // PCF filtering : https://github.com/SaschaWillems/Vulkan/issues/231
     // sampler2DArrayShadow
@@ -491,7 +507,43 @@ void CustomViewDependentState::traverse(RecordTraversal& rt) const
             ortho->bottom = ls_bounds_virtual.min.y;
             ortho->top = ls_bounds_virtual.max.y;
             ortho->nearDistance = -ls_bounds_virtual.max.z;
-            ortho->farDistance = -ls_bounds_real.min.z;
+
+            // 计算包围盒8个角点到世界坐标z=-2平面的交点，保留最远的距离
+            double target_world_z = -2.0;
+            double max_far_distance = ortho->nearDistance;
+
+            if (std::abs(light_z.z) > 1e-6) {
+                // 遍历包围盒的8个角点
+                for (int i = 0; i < 8; ++i) {
+                    dvec3 corner(
+                        (i & 1) ? ws_bounds.max.x : ws_bounds.min.x,
+                        (i & 2) ? ws_bounds.max.y : ws_bounds.min.y,
+                        (i & 4) ? ws_bounds.max.z : ws_bounds.min.z
+                    );
+
+                    // 计算从角点沿光照方向到目标平面的参数t
+                    double t = (target_world_z - corner.z) / light_z.z;
+
+                    if (t > 0.0) {
+                        // 计算世界坐标交点
+                        dvec3 intersection_world = corner + light_z * t;
+
+                        // 变换到光照空间
+                        dvec4 intersection_light = lookAt->transform() * dvec4(intersection_world, 1.0);
+
+                        // 更新最远距离
+                        max_far_distance = std::max(max_far_distance, -intersection_light.z);
+                    }
+                }
+            }
+
+            // 限制最大距离
+            double max_additional_distance = (ls_bounds_virtual.max.z - ls_bounds_virtual.min.z) * 2.0;
+            ortho->farDistance = std::min(max_far_distance, ortho->nearDistance + max_additional_distance);
+
+            // 确保包含真实场景
+            if(!std::isinf(ls_bounds_real.min.z))
+                ortho->farDistance = std::max(-ls_bounds_real.min.z, ortho->farDistance);
 
             dmat4 shadowMapProjView = camera->projectionMatrix->transform() * camera->viewMatrix->transform();
             dmat4 shadowMapTM = scale(0.5, 0.5, 1.0) * translate(1.0, 1.0, 0.0) * shadowMapProjView;
@@ -572,5 +624,6 @@ void CustomViewDependentState::traverse(RecordTraversal& rt) const
         preRenderCommandGraph->accept(rt);
     }
 
-    draw_shadow = false;
+    draw_shadow_light = false;
+    draw_shadow_pose = false;
 }

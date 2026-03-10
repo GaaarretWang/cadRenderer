@@ -15,6 +15,7 @@ class vsgRendererServer;
 #include <filesystem>
 #include <string>
 #include <unordered_map>
+#include <cmath>
 
 // 简化JSON命名空间
 using json = nlohmann::json;
@@ -37,13 +38,30 @@ struct GlobalPCData{
     uint32_t frame_num = 0;
 };
 
+// 实例变换状态
+struct InstanceTransformState {
+    std::string instance_name;
+    vsg::dmat4 original_transform;
+    float translate[3] = {0.f, 0.f, 0.f};   // 米
+    float rotate[3] = {0.f, 0.f, 0.f};      // 度（欧拉角XYZ）
+    float scale_percent = 100.0f;             // 百分比
+    bool selected = false;
+
+    vsg::dmat4 computeUserTransform() const;  // T * Rz * Ry * Rx * S
+    vsg::dmat4 computeFinalTransform() const; // original * userTransform
+};
+
+// 全局renderer指针（initRenderer中设置）
+namespace vsgserver {
+    extern vsgRendererServer* renderer;
+}
 
 namespace gui
 {
     using namespace vsg;
     template<typename T>
     using ptr = vsg::ref_ptr<T>;
-    
+
     struct LightParams
     {
         bool envmapEnabled = true;
@@ -93,18 +111,25 @@ namespace gui
     {
     public:
         vsg::ref_ptr<vsg::Value<GlobalPCData>> m_pc_data;
-        std::string m_json_path; // JSON文件路径
-        json m_json_data;        // 存储JSON数据
+        std::string m_scenes_json_path;     // data/json/Scenes.json
+        std::string m_materials_json_path;  // data/json/Materials.json
         vsgRendererServer* m_renderer; // 仅声明指针，前向声明已足够
-        mutable float m_shadowmap_bias; // 仅声明指针，前向声明已足够
+        mutable float m_shadowmap_bias;
         mutable float pcf_softness;
         mutable float pcss_softness;
         mutable float pcss_softness_falloff;
 
-        // 调整构造函数参数顺序，匹配你的创建代码：MyGui::create(this, pc_data, json_path)
+        // 实例变换状态
+        mutable std::vector<InstanceTransformState> m_instance_states;
+        mutable float m_input_translate[3] = {0.f, 0.f, 0.f};
+        mutable float m_input_rotate[3] = {0.f, 0.f, 0.f};
+        mutable float m_input_scale = 100.0f;
+
+        // 调整构造函数参数，接收两个JSON路径
         MyGui(vsgRendererServer* renderer,
-              vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data, 
-              const std::string& json_path,
+              vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data,
+              const std::string& scenes_json_path,
+              const std::string& materials_json_path,
               vsg::ref_ptr<vsg::Options> options = {});
 
         void compile(vsg::Context& context) override;
@@ -117,6 +142,23 @@ namespace gui
 
         // 声明record函数（实现放cpp）
         void record(vsg::CommandBuffer& cb) const override;
+
+    private:
+        void loadRenderParams();
+        void loadMaterialParams();
+        void saveRenderParams() const;
+        void saveMaterialParams() const;
+        void initInstanceStates();
+        void drawRenderParams() const;
+        void drawPerformanceInfo() const;
+        void drawMaterialControls() const;
+        void drawLinePointControls() const;
+        void drawInstanceTransformPanel() const;
+        void applyTranslation() const;
+        void applyRotation() const;
+        void applyScale() const;
+        void resetSelectedInstances() const;
+        void saveTransformsToScenesJson() const;
     };
 
 } // namespace gui

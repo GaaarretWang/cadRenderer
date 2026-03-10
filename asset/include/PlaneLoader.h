@@ -29,8 +29,9 @@ std::vector<double> cross(const std::vector<double>& a, const std::vector<double
 // 辅助函数：向量单位化
 void normalize(std::vector<double>& v);
 
-MeshData convertPlaneDataToMesh(const PlaneData& planeData);
+// 将平面数据转换为线框（合并后的长线段），使用 LINE_LIST 拓扑
+// 对每个平面生成: (M+1)条水平线 + (N+1)条垂直线 + (N+M-1)条对角线
+// 其中 N、M 为 U、V 方向的细分数，保证小格近似正方形
+MeshData convertPlaneDataToWireframe(const PlaneData& planeData, float subdivision_length);
 
 PlaneData createTestPlanes();
-
-PlaneData subdividePlanes(const PlaneData& originalPlaneData, float subdivisions_length);

@@ -66,18 +66,21 @@ namespace OcclusionCullingPasses{
         camera_matrix_buffer_info = vsg::BufferInfo::create(camera_matrix);
     }
 
-    void buildFirstComputePass(vsg::ref_ptr<vsg::CommandGraph> depth_cull_command_graph1, std::string project_path)
+    void buildFirstComputePass(vsg::ref_ptr<vsg::CommandGraph> depth_cull_command_graph1, vsg::ref_ptr<vsg::Options> options)
     {
         vsg::DescriptorSetLayoutBindings descriptorBindings{
-            {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {11, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         };
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
         auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, vsg::PushConstantRanges{});
@@ -107,7 +110,8 @@ namespace OcclusionCullingPasses{
             VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
             0
         );
-        auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex.comp", vsg::Options::create());
+        auto shaderPath = vsg::findFile("shaders/computevertex.comp", options->paths);
+        auto computeShader = vsg::read_cast<vsg::ShaderStage>(shaderPath, options);
         auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
         auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
         depth_cull_command_graph1->addChild(bindPipeline);
@@ -115,13 +119,16 @@ namespace OcclusionCullingPasses{
         for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
             ProtoData* proto_data = proto_data_itr.second;
             auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
-                                                                                proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info, 
-                                                                                proto_data->output_instance_buffer_info, camera_plane_info_buffer_info, 
+                                                                                proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info,
+                                                                                proto_data->output_instance_buffer_info, camera_plane_info_buffer_info,
                                                                                 proto_data->bounds_buffer_info, camera_matrix_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-            auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer});
+            auto globalModelBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{CADMesh::global_model_matrix_buffer_info}, 9, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            auto lastGlobalModelBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{CADMesh::last_global_model_matrix_buffer_info}, 10, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            auto lastProtoBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->last_instance_buffer_info}, 11, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer, globalModelBuffer, lastGlobalModelBuffer, lastProtoBuffer});
             auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
             depth_cull_command_graph1->addChild(bindDescriptorSet);
-            depth_cull_command_graph1->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 700 + 1, 1, 1));
+            depth_cull_command_graph1->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 700 + 1, 1, 1));
 
             auto indirectBarrier = vsg::BufferMemoryBarrier::create(
                 VK_ACCESS_SHADER_WRITE_BIT,
@@ -137,7 +144,7 @@ namespace OcclusionCullingPasses{
         depth_cull_command_graph1->addChild(Pass1CullToPass1Barrier);
     }
 
-    void buildDepthPyramid(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, std::string project_path, vsg::ref_ptr<vsg::Window> window, VkExtent2D extent)
+    void buildDepthPyramid(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<vsg::Window> window, VkExtent2D extent)
     {
         vsg::DescriptorSetLayoutBindings descriptorBindings{
             {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
@@ -177,7 +184,8 @@ namespace OcclusionCullingPasses{
                 0, barrier, depthToComputeBarrier
             ));
 
-            auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex_depthimage.comp", vsg::Options::create());
+            auto shaderPath = vsg::findFile("shaders/computevertex_depthimage.comp", options->paths);
+            auto computeShader = vsg::read_cast<vsg::ShaderStage>(shaderPath, options);
             auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
             auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
             depth_pyramid_CommandGraph->addChild(bindPipeline);
@@ -214,7 +222,8 @@ namespace OcclusionCullingPasses{
 
         for(uint32_t i = 1; i < 10; i ++)
         {
-            auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex_depthpyramid.comp", vsg::Options::create());
+            auto shaderPath = vsg::findFile("shaders/computevertex_depthpyramid.comp", options->paths);
+            auto computeShader = vsg::read_cast<vsg::ShaderStage>(shaderPath, options);
             auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
             auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
             depth_pyramid_CommandGraph->addChild(bindPipeline);
@@ -285,21 +294,24 @@ namespace OcclusionCullingPasses{
         ));
     }
 
-    void buildSecondComputePass(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, std::string project_path, VkExtent2D extent)
+    void buildSecondComputePass(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, vsg::ref_ptr<vsg::Options> options, VkExtent2D extent)
         {
         vsg::DescriptorSetLayoutBindings descriptorBindings{
-            {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
-            {8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
+            {0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {4, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {5, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {6, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {7, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {9, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {10, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
+            {11, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr},
         };
         auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorBindings);
-        auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, 
+        auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout},
                 vsg::PushConstantRanges{
                     {VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants)} // projection, view, and model matrices, actual push constant calls automatically provided by the VSG's RecordTraversal
                 });
@@ -309,10 +321,12 @@ namespace OcclusionCullingPasses{
             VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
             0
         );
-        auto computeShader = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex1.comp", vsg::Options::create());
+        auto shaderPath = vsg::findFile("shaders/computevertex1.comp", options->paths);
+        auto computeShader = vsg::read_cast<vsg::ShaderStage>(shaderPath, options);
         auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
         auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
-        auto computeShader_seat = vsg::read_cast<vsg::ShaderStage>(project_path + "asset/data/shaders/computevertex1_seat.comp", vsg::Options::create());
+        auto shaderPath_seat = vsg::findFile("shaders/computevertex1_seat.comp", options->paths);
+        auto computeShader_seat = vsg::read_cast<vsg::ShaderStage>(shaderPath_seat, options);
         auto pipeline_seat = vsg::ComputePipeline::create(pipelineLayout, computeShader_seat);
         auto bindPipeline_seat = vsg::BindComputePipeline::create(pipeline_seat);
         depth_pyramid_CommandGraph->addChild(bindPipeline);
@@ -326,26 +340,29 @@ namespace OcclusionCullingPasses{
         auto pre_pipeline = bindPipeline;
         for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
             ProtoData* proto_data = proto_data_itr.second;
-            if(proto_data->instance_matrix.size() / 2 > 32 && pre_pipeline == bindPipeline){
+            if(proto_data->instance_matrix.size() > 32 && pre_pipeline == bindPipeline){
                 depth_pyramid_CommandGraph->addChild(bindPipeline_seat);
                 pre_pipeline = bindPipeline_seat;
             }
-            else if(proto_data->instance_matrix.size() / 2 <= 32 && pre_pipeline == bindPipeline_seat){
+            else if(proto_data->instance_matrix.size() <= 32 && pre_pipeline == bindPipeline_seat){
                 depth_pyramid_CommandGraph->addChild(bindPipeline);
                 pre_pipeline = bindPipeline;
             }
             auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
-                                                                                proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info, 
-                                                                                proto_data->output_instance_buffer_info, camera_plane_info_buffer_info, 
+                                                                                proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info,
+                                                                                proto_data->output_instance_buffer_info, camera_plane_info_buffer_info,
                                                                                 proto_data->bounds_buffer_info, camera_matrix_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             auto storageImage = vsg::DescriptorImage::create(vsg::ImageInfoList{depthPyramidImageInfo}, 8);
-            auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer, storageImage});
+            auto globalModelBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{CADMesh::global_model_matrix_buffer_info}, 9, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            auto lastGlobalModelBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{CADMesh::last_global_model_matrix_buffer_info}, 10, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            auto lastProtoBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->last_instance_buffer_info}, 11, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer, storageImage, globalModelBuffer, lastGlobalModelBuffer, lastProtoBuffer});
             auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
             depth_pyramid_CommandGraph->addChild(bindDescriptorSet);
-            if(proto_data->instance_matrix.size() / 2 > 32)
-                depth_pyramid_CommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 700 + 1, 1, 1));
+            if(proto_data->instance_matrix.size() > 32)
+                depth_pyramid_CommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 700 + 1, 1, 1));
             else
-                depth_pyramid_CommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 2 / 32 + 1, 1, 1));
+                depth_pyramid_CommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 32 + 1, 1, 1));
             auto indirectBarrier = vsg::BufferMemoryBarrier::create(
                 VK_ACCESS_SHADER_WRITE_BIT,
                 VK_ACCESS_INDIRECT_COMMAND_READ_BIT,

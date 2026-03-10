@@ -84,12 +84,15 @@ struct ProtoData
     std::string mr_path = "";
     vsg::ref_ptr<vsg::PbrMaterialValue> material;
     vsg::ref_ptr<vsg::mat4Array> instance_buffer;
+    vsg::ref_ptr<vsg::mat4Array> last_instance_buffer; // 上一帧的proto矩阵
     vsg::ref_ptr<vsg::BufferInfo> input_instance_buffer_info;
+    vsg::ref_ptr<vsg::BufferInfo> last_instance_buffer_info; // 上一帧的proto矩阵BufferInfo
     vsg::ref_ptr<vsg::uintArray> highlight_buffer;
     vsg::ref_ptr<vsg::BufferInfo> input_highlight_buffer_info;
     vsg::ref_ptr<vsg::BufferInfo> output_instance_buffer_info;
     std::vector<std::string> instance_id;
     std::vector<vsg::dmat4> instance_matrix;
+    std::vector<uint32_t> instance_model_indices;  // 每实例的 model 矩阵全局索引
     vsg::ref_ptr<vsg::ShaderSet> shaderset;
     vsg::ref_ptr<vsg::Group> scene;
     vsg::ref_ptr<vsg::DrawIndexedIndirect> draw_indirect;
@@ -263,9 +266,26 @@ public:
 
     static std::unordered_map<std::string, std::vector<MatrixIndex>> id_to_matrix_index_map;
 
+    static std::vector<vsg::dmat4> global_model_matrices;
+    static vsg::ref_ptr<vsg::mat4Array> global_model_matrix_buffer;
+    static vsg::ref_ptr<vsg::BufferInfo> global_model_matrix_buffer_info;
+    static vsg::ref_ptr<vsg::mat4Array> last_global_model_matrix_buffer;
+    static vsg::ref_ptr<vsg::BufferInfo> last_global_model_matrix_buffer_info;
+    static std::unordered_map<std::string, uint32_t> model_name_to_global_index;
+
     static DynamicLines dynamic_lines;
     static DynamicPoints dynamic_points;
     static DynamicTexts dynamic_texts;
+
+    // 场景实例数据（供ImGui读取）
+    static std::vector<std::string> scene_instance_names;
+    static std::vector<vsg::dmat4> scene_original_transforms;
+    static std::string scenes_json_path;
+    static int current_scene_id;
+    static vsg::View* active_view;
+
+    // 每帧开始时：将当前矩阵拷贝到上一帧矩阵缓冲
+    static void copyCurrentToLastMatrices();
 
     std::vector<std::string> proto_ids;
     std::unordered_map<std::string, std::vector<vsg::dmat4>> proto_id_default_matrix_map;

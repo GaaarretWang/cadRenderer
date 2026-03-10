@@ -1,0 +1,225 @@
+{
+  "hdr_image_max_num": 7,
+  "1": {
+    "light_count": 4,
+    "lights": [
+      {
+        "light_id": 0,
+        "direction": [
+          -0.375819,
+          0.684819,
+          0.624325
+        ],
+        "brightness": 0.974933,
+        "area": 0.027893
+      },
+      {
+        "light_id": 1,
+        "direction": [
+          -0.729743,
+          -0.037503,
+          0.682692
+        ],
+        "brightness": 0.968673,
+        "area": 0.032324
+      },
+      {
+        "light_id": 2,
+        "direction": [
+          0.804971,
+          0.052212,
+          0.591013
+        ],
+        "brightness": 0.984896,
+        "area": 0.023157
+      },
+      {
+        "light_id": 3,
+        "direction": [
+          0.489615,
+          -0.605106,
+          0.627793
+        ],
+        "brightness": 0.951134,
+        "area": 0.035104
+      }
+    ],
+    "baseBrightness": 0.581037
+  },
+  "2": {
+    "light_count": 3,
+    "lights": [
+      {
+        "light_id": 0,
+        "direction": [
+          0.251927,
+          0.20696,
+          0.945357
+        ],
+        "brightness": 0.960042,
+        "area": 0.068902
+      },
+      {
+        "light_id": 1,
+        "direction": [
+          -0.094775,
+          0.990216,
+          0.102424
+        ],
+        "brightness": 0.942721,
+        "area": 0.166058
+      },
+      {
+        "light_id": 2,
+        "direction": [
+          0.148492,
+          -0.817045,
+          0.557124
+        ],
+        "brightness": 0.767566,
+        "area": 0.012816
+      }
+    ],
+    "baseBrightness": 0.370566
+  },
+  "3": {
+    "light_count": 1,
+    "lights": [
+      {
+        "light_id": 0,
+        "direction": [
+          -0.129224,
+          0.971432,
+          0.199052
+        ],
+        "brightness": 0.912356,
+        "area": 0.179273
+      }
+    ],
+    "baseBrightness": 0.308697
+  },
+  "4": {
+    "light_count": 3,
+    "lights": [
+      {
+        "light_id": 0,
+        "direction": [
+          -0.338177,
+          0.765902,
+          0.546836
+        ],
+        "brightness": 25.025143,
+        "area": 0.021586
+      },
+      {
+        "light_id": 1,
+        "direction": [
+          -0.994389,
+          0.030332,
+          0.101347
+        ],
+        "brightness": 10.074396,
+        "area": 0.041805
+      },
+      {
+        "light_id": 2,
+        "direction": [
+          0.561505,
+          0.668615,
+          0.487511
+        ],
+        "brightness": 22.979948,
+        "area": 0.019747
+      }
+    ],
+    "baseBrightness": 0.797152
+  },
+  "5": {
+    "light_count": 3,
+    "lights": [
+      {
+        "light_id": 0,
+        "direction": [
+          -0.216012,
+          0.963328,
+          0.159179
+        ],
+        "brightness": 20.036642,
+        "area": 0.0421
+      },
+      {
+        "light_id": 1,
+        "direction": [
+          -0.99634,
+          0.050323,
+          0.069094
+        ],
+        "brightness": 11.829471,
+        "area": 0.041218
+      },
+      {
+        "light_id": 2,
+        "direction": [
+          0.655518,
+          0.747971,
+          0.104093
+        ],
+        "brightness": 22.218708,
+        "area": 0.008204
+      }
+    ],
+    "baseBrightness": 0.282196
+  },
+  "6": {
+    "light_count": 3,
+    "lights": [
+      {
+        "light_id": 0,
+        "direction": [
+          -0.197458,
+          0.966542,
+          0.163729
+        ],
+        "brightness": 1.480263,
+        "area": 0.011758
+      },
+      {
+        "light_id": 1,
+        "direction": [
+          0.829792,
+          0.528003,
+          0.180716
+        ],
+        "brightness": 0.981551,
+        "area": 0.004257
+      },
+      {
+        "light_id": 2,
+        "direction": [
+          0.654089,
+          0.748869,
+          0.106596
+        ],
+        "brightness": 1.303755,
+        "area": 0.005016
+      }
+    ],
+    "baseBrightness": 0.210783
+  },
+  "7": {
+    "light_count": 1,
+    "lights": [
+      {
+        "light_id": 0,
+        "direction": [
+          -0.217683,
+          0.790637,
+          0.572283
+        ],
+        "brightness": 4.942991,
+        "area": 0.014534
+      }
+    ],
+    "baseBrightness": 0.904467
+  }
+}

@@ -16,7 +16,7 @@ public:
     bool cameara_pos_bool = true;
     bool stop_cameara_pos = true;
     bool use_png = true;
-    mergeShaderType shader_type = FULL_MODEL;
+    mergeShaderType shader_type = CAMERA_DEPTH;
 
     std::vector<ImagePair> all_images;
     std::string* real_color1;
@@ -46,6 +46,7 @@ private:
     bool loadSceneFromJSON(const std::string& scene_name_or_id);
     vsg::dmat4 parseMatrixFromJSON(const nlohmann::json& matrix_array);
     void clearSceneData();
+    int loaded_scene_id = -1;
 
 public:
 

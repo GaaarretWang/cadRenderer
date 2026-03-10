@@ -40,6 +40,8 @@ namespace vsg
         uint32_t stride = 0;
 
         vsg::ref_ptr<vsg::mat4Array> instanceMatrix;
+        vsg::ref_ptr<vsg::mat4Array> globalModelMatrix;
+        vsg::ref_ptr<vsg::uintArray> highlightBuffer;
     };
     VSG_type_name(vsg::DrawIndexedIndirect);
 

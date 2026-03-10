@@ -191,7 +191,7 @@ void ComputeBounds::apply(const DrawIndexed& drawIndexed)
 void ComputeBounds::apply(const DrawIndexedIndirect& drawIndexedIndirect)
 {
     auto command = reinterpret_cast<VkDrawIndexedIndirectCommand*>(drawIndexedIndirect.bufferInfo->data->dataPointer());
-    applyDrawIndexed(command->firstIndex, command->indexCount, command->firstInstance, command->instanceCount, drawIndexedIndirect.instanceMatrix);
+    applyDrawIndexed(command->firstIndex, command->indexCount, command->firstInstance, command->instanceCount, drawIndexedIndirect.instanceMatrix, drawIndexedIndirect.globalModelMatrix, drawIndexedIndirect.highlightBuffer);
 }
 
 void ComputeBounds::applyDraw(uint32_t firstVertex, uint32_t vertexCount, uint32_t firstInstance, uint32_t instanceCount)
@@ -214,7 +214,7 @@ void ComputeBounds::applyDraw(uint32_t firstVertex, uint32_t vertexCount, uint32
     }
 }
 
-void ComputeBounds::applyDrawIndexed(uint32_t firstIndex, uint32_t indexCount, uint32_t firstInstance, uint32_t instanceCount, vsg::ref_ptr<vsg::mat4Array> instanceMatrix)
+void ComputeBounds::applyDrawIndexed(uint32_t firstIndex, uint32_t indexCount, uint32_t firstInstance, uint32_t instanceCount, vsg::ref_ptr<vsg::mat4Array> instanceMatrix, vsg::ref_ptr<vsg::mat4Array> globalModelMatrix, vsg::ref_ptr<vsg::uintArray> highlightBuffer)
 {
     auto& arrayState = *arrayStateStack.back();
     uint32_t lastIndex = instanceCount > 1 ? (firstInstance + instanceCount) : firstInstance + 1;
@@ -227,8 +227,15 @@ void ComputeBounds::applyDrawIndexed(uint32_t firstIndex, uint32_t indexCount, u
         for (uint32_t instanceIndex = firstInstance; instanceIndex < lastIndex; ++instanceIndex)
         {
             dmat4 matrix_index = matrix;
-            if(instanceMatrix->size() > instanceIndex * 2 + 1){
-                matrix_index  = matrix_index * dmat4(instanceMatrix->at(instanceIndex * 2 + 1)) * dmat4(instanceMatrix->at(instanceIndex * 2));
+            if (globalModelMatrix && highlightBuffer && instanceIndex < instanceMatrix->size()) {
+                // 新模式：instanceMatrix 只存 proto 矩阵，model 矩阵从全局缓冲区获取
+                uint32_t modelIdx = highlightBuffer->at(instanceIndex * 4 + 3);
+                if (modelIdx < globalModelMatrix->size()) {
+                    matrix_index = matrix_index * dmat4(globalModelMatrix->at(modelIdx)) * dmat4(instanceMatrix->at(instanceIndex));
+                }
+            }
+            else{
+                vsg::warn("ComputeBounds::applyDrawIndexed() globalModelMatrix or highlightBuffer is null");
             }
             if (auto vertices = arrayState.vertexArray(instanceIndex))
             {
@@ -244,7 +251,13 @@ void ComputeBounds::applyDrawIndexed(uint32_t firstIndex, uint32_t indexCount, u
         for (uint32_t instanceIndex = firstInstance; instanceIndex < lastIndex; ++instanceIndex)
         {
             dmat4 matrix_index = matrix;
-            if(instanceMatrix->size() > instanceIndex * 2 + 1){
+            if (globalModelMatrix && highlightBuffer && instanceIndex < instanceMatrix->size()) {
+                // 新模式：instanceMatrix 只存 proto 矩阵，model 矩阵从全局缓冲区获取
+                uint32_t modelIdx = highlightBuffer->at(instanceIndex * 4 + 3);
+                if (modelIdx < globalModelMatrix->size()) {
+                    matrix_index = matrix_index * dmat4(globalModelMatrix->at(modelIdx)) * dmat4(instanceMatrix->at(instanceIndex));
+                }
+            } else if(instanceMatrix && instanceMatrix->size() > instanceIndex * 2 + 1){
                 matrix_index  = matrix_index * dmat4(instanceMatrix->at(instanceIndex * 2 + 1)) * dmat4(instanceMatrix->at(instanceIndex * 2));
             }
             if (auto vertices = arrayState.vertexArray(instanceIndex))

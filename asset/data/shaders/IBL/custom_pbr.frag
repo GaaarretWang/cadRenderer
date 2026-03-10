@@ -42,9 +42,6 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D emissiveMap
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap;
 #endif
 
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform sampler2D cameraImage;
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
-
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
 {
     vec4 baseColorFactor;
@@ -95,6 +92,7 @@ layout(location = 5) in float InstanceID;
 
 layout(location = 6) in vec3 worldNormal;
 layout(location = 7) in vec3 worldViewDir;
+layout(location = 8) in vec3 lastWorldPos;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outNormal;
@@ -860,18 +858,6 @@ void main()
         outColor = vec4(1, 1, 1, 1);
         return;
     }
-    
-    if(constantBuffer.shader_type == 1){
-        float cadDepth = -eyePos.z / 65.535;
-        vec2 screen_uv = vec2(gl_FragCoord.x / constantBuffer.width, gl_FragCoord.y / constantBuffer.height);
-        float cameraDepth = texture(depthImage, screen_uv).r;
-        if(cadDepth > cameraDepth){
-            outColor = texture(cameraImage, screen_uv);
-            outNormal = vec4(0, 0, 0, 1);
-            outWorldPos = vec4(1000, 1000, 1000, 1);
-            return;
-        }
-    }
 
     float brightnessCutoff = 0.001;
 
@@ -1023,7 +1009,7 @@ void main()
         }
         scene_brightness = totalfloatBrightness / totalBrigtness;
     }
-    vec4 last_ndc = pc.projection * pc.last_view * vec4(worldViewDir, 1);
+    vec4 last_ndc = pc.projection * pc.last_view * vec4(lastWorldPos, 1);
     ivec2 last_coord = ivec2(((last_ndc.x / last_ndc.w) / 2 + 0.5) * constantBuffer.width, ((last_ndc.y / last_ndc.w) / 2 + 0.5) * constantBuffer.height);
     float old_shadow = 1;
     float oldInstanceID = -1;
@@ -1031,6 +1017,9 @@ void main()
         vec2 shadowdataold_shadow = texelFetch(shadowInputAttachment, last_coord, gl_SampleID).rg;
         oldInstanceID = shadowdataold_shadow.y;
         old_shadow = shadowdataold_shadow.x;
+    }
+    else{
+        old_shadow = scene_brightness;
     }
 
     float current_shadow_value = scene_brightness; // 暂时保存当前帧的阴影值

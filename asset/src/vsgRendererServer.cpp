@@ -1,6 +1,4 @@
 ﻿#include "vsgRendererServer.h"
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
 #include <filesystem>
 
 std::string getDirectoryPath(const std::string& path) {
@@ -29,12 +27,13 @@ std::string getDirectoryPath(const std::string& path) {
 
 void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)
 {
-    // project_path = engine_path.append("Rendering/");
-    project_path = engine_path;
     options->fileCache = vsg::getEnv("VSG_FILE_CACHE"); //2
     options->paths = vsg::getEnvPaths("VSG_FILE_PATH");
     options->paths.push_back(engine_path + "asset/data/");
     options->sharedObjects = vsg::SharedObjects::create();
+
+    // Set up shaders after options->paths is initialized
+    setUpShader();
 
     std::cout << "SERVER: Init Vulkan Device" << std::endl;
     
@@ -224,7 +223,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     CADMesh::camera_info = camera_info;
     CADMesh::depth_info = depth_info;
-    if(shadow_recevier_path != "")
+    if(shadow_recevier_path != "" && shader_type != CAMERA_DEPTH)
     {
         CADMesh* shadow_recevier_mesh = new CADMesh();
         shadow_recevier_mesh->preprocessProtoData(shadow_recevier_path.c_str(), getDirectoryPath(shadow_recevier_path).c_str(), shadow_recevier_transform, shadow_shader, shadowGroup, "shadow_receiver");
@@ -253,6 +252,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             transfer_model->preprocessFBProtoData(path_i, texture_path_i.c_str(), model_transforms[i], IBL::customPbrShaderSet(options), modelGroup, instance_names[i]);
         }
     }
+    // 填充CADMesh场景实例静态数据
+    CADMesh::scene_instance_names = instance_names;
+    CADMesh::scene_original_transforms = model_transforms;
+    if(shader_type != CAMERA_DEPTH) {
+        CADMesh::scene_instance_names.push_back("shadow_receiver");
+        CADMesh::scene_original_transforms.push_back(shadow_recevier_transform);
+    }
 
 
     vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
@@ -261,7 +267,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     CADMesh::buildDrawData(modelGroup, pc, constant_data_buffer_info_list, window->_ShadowSampleImageView); //读取obj文件
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
     CADMesh::buildDynamicPointsData(point_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
-    CADMesh::buildDynamicTextsData(textGroup, options, project_path + "asset/data/fonts/times.vsgt"); //读取obj文件
+    CADMesh::buildDynamicTextsData(textGroup, options, vsg::findFile("fonts/times.vsgt", options->paths)); //读取obj文件
     std::cout << "model processing done" << std::endl;
     SSAOPass::buildSSAOData(options, SSAOGroup, window->_GBufferImageView0, window->_GBufferImageView1, window->_GBufferImageView2, extent);
     SSAOPass::buildSSAODenoiseData(options, SSAODenoiseGroup, window->_GBufferImageView0, window->_ShadowWriteImageView, window->_SSAOResultImageView);
@@ -279,10 +285,11 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     //----------------------------------------------------------------窗口1----------------------------------------------------------//
     viewer->addWindow(window);
     view = vsg::View::create(camera, scenegraph_safe);
+    CADMesh::active_view = view.get();
     // view->features = vsg::RECORD_LIGHTS;
     view->mask = MASK_CAMERA_IMAGE | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
     // view->mask = MASK_SKYBOX | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
-    auto shadow_view_dependent_state = CustomViewDependentState::create(view.get(), device, computeQueueFamily, project_path);
+    auto shadow_view_dependent_state = CustomViewDependentState::create(view.get(), device, computeQueueFamily, options);
     view->viewDependentState = shadow_view_dependent_state;
     auto renderGraph = vsg::RenderGraph::create(window, view);
 
@@ -293,7 +300,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     view1->viewDependentState = CustomViewDependentState1::create(view1.get());
     view1->viewDependentState->pre_depth_pass = view->viewDependentState;
     auto renderGraph1 = vsg::RenderGraph::create(window, view1);
-    auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(this, pc_data, engine_path + "asset/Params.json"));
+    vsgserver::renderer = this;
+    auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(this, pc_data, vsg::findFile("json/Scenes.json", options->paths), vsg::findFile("json/Materials.json", options->paths)));
     renderGraph1->addChild(renderImGui);
     std::this_thread::sleep_for(std::chrono::seconds(1));
     
@@ -323,9 +331,9 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
 
     
-    OcclusionCullingPasses::buildFirstComputePass(depth_cull_command_graph1, project_path);
-    OcclusionCullingPasses::buildDepthPyramid(depth_pyramid_CommandGraph, project_path, window, extent);
-    OcclusionCullingPasses::buildSecondComputePass(depth_pyramid_CommandGraph, project_path, extent);
+    OcclusionCullingPasses::buildFirstComputePass(depth_cull_command_graph1, options);
+    OcclusionCullingPasses::buildDepthPyramid(depth_pyramid_CommandGraph, options, window, extent);
+    OcclusionCullingPasses::buildSecondComputePass(depth_pyramid_CommandGraph, options, extent);
 
 
     viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
@@ -334,7 +342,60 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     encode_extent.width = encode_width;
     encode_extent.height = encode_height;
     final_screenshotHandler = ScreenshotHandler::create(window, extent, encode_extent, ENCODER);
-    allocate_fix_depth_memory(render_width, render_height);
+
+    depth_interop_image = vsg::Image::create();
+    depth_interop_image->imageType = VK_IMAGE_TYPE_2D;
+    depth_interop_image->format = VK_FORMAT_R16_UNORM;
+    depth_interop_image->extent.width = width;
+    depth_interop_image->extent.height = height;
+    depth_interop_image->extent.depth = 1;
+    depth_interop_image->arrayLayers = 1;
+    depth_interop_image->mipLevels = 1;
+    depth_interop_image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depth_interop_image->samples = VK_SAMPLE_COUNT_1_BIT;
+    depth_interop_image->tiling = VK_IMAGE_TILING_LINEAR;
+    depth_interop_image->usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+    VkExternalMemoryImageCreateInfo depthExtMemInfo = {};
+    depthExtMemInfo.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO_KHR;
+    depthExtMemInfo.pNext = nullptr;
+    #ifdef _WIN32
+    depthExtMemInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
+    #else
+    depthExtMemInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+    #endif
+    depth_interop_image->pNext = &depthExtMemInfo;
+
+    VkExportMemoryAllocateInfo depthExportAllocInfo = {};
+    depthExportAllocInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
+    depthExportAllocInfo.pNext = nullptr;
+    #ifdef _WIN32
+    depthExportAllocInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
+    #else
+    depthExportAllocInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
+    #endif
+    depth_interop_image->pNextAllocInfo = &depthExportAllocInfo;
+    depth_interop_image->compile(device);
+
+    auto depthDeviceMemory = vsg::DeviceMemory::create(device,
+        depth_interop_image->getMemoryRequirements(device->deviceID),
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        &depthExportAllocInfo);
+    depth_interop_image->bind(depthDeviceMemory, 0);
+
+    auto depthBufferSize = depth_interop_image->getMemoryRequirements(device->deviceID).size;
+    VkExtent2D depthExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+    depth_cuimage = new Cudaimage(depth_interop_image, device, depthBufferSize, depthExtent);
+
+    std::cout << "CUDA-Vulkan depth interop image created, buffer size = " << depthBufferSize << std::endl;
+
+    // 初始化 GPU copy 基础设施（用于 vkCmdCopyImage: interop → depth_info image）
+    auto interopPhysicalDevice = window->getPhysicalDevice();
+    auto interopQueueFamilyIndex = interopPhysicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
+    depth_copy_commandPool = vsg::CommandPool::create(device, interopQueueFamilyIndex);
+    depth_copy_fence = vsg::Fence::create(device);
+    depth_copy_queue = device->getQueue(interopQueueFamilyIndex);
+
     std::cout << "4" << std::endl;
 }
 
@@ -346,6 +407,9 @@ bool vsgRendererServer::render() {
     pc_data->value().frame_num = ++frame_num;
     pc_data->value().last_view = vsg::mat4(camera->viewMatrix->transform());
     pc_data->dirty();
+
+    // 每帧开始时：将当前矩阵拷贝到上一帧矩阵缓冲
+    CADMesh::copyCurrentToLastMatrices();
 
     // 检查并应用待更新的相机矩阵
     if (camera_dirty) {
@@ -363,17 +427,17 @@ bool vsgRendererServer::render() {
     while (viewer->advanceToNextFrame()) {
 
         auto t1 = std::chrono::high_resolution_clock::now();
-        fix_depth(width, height, depth_pixels);
+        // Interop路径: CPU→GPU(直接到interop内存) → kernel(原地) → vkCmdCopyImage → shader采样depth_info
+        fix_depth_interop(width, height, depth_pixels, reinterpret_cast<void*>(depth_cuimage->get()));
+        // GPU端拷贝 interop → depth_info image
+        copyInteropToDepthImage();
 
         auto t2 = std::chrono::high_resolution_clock::now();
         uint8_t* vsg_color_image_beginPointer = static_cast<uint8_t*>(vsg_color_image->dataPointer(0));
         std::copy(color_pixels, color_pixels + width * height * 3, vsg_color_image_beginPointer);
-        uint16_t* vsg_depth_image_beginPointer = static_cast<uint16_t*>(vsg_depth_image->dataPointer(0));
-        std::copy(depth_pixels, depth_pixels + width * height, vsg_depth_image_beginPointer);
 
         auto t3 = std::chrono::high_resolution_clock::now();
         vsg_color_image->dirty();
-        vsg_depth_image->dirty();
 
         gui::global_params->render_func_times[0] = std::chrono::duration<double, std::milli>(t1 - t0).count();
         gui::global_params->render_func_times[1] = std::chrono::duration<double, std::milli>(t2 - t1).count();
@@ -402,5 +466,65 @@ bool vsgRendererServer::render() {
         return true;
     }
     return false;
+}
+
+void vsgRendererServer::copyInteropToDepthImage() {
+    auto depth_target_image = depth_info[0]->imageView->image;
+    auto command = vsg::Commands::create();
+
+    // 1. Barrier: interop image UNDEFINED→TRANSFER_SRC, depth_info image SHADER_READ_ONLY→TRANSFER_DST
+    auto preCopyBarrier = vsg::PipelineBarrier::create(
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT, 0);
+
+    preCopyBarrier->add(vsg::ImageMemoryBarrier::create(
+        0, VK_ACCESS_TRANSFER_READ_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+        depth_interop_image,
+        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
+
+    preCopyBarrier->add(vsg::ImageMemoryBarrier::create(
+        VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+        depth_target_image,
+        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
+
+    command->addChild(preCopyBarrier);
+
+    // 2. CopyImage: interop → depth_info image
+    auto copyImage = vsg::CopyImage::create();
+    copyImage->srcImage = depth_interop_image;
+    copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    copyImage->dstImage = depth_target_image;
+    copyImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+
+    VkImageCopy region = {};
+    region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+    region.extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
+    copyImage->regions.push_back(region);
+    command->addChild(copyImage);
+
+    // 3. Barrier: depth_info image TRANSFER_DST→SHADER_READ_ONLY
+    auto postCopyBarrier = vsg::PipelineBarrier::create(
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0);
+
+    postCopyBarrier->add(vsg::ImageMemoryBarrier::create(
+        VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
+        depth_target_image,
+        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
+
+    command->addChild(postCopyBarrier);
+
+    // 4. Submit GPU command
+    vsg::submitCommandsToQueue(depth_copy_commandPool, depth_copy_fence, 100000000000,
+        depth_copy_queue, [&](vsg::CommandBuffer& commandBuffer) {
+        command->record(commandBuffer);
+    });
 }
 

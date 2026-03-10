@@ -4,6 +4,7 @@
 #include <vsg/all.h>
 #include <CADMesh.h>
 #include "communication/dataInterface.h"
+#include "convertPng.h"
 #include <string>
 #include <chrono>
 #include <fstream>
@@ -49,6 +50,19 @@ ImagePair loadImagePair(const std::string& timestamp, ConvertImage* converter) {
 }
 
 int main(int argc, char** argv){
+    // 手动解析PNG测试参数（不使用vsg::CommandLine，避免消费其他模块需要的参数）
+    bool save_ref = false;
+    bool compare_ref = false;
+    double diff_threshold = 0.01; // 差异率阈值，默认1%
+    std::string scene_id_str = "0";
+    for(int i = 1; i < argc; i++){
+        std::string arg = argv[i];
+        if(arg == "--save-ref") save_ref = true;
+        else if(arg == "--compare-ref") compare_ref = true;
+        else if(arg == "--diff-threshold" && i + 1 < argc) diff_threshold = std::stod(argv[++i]);
+        else if((arg == "--scene" || arg == "-s") && i + 1 < argc) scene_id_str = argv[i + 1]; // 不消费，留给RenderingServer
+    }
+
     // 解析命令行参数
     vsg::CommandLine arguments(&argc, argv);
     int max_frames = 0; // 0表示无限运行
@@ -180,6 +194,45 @@ int main(int argc, char** argv){
         frame++;
         if(frame >= num_images)
             frame = 0;
+    }
+
+    // 达到指定帧数后，执行PNG参考图保存/对比
+    if(save_ref || compare_ref){
+        int rw = rendering_server.renderer.render_width;
+        int rh = rendering_server.renderer.render_height;
+        std::vector<uint8_t> window_image(rw * rh * 4);
+        uint8_t* img_ptr = window_image.data();
+        rendering_server.renderer.getWindowImage(img_ptr);
+
+        std::string ref_dir = "../test_references";
+        std::string ref_path = ref_dir + "/scene_" + scene_id_str + ".png";
+
+        if(save_ref){
+            bool ok = ConvertImage::savePNG(ref_path, window_image.data(), rw, rh, 4);
+            if(ok){
+                std::cout << "Reference saved: " << ref_path << std::endl;
+            } else {
+                std::cerr << "Failed to save reference: " << ref_path << std::endl;
+                return 1;
+            }
+        }
+
+        if(compare_ref){
+            auto cmp = ConvertImage::compareWithRef(window_image.data(), rw, rh, 4, ref_path);
+            std::cout << "Compare result: " << cmp.message << std::endl;
+            if(!cmp.valid){
+                std::cerr << "FAIL: comparison invalid" << std::endl;
+                return 1;
+            }
+            if(cmp.diff_ratio > diff_threshold){
+                std::cerr << "FAIL: diff ratio " << (cmp.diff_ratio * 100.0) << "% exceeds threshold "
+                          << (diff_threshold * 100.0) << "%" << std::endl;
+                return 1;
+            } else {
+                std::cout << "PASS: diff ratio " << (cmp.diff_ratio * 100.0) << "% within threshold "
+                          << (diff_threshold * 100.0) << "%" << std::endl;
+            }
+        }
     }
 
     // 达到指定帧数，程序停止

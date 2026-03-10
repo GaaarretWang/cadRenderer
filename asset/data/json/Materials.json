@@ -1,16 +1,4 @@
 {
-    "dynamic_objects": {
-        "line_color": [
-            1.0,
-            1.0,
-            1.0
-        ],
-        "point_color": [
-            1.0,
-            1.0,
-            1.0
-        ]
-    },
     "material_params": {
         "Whole engine.obj0": {
             "baseColorFactor": [
@@ -582,28 +570,5 @@
             "metallicFactor": 0.0,
             "roughnessFactor": 0.5370000004768372
         }
-    },
-    "render_params": {
-        "baseBrightness": 0.2759999930858612,
-        "blocker_sample_num": 8,
-        "denoise_size": 5,
-        "exposure": 11.708000183105469,
-        "model_scale": 100.0,
-        "model_translate": [
-            180000.0,
-            -180000.0,
-            60000.0
-        ],
-        "pcf_sample_num": 8,
-        "pcf_softness": 5.784999847412109,
-        "pcss_softness": 20.100000381469727,
-        "pcss_softness_falloff": 0.10899999737739563,
-        "shadow bias": 0.0,
-        "shadow_sample_num": 32,
-        "shadow_type": 1,
-        "softness": 0.07800000160932541,
-        "softness_falloff": 31.128999710083008,
-        "ssao_kernel_size": 64,
-        "ssao_radius": 0.656000018119812
     }
 }
