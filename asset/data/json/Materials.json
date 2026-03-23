@@ -18,7 +18,7 @@
                 1.0
             ],
             "metallicFactor": 1.0,
-            "roughnessFactor": 0.0
+            "roughnessFactor": 0.9950000047683716
         },
         "helicopter-engine.quads.obj1": {
             "baseColorFactor": [
@@ -48,7 +48,7 @@
                 1.0
             ],
             "metallicFactor": 1.0,
-            "roughnessFactor": 0.7850000262260437
+            "roughnessFactor": 1.0219999551773071
         },
         "helicopter-engine.quads.obj6": {
             "baseColorFactor": [
@@ -58,7 +58,7 @@
                 1.0
             ],
             "metallicFactor": 1.0190000534057617,
-            "roughnessFactor": 0.7720000147819519
+            "roughnessFactor": 1.0190000534057617
         },
         "helicopter-engine.quads.obj7": {
             "baseColorFactor": [
