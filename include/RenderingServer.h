@@ -16,7 +16,7 @@ public:
     bool cameara_pos_bool = true;
     bool stop_cameara_pos = true;
     bool use_png = true;
-    mergeShaderType shader_type = CAMERA_DEPTH;
+    mergeShaderType shader_type = FULL_MODEL;
 
     std::vector<ImagePair> all_images;
     std::string* real_color1;

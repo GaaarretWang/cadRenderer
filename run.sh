@@ -5,7 +5,7 @@ cd build
 cmake ..
 if make -j$(nproc); then
     echo "编译成功，准备运行程序..."
-    ./Rendering -s 3
+    ./Rendering -s 0
 else
     echo "编译失败，请检查错误"
     exit 1

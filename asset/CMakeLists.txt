@@ -1,3 +1,8 @@
+enable_language(CUDA)
+find_package(CUDA REQUIRED)
+set(CMAKE_CUDA_RUNTIME_LIBRARY Shared)
+find_package(CUDAToolkit REQUIRED)
+
 # 收集源文件
 aux_source_directory(src ASSET_SRCS)
 

@@ -60,6 +60,7 @@ layout(location = 5) out float InstanceID;
 layout(location = 6) out vec3 worldNormal;
 layout(location = 7) out vec3 worldViewDir;
 layout(location = 8) out vec3 lastWorldPos;
+layout(location = 9) out flat uint materialIndex;
 
 #define VIEW_DESCRIPTOR_SET 1
 layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
@@ -91,6 +92,10 @@ mat4 computeBillboadMatrix(vec4 center_eye, float autoScaleDistance)
 void main()
 {
     vec4 vertex = vec4(vsg_Vertex, 1.0);
+    vec4 instanceIDVec = vsg_InstanceID;
+    InstanceID = instanceIDVec.x;  // Keep for temporal AA
+    materialIndex = uint(instanceIDVec.y);  // Extract material index from .y component
+
     InstanceData instanceModelMatrixi = instanceMatrices.instanceModelMatrix[gl_InstanceIndex];
     mat4 model = instanceModelMatrixi.modelMatrix;
     mat4 lastModel = instanceModelMatrixi.lastModelMatrix;

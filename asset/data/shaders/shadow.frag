@@ -38,18 +38,6 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform sampler2D cameraImage;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
 
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
-{
-    vec4 baseColorFactor;
-    vec4 emissiveFactor;
-    vec4 diffuseFactor;
-    vec4 specularFactor;
-    float metallicFactor;
-    float roughnessFactor;
-    float alphaMask;
-    float alphaMaskCutoff;
-} pbr;
-
 layout(std430, set = MATERIAL_DESCRIPTOR_SET, binding = 12) buffer ConstantBuffer {
     float z_far;
     int shader_type;
