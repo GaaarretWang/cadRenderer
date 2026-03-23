@@ -47,7 +47,6 @@ struct InstanceTransformState {
     float scale_percent = 100.0f;             // 百分比
     bool selected = false;
 
-    vsg::dmat4 computeUserTransform() const;  // T * Rz * Ry * Rx * S
     vsg::dmat4 computeFinalTransform() const; // original * userTransform
 };
 
@@ -113,23 +112,26 @@ namespace gui
         vsg::ref_ptr<vsg::Value<GlobalPCData>> m_pc_data;
         std::string m_scenes_json_path;     // data/json/Scenes.json
         std::string m_materials_json_path;  // data/json/Materials.json
-        vsgRendererServer* m_renderer; // 仅声明指针，前向声明已足够
-        mutable float m_shadowmap_bias;
+        std::string m_lightinfo_json_path;  // data/json/LightInfo.json
         mutable float pcf_softness;
         mutable float pcss_softness;
         mutable float pcss_softness_falloff;
 
         // 实例变换状态
         mutable std::vector<InstanceTransformState> m_instance_states;
-        mutable float m_input_translate[3] = {0.f, 0.f, 0.f};
-        mutable float m_input_rotate[3] = {0.f, 0.f, 0.f};
-        mutable float m_input_scale = 100.0f;
+        // 滑条范围
+        mutable float m_rotate_min[3] = {-180.f, -180.f, -180.f};
+        mutable float m_rotate_max[3] = {180.f, 180.f, 180.f};
+        mutable float m_scale_min = 50.f;
+        mutable float m_scale_max = 200.f;
+        mutable float m_translate_min[3] = {-2.f, -2.f, -2.f};
+        mutable float m_translate_max[3] = {2.f, 2.f, 2.f};
 
-        // 调整构造函数参数，接收两个JSON路径
-        MyGui(vsgRendererServer* renderer,
-              vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data,
+        // 调整构造函数参数，接收三个JSON路径
+        MyGui(vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data,
               const std::string& scenes_json_path,
               const std::string& materials_json_path,
+              const std::string& lightinfo_json_path,
               vsg::ref_ptr<vsg::Options> options = {});
 
         void compile(vsg::Context& context) override;
@@ -154,9 +156,7 @@ namespace gui
         void drawMaterialControls() const;
         void drawLinePointControls() const;
         void drawInstanceTransformPanel() const;
-        void applyTranslation() const;
-        void applyRotation() const;
-        void applyScale() const;
+        void saveBaseBrightnessToLightInfo() const;
         void resetSelectedInstances() const;
         void saveTransformsToScenesJson() const;
     };

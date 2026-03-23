@@ -34,7 +34,7 @@ target_include_directories(vsgRenderer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/vsgXchange/src/stbi
     ${CAD_DATA_MANAGER_DIR}/include
     ${VIDEO_CODEC_SDK_DIR}/Utils
-    ${CUDA_INCLUDE_DIRS}
+    ${CUDAToolkit_INCLUDE_DIRS}
 )
 
 # 核心依赖（所有平台）
@@ -50,7 +50,7 @@ if(UNIX)
         flatbuffers
         nvcuvid
         nvidia-encode
-        ${CUDA_CUDA_LIBRARY}
+        CUDA::cuda_driver
         ${CAD_DATA_MANAGER_DIR}/lib/libcadDataManager.so
         ${CAD_DATA_MANAGER_DIR}/lib/libcurl.a
     )
@@ -62,7 +62,7 @@ elseif(WIN32)
         ${VIDEO_CODEC_SDK_DIR}/Lib/x64/nvencodeapi.lib
         ${CAD_DATA_MANAGER_DIR}/winlib/cadDataManager.lib
         ${CUDA_LIBRARIES}
-        ${CUDA_CUDA_LIBRARY}
+        CUDA::cuda_driver
     )
 
     target_include_directories(vsgRenderer PRIVATE

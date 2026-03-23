@@ -17,34 +17,6 @@ static json matrixToRowMajorJson(const vsg::dmat4& mat)
     return arr;
 }
 
-// 辅助函数：行主序JSON数组（16个double） → vsg列主序矩阵
-static vsg::dmat4 rowMajorJsonToMatrix(const json& arr)
-{
-    vsg::dmat4 mat;
-    for (int row = 0; row < 4; row++)
-        for (int col = 0; col < 4; col++)
-            mat[col][row] = arr[row * 4 + col].get<double>();
-    return mat;
-}
-
-// InstanceTransformState 实现
-vsg::dmat4 InstanceTransformState::computeUserTransform() const
-{
-    double tx = translate[0], ty = translate[1], tz = translate[2];
-    double rx = rotate[0] * M_PI / 180.0;
-    double ry = rotate[1] * M_PI / 180.0;
-    double rz = rotate[2] * M_PI / 180.0;
-    double s = scale_percent / 100.0;
-
-    auto T = vsg::translate(tx, ty, tz);
-    auto Rz = vsg::rotate(rz, 0.0, 0.0, 1.0);
-    auto Ry = vsg::rotate(ry, 0.0, 1.0, 0.0);
-    auto Rx = vsg::rotate(rx, 1.0, 0.0, 0.0);
-    auto S = vsg::scale(s, s, s);
-
-    return T * Rz * Ry * Rx * S;
-}
-
 // final = T * original * Rz * Ry * Rx * S
 // 平移在左侧（世界空间），旋转和缩放在右侧（局部空间）
 vsg::dmat4 InstanceTransformState::computeFinalTransform() const
@@ -69,13 +41,14 @@ namespace gui
     vsg::ref_ptr<Params> global_params = Params::create();
 
     // 实现构造函数
-    MyGui::MyGui(vsgRendererServer* renderer,
-                 vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data,
+    MyGui::MyGui(vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data,
                  const std::string& scenes_json_path,
                  const std::string& materials_json_path,
+                 const std::string& lightinfo_json_path,
                  vsg::ref_ptr<vsg::Options> options)
-        : m_renderer(renderer), m_pc_data(pc_data),
-          m_scenes_json_path(scenes_json_path), m_materials_json_path(materials_json_path)
+        : m_pc_data(pc_data),
+          m_scenes_json_path(scenes_json_path), m_materials_json_path(materials_json_path),
+          m_lightinfo_json_path(lightinfo_json_path)
     {
         // 加载JSON文件初始化参数
         loadParams();
@@ -109,6 +82,13 @@ namespace gui
     // 从Scenes.json加载当前场景的渲染参数
     void MyGui::loadRenderParams()
     {
+        // 从LightInfo.json加载当前HDR的baseBrightness
+        int hdr_num = vsgserver::renderer->hdr_image_num;
+        auto it = vsgserver::renderer->hdr_base_brightness.find(hdr_num);
+        if (it != vsgserver::renderer->hdr_base_brightness.end()) {
+            m_pc_data->value().baseBrightness = it->second;
+        }
+
         std::cout << "Loading render params from: " << m_scenes_json_path << std::endl;
         if (!fs::exists(m_scenes_json_path))
         {
@@ -152,9 +132,8 @@ namespace gui
             {
                 auto& render_params = (*target_scene)["render_params"];
                 if (render_params.contains("hdr_image_num"))
-                    m_renderer->hdr_image_num = render_params["hdr_image_num"];
-                if (render_params.contains("baseBrightness"))
-                    m_pc_data->value().baseBrightness = render_params["baseBrightness"];
+                    vsgserver::renderer->hdr_image_num = render_params["hdr_image_num"];
+                // baseBrightness 不再从scenes.json加载，只从LightInfo.json读取
                 if (render_params.contains("ssao_radius"))
                     m_pc_data->value().ssao_radius = render_params["ssao_radius"];
                 if (render_params.contains("ssao_kernel_size"))
@@ -197,6 +176,13 @@ namespace gui
                     point_colors = vsg::vec4(color[0], color[1], color[2], 1.0f);
                     CADMesh::dynamic_points.colors->dirty();
                 }
+            }
+
+            // baseBrightness 从LightInfo.json读取
+            int hdr_num = vsgserver::renderer->hdr_image_num;
+            auto it = vsgserver::renderer->hdr_base_brightness.find(hdr_num);
+            if (it != vsgserver::renderer->hdr_base_brightness.end()) {
+                m_pc_data->value().baseBrightness = it->second;
             }
         }
         catch (const std::exception& e)
@@ -269,6 +255,41 @@ namespace gui
         saveMaterialParams();
     }
 
+    // 保存baseBrightness到LightInfo.json
+    void MyGui::saveBaseBrightnessToLightInfo() const
+    {
+        try {
+            json json_data;
+            if (fs::exists(m_lightinfo_json_path)) {
+                std::ifstream file(m_lightinfo_json_path);
+                if (file.is_open()) {
+                    file >> json_data;
+                    file.close();
+                }
+            }
+
+            int hdr_num = vsgserver::renderer->hdr_image_num;
+            std::string hdr_key = std::to_string(hdr_num);
+            float bb = m_pc_data->value().baseBrightness;
+
+            if (json_data.contains(hdr_key)) {
+                json_data[hdr_key]["baseBrightness"] = bb;
+            }
+
+            std::ofstream file(m_lightinfo_json_path);
+            if (file.is_open()) {
+                file << std::setw(4) << json_data << std::endl;
+                file.close();
+                vsgserver::renderer->hdr_base_brightness[hdr_num] = bb;
+                std::cout << "baseBrightness saved to LightInfo.json (HDR " << hdr_num << " = " << bb << ")" << std::endl;
+            } else {
+                std::cerr << "Failed to open LightInfo.json for writing: " << m_lightinfo_json_path << std::endl;
+            }
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to save baseBrightness: " << e.what() << std::endl;
+        }
+    }
+
     // 保存渲染参数到Scenes.json的当前场景
     void MyGui::saveRenderParams() const
     {
@@ -302,15 +323,25 @@ namespace gui
 
             if (target_scene == nullptr)
             {
-                std::cerr << "Scene id " << scene_id << " not found, cannot save render params" << std::endl;
-                return;
+                std::cout << "Scene id " << scene_id << " not found, auto-creating new scene" << std::endl;
+                json new_scene;
+                new_scene["id"] = scene_id;
+                new_scene["name"] = "scene_" + std::to_string(scene_id);
+                new_scene["description"] = "Auto-created scene";
+                new_scene["models"] = json::array();
+                new_scene["render_params"] = json::object();
+                new_scene["line_point_style"] = {
+                    {"line_color", {1.0, 1.0, 1.0}},
+                    {"point_color", {1.0, 1.0, 1.0}}
+                };
+                scenes_data["scenes"].push_back(new_scene);
+                target_scene = &scenes_data["scenes"].back();
             }
 
             // 更新 render_params
             const auto& pc_data = m_pc_data->value();
             json& render_params = (*target_scene)["render_params"];
-            render_params["hdr_image_num"] = m_renderer->hdr_image_num;
-            render_params["baseBrightness"] = pc_data.baseBrightness;
+            render_params["hdr_image_num"] = vsgserver::renderer->hdr_image_num;
             render_params["ssao_radius"] = pc_data.ssao_radius;
             render_params["ssao_kernel_size"] = pc_data.ssao_kernel_size;
             render_params["exposure"] = pc_data.exposure;
@@ -421,17 +452,17 @@ namespace gui
     void MyGui::drawRenderParams() const
     {
         ImGui::Text("hdr num:");
-        for(int i = 1; i <= m_renderer->hdr_image_max_num; ++i){
+        for(int i = 1; i <= vsgserver::renderer->hdr_image_max_num; ++i){
             std::string num_str = std::to_string(i);
             if(i > 1) {
                 ImGui::SameLine(0.0f, 5.0f);
             }
             if(ImGui::Button(num_str.c_str())){
-                m_renderer->hdr_image_num = i;
-                m_renderer->updateEnvLighting();
+                vsgserver::renderer->hdr_image_num = i;
+                vsgserver::renderer->updateEnvLighting();
                 // 自动更新 baseBrightness 为对应HDR的值
-                auto it = m_renderer->hdr_base_brightness.find(i);
-                if (it != m_renderer->hdr_base_brightness.end()) {
+                auto it = vsgserver::renderer->hdr_base_brightness.find(i);
+                if (it != vsgserver::renderer->hdr_base_brightness.end()) {
                     m_pc_data->value().baseBrightness = it->second;
                 }
             }
@@ -451,12 +482,16 @@ namespace gui
         if (m_pc_data->value().shadow_type == 0)
         {
             ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 10.0f);
+            if (ImGui::Button("Save baseBrightness"))
+                saveBaseBrightnessToLightInfo();
             ImGui::SliderFloat("pcf_softness", &(pcf_softness), 0.0f, 100.0f);
             m_pc_data->value().softness = pcf_softness;
         }
         else if(m_pc_data->value().shadow_type == 1)
         {
             ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 10.0f);
+            if (ImGui::Button("Save baseBrightness"))
+                saveBaseBrightnessToLightInfo();
             ImGui::SliderFloat("pcss_softness", &(pcss_softness), 0.0f, 1000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
             ImGui::SliderFloat("pcss_softness_falloff", &(pcss_softness_falloff), 0.0f, 5.f);
             m_pc_data->value().softness = pcss_softness;
@@ -526,41 +561,6 @@ namespace gui
         CADMesh::dynamic_points.colors->dirty();
     }
 
-    // 变换应用方法
-    void MyGui::applyTranslation() const
-    {
-        for (auto& state : m_instance_states) {
-            if (!state.selected) continue;
-            state.translate[0] += m_input_translate[0];
-            state.translate[1] += m_input_translate[1];
-            state.translate[2] += m_input_translate[2];
-            vsgserver::renderer->updateObjectPose(state.instance_name, state.computeFinalTransform());
-        }
-        m_input_translate[0] = m_input_translate[1] = m_input_translate[2] = 0.f;
-    }
-
-    void MyGui::applyRotation() const
-    {
-        for (auto& state : m_instance_states) {
-            if (!state.selected) continue;
-            state.rotate[0] += m_input_rotate[0];
-            state.rotate[1] += m_input_rotate[1];
-            state.rotate[2] += m_input_rotate[2];
-            vsgserver::renderer->updateObjectPose(state.instance_name, state.computeFinalTransform());
-        }
-        m_input_rotate[0] = m_input_rotate[1] = m_input_rotate[2] = 0.f;
-    }
-
-    void MyGui::applyScale() const
-    {
-        for (auto& state : m_instance_states) {
-            if (!state.selected) continue;
-            state.scale_percent = state.scale_percent * m_input_scale / 100.0f;
-            vsgserver::renderer->updateObjectPose(state.instance_name, state.computeFinalTransform());
-        }
-        m_input_scale = 100.0f;
-    }
-
     void MyGui::resetSelectedInstances() const
     {
         for (auto& state : m_instance_states) {
@@ -614,9 +614,11 @@ namespace gui
             if (target_scene == nullptr) {
                 json new_scene;
                 new_scene["id"] = scene_id;
-                new_scene["name"] = (scene_id == -1) ? "custom_scene" : "scene_" + std::to_string(scene_id);
-                new_scene["description"] = "Saved from Instance Transform UI";
                 new_scene["models"] = json::array();
+                if (scene_id != -1) {
+                    new_scene["name"] = "scene_" + std::to_string(scene_id);
+                    new_scene["description"] = "Saved from Instance Transform UI";
+                }
                 scenes_data["scenes"].push_back(new_scene);
                 target_scene = &scenes_data["scenes"].back();
             }
@@ -684,7 +686,7 @@ namespace gui
         if (m_instance_states.empty()) return;
 
         ImGui::SetNextWindowPos(ImVec2(370, 10), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(350, 500), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(500, 700), ImGuiCond_Always);
         ImGui::Begin("Instance Transforms");
 
         // 全选/全不选按钮
@@ -707,29 +709,62 @@ namespace gui
 
         ImGui::Separator();
 
-        // --- Translation ---
-        ImGui::Text("--- Translation (m) ---");
-        ImGui::InputFloat3("T XYZ", m_input_translate);
-        if (ImGui::Button("Apply Translation"))
-            applyTranslation();
+        // 为每个选中实例显示滑条控制
+        for (auto& state : m_instance_states) {
+            if (!state.selected) continue;
 
-        ImGui::Separator();
+            ImGui::PushID(state.instance_name.c_str());
+            ImGui::Text("%s", state.instance_name.c_str());
 
-        // --- Rotation ---
-        ImGui::Text("--- Rotation (deg) ---");
-        ImGui::InputFloat3("R XYZ", m_input_rotate);
-        if (ImGui::Button("Apply Rotation"))
-            applyRotation();
+            // --- Rotation (deg) ---
+            ImGui::Text("Rotation (deg)");
+            for (int i = 0; i < 3; i++) {
+                ImGui::PushID(i);
+                std::string label = (i == 0) ? "Rx" : (i == 1) ? "Ry" : "Rz";
+                ImGui::SetNextItemWidth(120);
+                if (ImGui::SliderFloat(label.c_str(), &state.rotate[i], m_rotate_min[i], m_rotate_max[i]))
+                    vsgserver::renderer->updateObjectPose(state.instance_name, state.computeFinalTransform());
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(50);
+                ImGui::InputFloat("min", &m_rotate_min[i]);
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(50);
+                ImGui::InputFloat("max", &m_rotate_max[i]);
+                ImGui::PopID();
+            }
 
-        ImGui::Separator();
+            // --- Scale (%) ---
+            ImGui::Text("Scale (%%)");
+            ImGui::SetNextItemWidth(120);
+            if (ImGui::SliderFloat("Scale", &state.scale_percent, m_scale_min, m_scale_max, "%.1f", ImGuiSliderFlags_Logarithmic))
+                vsgserver::renderer->updateObjectPose(state.instance_name, state.computeFinalTransform());
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(50);
+            ImGui::InputFloat("min##s", &m_scale_min);
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(50);
+            ImGui::InputFloat("max##s", &m_scale_max);
 
-        // --- Scale ---
-        ImGui::Text("--- Scale (%%) ---");
-        ImGui::InputFloat("%", &m_input_scale);
-        if (ImGui::Button("Apply Scale"))
-            applyScale();
+            // --- Translation (m) ---
+            ImGui::Text("Translation (m)");
+            for (int i = 0; i < 3; i++) {
+                ImGui::PushID(i + 3);
+                std::string label = (i == 0) ? "Tx" : (i == 1) ? "Ty" : "Tz";
+                ImGui::SetNextItemWidth(120);
+                if (ImGui::SliderFloat(label.c_str(), &state.translate[i], m_translate_min[i], m_translate_max[i]))
+                    vsgserver::renderer->updateObjectPose(state.instance_name, state.computeFinalTransform());
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(50);
+                ImGui::InputFloat("min", &m_translate_min[i]);
+                ImGui::SameLine();
+                ImGui::SetNextItemWidth(50);
+                ImGui::InputFloat("max", &m_translate_max[i]);
+                ImGui::PopID();
+            }
 
-        ImGui::Separator();
+            ImGui::Separator();
+            ImGui::PopID();
+        }
 
         // 重置和保存按钮
         if (ImGui::Button("Reset Selected"))
@@ -737,17 +772,6 @@ namespace gui
         ImGui::SameLine();
         if (ImGui::Button("Save to Scenes.json"))
             saveTransformsToScenesJson();
-
-        // 显示选中实例的当前TRS
-        ImGui::Separator();
-        for (auto& state : m_instance_states) {
-            if (!state.selected) continue;
-            ImGui::Text("%s: T(%.2f,%.2f,%.2f) R(%.1f,%.1f,%.1f) S(%.1f%%)",
-                state.instance_name.c_str(),
-                state.translate[0], state.translate[1], state.translate[2],
-                state.rotate[0], state.rotate[1], state.rotate[2],
-                state.scale_percent);
-        }
 
         ImGui::End();
     }

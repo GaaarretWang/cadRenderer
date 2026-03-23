@@ -635,7 +635,7 @@ void main()
     }
 
     float current_shadow_value = scene_brightness; // 暂时保存当前帧的阴影值
-    if (abs(oldInstanceID - InstanceID) < 0.1)
+    if (abs(oldInstanceID - InstanceID) < 0.1 && abs(old_shadow - scene_brightness) < 0.1)
     {
         float historyLuma = old_shadow;
         float currentLuma = current_shadow_value;

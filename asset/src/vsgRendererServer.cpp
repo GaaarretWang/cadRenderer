@@ -301,7 +301,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     view1->viewDependentState->pre_depth_pass = view->viewDependentState;
     auto renderGraph1 = vsg::RenderGraph::create(window, view1);
     vsgserver::renderer = this;
-    auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(this, pc_data, vsg::findFile("json/Scenes.json", options->paths), vsg::findFile("json/Materials.json", options->paths)));
+    auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(pc_data, vsg::findFile("json/Scenes.json", options->paths), vsg::findFile("json/Materials.json", options->paths), vsg::findFile("json/LightInfo.json", options->paths)));
     renderGraph1->addChild(renderImGui);
     std::this_thread::sleep_for(std::chrono::seconds(1));
     
