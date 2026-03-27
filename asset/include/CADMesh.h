@@ -82,7 +82,7 @@ struct ProtoData
     std::string diffuse_path = "";
     std::string normal_path = "";
     std::string mr_path = "";
-    vsg::ref_ptr<vsg::PbrMaterialValue> material;
+    uint32_t material_index;  // Index into global_material_array
     vsg::ref_ptr<vsg::mat4Array> instance_buffer;
     vsg::ref_ptr<vsg::mat4Array> last_instance_buffer; // 上一帧的proto矩阵
     vsg::ref_ptr<vsg::BufferInfo> input_instance_buffer_info;
@@ -263,6 +263,10 @@ public:
     static std::unordered_map<std::string, vsg::ImageInfoList> texture_name_to_image_map;
     static std::unordered_map<std::string, ProtoData*> proto_id_to_data_map;
     static std::vector<ProtoData*> insert_order_to_data;
+
+    // Global material array (same size as insert_order_to_data)
+    static std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> global_material_array;
+    static vsg::ref_ptr<vsg::PbrMaterialArray> global_material_buffer;
 
     static std::unordered_map<std::string, std::vector<MatrixIndex>> id_to_matrix_index_map;
 

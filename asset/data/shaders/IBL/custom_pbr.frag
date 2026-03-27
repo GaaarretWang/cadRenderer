@@ -42,8 +42,7 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D emissiveMap
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap;
 #endif
 
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
-{
+struct PbrMaterial {
     vec4 baseColorFactor;
     vec4 emissiveFactor;
     vec4 diffuseFactor;
@@ -52,7 +51,11 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
     float roughnessFactor;
     float alphaMask;
     float alphaMaskCutoff;
-} pbr;
+};
+
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 14) buffer MaterialArray {
+    PbrMaterial materials[];
+} materialArray;
 
 layout(std430, set = MATERIAL_DESCRIPTOR_SET, binding = 12) buffer ConstantBuffer {
     float z_far;
@@ -89,10 +92,10 @@ layout(location = 2) in vec4 vertexColor;
 layout(location = 3) in vec2 texCoord0;
 layout(location = 4) in float highlight;
 layout(location = 5) in float InstanceID;
-
 layout(location = 6) in vec3 worldNormal;
 layout(location = 7) in vec3 worldViewDir;
 layout(location = 8) in vec3 lastWorldPos;
+layout(location = 9) in flat uint materialIndex;
 
 layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outNormal;
@@ -765,9 +768,9 @@ vec3 BRDF(vec3 u_LightColor, vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRou
     color *= ao;
 
 #ifdef VSG_EMISSIVE_MAP
-    vec3 emissive = SRGBtoLINEAR(texture(emissiveMap, texCoord0)).rgb * pbr.emissiveFactor.rgb;
+    vec3 emissive = SRGBtoLINEAR(texture(emissiveMap, texCoord0)).rgb * materialArray.materials[materialIndex].emissiveFactor.rgb;
 #else
-    vec3 emissive = pbr.emissiveFactor.rgb;
+    vec3 emissive = materialArray.materials[materialIndex].emissiveFactor.rgb;
 #endif
     color += emissive;
 
@@ -872,18 +875,18 @@ void main()
 
 #ifdef VSG_DIFFUSE_MAP
     #ifdef VSG_GREYSCALE_DIFFUSE_MAP
-        float v = texture(diffuseMap, texCoord0.st).s * pbr.baseColorFactor;
+        float v = texture(diffuseMap, texCoord0.st).s * materialArray.materials[materialIndex].baseColorFactor;
         baseColor = vertexColor * vec4(v, v, v, 1.0);
     #else
-        baseColor = vertexColor * SRGBtoLINEAR(texture(diffuseMap, texCoord0)) * pbr.baseColorFactor;
+        baseColor = vertexColor * SRGBtoLINEAR(texture(diffuseMap, texCoord0)) * materialArray.materials[materialIndex].baseColorFactor;
     #endif
 #else
-    baseColor = vertexColor * pbr.baseColorFactor;
+    baseColor = vertexColor * materialArray.materials[materialIndex].baseColorFactor;
 #endif
 
-    if (pbr.alphaMask == 1.0f)
+    if (materialArray.materials[materialIndex].alphaMask == 1.0f)
     {
-        if (baseColor.a < pbr.alphaMaskCutoff)
+        if (baseColor.a < materialArray.materials[materialIndex].alphaMaskCutoff)
             discard;
     }
 
@@ -909,12 +912,12 @@ void main()
         metallic = convertMetallic(diffuse.rgb, specular, maxSpecular);
 
         const float epsilon = 1e-6;
-        vec3 baseColorDiffusePart = diffuse.rgb * ((1.0 - maxSpecular) / (1 - c_MinRoughness) / max(1 - metallic, epsilon)) * pbr.diffuseFactor.rgb;
-        vec3 baseColorSpecularPart = specular - (vec3(c_MinRoughness) * (1 - metallic) * (1 / max(metallic, epsilon))) * pbr.specularFactor.rgb;
+        vec3 baseColorDiffusePart = diffuse.rgb * ((1.0 - maxSpecular) / (1 - c_MinRoughness) / max(1 - metallic, epsilon)) * materialArray.materials[materialIndex].diffuseFactor.rgb;
+        vec3 baseColorSpecularPart = specular - (vec3(c_MinRoughness) * (1 - metallic) * (1 / max(metallic, epsilon))) * materialArray.materials[materialIndex].specularFactor.rgb;
         baseColor = vec4(mix(baseColorDiffusePart, baseColorSpecularPart, metallic * metallic), diffuse.a);
 #else
-        perceptualRoughness = pbr.roughnessFactor;
-        metallic = pbr.metallicFactor;
+        perceptualRoughness = materialArray.materials[materialIndex].roughnessFactor;
+        metallic = materialArray.materials[materialIndex].metallicFactor;
 
     #ifdef VSG_METALLROUGHNESS_MAP
         vec4 mrSample = texture(mrMap, texCoord0);

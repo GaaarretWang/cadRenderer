@@ -330,14 +330,12 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph, commandGraph1});
     viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
 
-    
     OcclusionCullingPasses::buildFirstComputePass(depth_cull_command_graph1, options);
     OcclusionCullingPasses::buildDepthPyramid(depth_pyramid_CommandGraph, options, window, extent);
     OcclusionCullingPasses::buildSecondComputePass(depth_pyramid_CommandGraph, options, extent);
 
-
     viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
-    // std::cout << "4" << std::endl;
+
     VkExtent2D encode_extent = {};
     encode_extent.width = encode_width;
     encode_extent.height = encode_height;

@@ -210,27 +210,27 @@ namespace gui
                 {
                     std::string id = id_data.first;
                     ProtoData* proto_data = id_data.second;
-                    if (proto_data->material == nullptr)
+                    if (proto_data->material_index >= CADMesh::global_material_buffer->size())
                         continue;
 
                     std::string mat_key = extractMaterialKey(id);
                     if (material_params.contains(mat_key))
                     {
                         auto& md = material_params[mat_key];
-                        vsg::PbrMaterial& pbr_mat = proto_data->material->value();
+                        vsg::PbrMaterial* pbr_ptr = static_cast<PbrMaterial*>(CADMesh::global_material_buffer->dataPointer(proto_data->material_index));
 
                         if (md.contains("metallicFactor"))
-                            pbr_mat.metallicFactor = md["metallicFactor"];
+                            pbr_ptr->metallicFactor = md["metallicFactor"];
                         if (md.contains("roughnessFactor"))
-                            pbr_mat.roughnessFactor = md["roughnessFactor"];
+                            pbr_ptr->roughnessFactor = md["roughnessFactor"];
                         if (md.contains("baseColorFactor"))
                         {
                             auto& base_color = md["baseColorFactor"];
-                            pbr_mat.baseColorFactor = vsg::vec4(
+                            pbr_ptr->baseColorFactor = vsg::vec4(
                                 base_color[0], base_color[1], base_color[2], base_color[3]
                             );
                         }
-                        proto_data->material->dirty();
+                        CADMesh::global_material_buffer->dirty();
                     }
                 }
             }
@@ -402,23 +402,22 @@ namespace gui
             {
                 std::string id = id_data.first;
                 ProtoData* proto_data = id_data.second;
-                if (proto_data->material == nullptr)
+                if (proto_data->material_index >= CADMesh::global_material_buffer->size())
                     continue;
 
-                vsg::PbrMaterial* pbr_ptr = reinterpret_cast<PbrMaterial*>(proto_data->material->dataPointer());
+                vsg::PbrMaterial* pbr_ptr = static_cast<PbrMaterial*>(CADMesh::global_material_buffer->dataPointer(proto_data->material_index));
                 if (unique_material.find(pbr_ptr) != unique_material.end())
                     continue;
 
                 std::string mat_key = extractMaterialKey(id);
-                vsg::PbrMaterial& pbr_mat = proto_data->material->value();
 
-                material_params[mat_key]["metallicFactor"] = pbr_mat.metallicFactor;
-                material_params[mat_key]["roughnessFactor"] = pbr_mat.roughnessFactor;
+                material_params[mat_key]["metallicFactor"] = pbr_ptr->metallicFactor;
+                material_params[mat_key]["roughnessFactor"] = pbr_ptr->roughnessFactor;
                 material_params[mat_key]["baseColorFactor"] = {
-                    pbr_mat.baseColorFactor.r,
-                    pbr_mat.baseColorFactor.g,
-                    pbr_mat.baseColorFactor.b,
-                    pbr_mat.baseColorFactor.a
+                    pbr_ptr->baseColorFactor.r,
+                    pbr_ptr->baseColorFactor.g,
+                    pbr_ptr->baseColorFactor.b,
+                    pbr_ptr->baseColorFactor.a
                 };
 
                 unique_material.insert(pbr_ptr);
@@ -530,16 +529,16 @@ namespace gui
             std::string id = id_data.first;
             ProtoData* proto_data = id_data.second;
             ImGui::Text("%s", id.c_str());
-            if(proto_data->material != nullptr){
-                vsg::PbrMaterial* pbr_ptr = reinterpret_cast<PbrMaterial*>(proto_data->material->dataPointer());
+            if(proto_data->material_index < CADMesh::global_material_buffer->size()){
+                vsg::PbrMaterial* pbr_ptr = static_cast<PbrMaterial*>(CADMesh::global_material_buffer->dataPointer(proto_data->material_index));
                 if(unique_material.find(pbr_ptr) == unique_material.end()){
                     std::string metallic_name = "metallic" + std::to_string(unique_material.size());
-                    ImGui::SliderFloat(metallic_name.c_str(), &(proto_data->material->value().metallicFactor), 0.0f, 5.0f);
+                    ImGui::SliderFloat(metallic_name.c_str(), &(pbr_ptr->metallicFactor), 0.0f, 5.0f);
                     std::string roughness_name = "roughness" + std::to_string(unique_material.size());
-                    ImGui::SliderFloat(roughness_name.c_str(), &(proto_data->material->value().roughnessFactor), 0.0f, 5.0f);
+                    ImGui::SliderFloat(roughness_name.c_str(), &(pbr_ptr->roughnessFactor), 0.0f, 5.0f);
                     std::string basecolor_name = "basecolor" + std::to_string(unique_material.size());
-                    ImGui::SliderFloat3(basecolor_name.c_str(), proto_data->material->value().baseColorFactor.data(), 0.0f, 1.0f);
-                    proto_data->material->dirty();
+                    ImGui::SliderFloat3(basecolor_name.c_str(), pbr_ptr->baseColorFactor.data(), 0.0f, 1.0f);
+                    CADMesh::global_material_buffer->dirty();
                     unique_material.insert(pbr_ptr);
                 }
             }

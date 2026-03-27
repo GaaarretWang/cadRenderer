@@ -13,6 +13,10 @@ std::unordered_map<std::string, vsg::ImageInfoList> CADMesh::texture_name_to_ima
 std::unordered_map<std::string, ProtoData*> CADMesh::proto_id_to_data_map;
 std::vector<ProtoData*> CADMesh::insert_order_to_data;
 
+// Global material array
+std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> CADMesh::global_material_array;
+vsg::ref_ptr<vsg::PbrMaterialArray> CADMesh::global_material_buffer;
+
 std::unordered_map<std::string, std::vector<MatrixIndex>> CADMesh::id_to_matrix_index_map;
 
 std::vector<vsg::dmat4> CADMesh::global_model_matrices;
@@ -315,7 +319,9 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     //     proto_data->normal_path = "";
                     //     proto_data->mr_path = "";
                     // }
-                    proto_data->material = default_material;
+                    uint32_t material_idx = global_material_array.size();
+                    global_material_array.push_back(default_material);
+                    proto_data->material_index = material_idx;
                     proto_data->shaderset = model_shaderset;
                     proto_data->scene = scene;
                     proto_data->back_cull = back_cull;
@@ -457,7 +463,10 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
             proto_data->proto_id = proto_id;
 
             if(i < mtr_ids.size() && mtr_ids[i][0] < materials.size()){
-                proto_data->material = materials[mtr_ids[i][0]];
+                // Push material to global array and store index
+                uint32_t material_idx = global_material_array.size();
+                global_material_array.push_back(materials[mtr_ids[i][0]]);
+                proto_data->material_index = material_idx;
                 if(textures.size() > mtr_ids[i][0])
                 {
                     if(textures[mtr_ids[i][0]][0] != "")
@@ -472,11 +481,12 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
                 proto_data->diffuse_path = "";
                 proto_data->normal_path = "";
                 proto_data->mr_path = "";
-                proto_data->material = vsg::PbrMaterialValue::create();
-            }
-            if(fileName == "helicopter-engine.quads.obj"){
-                proto_data->material->value().roughnessFactor = 1;
-                proto_data->material->value().metallicFactor = 1;
+
+                // Push default material to global array and store index
+                auto default_material = vsg::PbrMaterialValue::create();
+                uint32_t material_idx = global_material_array.size();
+                global_material_array.push_back(default_material);
+                proto_data->material_index = material_idx;
             }
 
             proto_data->shaderset = model_shaderset;
@@ -536,13 +546,26 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
 }
 
 void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::PushConstants> pc, vsg::BufferInfoList constant_data_buffer_info_list, vsg::ref_ptr<vsg::ImageView> ShadowSampleImageView){
-    for(ProtoData* proto_data : insert_order_to_data){
-        if(! proto_data->back_cull){
-            auto rasterizationState = vsg::RasterizationState::create();
-            rasterizationState->cullMode = VK_CULL_MODE_NONE;
-            proto_data->shaderset->defaultGraphicsPipelineStates.push_back(rasterizationState);
+    // Create material buffer from global array
+    if (!global_material_buffer || global_material_buffer->size() != global_material_array.size()) {
+        global_material_buffer = vsg::PbrMaterialArray::create(global_material_array.size());
+        for (size_t i = 0; i < global_material_array.size(); ++i) {
+            global_material_buffer->set(i, global_material_array[i]->value());
         }
+        global_material_buffer->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
+    }
+    for(ProtoData* proto_data : insert_order_to_data){
         auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(proto_data->shaderset);
+        if(! proto_data->back_cull){
+            for (auto& state : graphicsPipelineConfig->pipelineStates) {
+                if (auto rasterState = state.cast<vsg::RasterizationState>()) {
+                    auto rasterizationState = vsg::RasterizationState::create();
+                    rasterizationState->cullMode = VK_CULL_MODE_NONE;
+                    state = rasterizationState;
+                    break;
+                }
+            }
+        }
         graphicsPipelineConfig->subpass = 0;
         proto_data->instance_buffer = vsg::mat4Array::create(proto_data->instance_matrix.size());
         proto_data->instance_buffer->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
@@ -594,12 +617,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         //todo
         graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
         graphicsPipelineConfig->assignTexture("depthImage", depth_info);
-        if(proto_data->material != nullptr){
-            proto_data->material->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
-            graphicsPipelineConfig->assignDescriptor("material", proto_data->material);
-        }
-        else
-            graphicsPipelineConfig->assignDescriptor("material", vsg::PbrMaterialValue::create());
+        graphicsPipelineConfig->assignDescriptor("materialArray", global_material_buffer);
 
         vsg::box bounds;
         for (uint32_t i = 0; i < proto_data->vertices->size(); ++i)
@@ -612,13 +630,21 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->normals);
         if(proto_data->uvs)
             graphicsPipelineConfig->assignArray(vertexArrays, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->uvs);
-        if(proto_data->colors)
-            graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->colors);
-        else
+        // if(proto_data->colors)
+        //     graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->colors);
+        // else
             graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f}));
 
         static float instance_id = 0;
-        graphicsPipelineConfig->assignArray(vertexArrays, "vsg_InstanceID", VK_VERTEX_INPUT_RATE_INSTANCE, vsg::vec4Value::create(vsg::vec4{++instance_id, 1.0f, 1.0f, 1.0f}));
+        auto instance_id_array = vsg::vec4Array::create(proto_data->instance_matrix.size());
+
+        // Use proto_data's material_index (stored during preprocessFBProtoData)
+        uint32_t material_index = proto_data->material_index;
+
+        for (size_t i = 0; i < proto_data->instance_matrix.size(); ++i) {
+            instance_id_array->set(i, vsg::vec4(++instance_id, float(material_index), 1.0f, 1.0f));
+        }
+        graphicsPipelineConfig->assignArray(vertexArrays, "vsg_InstanceID", VK_VERTEX_INPUT_RATE_INSTANCE, instance_id_array);
         auto drawCommands = vsg::Commands::create();
         drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
         drawCommands->addChild(vsg::BindIndexBuffer::create(proto_data->indices));
@@ -633,7 +659,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
             proto_data->indices->size(),      // indexCount
             proto_data->instance_matrix.size(),     // instanceCount
             0,         // firstIndex
-            0,         // vertexOffset
+            0,         // vertexOffsetid == 0
             0          // firstInstance
         };
         auto indirect_full_buffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
