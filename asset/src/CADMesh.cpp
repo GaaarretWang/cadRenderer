@@ -349,6 +349,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
             }
         }
     }
+    datainterface.removeModelData(fbFileName);
 }
 
 void CADMesh::preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)

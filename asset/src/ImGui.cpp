@@ -82,13 +82,6 @@ namespace gui
     // 从Scenes.json加载当前场景的渲染参数
     void MyGui::loadRenderParams()
     {
-        // 从LightInfo.json加载当前HDR的baseBrightness
-        int hdr_num = vsgserver::renderer->hdr_image_num;
-        auto it = vsgserver::renderer->hdr_base_brightness.find(hdr_num);
-        if (it != vsgserver::renderer->hdr_base_brightness.end()) {
-            m_pc_data->value().baseBrightness = it->second;
-        }
-
         std::cout << "Loading render params from: " << m_scenes_json_path << std::endl;
         if (!fs::exists(m_scenes_json_path))
         {
@@ -482,7 +475,7 @@ namespace gui
 
         if (m_pc_data->value().shadow_type == 0)
         {
-            ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 10.0f);
+            ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 100.0f);
             if (ImGui::Button("Save baseBrightness"))
                 saveBaseBrightnessToLightInfo();
             ImGui::SliderFloat("pcf_softness", &(pcf_softness), 0.0f, 100.0f);
@@ -493,7 +486,7 @@ namespace gui
             ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 10.0f);
             if (ImGui::Button("Save baseBrightness"))
                 saveBaseBrightnessToLightInfo();
-            ImGui::SliderFloat("pcss_softness", &(pcss_softness), 0.0f, 1000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
+            ImGui::SliderFloat("pcss_softness", &(pcss_softness), 0.0f, 2000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
             ImGui::SliderFloat("pcss_softness_falloff", &(pcss_softness_falloff), 0.0f, 5.f);
             m_pc_data->value().softness = pcss_softness;
             m_pc_data->value().softness_falloff = pcss_softness_falloff;
