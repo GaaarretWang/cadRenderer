@@ -2,6 +2,7 @@
 #define UTILS_H
 
 #include "vsg/all.h"
+#include "OffscreenRenderTarget.h"
 
 namespace Utils{
     inline vsg::ref_ptr<vsg::Sampler> createLinearSampler()
@@ -61,7 +62,7 @@ namespace Utils{
         return sampler;
     }
 
-    inline void BuildClearCommandGraph(vsg::ref_ptr<vsg::CommandGraph> clear_image_commandgraph, VkExtent2D extent, vsg::ref_ptr<vsg::Window> window, VkSampleCountFlagBits msaaSamples){
+    inline void BuildClearCommandGraph(vsg::ref_ptr<vsg::CommandGraph> clear_image_commandgraph, VkExtent2D extent, vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget, VkSampleCountFlagBits msaaSamples){
         vsg::ref_ptr<vsg::ClearDepthStencilImage> clearDepth = vsg::ClearDepthStencilImage::create();
         vsg::ref_ptr<vsg::ClearDepthStencilImage> clearDepth1 = vsg::ClearDepthStencilImage::create();
         
@@ -79,8 +80,8 @@ namespace Utils{
         clearDepth1->depthStencil = {0.0f, 0};
         clearDepth1->ranges = {range};
         if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
-            clearDepth->image = window->_multisampleDepthImage;
-        clearDepth1->image = window->_depthImage;
+            clearDepth->image = offscreenTarget->multisampleDepthImage;
+        clearDepth1->image = offscreenTarget->depthImage;
 
         if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
             clear_image_commandgraph->addChild(clearDepth);
@@ -95,25 +96,25 @@ namespace Utils{
         range0.layerCount = 1;
 
         auto clearColor0 = vsg::ClearColorImage::create();
-        clearColor0->image = window->_GBufferImage0;
+        clearColor0->image = offscreenTarget->gbufferImage0;
         clearColor0->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 符合要求的布局
         clearColor0->color = {0.0f, 0.0f, 0.0f, 1.0f}; // 清除颜色：黑色（RGBA）
         clearColor0->ranges = {range0};
 
         auto clearColor1 = vsg::ClearColorImage::create();
-        clearColor1->image = window->_GBufferImage1;
+        clearColor1->image = offscreenTarget->gbufferImage1;
         clearColor1->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 符合要求的布局
         clearColor1->color = {0.0f, 0.0f, 0.0f, 1.0f}; // 清除颜色：默认法线（0,0,1）映射后的值
         clearColor1->ranges = {range0};
 
         auto clearColor2 = vsg::ClearColorImage::create();
-        clearColor2->image = window->_GBufferImage2;
+        clearColor2->image = offscreenTarget->gbufferImage2;
         clearColor2->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 符合要求的布局
         clearColor2->color = {0.0f, 0.0f, 0.0f, 1.0f}; // 清除颜色：默认法线（0,0,1）映射后的值
         clearColor2->ranges = {range0};
 
         auto clearColor3 = vsg::ClearColorImage::create();
-        clearColor3->image = window->_ShadowWriteImage;
+        clearColor3->image = offscreenTarget->shadowWriteImage;
         clearColor3->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL; // 符合要求的布局
         clearColor3->color = {1, -2, 0.0f, 1.0f}; // 清除颜色：默认法线（0,0,1）映射后的值
         clearColor3->ranges = {range0};

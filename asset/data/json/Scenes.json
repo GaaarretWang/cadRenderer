@@ -25,7 +25,7 @@
                             2.643300000000001e-05,
                             0.0,
                             0.0,
-                            0.5566251,
+                            0.57010593,
                             0.0,
                             2.643300000000001e-05,
                             0.0,
@@ -478,7 +478,7 @@
             "render_params": {
                 "blocker_sample_num": 8,
                 "denoise_size": 5,
-                "exposure": 11.708000183105469,
+                "exposure": 8.057000160217285,
                 "hdr_image_num": 4,
                 "pcf_sample_num": 8,
                 "pcf_softness": 5.784999847412109,

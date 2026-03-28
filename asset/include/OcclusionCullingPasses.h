@@ -1,5 +1,6 @@
 #include "vsg/all.h"
 #include "CADMesh.h"
+#include "OffscreenRenderTarget.h"
 
 #ifndef VSGOCCLUSIONCULLINGPASSES_H
 #define VSGOCCLUSIONCULLINGPASSES_H
@@ -21,7 +22,7 @@ namespace OcclusionCullingPasses{
     extern vsg::ref_ptr<vsg::ImageInfo> depthPyramidImageInfo;
     extern vsg::ref_ptr<vsg::ImageInfo> framebuffer_depthImageInfo;
 
-    void initOcclusionCullingPassesImageInfo(VkExtent2D extent, vsg::ref_ptr<vsg::Window> window);
+    void initOcclusionCullingPassesImageInfo(VkExtent2D extent, vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget);
 
     extern CameraPlaneInfo camera_plane_info;
     extern vsg::ref_ptr<vsg::Array<CameraPlaneInfo>> camera_plane_info_buffer;
@@ -31,7 +32,7 @@ namespace OcclusionCullingPasses{
     void generateCameraData(double fx, double fy, double cx, double cy, double w, double h, double near, double far, vsg::ref_ptr<vsg::Camera> camera);
 
     void buildFirstComputePass(vsg::ref_ptr<vsg::CommandGraph> depth_cull_command_graph1, vsg::ref_ptr<vsg::Options> options);
-    void buildDepthPyramid(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<vsg::Window> window, VkExtent2D extent);
+    void buildDepthPyramid(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, vsg::ref_ptr<vsg::Options> options, VkExtent2D extent, vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget);
     void buildSecondComputePass(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, vsg::ref_ptr<vsg::Options> options, VkExtent2D extent);
 
 }

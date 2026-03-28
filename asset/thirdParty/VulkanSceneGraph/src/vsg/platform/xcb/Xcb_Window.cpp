@@ -511,7 +511,6 @@ Xcb_Window::Xcb_Window(vsg::ref_ptr<WindowTraits> traits) :
 
     traits->nativeWindow = _window;
     traits->systemConnection = _connection;
-    _useMRT = traits->useMRT;
 }
 
 Xcb_Window::~Xcb_Window()

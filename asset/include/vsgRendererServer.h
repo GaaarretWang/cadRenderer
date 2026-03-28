@@ -17,6 +17,7 @@
 
 #include "fixDepth.h"
 #include "json.hpp"
+#include "OffscreenRenderTarget.h"
 
 class vsgRendererServer
 {
@@ -36,6 +37,9 @@ class vsgRendererServer
 
     vsg::ref_ptr<vsg::Window> window;
     vsg::ref_ptr<vsg::Camera> camera;
+
+    // Offscreen render target for MRT attachments
+    vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget;
 
     //IBL
     IBL::VsgContext vsgContext = {};
@@ -91,7 +95,7 @@ class vsgRendererServer
     unsigned short * depth_pixels = nullptr;
     mergeShaderType shader_type;
 
-    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;//多重采样的倍数
+    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_4_BIT;//多重采样的倍数
 
     uint32_t frame_num = 0;
     vsg::dmat4 pending_camera_matrix;

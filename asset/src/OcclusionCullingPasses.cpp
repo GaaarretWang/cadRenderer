@@ -8,7 +8,7 @@ namespace OcclusionCullingPasses{
     vsg::ref_ptr<vsg::ImageInfo> depthPyramidImageInfo;
     vsg::ref_ptr<vsg::ImageInfo> framebuffer_depthImageInfo;
 
-    void initOcclusionCullingPassesImageInfo(VkExtent2D extent, vsg::ref_ptr<vsg::Window> window){
+    void initOcclusionCullingPassesImageInfo(VkExtent2D extent, vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget){
         depthPyramidImage = vsg::Image::create();
         depthPyramidImage->imageType = VK_IMAGE_TYPE_2D;
         depthPyramidImage->format = VK_FORMAT_R32_SFLOAT; // 假设与深度附件兼容
@@ -36,7 +36,7 @@ namespace OcclusionCullingPasses{
 
         depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, depthPyramidImageView, VK_IMAGE_LAYOUT_GENERAL);
 
-        framebuffer_depthImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, window->getOrCreateDepthImageView());
+        framebuffer_depthImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, offscreenTarget->depthImageView);
     }
 
     CameraPlaneInfo camera_plane_info;
@@ -144,7 +144,7 @@ namespace OcclusionCullingPasses{
         depth_cull_command_graph1->addChild(Pass1CullToPass1Barrier);
     }
 
-    void buildDepthPyramid(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<vsg::Window> window, VkExtent2D extent)
+    void buildDepthPyramid(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, vsg::ref_ptr<vsg::Options> options, VkExtent2D extent, vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget)
     {
         vsg::DescriptorSetLayoutBindings descriptorBindings{
             {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
@@ -174,7 +174,7 @@ namespace OcclusionCullingPasses{
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                 VK_QUEUE_FAMILY_IGNORED,
                 VK_QUEUE_FAMILY_IGNORED,
-                window->getOrCreateDepthImage(),
+                offscreenTarget->depthImage,
                 VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}
             );
 

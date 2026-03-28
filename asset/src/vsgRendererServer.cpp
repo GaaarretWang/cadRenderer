@@ -142,9 +142,17 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     // 只包含虚拟物体
     auto cadWindowTraits = createWindowTraits("Model", 0, options);
     cadWindowTraits->device = device;
-    cadWindowTraits->useMRT = true;
     window = vsg::Window::create(cadWindowTraits);
     window->getOrCreateSwapchain();
+
+    // Create offscreen render target (Stage 2: create but not yet used)
+    offscreenTarget = OffscreenRenderTarget::create();
+    offscreenTarget->init(device, window->extent2D(), msaaSamples, window->depthFormat(), cadWindowTraits->depthImageUsage);
+
+    // Stage 3: Create render pass and framebuffer (not yet used by render graphs)
+    bool requiresDepthRead = (cadWindowTraits->depthImageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
+    offscreenTarget->buildRenderPass(device, window->surfaceFormat().format, window->depthFormat(), requiresDepthRead);
+    offscreenTarget->buildFramebuffer(window->extent2D());
 
     double nearFarRatio = 0.0001;       //近平面和远平面之间的比例
 
@@ -181,7 +189,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_QUEUE_FAMILY_IGNORED,
         VK_QUEUE_FAMILY_IGNORED,
-        window->_SSAOResultImage,
+        offscreenTarget->ssaoResultImage,
         VkImageSubresourceRange{
             VK_IMAGE_ASPECT_COLOR_BIT,       // 关键！depthPyramidImage是R32_SFLOAT（普通颜色格式），不是深度格式，不能用DEPTH_BIT
             0, 1, 0, 1                       // 同步所有7个mip层
@@ -263,14 +271,14 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
                 VK_SHADER_STAGE_ALL, 128, pc_data);
 
-    CADMesh::buildDrawData(modelGroup, pc, constant_data_buffer_info_list, window->_ShadowSampleImageView); //读取obj文件
+    CADMesh::buildDrawData(modelGroup, pc, constant_data_buffer_info_list, offscreenTarget->shadowSampleImageView); //读取obj文件
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
     CADMesh::buildDynamicPointsData(point_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
     CADMesh::buildDynamicTextsData(textGroup, options, vsg::findFile("fonts/times.vsgt", options->paths));
     vsg::info("Model processing done");
 
-    SSAOPass::buildSSAOData(options, SSAOGroup, window->_GBufferImageView0, window->_GBufferImageView1, window->_GBufferImageView2, extent);
-    SSAOPass::buildSSAODenoiseData(options, SSAODenoiseGroup, window->_GBufferImageView0, window->_ShadowWriteImageView, window->_SSAOResultImageView);
+    SSAOPass::buildSSAOData(options, SSAOGroup, offscreenTarget->gbufferImageView0, offscreenTarget->gbufferImageView1, offscreenTarget->gbufferImageView2, extent);
+    SSAOPass::buildSSAODenoiseData(options, SSAODenoiseGroup, offscreenTarget->gbufferImageView0, offscreenTarget->shadowWriteImageView, offscreenTarget->ssaoResultImageView);
 
     // HDR环境光采样
     init_directional_lights();
@@ -300,12 +308,16 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     view1->viewDependentState = CustomViewDependentState1::create(view1.get());
     view1->viewDependentState->pre_depth_pass = view->viewDependentState;
     auto renderGraph1 = vsg::RenderGraph::create(window, view1);
+
+    // Override both render graphs to use offscreen framebuffer
+    renderGraph->framebuffer = offscreenTarget->framebuffer;
+    renderGraph1->framebuffer = offscreenTarget->framebuffer;
     vsgserver::renderer = this;
     auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(pc_data, vsg::findFile("json/Scenes.json", options->paths), vsg::findFile("json/Materials.json", options->paths), vsg::findFile("json/LightInfo.json", options->paths)));
     renderGraph1->addChild(renderImGui);
     std::this_thread::sleep_for(std::chrono::seconds(1));
     
-    OcclusionCullingPasses::initOcclusionCullingPassesImageInfo(extent, window);
+    OcclusionCullingPasses::initOcclusionCullingPassesImageInfo(extent, offscreenTarget);
     auto depthPyramidImage = OcclusionCullingPasses::depthPyramidImage;
     auto depth_pyramid_sampler = OcclusionCullingPasses::depth_pyramid_sampler;
     auto depthPyramidImageView = OcclusionCullingPasses::depthPyramidImageView;
@@ -315,7 +327,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     OcclusionCullingPasses::generateCameraData(fx, fy, cx, cy, width, height, near_plane, far_plane, camera);
 
     auto clear_image_commandgraph = vsg::CommandGraph::create(device, computeQueueFamily);
-    Utils::BuildClearCommandGraph(clear_image_commandgraph, extent, window, msaaSamples);
+    Utils::BuildClearCommandGraph(clear_image_commandgraph, extent, offscreenTarget, msaaSamples);
     commandGraph->addChild(clear_image_commandgraph);
     auto depth_cull_command_graph1 = vsg::CommandGraph::create(device, computeQueueFamily);
     commandGraph->addChild(depth_cull_command_graph1);
@@ -324,6 +336,38 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto depth_pyramid_CommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
     commandGraph1->addChild(depth_pyramid_CommandGraph);
     commandGraph1->addChild(renderGraph1);
+
+    // Barrier: transition offscreen color from COLOR_ATTACHMENT_OPTIMAL to GENERAL
+    // (CopyImageViewToWindow expects GENERAL layout)
+    {
+        auto barrierCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
+        auto offscreenToGeneral = vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            offscreenTarget->colorImage,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
+        );
+        barrierCommandGraph->addChild(vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            0, offscreenToGeneral
+        ));
+        commandGraph1->addChild(barrierCommandGraph);
+    }
+
+    // Copy offscreen color to swapchain for display
+    {
+        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(
+            offscreenTarget->colorImageView, window);
+        auto copyCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
+        copyCommandGraph->addChild(copyImageViewToWindow);
+        commandGraph1->addChild(copyCommandGraph);
+    }
+
     viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
     viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
     viewer->addEventHandler(vsg::Trackball::create(camera));
@@ -331,7 +375,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
 
     OcclusionCullingPasses::buildFirstComputePass(depth_cull_command_graph1, options);
-    OcclusionCullingPasses::buildDepthPyramid(depth_pyramid_CommandGraph, options, window, extent);
+    OcclusionCullingPasses::buildDepthPyramid(depth_pyramid_CommandGraph, options, extent, offscreenTarget);
     OcclusionCullingPasses::buildSecondComputePass(depth_pyramid_CommandGraph, options, extent);
 
     viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。

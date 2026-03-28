@@ -352,7 +352,6 @@ Android_Window::Android_Window(vsg::ref_ptr<WindowTraits> traits) :
 
     _first_android_timestamp = now_ms();
     _first_android_time_point = vsg::clock::now();
-    _useMRT = traits->useMRT;
 }
 
 Android_Window::~Android_Window()

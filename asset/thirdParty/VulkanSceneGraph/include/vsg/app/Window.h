@@ -161,7 +161,6 @@ namespace vsg
         ref_ptr<Surface> _surface;
         ref_ptr<Swapchain> _swapchain;
         ref_ptr<RenderPass> _renderPass;
-        bool _useMRT;
 
         ref_ptr<Image> _depthImage;
         ref_ptr<ImageView> _depthImageView;

@@ -45,7 +45,6 @@ namespace vsg
         uint32_t width = 1280;
         uint32_t height = 1024;
 
-        bool useMRT = false;
         bool fullscreen = false;
 
         std::string display; /// A non empty display string overrides any X11 DISPLAY env var that may have been set. ignored on non X11 systems

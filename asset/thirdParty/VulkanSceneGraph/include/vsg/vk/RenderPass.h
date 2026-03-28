@@ -120,11 +120,9 @@ namespace vsg
 
     /// create RenderPass with color and depth buffers
     extern VSG_DECLSPEC ref_ptr<RenderPass> createRenderPass(Device* device, VkFormat imageFormat, VkFormat depthFormat, bool requiresDepthRead = false);
-    extern VSG_DECLSPEC ref_ptr<RenderPass> createMRTRenderPass(Device* device, VkFormat imageFormat, VkFormat depthFormat, bool requiresDepthRead = false);
 
     /// create RenderPass with multisampled color and depth buffers
     extern VSG_DECLSPEC ref_ptr<RenderPass> createMultisampledRenderPass(Device* device, VkFormat imageFormat, VkFormat depthFormat, VkSampleCountFlagBits samples, bool requiresDepthRead = false);
-    extern VSG_DECLSPEC ref_ptr<RenderPass> createMRTMultisampledRenderPass(Device* device, VkFormat imageFormat, VkFormat depthFormat, VkSampleCountFlagBits samples, bool requiresDepthRead = false);
 
     /// create RenderPass with color buffers
     extern VSG_DECLSPEC ref_ptr<RenderPass> createRenderPass(Device* device, VkFormat imageFormat);

@@ -453,7 +453,6 @@ Win32_Window::Win32_Window(vsg::ref_ptr<WindowTraits> traits) :
     traits->height = finalHeight;
 
     traits->nativeWindow = _window;
-    _useMRT = traits->useMRT;
 
     _windowMapped = true;
 }

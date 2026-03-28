@@ -242,22 +242,11 @@ void Window::_initRenderPass()
 
     if (_framebufferSamples == VK_SAMPLE_COUNT_1_BIT)
     {
-
-        if(_useMRT){
-            _renderPass = vsg::createMRTRenderPass(_device, _imageFormat.format, _depthFormat, requiresDepthRead);
-        }
-        else{
-            _renderPass = vsg::createRenderPass(_device, _imageFormat.format, _depthFormat, requiresDepthRead);
-        }
+        _renderPass = vsg::createRenderPass(_device, _imageFormat.format, _depthFormat, requiresDepthRead);
     }
     else
     {
-        if(_useMRT){
-            _renderPass = vsg::createMRTMultisampledRenderPass(_device, _imageFormat.format, _depthFormat, _framebufferSamples, requiresDepthRead);
-        }
-        else{
-            _renderPass = vsg::createMultisampledRenderPass(_device, _imageFormat.format, _depthFormat, _framebufferSamples, requiresDepthRead);
-        }
+        _renderPass = vsg::createMultisampledRenderPass(_device, _imageFormat.format, _depthFormat, _framebufferSamples, requiresDepthRead);
     }
 }
 
@@ -316,134 +305,6 @@ void Window::buildSwapchain()
 
         _multisampleImageView = ImageView::create(_multisampleImage, VK_IMAGE_ASPECT_COLOR_BIT);
         _multisampleImageView->compile(_device);
-    }
-
-    if(_useMRT){
-        _GBufferImage0 = Image::create();
-        _GBufferImage0->imageType = VK_IMAGE_TYPE_2D;
-        _GBufferImage0->format = VK_FORMAT_R32G32B32A32_SFLOAT;
-        _GBufferImage0->extent.width = _extent2D.width;
-        _GBufferImage0->extent.height = _extent2D.height;
-        _GBufferImage0->extent.depth = 1;
-        _GBufferImage0->mipLevels = 1;
-        _GBufferImage0->arrayLayers = 1;
-        _GBufferImage0->samples = _framebufferSamples;
-        _GBufferImage0->tiling = VK_IMAGE_TILING_OPTIMAL;
-        _GBufferImage0->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        _GBufferImage0->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        _GBufferImage0->flags = 0;
-        _GBufferImage0->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        _GBufferImage0->compile(_device);
-        _GBufferImage0->allocateAndBindMemory(_device);
-
-        _GBufferImageView0 = ImageView::create(_GBufferImage0, VK_IMAGE_ASPECT_COLOR_BIT);
-        _GBufferImageView0->compile(_device);
-
-        _GBufferImage1 = Image::create();
-        _GBufferImage1->imageType = VK_IMAGE_TYPE_2D;
-        _GBufferImage1->format = VK_FORMAT_R32G32B32A32_SFLOAT;
-        _GBufferImage1->extent.width = _extent2D.width;
-        _GBufferImage1->extent.height = _extent2D.height;
-        _GBufferImage1->extent.depth = 1;
-        _GBufferImage1->mipLevels = 1;
-        _GBufferImage1->arrayLayers = 1;
-        _GBufferImage1->samples = _framebufferSamples;
-        _GBufferImage1->tiling = VK_IMAGE_TILING_OPTIMAL;
-        _GBufferImage1->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        _GBufferImage1->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        _GBufferImage1->flags = 0;
-        _GBufferImage1->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        _GBufferImage1->compile(_device);
-        _GBufferImage1->allocateAndBindMemory(_device);
-
-        _GBufferImageView1 = ImageView::create(_GBufferImage1, VK_IMAGE_ASPECT_COLOR_BIT);
-        _GBufferImageView1->compile(_device);
-
-        _GBufferImage2 = Image::create();
-        _GBufferImage2->imageType = VK_IMAGE_TYPE_2D;
-        _GBufferImage2->format = VK_FORMAT_R32G32B32A32_SFLOAT;
-        _GBufferImage2->extent.width = _extent2D.width;
-        _GBufferImage2->extent.height = _extent2D.height;
-        _GBufferImage2->extent.depth = 1;
-        _GBufferImage2->mipLevels = 1;
-        _GBufferImage2->arrayLayers = 1;
-        _GBufferImage2->samples = _framebufferSamples;
-        _GBufferImage2->tiling = VK_IMAGE_TILING_OPTIMAL;
-        _GBufferImage2->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        _GBufferImage2->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        _GBufferImage2->flags = 0;
-        _GBufferImage2->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        _GBufferImage2->compile(_device);
-        _GBufferImage2->allocateAndBindMemory(_device);
-
-        _GBufferImageView2 = ImageView::create(_GBufferImage2, VK_IMAGE_ASPECT_COLOR_BIT);
-        _GBufferImageView2->compile(_device);
-
-        _SSAOResultImage = Image::create();
-        _SSAOResultImage->imageType = VK_IMAGE_TYPE_2D;
-        _SSAOResultImage->format = VK_FORMAT_R32G32B32A32_SFLOAT;
-        _SSAOResultImage->extent.width = _extent2D.width;
-        _SSAOResultImage->extent.height = _extent2D.height;
-        _SSAOResultImage->extent.depth = 1;
-        _SSAOResultImage->mipLevels = 1;
-        _SSAOResultImage->arrayLayers = 1;
-        _SSAOResultImage->samples = _framebufferSamples;
-        _SSAOResultImage->tiling = VK_IMAGE_TILING_OPTIMAL;
-        _SSAOResultImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        _SSAOResultImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        _SSAOResultImage->flags = 0;
-        _SSAOResultImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        _SSAOResultImage->compile(_device);
-        _SSAOResultImage->allocateAndBindMemory(_device);
-
-        _SSAOResultImageView = ImageView::create(_SSAOResultImage, VK_IMAGE_ASPECT_COLOR_BIT);
-        _SSAOResultImageView->compile(_device);
-
-        _ShadowWriteImage = Image::create();
-        _ShadowWriteImage->imageType = VK_IMAGE_TYPE_2D;
-        _ShadowWriteImage->format = VK_FORMAT_R32G32B32A32_SFLOAT;
-        _ShadowWriteImage->extent.width = _extent2D.width;
-        _ShadowWriteImage->extent.height = _extent2D.height;
-        _ShadowWriteImage->extent.depth = 1;
-        _ShadowWriteImage->mipLevels = 1;
-        _ShadowWriteImage->arrayLayers = 1;
-        _ShadowWriteImage->samples = _framebufferSamples;
-        _ShadowWriteImage->tiling = VK_IMAGE_TILING_OPTIMAL;
-        _ShadowWriteImage->usage = VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        _ShadowWriteImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        _ShadowWriteImage->flags = 0;
-        _ShadowWriteImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        _ShadowWriteImage->compile(_device);
-        _ShadowWriteImage->allocateAndBindMemory(_device);
-
-        _ShadowWriteImageView = ImageView::create(_ShadowWriteImage, VK_IMAGE_ASPECT_COLOR_BIT);
-        _ShadowWriteImageView->compile(_device);
-
-        _ShadowSampleImage = Image::create();
-        _ShadowSampleImage->imageType = VK_IMAGE_TYPE_2D;
-        _ShadowSampleImage->format = VK_FORMAT_R32G32B32A32_SFLOAT;
-        _ShadowSampleImage->extent.width = _extent2D.width;
-        _ShadowSampleImage->extent.height = _extent2D.height;
-        _ShadowSampleImage->extent.depth = 1;
-        _ShadowSampleImage->mipLevels = 1;
-        _ShadowSampleImage->arrayLayers = 1;
-        _ShadowSampleImage->samples = _framebufferSamples;
-        _ShadowSampleImage->tiling = VK_IMAGE_TILING_OPTIMAL;
-        _ShadowSampleImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-        _ShadowSampleImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        _ShadowSampleImage->flags = 0;
-        _ShadowSampleImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        _ShadowSampleImage->compile(_device);
-        _ShadowSampleImage->allocateAndBindMemory(_device);
-
-        _ShadowSampleImageView = ImageView::create(_ShadowSampleImage, VK_IMAGE_ASPECT_COLOR_BIT);
-        _ShadowSampleImageView->compile(_device);
     }
 
     bool requiresDepthRead = (_traits->depthImageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
@@ -514,16 +375,6 @@ void Window::buildSwapchain()
             attachments.push_back(_multisampleImageView);
         }
         attachments.push_back(imageViews[i]);
-
-        if(_useMRT)
-        {
-            attachments.push_back(_GBufferImageView0);
-            attachments.push_back(_GBufferImageView1);
-            attachments.push_back(_GBufferImageView2);
-            attachments.push_back(_SSAOResultImageView);
-            attachments.push_back(_ShadowWriteImageView);
-            attachments.push_back(_ShadowSampleImageView);
-        }
 
         if (_multisampleDepthImageView)
         {
