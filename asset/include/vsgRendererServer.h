@@ -52,7 +52,7 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> hdr_to_light_group_map;
     std::unordered_map<int, float> hdr_base_brightness; // 每个HDR的baseBrightness
-    int hdr_image_num = 2;
+    int hdr_image_num = 4;
     int hdr_image_max_num = 7;
 
     std::string shadow_receiver_path;
@@ -318,6 +318,7 @@ public:
             uint32_t model_idx = CADMesh::model_name_to_global_index[instance_name];
             CADMesh::global_model_matrix_buffer->set(model_idx, vsg::mat4(model_matrix));
             CADMesh::global_model_matrix_buffer->dirty();
+            CADMesh::updatePMITransforms(model_idx);
         } else {
             for(int i = 0; i < matrix_index.size(); i++){
                 auto proto = matrix_index[i].proto_data;

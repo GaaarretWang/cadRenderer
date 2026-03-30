@@ -306,7 +306,7 @@ void main() {
 
         bool depth_culled = true;
         for(int i = 0; i < compare_image_size_square; ++i){
-            if(final_depth[i] > render_depths[i])
+            if(final_depth[i] + 0.01 > render_depths[i])
                 depth_culled = false;
         }
         

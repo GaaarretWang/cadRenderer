@@ -121,6 +121,14 @@ struct DynamicTexts
     std::vector<vsg::ref_ptr<vsg::Text>> text;
 };
 
+struct PMITransformNode
+{
+    vsg::ref_ptr<vsg::MatrixTransform> transform;
+    uint32_t model_index;
+    vsg::dmat4 instance_matrix;
+    bool is_text;
+};
+
 
 struct MatrixIndex
 {
@@ -214,6 +222,8 @@ private:
     std::unordered_map<std::string, uint32_t> uniqueMaterials;
 
 public:
+    std::string fbFileName; // 存储模型文件名，用于PMI独立查询
+
     int Nodenumber;
     int Triangnumber;
     int countnum = 0;
@@ -270,7 +280,6 @@ public:
 
     static std::unordered_map<std::string, std::vector<MatrixIndex>> id_to_matrix_index_map;
 
-    static std::vector<vsg::dmat4> global_model_matrices;
     static vsg::ref_ptr<vsg::mat4Array> global_model_matrix_buffer;
     static vsg::ref_ptr<vsg::BufferInfo> global_model_matrix_buffer_info;
     static vsg::ref_ptr<vsg::mat4Array> last_global_model_matrix_buffer;
@@ -281,6 +290,10 @@ public:
     static DynamicPoints dynamic_points;
     static DynamicTexts dynamic_texts;
 
+    static DynamicLines pmi_lines;
+    static DynamicTexts pmi_texts;
+    static std::vector<PMITransformNode> pmi_transform_nodes;
+
     // 场景实例数据（供ImGui读取）
     static std::vector<std::string> scene_instance_names;
     static std::vector<vsg::dmat4> scene_original_transforms;
@@ -290,6 +303,9 @@ public:
 
     // 每帧开始时：将当前矩阵拷贝到上一帧矩阵缓冲
     static void copyCurrentToLastMatrices();
+
+    // 运行时更新指定model的PMI变换矩阵
+    static void updatePMITransforms(uint32_t model_idx);
 
     std::vector<std::string> proto_ids;
     std::unordered_map<std::string, std::vector<vsg::dmat4>> proto_id_default_matrix_map;
@@ -302,4 +318,12 @@ public:
     static void buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList constant_data_buffer_info_list);
     static void buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList constant_data_buffer_info_list);
     static void buildDynamicTextsData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Options> options, std::string font_path);
+    static void processPMI(
+        std::unordered_map<std::string, CADMesh*>& transfered_meshes,
+        vsg::ref_ptr<vsg::ShaderSet> line_shader,
+        vsg::ref_ptr<vsg::Group> wireframeGroup,
+        vsg::ref_ptr<vsg::Group> textGroup,
+        vsg::ref_ptr<vsg::Options> options,
+        vsg::BufferInfoList constant_data_buffer_info_list,
+        std::string font_path);
 };

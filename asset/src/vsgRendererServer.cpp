@@ -275,6 +275,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
     CADMesh::buildDynamicPointsData(point_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
     CADMesh::buildDynamicTextsData(textGroup, options, vsg::findFile("fonts/times.vsgt", options->paths));
+    CADMesh::processPMI(transfered_meshes, line_shader, wireframeGroup, textGroup, options, constant_data_buffer_info_list, vsg::findFile("fonts/times.vsgt", options->paths));
     vsg::info("Model processing done");
 
     SSAOPass::buildSSAOData(options, SSAOGroup, offscreenTarget->gbufferImageView0, offscreenTarget->gbufferImageView1, offscreenTarget->gbufferImageView2, extent);

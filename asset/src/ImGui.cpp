@@ -472,19 +472,16 @@ namespace gui
             m_pc_data->value().shadow_type = 1;
         }
 
+        ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 100.0f);
+        if (ImGui::Button("Save baseBrightness"))
+            saveBaseBrightnessToLightInfo();
         if (m_pc_data->value().shadow_type == 0)
         {
-            ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 100.0f);
-            if (ImGui::Button("Save baseBrightness"))
-                saveBaseBrightnessToLightInfo();
             ImGui::SliderFloat("pcf_softness", &(pcf_softness), 0.0f, 100.0f);
             m_pc_data->value().softness = pcf_softness;
         }
         else if(m_pc_data->value().shadow_type == 1)
         {
-            ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 10.0f);
-            if (ImGui::Button("Save baseBrightness"))
-                saveBaseBrightnessToLightInfo();
             ImGui::SliderFloat("pcss_softness", &(pcss_softness), 0.0f, 2000.0f, "%.3f", ImGuiSliderFlags_Logarithmic);
             ImGui::SliderFloat("pcss_softness_falloff", &(pcss_softness_falloff), 0.0f, 5.f);
             m_pc_data->value().softness = pcss_softness;

@@ -2,6 +2,162 @@
     "default_scene": 0,
     "scenes": [
         {
+            "description": "眼镜",
+            "id": -2,
+            "line_point_style": {
+                "line_color": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "point_color": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "models": [
+                {
+                    "instance_name": "dashboard",
+                    "path": "asset/data/geos/YIBIAOPAN.fb",
+                    "transform_sequence": [
+                        [
+                            0.0013216500000000002,
+                            0.0,
+                            0.0,
+                            -0.20440349,
+                            0.0,
+                            0.0013216500000000002,
+                            0.0,
+                            1.01482000806674,
+                            0.0,
+                            0.0,
+                            0.0013216500000000002,
+                            -0.2542339,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                }
+            ],
+            "name": "dashboard",
+            "render_params": {
+                "blocker_sample_num": 8,
+                "denoise_size": 5,
+                "exposure": 11.708000183105469,
+                "hdr_image_num": 4,
+                "pcf_sample_num": 8,
+                "pcf_softness": 5.784999847412109,
+                "pcss_softness": 20.100000381469727,
+                "pcss_softness_falloff": 0.10899999737739563,
+                "shadow_bias": 0.0,
+                "shadow_type": 1,
+                "ssao_kernel_size": 64,
+                "ssao_radius": 0.656000018119812
+            },
+            "shadow_receiver_path": "asset/data/obj/shadow_receiver2.obj",
+            "shadow_receiver_transform": [
+                [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            ]
+        },
+        {
+            "description": "手机",
+            "id": -1,
+            "line_point_style": {
+                "line_color": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "point_color": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "models": [
+                {
+                    "instance_name": "dashboard",
+                    "path": "asset/data/geos/YIBIAOPAN.fb",
+                    "transform_sequence": [
+                        [
+                            0.0013216500000000002,
+                            0.0,
+                            0.0,
+                            -0.20440349,
+                            0.0,
+                            0.0013216500000000002,
+                            0.0,
+                            1.01482000806674,
+                            0.0,
+                            0.0,
+                            0.0013216500000000002,
+                            -0.2542339,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                }
+            ],
+            "name": "dashboard",
+            "render_params": {
+                "blocker_sample_num": 8,
+                "denoise_size": 5,
+                "exposure": 11.708000183105469,
+                "hdr_image_num": 4,
+                "pcf_sample_num": 8,
+                "pcf_softness": 5.784999847412109,
+                "pcss_softness": 20.100000381469727,
+                "pcss_softness_falloff": 0.10899999737739563,
+                "shadow_bias": 0.0,
+                "shadow_type": 1,
+                "ssao_kernel_size": 64,
+                "ssao_radius": 0.656000018119812
+            },
+            "shadow_receiver_path": "asset/data/obj/shadow_receiver2.obj",
+            "shadow_receiver_transform": [
+                [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            ]
+        },
+        {
             "description": "飞机部件场景 - 5个飞机组件",
             "id": 0,
             "line_point_style": {
@@ -143,7 +299,7 @@
                 "blocker_sample_num": 8,
                 "denoise_size": 5,
                 "exposure": 11.708000183105469,
-                "hdr_image_num": 2,
+                "hdr_image_num": 4,
                 "pcf_sample_num": 8,
                 "pcf_softness": 5.784999847412109,
                 "pcss_softness": 14.177000045776367,
@@ -221,7 +377,7 @@
                 "blocker_sample_num": 8,
                 "denoise_size": 5,
                 "exposure": 11.708000183105469,
-                "hdr_image_num": 2,
+                "hdr_image_num": 4,
                 "pcf_sample_num": 8,
                 "pcf_softness": 5.784999847412109,
                 "pcss_softness": 20.100000381469727,
@@ -323,7 +479,7 @@
                 "blocker_sample_num": 8,
                 "denoise_size": 5,
                 "exposure": 11.708000183105469,
-                "hdr_image_num": 2,
+                "hdr_image_num": 4,
                 "pcf_sample_num": 8,
                 "pcf_softness": 5.784999847412109,
                 "pcss_softness": 20.100000381469727,
@@ -557,7 +713,7 @@
                 "blocker_sample_num": 8,
                 "denoise_size": 5,
                 "exposure": 11.708000183105469,
-                "hdr_image_num": 2,
+                "hdr_image_num": 4,
                 "pcf_sample_num": 8,
                 "pcf_softness": 5.784999847412109,
                 "pcss_softness": 20.100000381469727,
@@ -581,6 +737,570 @@
                     0.0,
                     0.0,
                     1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            ]
+        },
+        {
+            "description": "GlassModels仪表盘场景 - 批量材质去重",
+            "id": 6,
+            "line_point_style": {
+                "line_color": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "point_color": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "models": [
+                {
+                    "instance_name": "TUILIGAN",
+                    "path": "asset/data/geos/GlassModels/TUILIGAN.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "YIBIAOPAN",
+                    "path": "asset/data/geos/GlassModels/YIBIAOPAN.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "di0",
+                    "path": "asset/data/geos/GlassModels/di0.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "di1",
+                    "path": "asset/data/geos/GlassModels/di1.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "di2",
+                    "path": "asset/data/geos/GlassModels/di2.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "di3",
+                    "path": "asset/data/geos/GlassModels/di3.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "di5",
+                    "path": "asset/data/geos/GlassModels/di5.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "di7",
+                    "path": "asset/data/geos/GlassModels/di7.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "di8",
+                    "path": "asset/data/geos/GlassModels/di8.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "ranyoukongzhi",
+                    "path": "asset/data/geos/GlassModels/ranyoukongzhi.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "shang1",
+                    "path": "asset/data/geos/GlassModels/shang1.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "shang1_you",
+                    "path": "asset/data/geos/GlassModels/shang1(you).fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "zhong1",
+                    "path": "asset/data/geos/GlassModels/zhong1.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "zhong2",
+                    "path": "asset/data/geos/GlassModels/zhong2.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "zhongyou",
+                    "path": "asset/data/geos/GlassModels/zhongyou.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "zhongzuo1",
+                    "path": "asset/data/geos/GlassModels/zhongzuo1.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "zhongzuo",
+                    "path": "asset/data/geos/GlassModels/zhongzuo.fb",
+                    "transform_sequence": [
+                        [
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.001,
+                            0.0,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                }
+            ],
+            "name": "glass_models_all",
+            "render_params": {
+                "blocker_sample_num": 8,
+                "denoise_size": 3,
+                "exposure": 4.974999904632568,
+                "hdr_image_num": 4,
+                "pcf_sample_num": 8,
+                "pcf_softness": 5.784999847412109,
+                "pcss_softness": 6.682000160217285,
+                "pcss_softness_falloff": 0.07100000232458115,
+                "shadow_bias": 9.999999747378752e-05,
+                "shadow_type": 1,
+                "ssao_kernel_size": 64,
+                "ssao_radius": 0.05700000002980232
+            },
+            "shadow_receiver_path": "asset/data/obj/shadow_receiver2.obj",
+            "shadow_receiver_transform": [
+                [
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0
+                ]
+            ]
+        },
+        {
+            "description": "直升机引擎场景",
+            "id": 7,
+            "line_point_style": {
+                "line_color": [
+                    1.0,
+                    1.0,
+                    1.0
+                ],
+                "point_color": [
+                    1.0,
+                    1.0,
+                    1.0
+                ]
+            },
+            "models": [
+                {
+                    "instance_name": "cangbi",
+                    "path": "asset/data/geos/大舱壁-ASM(PMI).fb",
+                    "transform_sequence": [
+                        [
+                            -0.00046987738666548555,
+                            0.0010440133532148364,
+                            0.0,
+                            2.18736948,
+                            -0.0010440133532148364,
+                            -0.00046987738666548555,
+                            0.0,
+                            1.2963150221140576,
+                            0.0,
+                            0.0,
+                            0.0011448793125000002,
+                            0.38428834386901856,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                },
+                {
+                    "instance_name": "cangbi1",
+                    "path": "asset/data/geos/大舱壁-ASM(PMI).fb",
+                    "transform_sequence": [
+                        [
+                            0.0011448793125000002,
+                            0.0,
+                            0.0,
+                            2.18736948,
+                            0.0,
+                            0.0011448793125000002,
+                            0.0,
+                            2.2963150221140576,
+                            0.0,
+                            0.0,
+                            0.0011448793125000002,
+                            0.38428834386901856,
+                            0.0,
+                            0.0,
+                            0.0,
+                            1.0
+                        ]
+                    ]
+                }
+            ],
+            "name": "cangbi",
+            "render_params": {
+                "blocker_sample_num": 40,
+                "denoise_size": 5,
+                "exposure": 8.057000160217285,
+                "hdr_image_num": 4,
+                "pcf_sample_num": 40,
+                "pcf_softness": 5.784999847412109,
+                "pcss_softness": 338.0660095214844,
+                "pcss_softness_falloff": 1.7769999504089355,
+                "shadow_bias": 0.0,
+                "shadow_type": 1,
+                "ssao_kernel_size": 64,
+                "ssao_radius": 0.656000018119812
+            },
+            "shadow_receiver_path": "asset/data/obj/shadow_receiver2.obj",
+            "shadow_receiver_transform": [
+                [
+                    1.05,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    1.05,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.05,
                     0.0,
                     0.0,
                     0.0,
