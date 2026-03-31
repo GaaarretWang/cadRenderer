@@ -47,8 +47,18 @@
                 0.03500000014901161,
                 1.0
             ],
-            "metallicFactor": 0.6869999766349792,
+            "metallicFactor": 0.0,
             "roughnessFactor": 0.9829999804496765
+        },
+        "GlassModels/#4C4C4C": {
+            "baseColorFactor": [
+                0.2980392277240753,
+                0.2980392277240753,
+                0.2980392277240753,
+                1.0
+            ],
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "GlassModels/#595959": {
             "baseColorFactor": [
@@ -60,6 +70,36 @@
             "metallicFactor": 0.972000002861023,
             "roughnessFactor": 0.20000000298023224
         },
+        "GlassModels/#6633CC": {
+            "baseColorFactor": [
+                0.33000001311302185,
+                0.35100001096725464,
+                0.3610000014305115,
+                1.0
+            ],
+            "metallicFactor": 0.9240000247955322,
+            "roughnessFactor": 0.460999995470047
+        },
+        "GlassModels/#666666": {
+            "baseColorFactor": [
+                0.36500000953674316,
+                0.36500000953674316,
+                0.36500000953674316,
+                1.0
+            ],
+            "metallicFactor": 0.9480000138282776,
+            "roughnessFactor": 0.5080000162124634
+        },
+        "GlassModels/#89B6FF": {
+            "baseColorFactor": [
+                0.3449999988079071,
+                0.34599998593330383,
+                0.33399999141693115,
+                1.0
+            ],
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5550000071525574
+        },
         "GlassModels/#8F8C80": {
             "baseColorFactor": [
                 0.14000000059604645,
@@ -70,6 +110,16 @@
             "metallicFactor": 0.9950000047683716,
             "roughnessFactor": 0.43700000643730164
         },
+        "GlassModels/#98AAAF": {
+            "baseColorFactor": [
+                0.36800000071525574,
+                0.36800000071525574,
+                0.36800000071525574,
+                1.0
+            ],
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.4129999876022339
+        },
         "GlassModels/#9993BF": {
             "baseColorFactor": [
                 0.6000000238418579,
@@ -79,6 +129,16 @@
             ],
             "metallicFactor": 0.0,
             "roughnessFactor": 0.20000000298023224
+        },
+        "GlassModels/#B1B1B1": {
+            "baseColorFactor": [
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
+                1.0
+            ],
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "GlassModels/#B40000": {
             "baseColorFactor": [
@@ -110,6 +170,26 @@
             "metallicFactor": 0.0,
             "roughnessFactor": 0.20000000298023224
         },
+        "GlassModels/#CC3333": {
+            "baseColorFactor": [
+                0.3440000116825104,
+                0.3580000102519989,
+                0.3580000102519989,
+                1.0
+            ],
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5789999961853027
+        },
+        "GlassModels/#CFD7E8": {
+            "baseColorFactor": [
+                0.35600000619888306,
+                0.36899998784065247,
+                0.3490000069141388,
+                1.0
+            ],
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
+        },
         "GlassModels/#D2D2FF": {
             "baseColorFactor": [
                 0.8240000009536743,
@@ -140,6 +220,16 @@
             "metallicFactor": 0.0,
             "roughnessFactor": 0.20000000298023224
         },
+        "GlassModels/#DFDFDF": {
+            "baseColorFactor": [
+                0.3490000069141388,
+                0.36800000071525574,
+                0.3490000069141388,
+                1.0
+            ],
+            "metallicFactor": 1.0190000534057617,
+            "roughnessFactor": 0.5320000052452087
+        },
         "GlassModels/#F6B983": {
             "baseColorFactor": [
                 0.15800000727176666,
@@ -160,6 +250,16 @@
             "metallicFactor": 0.9950000047683716,
             "roughnessFactor": 0.3659999966621399
         },
+        "GlassModels/#FBC7A0": {
+            "baseColorFactor": [
+                0.3529999852180481,
+                0.3070000112056732,
+                0.39899998903274536,
+                1.0
+            ],
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
+        },
         "GlassModels/#FF0000": {
             "baseColorFactor": [
                 0.6489999890327454,
@@ -169,6 +269,16 @@
             ],
             "metallicFactor": 0.0,
             "roughnessFactor": 0.7350000143051147
+        },
+        "GlassModels/#FF00FF": {
+            "baseColorFactor": [
+                0.35100001096725464,
+                0.36899998784065247,
+                0.35100001096725464,
+                1.0
+            ],
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "GlassModels/#FF8000": {
             "baseColorFactor": [
@@ -180,6 +290,26 @@
             "metallicFactor": 0.0,
             "roughnessFactor": 0.20000000298023224
         },
+        "GlassModels/#FF9900": {
+            "baseColorFactor": [
+                0.35100001096725464,
+                0.3720000088214874,
+                0.35100001096725464,
+                1.0
+            ],
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.460999995470047
+        },
+        "GlassModels/#FF9999": {
+            "baseColorFactor": [
+                0.36800000071525574,
+                0.3720000088214874,
+                0.3540000021457672,
+                1.0
+            ],
+            "metallicFactor": 0.9480000138282776,
+            "roughnessFactor": 0.5080000162124634
+        },
         "GlassModels/#FFCC66": {
             "baseColorFactor": [
                 0.14000000059604645,
@@ -190,15 +320,25 @@
             "metallicFactor": 1.0199999809265137,
             "roughnessFactor": 0.44999998807907104
         },
-        "GlassModels/#FFFF00": {
+        "GlassModels/#FFF283": {
             "baseColorFactor": [
-                1.0,
-                1.0,
-                0.0,
+                0.35100001096725464,
+                0.35199999809265137,
+                0.33799999952316284,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.20000000298023224
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5550000071525574
+        },
+        "GlassModels/#FFFF00": {
+            "baseColorFactor": [
+                0.36800000071525574,
+                0.35100001096725464,
+                0.35100001096725464,
+                1.0
+            ],
+            "metallicFactor": 0.9480000138282776,
+            "roughnessFactor": 0.5320000052452087
         },
         "GlassModels/#FFFFFF": {
             "baseColorFactor": [
@@ -6062,33 +6202,33 @@
         },
         "zhongzuo.fb3ECE71EF-19FE-4287-84B5-6C6A1FE1A3591": {
             "baseColorFactor": [
-                0.17599999904632568,
-                0.20000000298023224,
-                0.1509999930858612,
+                0.176,
+                0.2,
+                0.151,
                 1.0
             ],
-            "metallicFactor": 0.9089999794960022,
-            "roughnessFactor": 0.8989999890327454
+            "metallicFactor": 0.909,
+            "roughnessFactor": 0.899
         },
         "zhongzuo.fb3ECE71EF-19FE-4287-84B5-6C6A1FE1A3592": {
             "baseColorFactor": [
-                0.1599999964237213,
-                0.07199999690055847,
-                0.003000000026077032,
+                0.16,
+                0.072,
+                0.003,
                 1.0
             ],
-            "metallicFactor": 0.12399999797344208,
-            "roughnessFactor": 0.9629999995231628
+            "metallicFactor": 0.124,
+            "roughnessFactor": 0.963
         },
         "zhongzuo.fb78F63045-1FA4-4897-BB86-B3D5F2BC42101": {
             "baseColorFactor": [
-                0.1599999964237213,
-                0.07199999690055847,
-                0.003000000026077032,
+                0.16,
+                0.072,
+                0.003,
                 1.0
             ],
-            "metallicFactor": 0.12399999797344208,
-            "roughnessFactor": 0.9629999995231628
+            "metallicFactor": 0.124,
+            "roughnessFactor": 0.963
         },
         "zhongzuo.fb78F63045-1FA4-4897-BB86-B3D5F2BC42102": {
             "baseColorFactor": [
@@ -6097,38 +6237,38 @@
                 0.0,
                 1.0
             ],
-            "metallicFactor": 0.3919999897480011,
-            "roughnessFactor": 0.6510000228881836
+            "metallicFactor": 0.392,
+            "roughnessFactor": 0.651
         },
         "zhongzuo.fb78F63045-1FA4-4897-BB86-B3D5F2BC42103": {
             "baseColorFactor": [
-                0.1599999964237213,
-                0.07199999690055847,
-                0.003000000026077032,
+                0.16,
+                0.072,
+                0.003,
                 1.0
             ],
-            "metallicFactor": 0.12399999797344208,
-            "roughnessFactor": 0.9629999995231628
+            "metallicFactor": 0.124,
+            "roughnessFactor": 0.963
         },
         "zhongzuo.fbBD02A3D2-771F-48B9-B618-2768BA7ADEC71": {
             "baseColorFactor": [
-                0.1599999964237213,
-                0.07199999690055847,
-                0.003000000026077032,
+                0.16,
+                0.072,
+                0.003,
                 1.0
             ],
-            "metallicFactor": 0.12399999797344208,
-            "roughnessFactor": 0.9629999995231628
+            "metallicFactor": 0.124,
+            "roughnessFactor": 0.963
         },
         "zhongzuo.fbBD02A3D2-771F-48B9-B618-2768BA7ADEC72": {
             "baseColorFactor": [
-                0.1599999964237213,
-                0.07199999690055847,
-                0.003000000026077032,
+                0.16,
+                0.072,
+                0.003,
                 1.0
             ],
-            "metallicFactor": 0.12399999797344208,
-            "roughnessFactor": 0.9629999995231628
+            "metallicFactor": 0.124,
+            "roughnessFactor": 0.963
         },
         "zhongzuo.fbBD02A3D2-771F-48B9-B618-2768BA7ADEC73": {
             "baseColorFactor": [
@@ -6137,18 +6277,18 @@
                 0.0,
                 1.0
             ],
-            "metallicFactor": 0.3919999897480011,
-            "roughnessFactor": 0.6510000228881836
+            "metallicFactor": 0.392,
+            "roughnessFactor": 0.651
         },
         "zhongzuo.fbC9EC24FD-2726-4B94-BAC5-ABE186D384FF1": {
             "baseColorFactor": [
-                0.1599999964237213,
-                0.07199999690055847,
-                0.003000000026077032,
+                0.16,
+                0.072,
+                0.003,
                 1.0
             ],
-            "metallicFactor": 0.12399999797344208,
-            "roughnessFactor": 0.9629999995231628
+            "metallicFactor": 0.124,
+            "roughnessFactor": 0.963
         },
         "zhongzuo.fbC9EC24FD-2726-4B94-BAC5-ABE186D384FF2": {
             "baseColorFactor": [
@@ -6157,38 +6297,38 @@
                 0.0,
                 1.0
             ],
-            "metallicFactor": 0.3919999897480011,
-            "roughnessFactor": 0.6510000228881836
+            "metallicFactor": 0.392,
+            "roughnessFactor": 0.651
         },
         "zhongzuo.fbC9EC24FD-2726-4B94-BAC5-ABE186D384FF3": {
             "baseColorFactor": [
-                0.1599999964237213,
-                0.07199999690055847,
-                0.003000000026077032,
+                0.16,
+                0.072,
+                0.003,
                 1.0
             ],
-            "metallicFactor": 0.12399999797344208,
-            "roughnessFactor": 0.9629999995231628
+            "metallicFactor": 0.124,
+            "roughnessFactor": 0.963
         },
         "zhongzuo.fbF311FCFF-42F7-47A5-9A9E-FD9E2F32B8A61": {
             "baseColorFactor": [
-                0.1599999964237213,
-                0.07199999690055847,
-                0.003000000026077032,
+                0.16,
+                0.072,
+                0.003,
                 1.0
             ],
-            "metallicFactor": 0.12399999797344208,
-            "roughnessFactor": 0.9629999995231628
+            "metallicFactor": 0.124,
+            "roughnessFactor": 0.963
         },
         "zhongzuo.fbF311FCFF-42F7-47A5-9A9E-FD9E2F32B8A62": {
             "baseColorFactor": [
-                0.1599999964237213,
-                0.07199999690055847,
-                0.003000000026077032,
+                0.16,
+                0.072,
+                0.003,
                 1.0
             ],
-            "metallicFactor": 0.12399999797344208,
-            "roughnessFactor": 0.9629999995231628
+            "metallicFactor": 0.124,
+            "roughnessFactor": 0.963
         },
         "zhongzuo.fbF311FCFF-42F7-47A5-9A9E-FD9E2F32B8A63": {
             "baseColorFactor": [
@@ -6197,8 +6337,8 @@
                 0.0,
                 1.0
             ],
-            "metallicFactor": 0.3919999897480011,
-            "roughnessFactor": 0.6510000228881836
+            "metallicFactor": 0.392,
+            "roughnessFactor": 0.651
         },
         "zhongzuo1.fb3ECE71EF-19FE-4287-84B5-6C6A1FE1A3591": {
             "baseColorFactor": [
@@ -6342,43 +6482,43 @@
         },
         "大舱壁-ASM(PMI).fb06EE50A0-73CF-4B8B-81BE-CB0E6B7D2E921": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb19E52880-E01A-4654-8832-5C3760A718051": {
             "baseColorFactor": [
-                0.20000000298023224,
-                0.20000000298023224,
-                0.20000000298023224,
+                0.03500000014901161,
+                0.03500000014901161,
+                0.03500000014901161,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.9829999804496765
         },
         "大舱壁-ASM(PMI).fb19E52880-E01A-4654-8832-5C3760A718052": {
             "baseColorFactor": [
-                0.5960784554481506,
-                0.6666666865348816,
-                0.686274528503418,
+                0.36800000071525574,
+                0.36800000071525574,
+                0.36800000071525574,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.4129999876022339
         },
         "大舱壁-ASM(PMI).fb1E5B5D4C-7FF5-47F5-86AB-0EBA3CD3818C1": {
             "baseColorFactor": [
-                1.0,
-                0.6000000238418579,
-                0.0,
+                0.35100001096725464,
+                0.3720000088214874,
+                0.35100001096725464,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.460999995470047
         },
         "大舱壁-ASM(PMI).fb1E5B5D4C-7FF5-47F5-86AB-0EBA3CD3818C10": {
             "baseColorFactor": [
@@ -6387,108 +6527,108 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fb1E5B5D4C-7FF5-47F5-86AB-0EBA3CD3818C2": {
             "baseColorFactor": [
-                1.0,
-                1.0,
-                0.0,
+                0.36800000071525574,
+                0.35100001096725464,
+                0.35100001096725464,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9480000138282776,
+            "roughnessFactor": 0.5320000052452087
         },
         "大舱壁-ASM(PMI).fb1E5B5D4C-7FF5-47F5-86AB-0EBA3CD3818C3": {
             "baseColorFactor": [
-                0.800000011920929,
-                0.20000000298023224,
-                0.20000000298023224,
+                0.3440000116825104,
+                0.3580000102519989,
+                0.3580000102519989,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5789999961853027
         },
         "大舱壁-ASM(PMI).fb1E5B5D4C-7FF5-47F5-86AB-0EBA3CD3818C4": {
             "baseColorFactor": [
-                1.0,
-                0.0,
-                1.0,
+                0.35100001096725464,
+                0.36899998784065247,
+                0.35100001096725464,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb1E5B5D4C-7FF5-47F5-86AB-0EBA3CD3818C5": {
             "baseColorFactor": [
-                1.0,
-                0.6000000238418579,
-                0.6000000238418579,
+                0.36800000071525574,
+                0.3720000088214874,
+                0.3540000021457672,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9480000138282776,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb1E5B5D4C-7FF5-47F5-86AB-0EBA3CD3818C6": {
             "baseColorFactor": [
-                0.8745098114013672,
-                0.8745098114013672,
-                0.8745098114013672,
+                0.3490000069141388,
+                0.36800000071525574,
+                0.3490000069141388,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 1.0190000534057617,
+            "roughnessFactor": 0.5320000052452087
         },
         "大舱壁-ASM(PMI).fb1E5B5D4C-7FF5-47F5-86AB-0EBA3CD3818C7": {
             "baseColorFactor": [
-                1.0,
-                0.9490196108818054,
-                0.5137255191802979,
+                0.35100001096725464,
+                0.35199999809265137,
+                0.33799999952316284,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5550000071525574
         },
         "大舱壁-ASM(PMI).fb1E5B5D4C-7FF5-47F5-86AB-0EBA3CD3818C8": {
             "baseColorFactor": [
-                0.9843137264251709,
-                0.7803921699523926,
-                0.6274510025978088,
+                0.3529999852180481,
+                0.3070000112056732,
+                0.39899998903274536,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb1E5B5D4C-7FF5-47F5-86AB-0EBA3CD3818C9": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb33472B50-9873-40F7-A4CF-3D77FBF437081": {
             "baseColorFactor": [
-                0.8117647171020508,
-                0.843137264251709,
-                0.9098039269447327,
+                0.35600000619888306,
+                0.36899998784065247,
+                0.3490000069141388,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb33472B50-9873-40F7-A4CF-3D77FBF437082": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb33472B50-9873-40F7-A4CF-3D77FBF437083": {
             "baseColorFactor": [
@@ -6497,28 +6637,28 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fb38324797-1113-4AE4-86B1-50501A2D6B991": {
             "baseColorFactor": [
-                0.8117647171020508,
-                0.843137264251709,
-                0.9098039269447327,
+                0.35600000619888306,
+                0.36899998784065247,
+                0.3490000069141388,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb38324797-1113-4AE4-86B1-50501A2D6B992": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb38324797-1113-4AE4-86B1-50501A2D6B993": {
             "baseColorFactor": [
@@ -6527,28 +6667,28 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fb51246C8B-ABC2-4363-9B6F-F96D4B86BCBC1": {
             "baseColorFactor": [
-                0.8117647171020508,
-                0.843137264251709,
-                0.9098039269447327,
+                0.35600000619888306,
+                0.36899998784065247,
+                0.3490000069141388,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb51246C8B-ABC2-4363-9B6F-F96D4B86BCBC2": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb51246C8B-ABC2-4363-9B6F-F96D4B86BCBC3": {
             "baseColorFactor": [
@@ -6557,38 +6697,38 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fb5DAB1CE8-84D7-4ACB-B03C-9D214497C2441": {
             "baseColorFactor": [
-                0.20000000298023224,
-                0.20000000298023224,
-                0.20000000298023224,
+                0.03500000014901161,
+                0.03500000014901161,
+                0.03500000014901161,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.9829999804496765
         },
         "大舱壁-ASM(PMI).fb5DAB1CE8-84D7-4ACB-B03C-9D214497C2442": {
             "baseColorFactor": [
-                0.5960784554481506,
-                0.6666666865348816,
-                0.686274528503418,
+                0.36800000071525574,
+                0.36800000071525574,
+                0.36800000071525574,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.4129999876022339
         },
         "大舱壁-ASM(PMI).fb64667F68-FD04-4677-B2ED-7D20E1F38F051": {
             "baseColorFactor": [
-                0.5372549295425415,
-                0.7137255072593689,
-                1.0,
+                0.3449999988079071,
+                0.34599998593330383,
+                0.33399999141693115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5550000071525574
         },
         "大舱壁-ASM(PMI).fb64667F68-FD04-4677-B2ED-7D20E1F38F052": {
             "baseColorFactor": [
@@ -6597,18 +6737,18 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fb6DA0B847-B1A4-4108-B18A-C7F2721ADBC11": {
             "baseColorFactor": [
-                0.4000000059604645,
-                0.4000000059604645,
-                0.4000000059604645,
+                0.36500000953674316,
+                0.36500000953674316,
+                0.36500000953674316,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9480000138282776,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb6DA0B847-B1A4-4108-B18A-C7F2721ADBC12": {
             "baseColorFactor": [
@@ -6617,48 +6757,48 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fb7D0D1DBE-307F-481B-8CEC-D8EDBFA34A931": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb7F3FB936-38AF-41EA-98CC-2BB8570ADC8F1": {
             "baseColorFactor": [
-                0.20000000298023224,
-                0.20000000298023224,
-                0.20000000298023224,
+                0.03500000014901161,
+                0.03500000014901161,
+                0.03500000014901161,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.9829999804496765
         },
         "大舱壁-ASM(PMI).fb7F3FB936-38AF-41EA-98CC-2BB8570ADC8F2": {
             "baseColorFactor": [
-                0.5960784554481506,
-                0.6666666865348816,
-                0.686274528503418,
+                0.36800000071525574,
+                0.36800000071525574,
+                0.36800000071525574,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.4129999876022339
         },
         "大舱壁-ASM(PMI).fb7FFCDDA6-55F2-40D1-8907-AE3CC9F64DD71": {
             "baseColorFactor": [
-                0.4000000059604645,
-                0.20000000298023224,
-                0.800000011920929,
+                0.33000001311302185,
+                0.35100001096725464,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9240000247955322,
+            "roughnessFactor": 0.460999995470047
         },
         "大舱壁-ASM(PMI).fb7FFCDDA6-55F2-40D1-8907-AE3CC9F64DD72": {
             "baseColorFactor": [
@@ -6667,28 +6807,28 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fb92BCD41D-F49B-4D35-B6A7-F7CF39E2155D1": {
             "baseColorFactor": [
-                0.8117647171020508,
-                0.843137264251709,
-                0.9098039269447327,
+                0.35600000619888306,
+                0.36899998784065247,
+                0.3490000069141388,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb92BCD41D-F49B-4D35-B6A7-F7CF39E2155D2": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb92BCD41D-F49B-4D35-B6A7-F7CF39E2155D3": {
             "baseColorFactor": [
@@ -6697,28 +6837,28 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fb94D08E3A-188F-44BE-A0AB-FD56E73716AB1": {
             "baseColorFactor": [
-                0.8117647171020508,
-                0.843137264251709,
-                0.9098039269447327,
+                0.35600000619888306,
+                0.36899998784065247,
+                0.3490000069141388,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb94D08E3A-188F-44BE-A0AB-FD56E73716AB2": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fb94D08E3A-188F-44BE-A0AB-FD56E73716AB3": {
             "baseColorFactor": [
@@ -6727,18 +6867,18 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fb9F4E426E-73AD-4363-99D6-945ED74139EB1": {
             "baseColorFactor": [
-                0.5372549295425415,
-                0.7137255072593689,
-                1.0,
+                0.3449999988079071,
+                0.34599998593330383,
+                0.33399999141693115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5550000071525574
         },
         "大舱壁-ASM(PMI).fb9F4E426E-73AD-4363-99D6-945ED74139EB2": {
             "baseColorFactor": [
@@ -6747,28 +6887,28 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fbA0658683-38D7-414A-AF81-ED2CBF975D981": {
             "baseColorFactor": [
-                0.8117647171020508,
-                0.843137264251709,
-                0.9098039269447327,
+                0.35600000619888306,
+                0.36899998784065247,
+                0.3490000069141388,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fbA0658683-38D7-414A-AF81-ED2CBF975D982": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fbA0658683-38D7-414A-AF81-ED2CBF975D983": {
             "baseColorFactor": [
@@ -6777,28 +6917,28 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fbA4C567E2-732F-4444-B493-C497C38D84AB1": {
             "baseColorFactor": [
-                0.8117647171020508,
-                0.843137264251709,
-                0.9098039269447327,
+                0.35600000619888306,
+                0.36899998784065247,
+                0.3490000069141388,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fbA4C567E2-732F-4444-B493-C497C38D84AB2": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fbA4C567E2-732F-4444-B493-C497C38D84AB3": {
             "baseColorFactor": [
@@ -6807,28 +6947,28 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fbA78E2C1B-6C63-4C56-BB05-4C60581ED8CA1": {
             "baseColorFactor": [
-                0.8117647171020508,
-                0.843137264251709,
-                0.9098039269447327,
+                0.35600000619888306,
+                0.36899998784065247,
+                0.3490000069141388,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fbA78E2C1B-6C63-4C56-BB05-4C60581ED8CA2": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fbA78E2C1B-6C63-4C56-BB05-4C60581ED8CA3": {
             "baseColorFactor": [
@@ -6837,58 +6977,58 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fbB3108BEA-DE10-4979-88B7-4B38A5752C161": {
             "baseColorFactor": [
-                0.20000000298023224,
-                0.20000000298023224,
-                0.20000000298023224,
+                0.03500000014901161,
+                0.03500000014901161,
+                0.03500000014901161,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.9829999804496765
         },
         "大舱壁-ASM(PMI).fbB3108BEA-DE10-4979-88B7-4B38A5752C162": {
             "baseColorFactor": [
-                0.5960784554481506,
-                0.6666666865348816,
-                0.686274528503418,
+                0.36800000071525574,
+                0.36800000071525574,
+                0.36800000071525574,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.4129999876022339
         },
         "大舱壁-ASM(PMI).fbB83518FB-36D3-461D-80A8-D03AA8A3EF581": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fbD2145FCC-7120-432F-BD54-FCD9C1F9013D1": {
             "baseColorFactor": [
-                0.8117647171020508,
-                0.843137264251709,
-                0.9098039269447327,
+                0.35600000619888306,
+                0.36899998784065247,
+                0.3490000069141388,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fbD2145FCC-7120-432F-BD54-FCD9C1F9013D2": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fbD2145FCC-7120-432F-BD54-FCD9C1F9013D3": {
             "baseColorFactor": [
@@ -6897,38 +7037,38 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fbD82EBD53-DFB7-429C-91A7-26F3A71AB03B1": {
             "baseColorFactor": [
-                0.20000000298023224,
-                0.20000000298023224,
-                0.20000000298023224,
+                0.03500000014901161,
+                0.03500000014901161,
+                0.03500000014901161,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.9829999804496765
         },
         "大舱壁-ASM(PMI).fbD82EBD53-DFB7-429C-91A7-26F3A71AB03B2": {
             "baseColorFactor": [
-                0.5960784554481506,
-                0.6666666865348816,
-                0.686274528503418,
+                0.36800000071525574,
+                0.36800000071525574,
+                0.36800000071525574,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.4129999876022339
         },
         "大舱壁-ASM(PMI).fbE2836B65-0235-4837-AAD6-9E3FBE56B5091": {
             "baseColorFactor": [
-                0.5372549295425415,
-                0.7137255072593689,
-                1.0,
+                0.3449999988079071,
+                0.34599998593330383,
+                0.33399999141693115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5550000071525574
         },
         "大舱壁-ASM(PMI).fbE2836B65-0235-4837-AAD6-9E3FBE56B5092": {
             "baseColorFactor": [
@@ -6937,28 +7077,28 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         },
         "大舱壁-ASM(PMI).fbE6854B09-BD57-426C-8A32-6C78E104DCA51": {
             "baseColorFactor": [
-                0.8117647171020508,
-                0.843137264251709,
-                0.9098039269447327,
+                0.35600000619888306,
+                0.36899998784065247,
+                0.3490000069141388,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fbE6854B09-BD57-426C-8A32-6C78E104DCA52": {
             "baseColorFactor": [
-                0.6941176652908325,
-                0.6941176652908325,
-                0.6941176652908325,
+                0.3610000014305115,
+                0.3610000014305115,
+                0.3610000014305115,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "大舱壁-ASM(PMI).fbE6854B09-BD57-426C-8A32-6C78E104DCA53": {
             "baseColorFactor": [
@@ -6967,8 +7107,8 @@
                 0.2980392277240753,
                 1.0
             ],
-            "metallicFactor": 1.0,
-            "roughnessFactor": 0.5
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.972000002861023
         }
     }
 }

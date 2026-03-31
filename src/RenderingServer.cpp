@@ -100,15 +100,15 @@ bool RenderingServer::loadSceneFromJSON(const std::string& scene_name_or_id) {
 }
 
 vsg::dmat4 RenderingServer::parseMatrixFromJSON(const nlohmann::json& matrix_array) {
-    if (matrix_array.size() != 16) {
-        throw std::runtime_error("矩阵数组必须包含16个元素");
+    if (matrix_array.size() != 4) {
+        throw std::runtime_error("矩阵必须是4x4二维数组");
     }
 
-    // JSON存储行主序，vsg使用列主序，需要转置
+    // JSON存储行主序2D数组，vsg使用列主序，需要转置
     vsg::dmat4 mat;
     for (int row = 0; row < 4; row++)
         for (int col = 0; col < 4; col++)
-            mat[col][row] = matrix_array[row * 4 + col].get<double>();
+            mat[col][row] = matrix_array[row][col].get<double>();
     return mat;
 }
 

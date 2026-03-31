@@ -1027,6 +1027,7 @@ void CADMesh::processPMI(
             }
 
             std::vector<std::pair<vsg::vec3, vsg::vec3>> lineSegments;
+            vsg::vec3 textPos(pmiInfo.text[0][0], pmiInfo.text[0][1], pmiInfo.text[0][2]);
 
             if (pmiInfo.type == "Diagonal" || pmiInfo.type == "Horizontal") {
                 if (pmiInfo.points.size() < 4) {
@@ -1037,6 +1038,8 @@ void CADMesh::processPMI(
                 vsg::vec3 temp2(pmiInfo.points[1][0], pmiInfo.points[1][1], pmiInfo.points[1][2]);
                 vsg::vec3 temp3(pmiInfo.points[2][0], pmiInfo.points[2][1], pmiInfo.points[2][2]);
                 vsg::vec3 temp4(pmiInfo.points[3][0], pmiInfo.points[3][1], pmiInfo.points[3][2]);
+                temp2 = (temp2 + temp1 * 2.f) / 3.f;
+                temp4 = (temp4 + temp3 * 2.f) / 3.f;
                 // 箭头加权平均点：temp5 = (3*p1 + 2*p4) / 5, temp6 = (3*p4 + 2*p1) / 5
                 vsg::vec3 temp5 = (temp2 * 3.0f + temp4 * 2.0f) / 5.0f;
                 vsg::vec3 temp6 = (temp4 * 3.0f + temp2 * 2.0f) / 5.0f;
@@ -1045,6 +1048,7 @@ void CADMesh::processPMI(
                 lineSegments.push_back({temp3, temp4});
                 lineSegments.push_back({temp2, temp5});
                 lineSegments.push_back({temp6, temp4});
+                textPos = (temp2 + temp4) / 2.0f;
             } else if (pmiInfo.type == "Radius") {
                 vsg::vec3 temp1(pmiInfo.points[0][0], pmiInfo.points[0][1], pmiInfo.points[0][2]);
                 vsg::vec3 temp2(pmiInfo.points[1][0], pmiInfo.points[1][1], pmiInfo.points[1][2]);
@@ -1172,7 +1176,7 @@ void CADMesh::processPMI(
                     text_layout->outlineWidth = 0.1;
 
                     if (!pmiInfo.text[0].empty() && pmiInfo.text[0].size() >= 3) {
-                        text_layout->position = vsg::vec3(pmiInfo.text[0][0], pmiInfo.text[0][1], pmiInfo.text[0][2]);
+                        text_layout->position = textPos;
                     }
 
                     text_node->text = text_label;

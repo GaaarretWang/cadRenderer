@@ -7,14 +7,17 @@ namespace vsgserver {
     vsgRendererServer* renderer = nullptr;
 }
 
-// 辅助函数：vsg列主序矩阵 → 行主序JSON数组（16个double）
+// 辅助函数：vsg列主序矩阵 → 行主序JSON 2D数组（4x4）
 static json matrixToRowMajorJson(const vsg::dmat4& mat)
 {
-    json arr = json::array();
-    for (int row = 0; row < 4; row++)
+    json mat2d = json::array();
+    for (int row = 0; row < 4; row++) {
+        json rowArr = json::array();
         for (int col = 0; col < 4; col++)
-            arr.push_back(mat[col][row]);
-    return arr;
+            rowArr.push_back(mat[col][row]);
+        mat2d.push_back(rowArr);
+    }
+    return mat2d;
 }
 
 // final = T * original * Rz * Ry * Rx * S
