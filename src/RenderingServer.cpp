@@ -125,18 +125,8 @@ int RenderingServer::Init(int argc, char** argv){
     arguments.read("--scene", scene_to_load);
     arguments.read("-s", scene_to_load);
 
-    // 加载场景
-    if (scene_to_load == "-1") {
-        // ID=-1: 不从JSON加载，使用已有数据或默认测试数据
-        if (model_paths.empty()) {
-            model_paths.push_back(rendering_dir + "asset/data/obj/sphere.obj");
-            instance_names.push_back("test_sphere");
-            model_transforms.push_back(vsg::dmat4(1.0));
-            renderer.shadow_receiver_path = rendering_dir + "asset/data/obj/shadow_receiver2.obj";
-            renderer.shadow_receiver_transform = vsg::dmat4(1.0);
-        }
-        loaded_scene_id = -1;
-    } else if (!loadSceneFromJSON(scene_to_load)) {
+    // 加载场景（所有 scene ID 统一通过 JSON 加载）
+    if (!loadSceneFromJSON(scene_to_load)) {
         vsg::error("Failed to load scene '", scene_to_load, "', program will exit");
         return -1;
     }

@@ -20,6 +20,66 @@
             "metallicFactor": 0.0,
             "roughnessFactor": 0.0
         },
+        "GlassModels/#00205B": {
+            "baseColorFactor": [
+                0.0,
+                0.125490203499794,
+                0.35686275362968445,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.26100000739097595
+        },
+        "GlassModels/#0033A0": {
+            "baseColorFactor": [
+                0.0,
+                0.20000000298023224,
+                0.6274510025978088,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.26100000739097595
+        },
+        "GlassModels/#0085AD": {
+            "baseColorFactor": [
+                0.0,
+                0.5215686559677124,
+                0.6784313917160034,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.21299999952316284
+        },
+        "GlassModels/#0A0A0A": {
+            "baseColorFactor": [
+                0.03921568766236305,
+                0.03921568766236305,
+                0.03921568766236305,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 1.00600004196167
+        },
+        "GlassModels/#191919": {
+            "baseColorFactor": [
+                0.09803921729326248,
+                0.09803921729326248,
+                0.09803921729326248,
+                1.0
+            ],
+            "metallicFactor": 0.9470000267028809,
+            "roughnessFactor": 0.0
+        },
+        "GlassModels/#1972BF": {
+            "baseColorFactor": [
+                0.09803921729326248,
+                0.4470588266849518,
+                0.6790000200271606,
+                0.699999988079071
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.0
+        },
         "GlassModels/#332D13": {
             "baseColorFactor": [
                 0.42800000309944153,
@@ -42,13 +102,23 @@
         },
         "GlassModels/#333333": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4,
+                0.38,
+                0.36,
                 1.0
             ],
             "metallicFactor": 0.0,
             "roughnessFactor": 0.9829999804496765
+        },
+        "GlassModels/#3C3B3B": {
+            "baseColorFactor": [
+                0.23529411852359772,
+                0.23137255012989044,
+                0.23137255012989044,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.20000000298023224
         },
         "GlassModels/#4C4C4C": {
             "baseColorFactor": [
@@ -90,6 +160,26 @@
             "metallicFactor": 0.9480000138282776,
             "roughnessFactor": 0.5080000162124634
         },
+        "GlassModels/#878C8C": {
+            "baseColorFactor": [
+                0.529411792755127,
+                0.5490196347236633,
+                0.5490196347236633,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.20000000298023224
+        },
+        "GlassModels/#898D8D": {
+            "baseColorFactor": [
+                0.5372549295425415,
+                0.5529412031173706,
+                0.5529412031173706,
+                1.0
+            ],
+            "metallicFactor": 0.9470000267028809,
+            "roughnessFactor": 0.48399999737739563
+        },
         "GlassModels/#89B6FF": {
             "baseColorFactor": [
                 0.3449999988079071,
@@ -130,6 +220,16 @@
             "metallicFactor": 0.0,
             "roughnessFactor": 0.20000000298023224
         },
+        "GlassModels/#A0A0A0": {
+            "baseColorFactor": [
+                0.6274510025978088,
+                0.6274510025978088,
+                0.6274510025978088,
+                1.0
+            ],
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.20000000298023224
+        },
         "GlassModels/#B1B1B1": {
             "baseColorFactor": [
                 0.3610000014305115,
@@ -150,6 +250,16 @@
             "metallicFactor": 0.0,
             "roughnessFactor": 0.20000000298023224
         },
+        "GlassModels/#B7C9D3": {
+            "baseColorFactor": [
+                0.7176470756530762,
+                0.7882353067398071,
+                0.8274509906768799,
+                1.0
+            ],
+            "metallicFactor": 0.9480000138282776,
+            "roughnessFactor": 0.5080000162124634
+        },
         "GlassModels/#BBBBBB": {
             "baseColorFactor": [
                 0.7329999804496765,
@@ -165,6 +275,26 @@
                 0.7689999938011169,
                 0.7020000219345093,
                 0.8199999928474426,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.20000000298023224
+        },
+        "GlassModels/#C6C1BC": {
+            "baseColorFactor": [
+                0.7764706015586853,
+                0.7568627595901489,
+                0.7372549176216125,
+                1.0
+            ],
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
+        },
+        "GlassModels/#CAD1EE": {
+            "baseColorFactor": [
+                0.7921568751335144,
+                0.8196078538894653,
+                0.9333333373069763,
                 1.0
             ],
             "metallicFactor": 0.0,
@@ -230,6 +360,26 @@
             "metallicFactor": 1.0190000534057617,
             "roughnessFactor": 0.5320000052452087
         },
+        "GlassModels/#E5E5E5": {
+            "baseColorFactor": [
+                0.8980392217636108,
+                0.8980392217636108,
+                0.8980392217636108,
+                1.0
+            ],
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
+        },
+        "GlassModels/#E5EAED": {
+            "baseColorFactor": [
+                0.8980392217636108,
+                0.9176470637321472,
+                0.929411768913269,
+                1.0
+            ],
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
+        },
         "GlassModels/#F6B983": {
             "baseColorFactor": [
                 0.15800000727176666,
@@ -239,6 +389,26 @@
             ],
             "metallicFactor": 0.972000002861023,
             "roughnessFactor": 0.5789999961853027
+        },
+        "GlassModels/#F6F6F3": {
+            "baseColorFactor": [
+                0.9647058844566345,
+                0.9647058844566345,
+                0.9529411792755127,
+                1.0
+            ],
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
+        },
+        "GlassModels/#F7E48A": {
+            "baseColorFactor": [
+                1.0,
+                0.8420000076293945,
+                0.5239999890327454,
+                1.0
+            ],
+            "metallicFactor": 0.0,
+            "roughnessFactor": 0.7689999938011169
         },
         "GlassModels/#FABE47": {
             "baseColorFactor": [
@@ -552,9 +722,9 @@
         },
         "YIBIAOPAN.fb10333A90-DAB1-4390-B41A-C8ADCFFF04592": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -712,9 +882,9 @@
         },
         "YIBIAOPAN.fb28FAF5FB-9109-4645-8DE2-CF963FB8F1C41": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -922,9 +1092,9 @@
         },
         "YIBIAOPAN.fb388901B0-BA3A-4EFD-BCA8-581C7711743C1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -1082,9 +1252,9 @@
         },
         "YIBIAOPAN.fb436FEEDC-129E-490D-B77C-C06F71FE965B1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -1602,9 +1772,9 @@
         },
         "YIBIAOPAN.fb7141B987-E45D-4119-B008-3CE7C9D936E81": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -1742,9 +1912,9 @@
         },
         "YIBIAOPAN.fb7EAEC7E0-139B-4A82-88E5-069FEED69CBE2": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -2382,9 +2552,9 @@
         },
         "YIBIAOPAN.fbBD6F6242-2B97-4F04-870F-2715C326145A2": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -2432,9 +2602,9 @@
         },
         "YIBIAOPAN.fbC078E62F-5FE9-4ED4-B45D-A0443DEE36672": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -2702,9 +2872,9 @@
         },
         "YIBIAOPAN.fbD5F3010A-6596-4F80-BBB6-F7D3622E1E392": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -3032,9 +3202,9 @@
         },
         "di0.fb0A70ED44-5798-4348-8018-8719FC450A7C1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -3062,9 +3232,9 @@
         },
         "di0.fb75EBE427-2F3F-4415-B00C-6B5792EC1EAE1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -3082,9 +3252,9 @@
         },
         "di0.fb7DADDBC2-0373-464A-8A64-75F2CB45EADB1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -3122,9 +3292,9 @@
         },
         "di0.fbB18BDA7E-A23B-47F6-898C-727CC1AC89861": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -3202,9 +3372,9 @@
         },
         "di1.fbABA9EED3-9747-41CB-84F4-34FAF26293151": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -3632,9 +3802,9 @@
         },
         "di2.fbBDB1696D-4D66-4AFE-BDFD-29AD3AAE94831": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -3682,9 +3852,9 @@
         },
         "di3.fb406FF699-9889-4594-B15F-685C62DB04FB1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -3712,9 +3882,9 @@
         },
         "di3.fb522934E2-D9CE-4F8F-B438-E9FEA02B29FD1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -3722,9 +3892,9 @@
         },
         "di3.fb8DBAA2A4-6A0B-4CA7-99E4-771E4F7E2D151": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -3762,9 +3932,9 @@
         },
         "di3.fbADAFD986-7C01-47CC-A2C4-0B24E51A93F11": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -3772,9 +3942,9 @@
         },
         "di3.fbE381F44A-B4A2-4B7A-9A33-0D850E76D40F1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -3842,9 +4012,9 @@
         },
         "di5.fbE61CDF17-D6CE-426F-AA1A-1FA062EEBE681": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -3952,9 +4122,9 @@
         },
         "di7.fb2E46EE8E-D5CD-44A8-A1C1-5612A2DB4F921": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -4292,9 +4462,9 @@
         },
         "di8.fb10A7C4C3-D2A2-4717-A941-A2D9AC5587BF1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -4312,9 +4482,9 @@
         },
         "di8.fb36B49D64-695C-467A-BBFB-B7D4053C179A1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -4322,9 +4492,9 @@
         },
         "di8.fb5469CC59-3C00-46A8-9B4C-61744D90D6A11": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -4332,9 +4502,9 @@
         },
         "di8.fb719D26C1-074B-47B1-8479-1FB6319CEE391": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -4342,9 +4512,9 @@
         },
         "di8.fb75297300-C672-42CF-867C-B40DA3991D771": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -4382,9 +4552,9 @@
         },
         "di8.fbB16F7B26-2630-4330-AF7D-8294CB17077B1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -4392,9 +4562,9 @@
         },
         "di8.fbD35AEE8C-2E0C-4392-8E3E-0B8CBFFAD4301": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -4412,9 +4582,9 @@
         },
         "di8.fbFC6CECFB-6F20-4987-91A8-DA3D6FD4A26F1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -4462,23 +4632,23 @@
         },
         "helicopter-engine.quads.obj3": {
             "baseColorFactor": [
-                0.800000011920929,
-                0.800000011920929,
-                0.800000011920929,
-                1.0
-            ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.0
-        },
-        "helicopter-engine.quads.obj4": {
-            "baseColorFactor": [
-                0.2800000011920929,
-                0.32499998807907104,
-                0.34299999475479126,
+                0.2,
+                0.2,
+                0.2,
                 1.0
             ],
             "metallicFactor": 1.0,
-            "roughnessFactor": 1.0219999551773071
+            "roughnessFactor": 0.5
+        },
+        "helicopter-engine.quads.obj4": {
+            "baseColorFactor": [
+                0.2,
+                0.2,
+                0.2,
+                1.0
+            ],
+            "metallicFactor": 1.0,
+            "roughnessFactor": 0.5
         },
         "helicopter-engine.quads.obj5": {
             "baseColorFactor": [
@@ -4488,7 +4658,7 @@
                 1.0
             ],
             "metallicFactor": 0.972000002861023,
-            "roughnessFactor": 0.9950000047683716
+            "roughnessFactor": 0.9480000138282776
         },
         "helicopter-engine.quads.obj6": {
             "baseColorFactor": [
@@ -4562,9 +4732,9 @@
         },
         "ranyoukongzhi.fbE0A5383F-207C-413A-9D17-A4296C0DCB863": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -4672,9 +4842,9 @@
         },
         "shang1(you).fb4BCE226C-FD39-4B1B-AFBB-2B967CA9246E1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -4842,9 +5012,9 @@
         },
         "shang1.fbB0C216B3-3D6D-4136-A07E-1AD59519018D1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -4907,8 +5077,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5099999904632568
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fb236ED760-A91B-42DB-A280-61F109E51FAA2": {
             "baseColorFactor": [
@@ -4918,7 +5088,7 @@
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5509999990463257
+            "roughnessFactor": 0.26100000739097595
         },
         "twoAirplaneBody_white.fb453D14BE-5E11-4D0D-875D-FCDCBC8BFB171": {
             "baseColorFactor": [
@@ -4927,8 +5097,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5509999990463257
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fb6C604115-8FC5-4A87-BF85-2571DDF009C01": {
             "baseColorFactor": [
@@ -4937,8 +5107,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5789999961853027
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fb765C73BE-0A14-4043-A7D7-576E734859CE1": {
             "baseColorFactor": [
@@ -4947,8 +5117,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5230000019073486
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fb765C73BE-0A14-4043-A7D7-576E734859CE2": {
             "baseColorFactor": [
@@ -4957,8 +5127,8 @@
                 0.8274509906768799,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5099999904632568
+            "metallicFactor": 0.9480000138282776,
+            "roughnessFactor": 0.5080000162124634
         },
         "twoAirplaneBody_white.fb765C73BE-0A14-4043-A7D7-576E734859CE3": {
             "baseColorFactor": [
@@ -4968,7 +5138,7 @@
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.4959999918937683
+            "roughnessFactor": 0.26100000739097595
         },
         "twoAirplaneBody_white.fb79A9745D-109C-4B64-87A1-F931CE2BBAD51": {
             "baseColorFactor": [
@@ -4977,8 +5147,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5370000004768372
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fb79A9745D-109C-4B64-87A1-F931CE2BBAD52": {
             "baseColorFactor": [
@@ -4988,7 +5158,7 @@
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5649999976158142
+            "roughnessFactor": 0.21299999952316284
         },
         "twoAirplaneBody_white.fb79A9745D-109C-4B64-87A1-F931CE2BBAD53": {
             "baseColorFactor": [
@@ -4998,7 +5168,7 @@
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5099999904632568
+            "roughnessFactor": 0.26100000739097595
         },
         "twoAirplaneBody_white.fbA744E2C1-80B3-46DD-95D6-ABC06B6A5FB71": {
             "baseColorFactor": [
@@ -5008,7 +5178,7 @@
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5230000019073486
+            "roughnessFactor": 0.20000000298023224
         },
         "twoAirplaneBody_white.fbA8E5AB4B-6D63-4E39-9A41-1284CB6FBF351": {
             "baseColorFactor": [
@@ -5017,8 +5187,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5509999990463257
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fbAC9796FB-96C7-45C1-8086-530C7A74B58A1": {
             "baseColorFactor": [
@@ -5027,8 +5197,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.4819999933242798
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fbB4A1604D-AACA-4648-87DA-3CA1F616AAC21": {
             "baseColorFactor": [
@@ -5037,8 +5207,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.6200000047683716
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fbB4A1604D-AACA-4648-87DA-3CA1F616AAC22": {
             "baseColorFactor": [
@@ -5048,7 +5218,7 @@
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5099999904632568
+            "roughnessFactor": 0.26100000739097595
         },
         "twoAirplaneBody_white.fbBA04A15D-756F-4FCB-8481-ECC54542EAFB1": {
             "baseColorFactor": [
@@ -5057,8 +5227,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.46799999475479126
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fbBA04A15D-756F-4FCB-8481-ECC54542EAFB2": {
             "baseColorFactor": [
@@ -5067,8 +5237,8 @@
                 0.8274509906768799,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5230000019073486
+            "metallicFactor": 0.9480000138282776,
+            "roughnessFactor": 0.5080000162124634
         },
         "twoAirplaneBody_white.fbBA04A15D-756F-4FCB-8481-ECC54542EAFB3": {
             "baseColorFactor": [
@@ -5078,7 +5248,7 @@
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.4959999918937683
+            "roughnessFactor": 0.26100000739097595
         },
         "twoAirplaneBody_white.fbC02B7EC0-718F-4120-AC15-A21761A9946F1": {
             "baseColorFactor": [
@@ -5087,8 +5257,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.6060000061988831
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fbC05F1E20-F9C7-4661-B093-94D4608196EA1": {
             "baseColorFactor": [
@@ -5097,8 +5267,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5509999990463257
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fbC5373CF0-95B8-472F-A7BE-23F12C78B7121": {
             "baseColorFactor": [
@@ -5107,8 +5277,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5370000004768372
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fbD2CC9C53-A412-4230-A979-443B305B3CDA1": {
             "baseColorFactor": [
@@ -5117,8 +5287,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5230000019073486
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fbD87FE310-5829-4430-BBC6-8AD2DD7C03E31": {
             "baseColorFactor": [
@@ -5127,8 +5297,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5230000019073486
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoAirplaneBody_white.fbD87FE310-5829-4430-BBC6-8AD2DD7C03E32": {
             "baseColorFactor": [
@@ -5138,7 +5308,7 @@
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.4959999918937683
+            "roughnessFactor": 0.26100000739097595
         },
         "twoAirplaneBody_white.fbD87FE310-5829-4430-BBC6-8AD2DD7C03E33": {
             "baseColorFactor": [
@@ -5148,7 +5318,7 @@
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5099999904632568
+            "roughnessFactor": 0.21299999952316284
         },
         "twoAirplaneBody_white.fbFD696351-7F28-4F96-8E8D-744BF7EF5F5E1": {
             "baseColorFactor": [
@@ -5157,8 +5327,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.4959999918937683
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoEngine.fb2DAAFA42-25E1-4C87-8B5A-6210940B08831": {
             "baseColorFactor": [
@@ -5167,8 +5337,8 @@
                 0.09803921729326248,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5379999876022339
+            "metallicFactor": 0.9470000267028809,
+            "roughnessFactor": 0.0
         },
         "twoEngine.fb74AD1C8B-16AD-45C4-A3A5-58CD55EF4CBC1": {
             "baseColorFactor": [
@@ -5177,8 +5347,8 @@
                 0.9529411792755127,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.4959999918937683
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.6740000247955322
         },
         "twoEngine.fb74AD1C8B-16AD-45C4-A3A5-58CD55EF4CBC2": {
             "baseColorFactor": [
@@ -5187,8 +5357,8 @@
                 0.6274510025978088,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5370000004768372
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.20000000298023224
         },
         "twoEngine.fb74AD1C8B-16AD-45C4-A3A5-58CD55EF4CBC3": {
             "baseColorFactor": [
@@ -5197,8 +5367,8 @@
                 0.5529412031173706,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5230000019073486
+            "metallicFactor": 0.9470000267028809,
+            "roughnessFactor": 0.48399999737739563
         },
         "twoEngine.fb74AD1C8B-16AD-45C4-A3A5-58CD55EF4CBC4": {
             "baseColorFactor": [
@@ -5208,7 +5378,7 @@
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5509999990463257
+            "roughnessFactor": 0.26100000739097595
         },
         "twoEngine.fbB4565868-DEF5-4344-9902-69048F3288751": {
             "baseColorFactor": [
@@ -5217,8 +5387,8 @@
                 0.09803921729326248,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.46799999475479126
+            "metallicFactor": 0.9470000267028809,
+            "roughnessFactor": 0.0
         },
         "twoEngine.fbF9943F6A-D43A-4268-A02A-730C59DC26B51": {
             "baseColorFactor": [
@@ -5227,8 +5397,8 @@
                 0.09803921729326248,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5230000019073486
+            "metallicFactor": 0.9470000267028809,
+            "roughnessFactor": 0.0
         },
         "twoLandingGear.fb8A5C8AAF-12D4-42E1-A7C0-16B66D8507031": {
             "baseColorFactor": [
@@ -5237,8 +5407,8 @@
                 0.7372549176216125,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.46799999475479126
+            "metallicFactor": 0.972000002861023,
+            "roughnessFactor": 0.5080000162124634
         },
         "twoLandingGear.fb8A5C8AAF-12D4-42E1-A7C0-16B66D8507032": {
             "baseColorFactor": [
@@ -5248,7 +5418,7 @@
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5230000019073486
+            "roughnessFactor": 0.20000000298023224
         },
         "twoLandingGear.fb8A5C8AAF-12D4-42E1-A7C0-16B66D8507033": {
             "baseColorFactor": [
@@ -5258,7 +5428,7 @@
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5099999904632568
+            "roughnessFactor": 1.00600004196167
         },
         "twoLandingGear.fb8A5C8AAF-12D4-42E1-A7C0-16B66D8507034": {
             "baseColorFactor": [
@@ -5267,8 +5437,8 @@
                 0.929411768913269,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.5230000019073486
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "twoLandingGear.fb8A5C8AAF-12D4-42E1-A7C0-16B66D8507035": {
             "baseColorFactor": [
@@ -5278,7 +5448,7 @@
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5230000019073486
+            "roughnessFactor": 0.20000000298023224
         },
         "twoLandingGear.fb8A5C8AAF-12D4-42E1-A7C0-16B66D8507036": {
             "baseColorFactor": [
@@ -5287,88 +5457,88 @@
                 0.8980392217636108,
                 1.0
             ],
-            "metallicFactor": 0.0,
-            "roughnessFactor": 0.4959999918937683
+            "metallicFactor": 0.9950000047683716,
+            "roughnessFactor": 0.5080000162124634
         },
         "twoSeatPart_white.fb07B747CE-6A15-4E4E-9BF9-3D89766541661": {
             "baseColorFactor": [
-                0.9686274528503418,
-                0.8941176533699036,
-                0.5411764979362488,
+                1.0,
+                0.8420000076293945,
+                0.5239999890327454,
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5649999976158142
+            "roughnessFactor": 0.7689999938011169
         },
         "twoSeatPart_white.fb530391E3-CBA6-45AE-9802-7F255C346CBD1": {
             "baseColorFactor": [
-                0.9686274528503418,
-                0.8941176533699036,
-                0.5411764979362488,
+                1.0,
+                0.8420000076293945,
+                0.5239999890327454,
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5509999990463257
+            "roughnessFactor": 0.7689999938011169
         },
         "twoSeatPart_white.fb5BD867F0-4411-4CC1-B6A2-2A43FA2F03D91": {
             "baseColorFactor": [
-                0.9686274528503418,
-                0.8941176533699036,
-                0.5411764979362488,
+                1.0,
+                0.8420000076293945,
+                0.5239999890327454,
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5649999976158142
+            "roughnessFactor": 0.7689999938011169
         },
         "twoSeatPart_white.fb886B6772-CA77-4E28-97F8-46565E8EA3CD1": {
             "baseColorFactor": [
-                0.9686274528503418,
-                0.8941176533699036,
-                0.5411764979362488,
+                1.0,
+                0.8420000076293945,
+                0.5239999890327454,
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.4959999918937683
+            "roughnessFactor": 0.7689999938011169
         },
         "twoSeatPart_white.fbD246215B-3420-4959-A044-B7AC8D4BD92E1": {
             "baseColorFactor": [
-                0.9686274528503418,
-                0.8941176533699036,
-                0.5411764979362488,
+                1.0,
+                0.8420000076293945,
+                0.5239999890327454,
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5920000076293945
+            "roughnessFactor": 0.7689999938011169
         },
         "twoSeatPart_white.fbDEA2DEA4-E61A-400B-964A-E1980CECF8D91": {
             "baseColorFactor": [
-                0.9686274528503418,
-                0.8941176533699036,
-                0.5411764979362488,
+                1.0,
+                0.8420000076293945,
+                0.5239999890327454,
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5649999976158142
+            "roughnessFactor": 0.7689999938011169
         },
         "twoSeatPart_white.fbFFAE6D17-AAD2-4088-AB41-7E6A6BAB89F01": {
             "baseColorFactor": [
-                0.9686274528503418,
-                0.8941176533699036,
-                0.5411764979362488,
+                1.0,
+                0.8420000076293945,
+                0.5239999890327454,
                 1.0
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.4959999918937683
+            "roughnessFactor": 0.7689999938011169
         },
         "window.fbFCFB1C7C-26A1-4FF6-B4C5-3717A7C06A0A1": {
             "baseColorFactor": [
                 0.09803921729326248,
                 0.4470588266849518,
-                0.7490196228027344,
+                0.6790000200271606,
                 0.699999988079071
             ],
             "metallicFactor": 0.0,
-            "roughnessFactor": 0.5370000004768372
+            "roughnessFactor": 0.0
         },
         "zhong1.fb1D015C9E-25EC-4057-AFC3-D62015F9265F1": {
             "baseColorFactor": [
@@ -5422,9 +5592,9 @@
         },
         "zhong1.fb9C9459F7-523A-496E-91E2-0EE8C0F273691": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -6002,9 +6172,9 @@
         },
         "zhong2.fbD6FAD8C5-E41A-4A63-91ED-774542F0902D1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -6132,9 +6302,9 @@
         },
         "zhongyou.fbA694DFCF-1A8D-4712-AFE3-39909AEC76FE1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -6202,33 +6372,33 @@
         },
         "zhongzuo.fb3ECE71EF-19FE-4287-84B5-6C6A1FE1A3591": {
             "baseColorFactor": [
-                0.176,
-                0.2,
-                0.151,
+                0.17599999904632568,
+                0.20000000298023224,
+                0.1509999930858612,
                 1.0
             ],
-            "metallicFactor": 0.909,
-            "roughnessFactor": 0.899
+            "metallicFactor": 0.9089999794960022,
+            "roughnessFactor": 0.8989999890327454
         },
         "zhongzuo.fb3ECE71EF-19FE-4287-84B5-6C6A1FE1A3592": {
             "baseColorFactor": [
-                0.16,
-                0.072,
-                0.003,
+                0.1599999964237213,
+                0.07199999690055847,
+                0.003000000026077032,
                 1.0
             ],
-            "metallicFactor": 0.124,
-            "roughnessFactor": 0.963
+            "metallicFactor": 0.12399999797344208,
+            "roughnessFactor": 0.9629999995231628
         },
         "zhongzuo.fb78F63045-1FA4-4897-BB86-B3D5F2BC42101": {
             "baseColorFactor": [
-                0.16,
-                0.072,
-                0.003,
+                0.1599999964237213,
+                0.07199999690055847,
+                0.003000000026077032,
                 1.0
             ],
-            "metallicFactor": 0.124,
-            "roughnessFactor": 0.963
+            "metallicFactor": 0.12399999797344208,
+            "roughnessFactor": 0.9629999995231628
         },
         "zhongzuo.fb78F63045-1FA4-4897-BB86-B3D5F2BC42102": {
             "baseColorFactor": [
@@ -6237,38 +6407,38 @@
                 0.0,
                 1.0
             ],
-            "metallicFactor": 0.392,
-            "roughnessFactor": 0.651
+            "metallicFactor": 0.3919999897480011,
+            "roughnessFactor": 0.6510000228881836
         },
         "zhongzuo.fb78F63045-1FA4-4897-BB86-B3D5F2BC42103": {
             "baseColorFactor": [
-                0.16,
-                0.072,
-                0.003,
+                0.1599999964237213,
+                0.07199999690055847,
+                0.003000000026077032,
                 1.0
             ],
-            "metallicFactor": 0.124,
-            "roughnessFactor": 0.963
+            "metallicFactor": 0.12399999797344208,
+            "roughnessFactor": 0.9629999995231628
         },
         "zhongzuo.fbBD02A3D2-771F-48B9-B618-2768BA7ADEC71": {
             "baseColorFactor": [
-                0.16,
-                0.072,
-                0.003,
+                0.1599999964237213,
+                0.07199999690055847,
+                0.003000000026077032,
                 1.0
             ],
-            "metallicFactor": 0.124,
-            "roughnessFactor": 0.963
+            "metallicFactor": 0.12399999797344208,
+            "roughnessFactor": 0.9629999995231628
         },
         "zhongzuo.fbBD02A3D2-771F-48B9-B618-2768BA7ADEC72": {
             "baseColorFactor": [
-                0.16,
-                0.072,
-                0.003,
+                0.1599999964237213,
+                0.07199999690055847,
+                0.003000000026077032,
                 1.0
             ],
-            "metallicFactor": 0.124,
-            "roughnessFactor": 0.963
+            "metallicFactor": 0.12399999797344208,
+            "roughnessFactor": 0.9629999995231628
         },
         "zhongzuo.fbBD02A3D2-771F-48B9-B618-2768BA7ADEC73": {
             "baseColorFactor": [
@@ -6277,18 +6447,18 @@
                 0.0,
                 1.0
             ],
-            "metallicFactor": 0.392,
-            "roughnessFactor": 0.651
+            "metallicFactor": 0.3919999897480011,
+            "roughnessFactor": 0.6510000228881836
         },
         "zhongzuo.fbC9EC24FD-2726-4B94-BAC5-ABE186D384FF1": {
             "baseColorFactor": [
-                0.16,
-                0.072,
-                0.003,
+                0.1599999964237213,
+                0.07199999690055847,
+                0.003000000026077032,
                 1.0
             ],
-            "metallicFactor": 0.124,
-            "roughnessFactor": 0.963
+            "metallicFactor": 0.12399999797344208,
+            "roughnessFactor": 0.9629999995231628
         },
         "zhongzuo.fbC9EC24FD-2726-4B94-BAC5-ABE186D384FF2": {
             "baseColorFactor": [
@@ -6297,38 +6467,38 @@
                 0.0,
                 1.0
             ],
-            "metallicFactor": 0.392,
-            "roughnessFactor": 0.651
+            "metallicFactor": 0.3919999897480011,
+            "roughnessFactor": 0.6510000228881836
         },
         "zhongzuo.fbC9EC24FD-2726-4B94-BAC5-ABE186D384FF3": {
             "baseColorFactor": [
-                0.16,
-                0.072,
-                0.003,
+                0.1599999964237213,
+                0.07199999690055847,
+                0.003000000026077032,
                 1.0
             ],
-            "metallicFactor": 0.124,
-            "roughnessFactor": 0.963
+            "metallicFactor": 0.12399999797344208,
+            "roughnessFactor": 0.9629999995231628
         },
         "zhongzuo.fbF311FCFF-42F7-47A5-9A9E-FD9E2F32B8A61": {
             "baseColorFactor": [
-                0.16,
-                0.072,
-                0.003,
+                0.1599999964237213,
+                0.07199999690055847,
+                0.003000000026077032,
                 1.0
             ],
-            "metallicFactor": 0.124,
-            "roughnessFactor": 0.963
+            "metallicFactor": 0.12399999797344208,
+            "roughnessFactor": 0.9629999995231628
         },
         "zhongzuo.fbF311FCFF-42F7-47A5-9A9E-FD9E2F32B8A62": {
             "baseColorFactor": [
-                0.16,
-                0.072,
-                0.003,
+                0.1599999964237213,
+                0.07199999690055847,
+                0.003000000026077032,
                 1.0
             ],
-            "metallicFactor": 0.124,
-            "roughnessFactor": 0.963
+            "metallicFactor": 0.12399999797344208,
+            "roughnessFactor": 0.9629999995231628
         },
         "zhongzuo.fbF311FCFF-42F7-47A5-9A9E-FD9E2F32B8A63": {
             "baseColorFactor": [
@@ -6337,14 +6507,14 @@
                 0.0,
                 1.0
             ],
-            "metallicFactor": 0.392,
-            "roughnessFactor": 0.651
+            "metallicFactor": 0.3919999897480011,
+            "roughnessFactor": 0.6510000228881836
         },
         "zhongzuo1.fb3ECE71EF-19FE-4287-84B5-6C6A1FE1A3591": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4000000059604645,
+                0.3799999952316284,
+                0.36000001430511475,
                 1.0
             ],
             "metallicFactor": 0.6869999766349792,
@@ -6492,9 +6662,9 @@
         },
         "大舱壁-ASM(PMI).fb19E52880-E01A-4654-8832-5C3760A718051": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4,
+                0.38,
+                0.36,
                 1.0
             ],
             "metallicFactor": 0.0,
@@ -6702,9 +6872,9 @@
         },
         "大舱壁-ASM(PMI).fb5DAB1CE8-84D7-4ACB-B03C-9D214497C2441": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4,
+                0.38,
+                0.36,
                 1.0
             ],
             "metallicFactor": 0.0,
@@ -6772,9 +6942,9 @@
         },
         "大舱壁-ASM(PMI).fb7F3FB936-38AF-41EA-98CC-2BB8570ADC8F1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4,
+                0.38,
+                0.36,
                 1.0
             ],
             "metallicFactor": 0.0,
@@ -6982,9 +7152,9 @@
         },
         "大舱壁-ASM(PMI).fbB3108BEA-DE10-4979-88B7-4B38A5752C161": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4,
+                0.38,
+                0.36,
                 1.0
             ],
             "metallicFactor": 0.0,
@@ -7042,9 +7212,9 @@
         },
         "大舱壁-ASM(PMI).fbD82EBD53-DFB7-429C-91A7-26F3A71AB03B1": {
             "baseColorFactor": [
-                0.03500000014901161,
-                0.03500000014901161,
-                0.03500000014901161,
+                0.4,
+                0.38,
+                0.36,
                 1.0
             ],
             "metallicFactor": 0.0,

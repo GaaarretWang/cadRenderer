@@ -236,10 +236,10 @@ public:
         curLightGroup->addChild(lightGroups[hdr_image_num]);
     }
 
-    void init_directional_lights(){
+    void loadHDRConfig(){
         std::string json_path = vsg::findFile("json/LightInfo.json", options->paths);
         std::ifstream json_file(json_path);
-        
+
         if (!json_file.is_open()) {
             std::cerr << "错误：无法打开光源配置文件 " << json_path << std::endl;
             return;
@@ -248,10 +248,22 @@ public:
         json json_data = json::parse(json_file);
         json_file.close();
 
-        // Read hdr_image_max_num from JSON if present
         if (json_data.contains("hdr_image_max_num")) {
             hdr_image_max_num = json_data["hdr_image_max_num"].get<int>();
         }
+    }
+
+    void init_directional_lights(){
+        std::string json_path = vsg::findFile("json/LightInfo.json", options->paths);
+        std::ifstream json_file(json_path);
+
+        if (!json_file.is_open()) {
+            std::cerr << "错误：无法打开光源配置文件 " << json_path << std::endl;
+            return;
+        }
+
+        json json_data = json::parse(json_file);
+        json_file.close();
 
         for (auto& [hdr_idx_str, hdr_data] : json_data.items()) {
             // Skip non-HDR entries (like hdr_image_max_num)

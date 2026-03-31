@@ -826,10 +826,8 @@ public:
 
 void loadEnvmapRect(VsgContext& context, const std::string& filePath)
 {
-    auto searchPaths = appData.options->paths;
-    searchPaths.push_back("./data");
-    //auto evnmapFilepath = vsg::findFile("textures/test_park.hdr", searchPaths);
-    // auto evnmapFilepath = vsg::findFile(filePath, searchPaths);
+    //auto evnmapFilepath = vsg::findFile("textures/test_park.hdr", appData.options->paths);
+    // auto evnmapFilepath = vsg::findFile(filePath, appData.options->paths);
     LoadHdrImageSTBI loader;
     loader.readImage(filePath);
     auto dimensions = loader.getDimensions();
@@ -856,15 +854,9 @@ float *loadHdrFile(const std::string& filepath, int& width, int& height, int& ch
 void generateBRDFLUT(VsgContext &vsgContext)
 {
     // TODO: actually create shaders
-    auto searchPaths = appData.options->paths;
-    searchPaths.push_back("./data");
-    //std::cout << searchPaths.size() << std::endl;
-    //for (auto path : searchPaths)
-    //    std::cout << path << std::endl;
-
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreenquad.vert", searchPaths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreenquad.vert", appData.options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/genbrdflut.frag", searchPaths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/genbrdflut.frag", appData.options->paths);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
     if (!vertexShader || !fragmentShader)
     {
@@ -971,10 +963,8 @@ void generateBRDFLUT(VsgContext &vsgContext)
 
 void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr)
 {
-    auto searchPaths = appData.options->paths;
-    searchPaths.push_back("./data");
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreenquad.vert", searchPaths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/equirect2cube.frag", searchPaths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreenquad.vert", appData.options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/equirect2cube.frag", appData.options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
     if (!vertexShader || !fragmentShader)
@@ -1221,12 +1211,10 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
 
 void generateIrradianceCube(VsgContext& vsgContext, int hdr)//生成辐照度贴图
 {
-    auto searchPaths = appData.options->paths;
-    searchPaths.push_back("./data");
-    //auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreenquad.vert", searchPaths);
-    //auto fragShaderFilepath = vsg::findFile("shaders/IBL/irradianceCube.frag", searchPaths);
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skyboxCubegen.vert", searchPaths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/irradiancecubeMesh.frag", searchPaths);
+    //auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreenquad.vert", appData.options->paths);
+    //auto fragShaderFilepath = vsg::findFile("shaders/IBL/irradianceCube.frag", appData.options->paths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skyboxCubegen.vert", appData.options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/irradiancecubeMesh.frag", appData.options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
     if (!vertexShader || !fragmentShader)
@@ -1457,11 +1445,9 @@ void generateIrradianceCube(VsgContext& vsgContext, int hdr)//生成辐照度贴
 
 void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
 {
-    auto searchPaths = appData.options->paths;
-    searchPaths.push_back("./data");
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skyboxCubegen.vert", searchPaths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skyboxCubegen.vert", appData.options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/prefilterenvmapMesh.frag", searchPaths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/prefilterenvmapMesh.frag", appData.options->paths);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
     if (!vertexShader || !fragmentShader)
     {
@@ -1686,10 +1672,8 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
 
 ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGroup> root, int width, int height, vsg::ImageInfoList camera_data, vsg::ImageInfoList depth_data, vsg::ref_ptr<vsg::Data> shadow_pc_data)
 {
-    auto searchPaths = appData.options->paths;
-    searchPaths.push_back("./data");
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skybox.vert", searchPaths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/skybox.frag", searchPaths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skybox.vert", appData.options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/skybox.frag", appData.options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
     if (!vertexShader || !fragmentShader)

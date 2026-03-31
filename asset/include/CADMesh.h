@@ -301,6 +301,9 @@ public:
     static int current_scene_id;
     static vsg::View* active_view;
 
+    // 实例名 → 模型相对路径映射（供保存Scenes.json时使用）
+    static std::unordered_map<std::string, std::string> instance_name_to_rel_path;
+
     // 每帧开始时：将当前矩阵拷贝到上一帧矩阵缓冲
     static void copyCurrentToLastMatrices();
 

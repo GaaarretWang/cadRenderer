@@ -132,6 +132,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsgContext.device = device;
     vsgContext.queueFamily = queueFamily;
     IBL::appData.options = options;
+    loadHDRConfig();
     IBL::createResources(vsgContext, hdr_image_max_num);
     IBL::generateBRDFLUT(vsgContext);
     preprocessEnvMap();
@@ -262,6 +263,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     // 填充CADMesh场景实例静态数据
     CADMesh::scene_instance_names = instance_names;
     CADMesh::scene_original_transforms = model_transforms;
+    // 记录实例名→相对路径映射（engine_path + 相对路径 = 绝对路径）
+    for (int i = 0; i < model_paths.size(); i++) {
+        std::string rel_path = model_paths[i];
+        if (rel_path.find(engine_path) == 0)
+            rel_path = rel_path.substr(engine_path.length());
+        CADMesh::instance_name_to_rel_path[instance_names[i]] = rel_path;
+    }
     if(shader_type != CAMERA_DEPTH) {
         CADMesh::scene_instance_names.push_back("shadow_receiver");
         CADMesh::scene_original_transforms.push_back(shadow_receiver_transform);

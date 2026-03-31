@@ -66,6 +66,7 @@ std::vector<vsg::dmat4> CADMesh::scene_original_transforms;
 std::string CADMesh::scenes_json_path;
 int CADMesh::current_scene_id = -1;
 vsg::View* CADMesh::active_view = nullptr;
+std::unordered_map<std::string, std::string> CADMesh::instance_name_to_rel_path;
 
 void CADMesh::copyCurrentToLastMatrices()
 {
@@ -1085,7 +1086,7 @@ void CADMesh::processPMI(
             pmi_inds->properties.dataVariance = vsg::DataVariance::STATIC_DATA;
             std::copy(line_inds.begin(), line_inds.end(), pmi_inds->begin());
 
-            auto pmi_color = vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f});
+            auto pmi_color = vsg::vec4Value::create(vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f});
             pmi_color->properties.dataVariance = vsg::DataVariance::STATIC_DATA;
 
             // 创建绘制管线
@@ -1121,6 +1122,7 @@ void CADMesh::processPMI(
 
             auto lineStateGroup = vsg::StateGroup::create();
             graphicsPipelineConfig->copyTo(lineStateGroup);
+            lineStateGroup->addChild(vsg::SetLineWidth::create(4.0f));
             lineStateGroup->addChild(drawCommands);
 
             // 预计算 instance 矩阵列表
@@ -1159,7 +1161,7 @@ void CADMesh::processPMI(
             // 为每个匹配的 model_idx 创建文字节点
             for (auto midx : matched_model_indices) {
                 for (auto& im : inst_matrices) {
-                    auto text_label = vsg::stringValue::create(pmiInfo.value);
+                    auto text_label = vsg::stringValue::create(pmiInfo.value + "mm");
                     pmi_texts.dynamic_text_labels.push_back(text_label);
 
                     auto text_layout = vsg::StandardLayout::create();
@@ -1172,8 +1174,10 @@ void CADMesh::processPMI(
                     text_layout->billboard = true;
                     text_layout->horizontal = vsg::vec3(0.1, 0.0, 0.0);
                     text_layout->vertical = vsg::vec3(0.0, 0.1, 0.0);
-                    text_layout->color = vsg::vec4(1.0, 1.0, 1.0, 1.0);
-                    text_layout->outlineWidth = 0.1;
+                    text_layout->color = vsg::vec4(0.0, 0.0, 0.0, 1.0);
+                    // text_layout->outlineWidth = 0.1;
+                    text_layout->horizontalAlignment = vsg::StandardLayout::CENTER_ALIGNMENT;
+                    text_layout->verticalAlignment = vsg::StandardLayout::CENTER_ALIGNMENT;
 
                     if (!pmiInfo.text[0].empty() && pmiInfo.text[0].size() >= 3) {
                         text_layout->position = textPos;

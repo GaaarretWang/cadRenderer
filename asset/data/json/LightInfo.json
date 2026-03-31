@@ -1,225 +1,187 @@
 {
     "1": {
-        "baseBrightness": 0.581037,
-        "light_count": 4,
+        "baseBrightness": 0.582937,
+        "light_count": 2,
         "lights": [
             {
-                "area": 0.027893,
-                "brightness": 0.974933,
+                "area": 0.022869,
+                "brightness": 0.966692,
                 "direction": [
-                    -0.375819,
-                    0.684819,
-                    0.624325
+                    0.816233,
+                    0.034915,
+                    0.576667
                 ],
                 "light_id": 0
             },
             {
-                "area": 0.032324,
-                "brightness": 0.968673,
+                "area": 0.033765,
+                "brightness": 0.96943,
                 "direction": [
-                    -0.729743,
-                    -0.037503,
-                    0.682692
+                    -0.35454,
+                    0.6904,
+                    0.630594
                 ],
                 "light_id": 1
-            },
-            {
-                "area": 0.023157,
-                "brightness": 0.984896,
-                "direction": [
-                    0.804971,
-                    0.052212,
-                    0.591013
-                ],
-                "light_id": 2
-            },
-            {
-                "area": 0.035104,
-                "brightness": 0.951134,
-                "direction": [
-                    0.489615,
-                    -0.605106,
-                    0.627793
-                ],
-                "light_id": 3
             }
         ]
     },
     "2": {
-        "baseBrightness": 0.3709999918937683,
-        "light_count": 3,
+        "baseBrightness": 0.378513,
+        "light_count": 1,
         "lights": [
             {
-                "area": 0.068902,
-                "brightness": 0.960042,
+                "area": 0.065225,
+                "brightness": 0.986131,
                 "direction": [
-                    0.251927,
-                    0.20696,
-                    0.945357
+                    0.253834,
+                    0.21381,
+                    0.94332
                 ],
                 "light_id": 0
-            },
-            {
-                "area": 0.166058,
-                "brightness": 0.942721,
-                "direction": [
-                    -0.094775,
-                    0.990216,
-                    0.102424
-                ],
-                "light_id": 1
-            },
-            {
-                "area": 0.012816,
-                "brightness": 0.767566,
-                "direction": [
-                    0.148492,
-                    -0.817045,
-                    0.557124
-                ],
-                "light_id": 2
             }
         ]
     },
     "3": {
-        "baseBrightness": 0.308697,
+        "baseBrightness": 0.309431,
         "light_count": 1,
         "lights": [
             {
-                "area": 0.179273,
-                "brightness": 0.912356,
+                "area": 0.157454,
+                "brightness": 0.937439,
                 "direction": [
-                    -0.129224,
-                    0.971432,
-                    0.199052
+                    -0.152413,
+                    0.969068,
+                    0.194107
                 ],
                 "light_id": 0
             }
         ]
     },
     "4": {
-        "baseBrightness": 51.08100128173828,
+        "baseBrightness": 57.20500183105469,
         "light_count": 3,
         "lights": [
             {
-                "area": 0.021586,
-                "brightness": 25.025143,
+                "area": 0.018939,
+                "brightness": 24.762312,
                 "direction": [
-                    -0.338177,
-                    0.765902,
-                    0.546836
+                    -0.344543,
+                    0.76134,
+                    0.549229
                 ],
                 "light_id": 0
             },
             {
-                "area": 0.041805,
-                "brightness": 10.074396,
+                "area": 0.01915,
+                "brightness": 21.432756,
                 "direction": [
-                    -0.994389,
-                    0.030332,
-                    0.101347
+                    0.562863,
+                    0.6659,
+                    0.489655
                 ],
                 "light_id": 1
             },
             {
-                "area": 0.019747,
-                "brightness": 22.979948,
+                "area": 0.024798,
+                "brightness": 15.152279,
                 "direction": [
-                    0.561505,
-                    0.668615,
-                    0.487511
+                    -0.993808,
+                    0.03152,
+                    0.106551
                 ],
                 "light_id": 2
             }
         ]
     },
     "5": {
-        "baseBrightness": 0.282196,
-        "light_count": 3,
+        "baseBrightness": 45.02399826049805,
+        "light_count": 2,
         "lights": [
             {
-                "area": 0.0421,
-                "brightness": 20.036642,
+                "area": 0.045917,
+                "brightness": 10.969776,
                 "direction": [
-                    -0.216012,
-                    0.963328,
-                    0.159179
+                    -0.996406,
+                    0.050379,
+                    0.06809
                 ],
                 "light_id": 0
             },
             {
-                "area": 0.041218,
-                "brightness": 11.829471,
+                "area": 0.045786,
+                "brightness": 19.439526,
                 "direction": [
-                    -0.99634,
-                    0.050323,
-                    0.069094
+                    -0.211216,
+                    0.964962,
+                    0.15568
                 ],
                 "light_id": 1
-            },
-            {
-                "area": 0.008204,
-                "brightness": 22.218708,
-                "direction": [
-                    0.655518,
-                    0.747971,
-                    0.104093
-                ],
-                "light_id": 2
             }
         ]
     },
     "6": {
-        "baseBrightness": 0.210783,
-        "light_count": 3,
+        "baseBrightness": 0.211417,
+        "light_count": 1,
         "lights": [
             {
-                "area": 0.011758,
-                "brightness": 1.480263,
+                "area": 0.013222,
+                "brightness": 1.499576,
                 "direction": [
-                    -0.197458,
-                    0.966542,
-                    0.163729
+                    -0.198751,
+                    0.966786,
+                    0.160694
                 ],
                 "light_id": 0
-            },
-            {
-                "area": 0.004257,
-                "brightness": 0.981551,
-                "direction": [
-                    0.829792,
-                    0.528003,
-                    0.180716
-                ],
-                "light_id": 1
-            },
-            {
-                "area": 0.005016,
-                "brightness": 1.303755,
-                "direction": [
-                    0.654089,
-                    0.748869,
-                    0.106596
-                ],
-                "light_id": 2
             }
         ]
     },
     "7": {
-        "baseBrightness": 0.904467,
+        "baseBrightness": 0.901311,
         "light_count": 1,
         "lights": [
             {
-                "area": 0.014534,
-                "brightness": 4.942991,
+                "area": 0.026053,
+                "brightness": 4.24881,
                 "direction": [
-                    -0.217683,
-                    0.790637,
-                    0.572283
+                    0.325155,
+                    0.53894,
+                    0.777057
                 ],
                 "light_id": 0
             }
         ]
     },
-    "hdr_image_max_num": 7
+    "8": {
+        "baseBrightness": 23.695999145507813,
+        "light_count": 1,
+        "lights": [
+            {
+                "area": 0.0249,
+                "brightness": 14.051616,
+                "direction": [
+                    0.643943,
+                    0.439637,
+                    0.626144
+                ],
+                "light_id": 0
+            }
+        ]
+    },
+    "9": {
+        "baseBrightness": 68.8949966430664,
+        "light_count": 1,
+        "lights": [
+            {
+                "area": 0.05147,
+                "brightness": 13.802073,
+                "direction": [
+                    0.660376,
+                    0.322572,
+                    0.678123
+                ],
+                "light_id": 0
+            }
+        ]
+    },
+    "hdr_image_max_num": 9
 }

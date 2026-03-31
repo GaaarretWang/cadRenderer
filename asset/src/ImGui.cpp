@@ -334,6 +334,10 @@ namespace gui
                 target_scene = &scenes_data["scenes"].back();
             }
 
+            // 清空旧数据后重新写入
+            (*target_scene)["render_params"] = json::object();
+            (*target_scene)["line_point_style"] = json::object();
+
             // 更新 render_params
             const auto& pc_data = m_pc_data->value();
             json& render_params = (*target_scene)["render_params"];
@@ -588,65 +592,41 @@ namespace gui
 
             // 查找目标场景
             json* target_scene = nullptr;
-            int target_idx = -1;
             for (size_t i = 0; i < scenes_data["scenes"].size(); i++) {
                 if (scenes_data["scenes"][i]["id"] == scene_id) {
                     target_scene = &scenes_data["scenes"][i];
-                    target_idx = static_cast<int>(i);
                     break;
                 }
-            }
-
-            // ID=-1：完全删除旧条目后重建
-            if (scene_id == -1 && target_scene != nullptr) {
-                scenes_data["scenes"].erase(scenes_data["scenes"].begin() + target_idx);
-                target_scene = nullptr;
             }
 
             // 如果不存在则创建新条目
             if (target_scene == nullptr) {
                 json new_scene;
                 new_scene["id"] = scene_id;
+                new_scene["name"] = "scene_" + std::to_string(scene_id);
+                new_scene["description"] = "Saved from Instance Transform UI";
                 new_scene["models"] = json::array();
-                if (scene_id != -1) {
-                    new_scene["name"] = "scene_" + std::to_string(scene_id);
-                    new_scene["description"] = "Saved from Instance Transform UI";
-                }
                 scenes_data["scenes"].push_back(new_scene);
                 target_scene = &scenes_data["scenes"].back();
             }
 
-            // 更新每个model的transform_sequence（行主序保存）
+            // 清空旧models，从当前状态重建
+            (*target_scene)["models"] = json::array();
             auto& models = (*target_scene)["models"];
-            for (auto& state : m_instance_states) {
-                if (state.instance_name == "shadow_receiver") continue;
 
-                // 查找对应的model条目
-                bool found = false;
-                for (auto& model : models) {
-                    if (model["instance_name"] == state.instance_name) {
-                        vsg::dmat4 final_mat = state.computeFinalTransform();
-                        model["transform_sequence"] = json::array({matrixToRowMajorJson(final_mat)});
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found && scene_id == -1) {
+            for (auto& state : m_instance_states) {
+                if (state.instance_name == "shadow_receiver") {
+                    // 保存shadow_receiver变换（行主序）
+                    vsg::dmat4 final_mat = state.computeFinalTransform();
+                    (*target_scene)["shadow_receiver_transform"] = json::array({matrixToRowMajorJson(final_mat)});
+                } else {
                     json new_model;
                     new_model["instance_name"] = state.instance_name;
-                    new_model["path"] = "";
+                    auto it = CADMesh::instance_name_to_rel_path.find(state.instance_name);
+                    new_model["path"] = (it != CADMesh::instance_name_to_rel_path.end()) ? it->second : "";
                     vsg::dmat4 final_mat = state.computeFinalTransform();
                     new_model["transform_sequence"] = json::array({matrixToRowMajorJson(final_mat)});
                     models.push_back(new_model);
-                }
-            }
-
-            // 保存shadow_receiver变换（行主序）
-            for (auto& state : m_instance_states) {
-                if (state.instance_name == "shadow_receiver") {
-                    vsg::dmat4 final_mat = state.computeFinalTransform();
-                    (*target_scene)["shadow_receiver_transform"] = json::array({matrixToRowMajorJson(final_mat)});
-                    break;
                 }
             }
 
