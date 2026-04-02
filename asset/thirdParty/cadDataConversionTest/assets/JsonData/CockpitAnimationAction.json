@@ -1,0 +1,215 @@
+{
+    "EngineFireAlarm": [
+        {
+            "animationName": "发动机火警",
+            "modelName": "TUILIGAN",
+            "instanceId": "52",
+            "instanceName": "FUEL CONTROL<1>",
+            "originState": "FULL",
+            "targetState": "1",
+            "type": "动画",
+            "order": 2,
+            "description": "正推力杆（受影响侧）调整到慢车位"
+        },
+        {
+            "animationName": "发动机火警",
+            "modelName": "ranyoukongzhi",
+            "instanceId": "52",
+            "instanceName": "ranyoukongzhigan<1>",
+            "originState": "ON",
+            "targetState": "OFF",
+            "type": "动画",
+            "order": 3,
+            "description": "燃油控制（FUEL CONTROL）开关（受影响侧）调至OFF"
+        },
+        {
+            "animationName": "发动机火警",
+            "modelName": "ranyoukongzhi",
+            "instanceId": "55",
+            "instanceName": "ranyoukongzhigan<2>",
+            "originState": "ON",
+            "targetState": "OFF",
+            "type": "动画",
+            "order": 3,
+            "description": "燃油控制（FUEL CONTROL）开关（受影响侧）调至OFF"
+        },
+        {
+            "animationName": "发动机火警",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "98",
+            "instanceName": "L ENG-G<1>",
+            "originState": "CLOSE",
+            "targetState": "OPEN",
+            "type": "动画",
+            "order": 4,
+            "description": "掀开火警上的罩子"
+        },
+        {
+            "animationName": "发动机火警",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "94",
+            "instanceName": "L ENG<1>",
+            "originState": "NOT_STARTED",
+            "targetState": "PUSH",
+            "type": "按钮",
+            "order": 4,
+            "description": "按压发动机火警（ENG FIRE）开关（受影响侧）"
+        },
+        {
+            "animationName": "发动机火警",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "112",
+            "instanceName": "AGENT 1<1>",
+            "originState": "SQUIB",
+            "targetState": "DISCH",
+            "type": "按钮",
+            "order": 5,
+            "description": "发动机灭火剂释放（AGENT 1）开关（受影响侧）调至 DISCH"
+        },
+        {
+            "animationName": "发动机火警",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "114",
+            "instanceName": "AGENT 2<1>",
+            "originState": "SQUIB",
+            "targetState": "DISCH",
+            "type": "按钮",
+            "order": 7,
+            "description": "如火警依然存在，发动机灭火剂释放（AGENT 2）开关（受影响侧）调至 DISCH"
+        },
+        {
+            "animationName": "发动机火警",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "220",
+            "instanceName": "X BLEED<1>",
+            "originState": "AUTO",
+            "targetState": "CLOSE",
+            "type": "动画",
+            "order": 8,
+            "description": "交输引气（X BLEED）开关调至 CLSD"
+        },
+        {
+            "animationName": "发动机火警",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "218",
+            "instanceName": "APU BLEED<1>",
+            "originState": "FAULT",
+            "targetState": "ON",
+            "type": "按钮",
+            "order": 9,
+            "description": "左发着火，APU引气禁止使用"
+        },
+        {
+            "animationName": "发动机火警",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "210",
+            "instanceName": "L ENG BLEED<1>",
+            "originState": "FAULT",
+            "targetState": "OFF",
+            "type": "按钮",
+            "order": 10,
+            "description": "发动机引气（ENG BLEED）开关（受影响侧）调至OFF"
+        },
+        {
+            "animationName": "发动机火警",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "208",
+            "instanceName": "L PACK<1>",
+            "originState": "FAULT",
+            "targetState": "OFF",
+            "type": "按钮",
+            "order": 11,
+            "description": "空调组件（PACK）开关（受影响侧）调至 OFF"
+        },
+        {
+            "animationName": "发动机火警",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "226",
+            "instanceName": "A-I WING<1>",
+            "originState": "ON",
+            "targetState": "OFF",
+            "type": "动画",
+            "order": 12,
+            "description": "机翼防冰（WING）选择开关调至OFF"
+        },
+        {
+            "animationName": "发动机火警",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "228",
+            "instanceName": "A-I L ENG<1>",
+            "originState": "ON",
+            "targetState": "OFF",
+            "type": "动画",
+            "order": 13,
+            "description": "发动机（ENG）短舱防冰选择开关（受影响侧）调至OFF"
+        }
+    ],
+    "PowerSupply":[
+        {
+            "animationName": "应急供电",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "276",
+            "instanceName": "RAT-MANUAL<1>",
+            "originState": "NOT_STARTED",
+            "targetState": "ON",
+            "type": "按钮",
+            "order": 1,
+            "description": "按RAT手动释放（RAT  MANUAL）开关至ON"
+        },
+        {
+            "animationName": "应急供电",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "278",
+            "instanceName": "RAT-MANUAL-G<1>",
+            "originState": "CLOSE",
+            "targetState": "OPEN",
+            "type": "动画",
+            "order": 1,
+            "description": "掀开AT手动释放（RAT  MANUAL）开关上的罩子"
+        },
+        {
+            "animationName": "应急供电",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "180",
+            "instanceName": "L GEN<1>",
+            "originState": "FAULT",
+            "targetState": "OFF",
+            "type": "按钮",
+            "order": 2,
+            "description": "重置发电机（GEN）开关（两侧）"
+        },
+        {
+            "animationName": "应急供电",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "188",
+            "instanceName": "R GEN<1>",
+            "originState": "FAULT",
+            "targetState": "OFF",
+            "type": "按钮",
+            "order": 2,
+            "description": "重置发电机（GEN）开关（两侧）"
+        },
+        {
+            "animationName": "应急供电",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "186",
+            "instanceName": "APU GEN<1>",
+            "originState": "FAULT",
+            "targetState": "OFF",
+            "type": "按钮",
+            "order": 3,
+            "description": "起动APU"
+        },
+        {
+            "animationName": "应急供电",
+            "modelName": "YIBIAOPAN",
+            "instanceId": "262",
+            "instanceName": "START<1>",
+            "originState": "AYAIL",
+            "targetState": "ON",
+            "type": "按钮",
+            "order": 3,
+            "description": "起动APU"
+        }
+    ]
+}

@@ -56,6 +56,7 @@ if(UNIX)
 elseif(WIN32)
     target_link_libraries(Rendering PRIVATE
         vsgRenderer
+        ${CAD_DATA_MANAGER_DIR}/winlib/cadDataManager.lib
     )
 
     # 复制 DLL 到输出目录

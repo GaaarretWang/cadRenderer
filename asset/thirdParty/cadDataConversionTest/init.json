@@ -1,0 +1,15 @@
+﻿{
+  "host": "192.168.153.133",
+  "port": 9000,
+  "fileName": "twoSeatPartV5.fb",
+  "filePath": "G:/1.4project/caddatamanagerfor1.4/cadDataManager/assets/FBData/Plane",
+  "precision": 0,
+  "isReadLocalFBData": true,
+  "isConvertModelByFile": true,
+  "writeFile": false,
+  "printLog": true,
+  "debugLog": false,
+  "animationStatePath": "G:/1.4project/caddatamanagerfor1.4/cadDataManager/static/JsonData/CockpitAnimationState.json",
+  "animationActionPath": "G:/1.4project/caddatamanagerfor1.4/cadDataManager/static/JsonData/CockpitAnimationAction.json",
+  "materialPath": "G:/1.4project/caddatamanagerfor1.4/cadDataManager/static/JsonData/CockpitMaterial.json"
+}
