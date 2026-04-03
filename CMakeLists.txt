@@ -68,6 +68,7 @@ if(UNIX)
 elseif(WIN32)
     target_link_libraries(Rendering PRIVATE
         vsgRenderer
+        ${CAD_DATA_MANAGER_DIR}/winlib/cadDataManager.lib
     )
 
     add_custom_command(TARGET Rendering POST_BUILD

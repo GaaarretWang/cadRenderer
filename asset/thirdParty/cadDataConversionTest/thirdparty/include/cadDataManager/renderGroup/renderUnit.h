@@ -6,12 +6,12 @@
 #include "communication/dataStructure.h"
 
 
-// äÖÈ¾ÀàĞÍ  
+// ï¿½ï¿½È¾ï¿½ï¿½ï¿½ï¿½  
 namespace cadDataManager {
 	struct RenderTypes
 	{
-		bool normal; // ÊµÀıÎ´±»ÉèÖÃ¹ıÍâ¹Û
-		bool appearnace; // ÊµÀı±»ÉèÖÃ¹ıÍâ¹Û
+		bool normal; // Êµï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½Ã¹ï¿½ï¿½ï¿½ï¿½
+		bool appearnace; // Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã¹ï¿½ï¿½ï¿½ï¿½
 	};
 
 	class RenderUnit : public std::enable_shared_from_this<RenderUnit> {

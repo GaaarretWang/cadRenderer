@@ -29,8 +29,8 @@ namespace cadDataManager {
 		ElementType type;
 		std::vector<Geometry::Ptr> geometries;
 
-		Box3 mGeometryBox; //¼¸ºÎµÄOOBBÊ½°üÎ§ºÐ
-		std::vector<float> mGeometryBoxCenter; //¼¸ºÎµÄ°üÎ§ºÐÖÐÐÄ
+		Box3 mGeometryBox; //ï¿½ï¿½ï¿½Îµï¿½OOBBÊ½ï¿½ï¿½Î§ï¿½ï¿½
+		std::vector<float> mGeometryBoxCenter; //ï¿½ï¿½ï¿½ÎµÄ°ï¿½Î§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 		void buildBoxInfo() {
 			Box3 protoGeometryBox;
@@ -52,22 +52,22 @@ namespace cadDataManager {
 		ElementType mType;
 		GeomType mGeometryType;
 		Geometry::Ptr mGeometry;
-		Box3 mGeometryBox; //¼¸ºÎµÄOOBBÊ½°üÎ§ºÐ
+		Box3 mGeometryBox; //ï¿½ï¿½ï¿½Îµï¿½OOBBÊ½ï¿½ï¿½Î§ï¿½ï¿½
 
-		//TODO ¹Ø¼ü¼¸ºÎÐÅÏ¢£º
+		//TODO ï¿½Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½
 		/*
-			1.ÆÕÍ¨Æ½Ãæ£º·¨Ïò¡£¿É¼ÆËã
-			2.Ô²ÐÍÆ½Ãæ£º·¨Ïò¡¢°ë¾¶¡¢Ô²ÐÄ¡£ÔÝÎÞ
-			3.ÖùÃæ£ºÖáÏò¡¢°ë¾¶¡¢ÉÏ¶¥ÃæÔ²ÐÄ¡¢ÏÂ¶¥ÃæÔ²ÐÄ¡£ÔÝÎÞ
-			4.ÇòÃæ£ºÇòÐÄ¡¢°ë¾¶¡£ÔÝÎÞ
-			5.ÆÕÍ¨ÇúÃæ£ºÎÞ¡£
+			1.ï¿½ï¿½Í¨Æ½ï¿½æ£ºï¿½ï¿½ï¿½ò¡£¿É¼ï¿½ï¿½ï¿½
+			2.Ô²ï¿½ï¿½Æ½ï¿½æ£ºï¿½ï¿½ï¿½ò¡¢°ë¾¶ï¿½ï¿½Ô²ï¿½Ä¡ï¿½ï¿½ï¿½ï¿½ï¿½
+			3.ï¿½ï¿½ï¿½æ£ºï¿½ï¿½ï¿½ò¡¢°ë¾¶ï¿½ï¿½ï¿½Ï¶ï¿½ï¿½ï¿½Ô²ï¿½Ä¡ï¿½ï¿½Â¶ï¿½ï¿½ï¿½Ô²ï¿½Ä¡ï¿½ï¿½ï¿½ï¿½ï¿½
+			4.ï¿½ï¿½ï¿½æ£ºï¿½ï¿½ï¿½Ä¡ï¿½ï¿½ë¾¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+			5.ï¿½ï¿½Í¨ï¿½ï¿½ï¿½æ£ºï¿½Þ¡ï¿½
 
-			1.Ö±Ïß£ºÆðÊ¼µã¡¢ÖÕÖ¹µã¡¢³¤¶È¡£
-			2.Ô²ÓëÔ²»¡Ïß£º·¨Ïò£¨¿É¼ÆËã£©¡¢Ô²ÐÄ¡¢°ë¾¶¡£
+			1.Ö±ï¿½ß£ï¿½ï¿½ï¿½Ê¼ï¿½ã¡¢ï¿½ï¿½Ö¹ï¿½ã¡¢ï¿½ï¿½ï¿½È¡ï¿½
+			2.Ô²ï¿½ï¿½Ô²ï¿½ï¿½ï¿½ß£ï¿½ï¿½ï¿½ï¿½ò£¨¿É¼ï¿½ï¿½ã£©ï¿½ï¿½Ô²ï¿½Ä¡ï¿½ï¿½ë¾¶ï¿½ï¿½
 
-			ÅäºÏÖÐÔÝÊ±Ã»ÓÐÓÐÐ§ÐÅÏ¢:Ö»ÓÐ¹ØÁªElementÓë¹ØÁªInstanceµÄID£¬ÏßÓëÏßÖ®¼äµÄÅäºÏ¿ÉÒÔÍ¨¹ýElement±¾ÉíµÄÐÅÏ¢È¡µ½¡£
+			ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±Ã»ï¿½ï¿½ï¿½ï¿½Ð§ï¿½ï¿½Ï¢:Ö»ï¿½Ð¹ï¿½ï¿½ï¿½Elementï¿½ï¿½ï¿½ï¿½ï¿½Instanceï¿½ï¿½IDï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö®ï¿½ï¿½ï¿½ï¿½ï¿½Ï¿ï¿½ï¿½ï¿½Í¨ï¿½ï¿½Elementï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢È¡ï¿½ï¿½ï¿½ï¿½
 
-			¶¯»­µÄÐÅÏ¢·ÅÔÚÄÚºË
+			ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½Úºï¿½
 		*/
 
 	public:
@@ -91,7 +91,7 @@ namespace cadDataManager {
 		std::string mInstanceId;
 		std::string mProtoId;
 		std::string mName;
-		std::string mType; //instanceÀàÐÍ£º Áã¼þ or ×°Åä
+		std::string mType; //instanceï¿½ï¿½ï¿½Í£ï¿½ ï¿½ï¿½ï¿½ or ×°ï¿½ï¿½
 		std::string mParentId;
 		std::vector<std::string> mChildIds;
 		std::vector<GeometryInfo::Ptr> mGeometryInfos;
@@ -113,18 +113,18 @@ namespace cadDataManager {
 			
 			Box3 instanceBox;
 			
-			//»ñÈ¡¼¸ºÎÔ­ÐÍµÄ°üÎ§ºÐÐÅÏ¢
+			//ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½Ô­ï¿½ÍµÄ°ï¿½Î§ï¿½ï¿½ï¿½ï¿½Ï¢
 			for (GeometryInfo::Ptr geometryInfo : mGeometryInfos) {
 				Box3 box = geometryInfo->mGeometryBox;
 				instanceBox.unionBox3(box);
 			}
 
-			//°üÎ§ºÐ¸ù¾ÝInstanceµÄ¾ØÕó£¬½øÐÐÎ»×Ë±ä»»
+			//ï¿½ï¿½Î§ï¿½Ð¸ï¿½ï¿½ï¿½Instanceï¿½Ä¾ï¿½ï¿½ó£¬½ï¿½ï¿½ï¿½Î»ï¿½Ë±ä»»
 			Matrix4 matrixWorld;
 			matrixWorld.fromVector(mMatrixWorld);
 			instanceBox.applyMatrix4(matrixWorld);
 
-			//¶ÁÈ¡°üÎ§ºÐµ½vectorÖÐ
+			//ï¿½ï¿½È¡ï¿½ï¿½Î§ï¿½Ðµï¿½vectorï¿½ï¿½
 			Vector3 min = instanceBox.getMin();
 			Vector3 max = instanceBox.getMax();
 
@@ -141,28 +141,28 @@ namespace cadDataManager {
 
 	struct RenderInfo
 	{
-		AppearanceParams::Ptr params; //Íâ¹ÛÀà
-		Geometry::Ptr geo; //¼¸ºÎÐÅÏ¢
-		int matrixNum; //¾ØÕó¸öÊý
-		std::vector<float> matrix; //¾ØÕó
-		std::string type; //¼¸ºÎÀàÐÍ
+		AppearanceParams::Ptr params; //ï¿½ï¿½ï¿½ï¿½ï¿½
+		Geometry::Ptr geo; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢
+		int matrixNum; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+		std::vector<float> matrix; //ï¿½ï¿½ï¿½ï¿½
+		std::string type; //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 		std::string protoId;
 		std::vector<std::string> instanceIds;
 		
 
 		void console() const {
-			//TODO: ¼¸ºÎ¶¥µãÊýÁ¿¡¢Èý½ÇÃæÆ¬ÊýÁ¿¡¢ÑÕÉ«¡¢Í¸Ã÷¶È
+			//TODO: ï¿½ï¿½ï¿½Î¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½Í¸ï¿½ï¿½ï¿½ï¿½
 			std::vector<float> position = this->geo->getPosition();
 			std::vector<int> index = this->geo->getIndex();
-			spdlog::debug("Ä£ÐÍ¼¸ºÎÀàÐÍ£º{}", this->type);
+			spdlog::debug("Ä£ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Í£ï¿½{}", this->type);
 
 			if (this->type == "face") {
-				spdlog::debug("Ô­ÐÍÍø¸ñµÄ¶¥µãÊýÁ¿£º{}", position.size() / 3);
-				spdlog::debug("Ô­ÐÍÍø¸ñµÄÃæÆ¬ÊýÁ¿£º{}", index.size() / 3);
-				spdlog::debug("Ä£ÐÍÑÕÉ«£º{}", this->params->getColor());
+				spdlog::debug("Ô­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½{}", position.size() / 3);
+				spdlog::debug("Ô­ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½{}", index.size() / 3);
+				spdlog::debug("Ä£ï¿½ï¿½ï¿½ï¿½É«ï¿½ï¿½{}", this->params->getColor());
 			}
-			spdlog::debug("¾ØÕóÊýÁ¿£º{}", this->matrixNum);
-			spdlog::debug("¾ØÕóÊý×é£º{}", fmt::join(this->matrix, ","));
+			spdlog::debug("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½{}", this->matrixNum);
+			spdlog::debug("ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½é£º{}", fmt::join(this->matrix, ","));
 
 			int flag = 0;
 			for (auto it = this->matrix.begin(); it != this->matrix.end(); ++it) {
