@@ -18,11 +18,6 @@ else()
     add_library(vsgRenderer STATIC ${ASSET_SRCS})
 endif()
 
-# 输出目录
-set_target_properties(vsgRenderer PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib"
-    ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/lib"
-)
 
 # 公共头文件路径
 target_include_directories(vsgRenderer PUBLIC
@@ -32,10 +27,20 @@ target_include_directories(vsgRenderer PUBLIC
 # 私有头文件路径
 target_include_directories(vsgRenderer PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/thirdParty/vsgXchange/src/stbi
-    ${CAD_DATA_MANAGER_DIR}/include
     ${VIDEO_CODEC_SDK_DIR}/Utils
     ${CUDAToolkit_INCLUDE_DIRS}
 )
+
+if(WIN32)
+    target_include_directories(vsgRenderer PRIVATE
+        ${CAD_DATA_MANAGER_WIN_DIR}/include
+        ${CAD_DATA_MANAGER_WIN_DIR}/include/cadDataManager
+    )
+else()
+    target_include_directories(vsgRenderer PRIVATE
+        ${CAD_DATA_MANAGER_DIR}/include
+    )
+endif()
 
 # 核心依赖（所有平台）
 target_link_libraries(vsgRenderer PUBLIC
@@ -60,7 +65,7 @@ elseif(WIN32)
         assimp::assimp
         ${VIDEO_CODEC_SDK_DIR}/Lib/x64/nvcuvid.lib
         ${VIDEO_CODEC_SDK_DIR}/Lib/x64/nvencodeapi.lib
-        ${CAD_DATA_MANAGER_DIR}/winlib/cadDataManager.lib
+        ${CAD_DATA_MANAGER_WIN_DIR}/libs/Windows/cadDataManager.lib
         ${CUDA_LIBRARIES}
         CUDA::cuda_driver
     )
@@ -69,4 +74,3 @@ elseif(WIN32)
         ${ASSIMP_INCLUDE_DIR}
     )
 endif()
-

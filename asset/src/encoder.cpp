@@ -28,7 +28,7 @@ Cudactx::Cudactx(std::array<uint8_t, VK_UUID_SIZE>& deviceUUID)
 {
    CUdevice dev;
    CUresult result = CUDA_SUCCESS;
-   bool foundDevice = true;
+   bool foundDevice = false;
 
    result = cuInit(0);
    if (result != CUDA_SUCCESS) {
@@ -247,12 +247,12 @@ Cudaimage::Cudaimage(vsg::ref_ptr<vsg::Image> image, vsg::ref_ptr<vsg::Device> m
 //     }
 
     CUDA_EXTERNAL_MEMORY_HANDLE_DESC memDesc = {};
-    #ifdef _WIN32
+#ifdef _WIN32
     memDesc.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32;
-    #else
+#else
     memDesc.type = CU_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD;
-    #endif
-    memDesc.handle.fd = (int)(uintptr_t)p;
+#endif
+    memDesc.handle.win32.handle = p;
     memDesc.size = deviceSize;
 
     if (cuImportExternalMemory(&m_extMem, &memDesc) != CUDA_SUCCESS) {

@@ -51,18 +51,19 @@ ImagePair loadImagePair(const std::string& timestamp, int width, int height) {
 }
 
 int main(int argc, char** argv){
-    // 手动解析PNG测试参数（不使用vsg::CommandLine，避免消费其他模块需要的参数）
-    bool save_ref = false;
-    bool compare_ref = false;
-    double diff_threshold = 0.01; // 差异率阈值，默认1%
-    std::string scene_id_str = "0";
-    for(int i = 1; i < argc; i++){
-        std::string arg = argv[i];
-        if(arg == "--save-ref") save_ref = true;
-        else if(arg == "--compare-ref") compare_ref = true;
-        else if(arg == "--diff-threshold" && i + 1 < argc) diff_threshold = std::stod(argv[++i]);
-        else if((arg == "--scene" || arg == "-s") && i + 1 < argc) scene_id_str = argv[i + 1]; // 不消费，留给RenderingServer
-    }
+    try {
+        // 手动解析PNG测试参数（不使用vsg::CommandLine，避免消费其他模块需要的参数）
+        bool save_ref = false;
+        bool compare_ref = false;
+        double diff_threshold = 0.01; // 差异率阈值，默认1%
+        std::string scene_id_str = "0";
+        for(int i = 1; i < argc; i++){
+            std::string arg = argv[i];
+            if(arg == "--save-ref") save_ref = true;
+            else if(arg == "--compare-ref") compare_ref = true;
+            else if(arg == "--diff-threshold" && i + 1 < argc) diff_threshold = std::stod(argv[++i]);
+            else if((arg == "--scene" || arg == "-s") && i + 1 < argc) scene_id_str = argv[i + 1]; // 不消费，留给RenderingServer
+        }
 
     // 解析命令行参数
     vsg::CommandLine arguments(&argc, argv);
@@ -107,8 +108,8 @@ int main(int argc, char** argv){
     }
     inf.close();
 
-    double render_scale = 2.8;
-    double encode_scale = 2.8;
+    double render_scale = 2;
+    double encode_scale = 2;
     RenderingServer rendering_server;
     rendering_server.upsample_scale = render_scale;
     rendering_server.encode_scale = encode_scale;
@@ -237,5 +238,12 @@ int main(int argc, char** argv){
 
     // 达到指定帧数，程序停止
     std::cout << "Program stopped after " << total_frames_rendered << " frames" << std::endl;
-    return 0;
+        return 0;
+    } catch (const std::exception& e) {
+        std::cerr << "FATAL: " << e.what() << std::endl;
+        return 1;
+    } catch (...) {
+        std::cerr << "FATAL: unknown exception" << std::endl;
+        return 1;
+    }
 }

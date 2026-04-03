@@ -1,4 +1,5 @@
-﻿#include "ImGui.h"
+#define _USE_MATH_DEFINES
+#include "ImGui.h"
 // 在这里包含完整的vsgRendererServer头文件，此时前向声明已解决依赖问题
 #include <vsgRendererServer.h>
 #include <iomanip> // 用于std::setw格式化JSON

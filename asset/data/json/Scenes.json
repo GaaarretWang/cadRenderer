@@ -497,7 +497,7 @@
                 "blocker_sample_num": 15,
                 "denoise_size": 5,
                 "exposure": 11.708000183105469,
-                "hdr_image_num": 8,
+                "hdr_image_num": 4,
                 "pcf_sample_num": 16,
                 "pcf_softness": 5.784999847412109,
                 "pcss_softness": 10.347000122070313,

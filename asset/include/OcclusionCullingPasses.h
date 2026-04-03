@@ -29,7 +29,7 @@ namespace OcclusionCullingPasses{
     extern vsg::ref_ptr<vsg::BufferInfo> camera_plane_info_buffer_info;
     extern vsg::ref_ptr<vsg::mat4Array> camera_matrix;
 
-    void generateCameraData(double fx, double fy, double cx, double cy, double w, double h, double near, double far, vsg::ref_ptr<vsg::Camera> camera);
+    void generateCameraData(double fx, double fy, double cx, double cy, double w, double h, double near_plane, double far_plane, vsg::ref_ptr<vsg::Camera> camera);
 
     void buildFirstComputePass(vsg::ref_ptr<vsg::CommandGraph> depth_cull_command_graph1, vsg::ref_ptr<vsg::Options> options);
     void buildDepthPyramid(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, vsg::ref_ptr<vsg::Options> options, VkExtent2D extent, vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget);

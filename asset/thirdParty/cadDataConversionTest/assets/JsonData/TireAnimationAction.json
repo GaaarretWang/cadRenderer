@@ -1,0 +1,48 @@
+{
+    "TireInstallation": [
+        {
+            "animationName": "",
+            "modelName": "LandingGear",
+            "instanceId": "61",
+            "instanceName": "Metal_on wheel_protec<1>",
+            "originState": "AnStartPoint",
+            "targetState": "AnEndPoint",
+            "type": "动画",
+            "order": 0,
+            "description": ""
+        },
+        {
+            "animationName": "",
+            "modelName": "LandingGear",
+            "instanceId": "68",
+            "instanceName": "Klin<1>",
+            "originState": "AnStartPoint",
+            "targetState": "AnEndPoint",
+            "type": "动画",
+            "order": 1,
+            "description": ""
+        },
+        {
+            "animationName": "",
+            "modelName": "LandingGear",
+            "instanceId": "69",
+            "instanceName": "Metal_on wheel_protec<2>",
+            "originState": "AnStartPoint",
+            "targetState": "AnEndPoint",
+            "type": "动画",
+            "order": 2,
+            "description": ""
+        },
+        {
+            "animationName": "",
+            "modelName": "LandingGear",
+            "instanceId": "76",
+            "instanceName": "Wheel<1>",
+            "originState": "AnStartPoint",
+            "targetState": "AnEndPoint",
+            "type": "动画",
+            "order": 3,
+            "description": ""
+        }
+    ]
+}

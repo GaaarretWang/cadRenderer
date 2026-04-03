@@ -10,7 +10,7 @@
 class vsgRendererServer;
 #include <CADMesh.h>
 // 引入JSON库
-#include <nlohmann/json.hpp>
+#include "json.hpp"
 #include <fstream>
 #include <filesystem>
 #include <string>

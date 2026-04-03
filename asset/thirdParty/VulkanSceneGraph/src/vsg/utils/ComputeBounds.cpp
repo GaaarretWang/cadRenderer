@@ -228,7 +228,6 @@ void ComputeBounds::applyDrawIndexed(uint32_t firstIndex, uint32_t indexCount, u
         {
             dmat4 matrix_index = matrix;
             if (globalModelMatrix && highlightBuffer && instanceIndex < instanceMatrix->size()) {
-                // 新模式：instanceMatrix 只存 proto 矩阵，model 矩阵从全局缓冲区获取
                 uint32_t modelIdx = highlightBuffer->at(instanceIndex * 4 + 3);
                 if (modelIdx < globalModelMatrix->size()) {
                     matrix_index = matrix_index * dmat4(globalModelMatrix->at(modelIdx)) * dmat4(instanceMatrix->at(instanceIndex));
@@ -252,7 +251,6 @@ void ComputeBounds::applyDrawIndexed(uint32_t firstIndex, uint32_t indexCount, u
         {
             dmat4 matrix_index = matrix;
             if (globalModelMatrix && highlightBuffer && instanceIndex < instanceMatrix->size()) {
-                // 新模式：instanceMatrix 只存 proto 矩阵，model 矩阵从全局缓冲区获取
                 uint32_t modelIdx = highlightBuffer->at(instanceIndex * 4 + 3);
                 if (modelIdx < globalModelMatrix->size()) {
                     matrix_index = matrix_index * dmat4(globalModelMatrix->at(modelIdx)) * dmat4(instanceMatrix->at(instanceIndex));

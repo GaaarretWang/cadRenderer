@@ -46,9 +46,9 @@ namespace OcclusionCullingPasses{
     vsg::ref_ptr<vsg::mat4Array> camera_matrix = vsg::mat4Array::create(2);
     vsg::ref_ptr<vsg::BufferInfo> camera_matrix_buffer_info;
 
-    void generateCameraData(double fx, double fy, double cx, double cy, double w, double h, double near, double far, vsg::ref_ptr<vsg::Camera> camera){
-        camera_plane_info.n[0] = vsg::normalize(vsg::vec4(0, 0, -1, -near));
-        camera_plane_info.n[1] = vsg::normalize(vsg::vec4(0, 0, 1, far));
+    void generateCameraData(double fx, double fy, double cx, double cy, double w, double h, double near_plane, double far_plane, vsg::ref_ptr<vsg::Camera> camera){
+        camera_plane_info.n[0] = vsg::normalize(vsg::vec4(0, 0, -1, -near_plane));
+        camera_plane_info.n[1] = vsg::normalize(vsg::vec4(0, 0, 1, far_plane));
         camera_plane_info.n[2] = vsg::normalize(vsg::vec4(2*fx/w, 0, -2*cx/w, 0));
         camera_plane_info.n[3] = vsg::normalize(vsg::vec4(-2*fx/w, 0, -2+2*cx/w, 0));
         camera_plane_info.n[4] = vsg::normalize(vsg::vec4(0, 2*fy/h, -2+2*cy/h, 0));

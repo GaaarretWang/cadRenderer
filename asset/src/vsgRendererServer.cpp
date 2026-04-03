@@ -282,8 +282,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     CADMesh::buildDrawData(modelGroup, pc, constant_data_buffer_info_list, offscreenTarget->shadowSampleImageView); //读取obj文件
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
     CADMesh::buildDynamicPointsData(point_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
-    CADMesh::buildDynamicTextsData(textGroup, options, vsg::findFile("fonts/times.vsgt", options->paths));
-    CADMesh::processPMI(transfered_meshes, line_shader, wireframeGroup, textGroup, options, constant_data_buffer_info_list, vsg::findFile("fonts/times.vsgt", options->paths));
+    CADMesh::buildDynamicTextsData(textGroup, options, vsg::findFile("fonts/times.vsgt", options->paths).string());
+    CADMesh::processPMI(transfered_meshes, line_shader, wireframeGroup, textGroup, options, constant_data_buffer_info_list, vsg::findFile("fonts/times.vsgt", options->paths).string());
     vsg::info("Model processing done");
 
     SSAOPass::buildSSAOData(options, SSAOGroup, offscreenTarget->gbufferImageView0, offscreenTarget->gbufferImageView1, offscreenTarget->gbufferImageView2, extent);
@@ -322,7 +322,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     renderGraph->framebuffer = offscreenTarget->framebuffer;
     renderGraph1->framebuffer = offscreenTarget->framebuffer;
     vsgserver::renderer = this;
-    auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(pc_data, vsg::findFile("json/Scenes.json", options->paths), vsg::findFile("json/Materials.json", options->paths), vsg::findFile("json/LightInfo.json", options->paths)));
+    auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(pc_data, vsg::findFile("json/Scenes.json", options->paths).string(), vsg::findFile("json/Materials.json", options->paths).string(), vsg::findFile("json/LightInfo.json", options->paths).string()));
     renderGraph1->addChild(renderImGui);
     std::this_thread::sleep_for(std::chrono::seconds(1));
     

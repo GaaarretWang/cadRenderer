@@ -162,13 +162,13 @@ public:
     void setUpShader(){
         //-----------------------------------------设置shader------------------------------------//
         ConfigShader config_shader;
-        shadow_shader = config_shader.buildShadowShader(vsg::findFile("shaders/shadow.vert", options->paths), vsg::findFile("shaders/shadow.frag", options->paths));
-        line_shader = config_shader.buildLineShader(vsg::findFile("shaders/line.vert", options->paths), vsg::findFile("shaders/line.frag", options->paths));
-        point_shader = config_shader.buildLineShader(vsg::findFile("shaders/point.vert", options->paths), vsg::findFile("shaders/point.frag", options->paths));
+        shadow_shader = config_shader.buildShadowShader(vsg::findFile("shaders/shadow.vert", options->paths).string(), vsg::findFile("shaders/shadow.frag", options->paths).string());
+        line_shader = config_shader.buildLineShader(vsg::findFile("shaders/line.vert", options->paths).string(), vsg::findFile("shaders/line.frag", options->paths).string());
+        point_shader = config_shader.buildLineShader(vsg::findFile("shaders/point.vert", options->paths).string(), vsg::findFile("shaders/point.frag", options->paths).string());
     }
 
     void preprocessEnvMap(){
-        std::string envmapFilepath = vsg::findFile("textures/" + std::to_string(hdr_image_num) + ".hdr", options->paths);
+        std::string envmapFilepath = vsg::findFile("textures/" + std::to_string(hdr_image_num) + ".hdr", options->paths).string();
         IBL::generateEnvmap(vsgContext, envmapFilepath, -1);
         IBL::generateIrradianceCube(vsgContext, -1);
         IBL::generatePrefilteredEnvmapCube(vsgContext, -1);
@@ -186,7 +186,7 @@ public:
             process_done = true;
         }
         for(int i = hdr_image_max_num; i > 0; i--){
-            std::string envmapFilepath = vsg::findFile("textures/" + std::to_string(i) + ".hdr", options->paths);
+            std::string envmapFilepath = vsg::findFile("textures/" + std::to_string(i) + ".hdr", options->paths).string();
             IBL::generateEnvmap(vsgContext, envmapFilepath, i);
             IBL::generateIrradianceCube(vsgContext, i);
             IBL::generatePrefilteredEnvmapCube(vsgContext, i);
@@ -237,7 +237,7 @@ public:
     }
 
     void loadHDRConfig(){
-        std::string json_path = vsg::findFile("json/LightInfo.json", options->paths);
+        std::string json_path = vsg::findFile("json/LightInfo.json", options->paths).string();
         std::ifstream json_file(json_path);
 
         if (!json_file.is_open()) {
@@ -254,7 +254,7 @@ public:
     }
 
     void init_directional_lights(){
-        std::string json_path = vsg::findFile("json/LightInfo.json", options->paths);
+        std::string json_path = vsg::findFile("json/LightInfo.json", options->paths).string();
         std::ifstream json_file(json_path);
 
         if (!json_file.is_open()) {
@@ -343,13 +343,13 @@ public:
         cvds_pose->draw_shadow_pose = true;
     }
 
-    void updateEnvLighting(){
+        void updateEnvLighting(){
         updateEnvMap();
         update_directional_lights();
         IBL::textures.params->dirty();
-        viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
-        auto* cvds_light = static_cast<CustomViewDependentState*>(view->viewDependentState.get());
-        cvds_light->draw_shadow_light = true;
+        viewer->compile();
+        auto* light_state = static_cast<CustomViewDependentState*>(view->viewDependentState.get());
+        light_state->draw_shadow_light = true;
     }
 
     bool render();
