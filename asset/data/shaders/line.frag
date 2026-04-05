@@ -71,9 +71,10 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
 
 layout(std430, set = MATERIAL_DESCRIPTOR_SET, binding = 12) buffer ConstantBuffer {
     float z_far;
-    int shader_type;
     int width;
     int height;
+    int enable_real_depth_occlusion;
+    int shadow_mode;
 }constantBuffer;
 
 
@@ -95,16 +96,5 @@ layout(location = 0) out vec4 outColor;
 
 void main()
 {
-    vec2 screen_uv = vec2(gl_FragCoord.x / constantBuffer.width, gl_FragCoord.y / constantBuffer.height);
     outColor = vertexColor;
-    if(constantBuffer.shader_type == 0){
-        return;
-    }else{
-        float cadDepth = -eyePos.z / constantBuffer.z_far;
-        float cameraDepth = texture(depthImage, screen_uv).r;
-        if(cadDepth > cameraDepth){
-            outColor = texture(cameraImage, screen_uv);
-        }
-        return;
-    }
 }

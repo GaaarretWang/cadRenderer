@@ -40,9 +40,10 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
 
 layout(std430, set = MATERIAL_DESCRIPTOR_SET, binding = 12) buffer ConstantBuffer {
     float z_far;
-    int shader_type;
     int width;
     int height;
+    int enable_real_depth_occlusion;
+    int shadow_mode;
 }constantBuffer;
 
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 13) uniform sampler2DMS shadowInputAttachment;
@@ -239,10 +240,10 @@ float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float 
     float rotationAngle = random * 3.1415926;
 	vec2 rotationTrig = vec2(cos(rotationAngle), sin(rotationAngle));
 
-    float linearFrac = sqrt(max(area, 0.0));//将area映射为线性尺寸
-    float baseStridePixels = 20.0; //基础步长
-    const float softness = pc.softness; // 调节此值来放大/缩小基于 area 的影响
-    float Stride = baseStridePixels * linearFrac * softness + 0.001; // 最小非零避免 0
+    float linearFrac = sqrt(max(area, 0.0));//灏哸rea鏄犲皠涓虹嚎鎬у昂瀵?
+    float baseStridePixels = 20.0; //鍩虹姝ラ暱
+    const float softness = pc.softness; // 璋冭妭姝ゅ€兼潵鏀惧ぇ/缂╁皬鍩轰簬 area 鐨勫奖鍝?
+    float Stride = baseStridePixels * linearFrac * softness + 0.001; // 鏈€灏忛潪闆堕伩鍏?0
     float shadowmapSize = 2048.;
     float visibility = 0.0;
     float cur_depth = coords.z;
@@ -262,7 +263,7 @@ vec2 findBlocker(sampler2DArrayShadow shadowMap,  vec4 coords, int shadowMapInde
     float blockerNum = 0;
     float block_depth = 0.;
 
-    for(int i = 0; i < pc.blocker_sample_num; i++){ //Ƽ˰汾
+    for(int i = 0; i < pc.blocker_sample_num; i++){ //萍税姹?
         vec2 xy=coords.xy + Rotate(poissonDisk[i * 64 / pc.blocker_sample_num] * search_size, rotationTrig);
         float depthInShadowmap = texture(shadowMapsSampler, vec3(xy, shadowMapIndex)).r;
         if(depthInShadowmap - 0.0001 > coords.z){
@@ -510,7 +511,7 @@ float SampleShadow_PCSS_Area(vec3 posTCShadowmap, vec2 posSS, float shadowSoftne
 
     // Rescale the softness param so that the default 1 gives a very soft shadow without pushing it to edge, where artifacts start to show up.
     // This way setting softness to slightly more than 1 will get the shadow close to the raytraced reference, but with a more stable default.
-    float maxSampleZDistance = shadowSoftness * 0.1 * sqrt(area);
+    float maxSampleZDistance = shadowSoftness * 65.0;
 
     float sampleJitterAngle = InterleavedGradientNoise(posSS.xy, pc.frame_num) * 2.0 * PI;
     vec2 sampleJitter = vec2(sin(sampleJitterAngle), cos(sampleJitterAngle));
@@ -527,7 +528,7 @@ float SampleShadow_PCSS_Area(vec3 posTCShadowmap, vec2 posSS, float shadowSoftne
     // Extend the sampling cone only up to a certain margin before the blocker. Extending it past that distance will make samples miss the blocker and the shadow will fade.
     maxSampleZDistance = min(maxSampleZDistance, (blocker - posTCShadowmap.z) * 0.9);
     // minFilterRadius can extend the cone past the above, so min&max instead of clamp.
-    maxSampleZDistance = max(maxSampleZDistance, minFilterRadius / 100);
+    maxSampleZDistance = max(maxSampleZDistance, minFilterRadius * 10);
 
     //3) Filter
     // We can't early out of the function if blockers are not found since Vulkan triggers a warning otherwise
@@ -544,7 +545,7 @@ float ValueNoise(vec3 pos)
 void main()
 {
     vec2 screen_uv = vec2(gl_FragCoord.x / constantBuffer.width, gl_FragCoord.y / constantBuffer.height);
-    if(constantBuffer.shader_type != 0){
+    if(constantBuffer.enable_real_depth_occlusion != 0){
         float cadDepth = -eyePos.z / constantBuffer.z_far;
         float cameraDepth = texture(depthImage, screen_uv).r;
         if(cadDepth > cameraDepth){
@@ -564,7 +565,11 @@ void main()
 
     float scene_brightness = 1.0f;
     int shadowMapIndex = 0;
-    if (numDirectionalLights>0)
+    if (constantBuffer.shadow_mode != 0)
+    {
+        scene_brightness = 1.0f;
+    }
+    else if (numDirectionalLights>0)
     {
         float totalBrigtness = pc.baseBrightness;
         float totalRealBrightness = pc.baseBrightness;
@@ -593,7 +598,7 @@ void main()
 
                 if (sm_tc.x >= 0.0 && sm_tc.x <= 1.0 && sm_tc.y >= 0.0 && sm_tc.y <= 1.0 && sm_tc.z >= 0.0 /* && sm_tc.z <= 1.0*/)
                 {
-                    //visibility = 1 - texture(shadowMaps, vec4(sm_tc.st, shadowMapIndex, sm_tc.z)).r; //����ǰƬ�ε�������������Ӱ��ͼ�е����ֵ���бȽ� ����Ӱ0 ������Ӱ1
+                    //visibility = 1 - texture(shadowMaps, vec4(sm_tc.st, shadowMapIndex, sm_tc.z)).r; //锟斤拷锟斤拷前片锟轿碉拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷影锟斤拷图锟叫碉拷锟斤拷锟街碉拷锟斤拷斜冉锟?锟斤拷锟斤拷影0 锟斤拷锟斤拷锟斤拷影1
 
                     matched = true;
                     // poissonDiskSamples(sm_tc.xy); 
@@ -634,25 +639,25 @@ void main()
         old_shadow = shadowdataold_shadow.x;
     }
 
-    float current_shadow_value = scene_brightness; // 暂时保存当前帧的阴影值
+    float current_shadow_value = scene_brightness; // 鏆傛椂淇濆瓨褰撳墠甯х殑闃村奖鍊?
     if (abs(oldInstanceID - InstanceID) < 0.1 && abs(old_shadow - scene_brightness) < 0.1)
     {
         float historyLuma = old_shadow;
         float currentLuma = current_shadow_value;
 
-        float diff = abs(currentLuma - historyLuma) / max(max(currentLuma, historyLuma), 0.2); // 计算相对差异
+        float diff = abs(currentLuma - historyLuma) / max(max(currentLuma, historyLuma), 0.2); // 璁＄畻鐩稿宸紓
 
         float weight_sq = (1.0 - diff);
         weight_sq = weight_sq * weight_sq;
         
-        const float feedbackMin = 0.96; // 最小反馈 (当前帧差异大时)
-        const float feedbackMax = 0.91; // 最大反馈 (当前帧差异小时)
+        const float feedbackMin = 0.96; // 鏈€灏忓弽棣?(褰撳墠甯у樊寮傚ぇ鏃?
+        const float feedbackMax = 0.91; // 鏈€澶у弽棣?(褰撳墠甯у樊寮傚皬鏃?
 
         float feedback = (1.0 - weight_sq) * feedbackMin + weight_sq * feedbackMax;
 
         scene_brightness = mix(current_shadow_value, old_shadow, feedback);
 
-        // 钳制最终结果
+        // 閽冲埗鏈€缁堢粨鏋?
         scene_brightness = clamp(scene_brightness, 0.0, 1.0);
     }
 

@@ -92,9 +92,19 @@ namespace IBL
     //extern VsgContext vsgContext;
     extern AppData appData;
 
+    struct DynamicSkyboxParams
+    {
+        float exposure = 3.0f;
+        float gamma = 2.2f;
+        float width = 0.0f;
+        float height = 0.0f;
+        float enableRealDepthOcclusion = 0.0f;
+        float shadowMode = 0.0f;
+    };
+
     void createResources(VsgContext &vsgContext, int hdr_image_max_num);
 
-    void loadEnvmapRect(VsgContext &vsgContext);
+    void loadEnvmapRect(VsgContext &vsgContext, const std::string& filePath);
 
     float *loadHdrFile(const std::string &filepath, int &width, int &height, int &channels);
 
@@ -108,7 +118,16 @@ namespace IBL
 
     void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr);
 
-    ptr<vsg::StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGroup> root, int width, int height,  vsg::ImageInfoList camera_data = {}, vsg::ImageInfoList depth_data = {}, vsg::ref_ptr<vsg::Data> shadow_pc_data = {});
+    ptr<vsg::StateGroup> drawSkyboxVSGNode(VsgContext& context,
+                                           vsg::ref_ptr<vsg::StateGroup> root,
+                                           int width,
+                                           int height,
+                                           vsg::ImageInfoList camera_data = {},
+                                           vsg::ImageInfoList depth_data = {},
+                                           vsg::ref_ptr<vsg::Data> shadow_pc_data = {},
+                                           int enable_real_depth_occlusion = 0,
+                                           int shadow_mode = 0,
+                                           vsg::ref_ptr<vsg::Data> tonemap_params_override = {});
 
     vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options> options);
     vsg::ref_ptr<vsg::ShaderSet> customSSAOShaderSet(vsg::ref_ptr<const vsg::Options> options);

@@ -8,8 +8,9 @@ layout (set=0, binding = 1) uniform Params {
 	float gamma;
 	float width;
 	float height;
+	float enableRealDepthOcclusion;
+	float shadowMode;
 } tonemapParams;
-
 #ifdef CAMERA_IMAGE
 layout (set=0, binding = 2) uniform sampler2D cameraImageSampler;
 #endif
@@ -429,27 +430,30 @@ void main()
 	float scene_brightness = 1.0;
 	#ifdef CAMERA_DEPTH
 		vec2 depth_uv = vec2(gl_FragCoord.x / tonemapParams.width, gl_FragCoord.y / tonemapParams.height);
-		float camera_depth_norm = texture(depthImageSampler, depth_uv).r; // uint16归一化 [0,1]
-		float linear_z = camera_depth_norm * 65.535; // 还原线性深度（单位：米，65535/1000）
+		gl_FragDepth = 0.0;
+		float camera_depth_norm = texture(depthImageSampler, depth_uv).r;
+		float linear_z = camera_depth_norm * 65.535;
 		if(linear_z > 0 && linear_z < 65.535) {
 			float ndc_x = depth_uv.x * 2.0 - 1.0;
 			float ndc_y = depth_uv.y * 2.0 - 1.0;
-			vec4 ndc_point = vec4(ndc_x, ndc_y, gl_FragCoord.z, 1.0);
-			mat4 inv_proj  = inverse(pc.proj);
-			vec4 view_ray  = inv_proj * ndc_point;
-			view_ray      /= view_ray.w;
-			float scale      = -linear_z / view_ray.z;
-			vec3 actual_view = view_ray.xyz * scale;
+			// Reversed-Z: far plane maps to ndc z = 0 in Vulkan clip space.
+			vec4 ndc_point = vec4(ndc_x, ndc_y, 0.0, 1.0);
+			mat4 inv_proj = inverse(pc.proj);
+			vec4 view_ray = inv_proj * ndc_point;
+			view_ray /= view_ray.w;
+			vec3 ray_dir = normalize(view_ray.xyz);
+			float scale = -linear_z / ray_dir.z;
+			vec3 actual_view = ray_dir * scale;
 
-			vec4 clip_out   = pc.proj * vec4(actual_view, 1.0);
-			gl_FragDepth    = clip_out.z / clip_out.w; // 透视除法得 Vulkan NDC 深度 [0,1]
-
-			// 计算世界坐标用于阴影
-			mat4 inv_view = inverse(pc.view);
-			vec3 worldPos = (inv_view * vec4(actual_view, 1.0)).xyz;
-			scene_brightness = computeShadowBrightness(worldPos);
-		} else {
-			gl_FragDepth = 0; // 无效深度写入最远
+			if (tonemapParams.enableRealDepthOcclusion > 0.5) {
+				vec4 clip_out = pc.proj * vec4(actual_view, 1.0);
+				gl_FragDepth = clip_out.z / clip_out.w;
+			}
+			if (tonemapParams.shadowMode > 0.5 && tonemapParams.shadowMode < 1.5) {
+				mat4 inv_view = inverse(pc.view);
+				vec3 worldPos = (inv_view * vec4(actual_view, 1.0)).xyz;
+				scene_brightness = computeShadowBrightness(worldPos);
+			}
 		}
 		outShadow = vec4(scene_brightness, -10000000.0, gl_FragDepth, 1.0);
 	#endif

@@ -49,7 +49,8 @@ public:
     void initRenderer(vsg::ref_ptr<vsg::Device> device)
     {
         auto options = vsg::Options::create();
-        auto decodeWindowTraits = createWindowTraits("Decode", 4, options);
+        // Place the client window in the visible 2x2 grid instead of below the desktop.
+        auto decodeWindowTraits = createWindowTraits("Decode", 1, options);
 
         decodeWindowTraits->device = device; //共享设备
         decode_window = vsg::Window::create(decodeWindowTraits);

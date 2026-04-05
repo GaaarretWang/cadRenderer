@@ -5,7 +5,6 @@
 #include <vsg/all.h>
 #include "communication/dataInterface.h"
 #include "OBJLoader.h"
-#define EXPLODE
 
 struct RGB
 {
@@ -71,6 +70,12 @@ struct TinyModelVertex
 
 struct ProtoData
 {
+    enum class MaterialSource
+    {
+        Obj,
+        Fb
+    };
+
     vsg::ref_ptr<vsg::BufferInfo> bounds_buffer_info;
     vsg::ref_ptr<vsg::vec4Array> bounds_data;
     std::string proto_id = "";
@@ -83,6 +88,9 @@ struct ProtoData
     std::string normal_path = "";
     std::string mr_path = "";
     uint32_t material_index;  // Index into global_material_array
+    MaterialSource material_source = MaterialSource::Obj;
+    std::string material_persist_key;
+    std::string fb_color_group_key;
     vsg::ref_ptr<vsg::mat4Array> instance_buffer;
     vsg::ref_ptr<vsg::mat4Array> last_instance_buffer; // 上一帧的proto矩阵
     vsg::ref_ptr<vsg::BufferInfo> input_instance_buffer_info;
@@ -197,9 +205,10 @@ namespace std
 
 struct GlobalConstantData{
     float z_far;
-    int shader_type;
     int width;
     int height;
+    int enable_real_depth_occlusion;
+    int shadow_mode;
 };
 
 class CADMesh
@@ -224,55 +233,21 @@ private:
 public:
     std::string fbFileName; // 存储模型文件名，用于PMI独立查询
 
-    int Nodenumber;
-    int Triangnumber;
-    int countnum = 0;
-
-    flatbuffers::FlatBufferBuilder builder_out;
     std::unordered_map<std::string, uint32_t> protoIndex;
     std::unordered_map<std::string, uint32_t> protoTriangleNum;
     std::unordered_map<int, uint32_t> materialIndex;
 
-    std::vector<vsg::ref_ptr<vsg::vec3Array>> objVerticesVector;
-    std::vector<vsg::ref_ptr<vsg::vec3Array>> objNormalsVector;
-    std::vector<vsg::ref_ptr<vsg::vec2Array>> objUVVector;
-    std::vector<std::vector<std::string>> objTexturePath;
-    std::vector<vsg::ref_ptr<vsg::uintArray>> objIndicesVector;
-    std::vector<std::vector<int>> objMaterialIndice;
-    std::vector<vsg::ref_ptr<vsg::PbrMaterialArray>> objMaterialVector;
-
     std::vector<cadDataManager::pmiInfo> pmi;
-    std::vector<vsg::ref_ptr<vsg::vec3Array>> verticesVector;
-    std::vector<vsg::ref_ptr<vsg::vec3Array>> normalsVector;
-    std::vector<vsg::ref_ptr<vsg::vec2Array>> UVVector;
-    std::vector<vsg::ref_ptr<vsg::vec2Array>> coordinatesVector;
-    std::vector<vsg::ref_ptr<vsg::uintArray>> indicesVector;
-    std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> materialVector;
-    std::vector<std::string> materialNameVector;
-    std::vector<std::vector<float>> transformVector;
-    std::vector<int> transformNumVector;
-    std::unordered_map<std::string, int> meshIndice;
-    
+
     bool back_cull = true;
-
-    cadDataManager::RenderInfo info;
-
-    vsg::GeometryInfo geomInfo;
-    vsg::StateInfo stateInfo;
-    vsg::ref_ptr<vsg::Builder> builder = vsg::Builder::create();
-    vsg::ref_ptr<vsg::Options> options = vsg::Options::create();
-    std::vector<Line> lines;
-    std::vector<vsg::vec3> positions;
-    std::unordered_map<vsg::vec3, uint32_t> positionToIndex;
-    std::vector<uint32_t> indices;
-
-    vsg::ref_ptr<vsg::StateGroup> stateGroup_total = vsg::StateGroup::create();
     
     static vsg::ImageInfoList camera_info;
     static vsg::ImageInfoList depth_info;
     static std::unordered_map<std::string, vsg::ImageInfoList> texture_name_to_image_map;
     static std::unordered_map<std::string, ProtoData*> proto_id_to_data_map;
     static std::vector<ProtoData*> insert_order_to_data;
+    static std::unordered_map<std::string, uint32_t> fb_color_to_material_index;
+    static std::unordered_map<std::string, std::string> fb_color_to_leader_material_key;
 
     // Global material array (same size as insert_order_to_data)
     static std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> global_material_array;

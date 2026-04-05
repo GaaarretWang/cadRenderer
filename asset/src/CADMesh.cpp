@@ -8,12 +8,32 @@
 #include "Utils.h"
 #include <tuple>
 #include <algorithm>
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
+#ifdef _WIN32
+static std::string utf8ToGbk(const std::string& utf8Str) {
+    if (utf8Str.empty()) return utf8Str;
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, utf8Str.data(), static_cast<int>(utf8Str.size()), nullptr, 0);
+    if (wlen <= 0) return utf8Str;
+    std::wstring wstr(wlen, 0);
+    MultiByteToWideChar(CP_UTF8, 0, utf8Str.data(), static_cast<int>(utf8Str.size()), &wstr[0], wlen);
+    int glen = WideCharToMultiByte(CP_ACP, 0, wstr.data(), wlen, nullptr, 0, nullptr, nullptr);
+    if (glen <= 0) return utf8Str;
+    std::string gbkStr(glen, 0);
+    WideCharToMultiByte(CP_ACP, 0, wstr.data(), wlen, &gbkStr[0], glen, nullptr, nullptr);
+    return gbkStr;
+}
+#endif
 
 vsg::ImageInfoList CADMesh::camera_info;
 vsg::ImageInfoList CADMesh::depth_info;
 std::unordered_map<std::string, vsg::ImageInfoList> CADMesh::texture_name_to_image_map;
 std::unordered_map<std::string, ProtoData*> CADMesh::proto_id_to_data_map;
 std::vector<ProtoData*> CADMesh::insert_order_to_data;
+std::unordered_map<std::string, uint32_t> CADMesh::fb_color_to_material_index;
+std::unordered_map<std::string, std::string> CADMesh::fb_color_to_leader_material_key;
 
 // Global material array
 std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> CADMesh::global_material_array;
@@ -46,6 +66,38 @@ std::unordered_map<std::string, std::vector<MatrixIndex>> CADMesh::id_to_matrix_
 // };
 
 static std::vector<vsg::dmat4> global_model_matrices_accumulator;
+
+namespace
+{
+std::string normalizeMaterialColorKey(std::string color)
+{
+    if (color.empty())
+    {
+        return "#000000";
+    }
+
+    if (color.front() != '#')
+    {
+        color.insert(color.begin(), '#');
+    }
+
+    std::transform(color.begin(), color.end(), color.begin(), [](unsigned char c) {
+        return static_cast<char>(std::toupper(c));
+    });
+
+    return color;
+}
+
+std::string extractPersistMaterialKey(const std::string& full_path)
+{
+    const size_t last_slash = full_path.find_last_of("/\\");
+    if (last_slash == std::string::npos)
+    {
+        return full_path;
+    }
+    return full_path.substr(last_slash + 1);
+}
+}
 
 vsg::ref_ptr<vsg::mat4Array> CADMesh::global_model_matrix_buffer;
 vsg::ref_ptr<vsg::BufferInfo> CADMesh::global_model_matrix_buffer_info;
@@ -234,6 +286,10 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
 		//std::string cadFilePath = "F:/model";
 
 		//转换本地flatBuffer模型
+#ifdef _WIN32
+		fbFileName = utf8ToGbk(fbFileName);
+		fbFilePath = utf8ToGbk(fbFilePath);
+#endif
 		datainterface.parseLocalModel(fbFileName, fbFilePath);
 
 		//转换本地CAD模型
@@ -254,7 +310,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
 		//通过removeModelData移除模型数据
 		//DataInterface::removeModelData(cadFileName);
 	}
-    datainterface.loadMaterialData("/home/lab/workspace/wgy/cadRenderer/asset/data/JsonData/CockpitMaterial.json");//括号输入json路径
+    datainterface.loadMaterialData("../asset/data/JsonData/CockpitMaterial.json");//括号输入json路径
 	// auto info = datainterface.getRenderInfo();
     auto MapInfo = datainterface.getRenderInfoMap();
 	pmi = datainterface.getPmiInfos();
@@ -314,7 +370,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
             auto transmission = modelPar->mTransmission;
             auto material = modelPar->getMaterialName();//这里得到材质的名称(未生效)
             auto proto_instance_ids = modelfbs.instanceIds;
-            std::string testcolor = color.substr(1);
+            const std::string color_group_key = normalizeMaterialColorKey(color);
 
             //设置材质参数
             vsg::ref_ptr<vsg::PbrMaterialValue> default_material = vsg::PbrMaterialValue::create(); 
@@ -360,6 +416,9 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     proto_data->uvs = nullptr;
                     proto_data->indices = indices;
                     proto_data->proto_id = protoId;
+                    proto_data->material_source = ProtoData::MaterialSource::Fb;
+                    proto_data->fb_color_group_key = color_group_key;
+                    proto_data->material_persist_key = extractPersistMaterialKey(proto_id);
                     // if(i < mtr_ids.size() && textures.size() > mtr_ids[i]){
                     //     proto_data->diffuse_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][0];
                     //     proto_data->normal_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][1];
@@ -370,8 +429,19 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     //     proto_data->normal_path = "";
                     //     proto_data->mr_path = "";
                     // }
-                    uint32_t material_idx = global_material_array.size();
-                    global_material_array.push_back(default_material);
+                    uint32_t material_idx = 0;
+                    auto material_itr = fb_color_to_material_index.find(color_group_key);
+                    if (material_itr == fb_color_to_material_index.end())
+                    {
+                        material_idx = global_material_array.size();
+                        global_material_array.push_back(default_material);
+                        fb_color_to_material_index[color_group_key] = material_idx;
+                        fb_color_to_leader_material_key[color_group_key] = proto_data->material_persist_key;
+                    }
+                    else
+                    {
+                        material_idx = material_itr->second;
+                    }
                     proto_data->material_index = material_idx;
                     proto_data->shaderset = model_shaderset;
                     proto_data->scene = scene;
@@ -511,6 +581,9 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
             proto_data->uvs = uvs_i;
             proto_data->indices = indices_i;
             proto_data->proto_id = proto_id;
+            proto_data->material_source = ProtoData::MaterialSource::Obj;
+            proto_data->material_persist_key = extractPersistMaterialKey(proto_id);
+            proto_data->fb_color_group_key.clear();
 
             if(i < mtr_ids.size() && mtr_ids[i][0] < materials.size()){
                 // Push material to global array and store index

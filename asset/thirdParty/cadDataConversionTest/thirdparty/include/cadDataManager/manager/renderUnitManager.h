@@ -4,7 +4,7 @@
 #include "model/proto/proto.h"
 #include "model/instance/minstance.h"
 
-/*	ï¿½ï¿½ï¿½ï¿½renderUnit, ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½CCï¿½ï¿½RenderGroupController
+/*	¹ÜÀírenderUnit, ÀàËÆÓÚCCÖĞRenderGroupController
 
 */
 namespace cadDataManager {

@@ -1670,7 +1670,16 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
     viewer->addRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
-ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGroup> root, int width, int height, vsg::ImageInfoList camera_data, vsg::ImageInfoList depth_data, vsg::ref_ptr<vsg::Data> shadow_pc_data)
+ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
+                                  vsg::ref_ptr<vsg::StateGroup> root,
+                                  int width,
+                                  int height,
+                                  vsg::ImageInfoList camera_data,
+                                  vsg::ImageInfoList depth_data,
+                                  vsg::ref_ptr<vsg::Data> shadow_pc_data,
+                                  int enable_real_depth_occlusion,
+                                  int shadow_mode,
+                                  vsg::ref_ptr<vsg::Data> tonemap_params_override)
 {
     auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skybox.vert", appData.options->paths);
     auto fragShaderFilepath = vsg::findFile("shaders/IBL/skybox.frag", appData.options->paths);
@@ -1684,11 +1693,7 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGr
 
     auto shaderCompileSettings = ShaderCompileSettings::create();
     auto shaderStages = ShaderStages{vertexShader, fragmentShader};
-    auto tonemapParams = floatArray::create(4);
-    tonemapParams->set(0, 3.0f); //exposure
-    tonemapParams->set(1, 2.2f); //gamma
-    tonemapParams->set(2, width * 1.f); //width
-    tonemapParams->set(3, height * 1.f); //height
+    auto tonemapParams = tonemap_params_override ? tonemap_params_override : vsg::ref_ptr<vsg::Data>(vsg::Value<IBL::DynamicSkyboxParams>::create(IBL::DynamicSkyboxParams{3.0f, 2.2f, width * 1.0f, height * 1.0f, static_cast<float>(enable_real_depth_occlusion), static_cast<float>(shadow_mode)}));
 
     bool hasShadowInSkybox = (depth_data.size() > 0 && shadow_pc_data);
 
@@ -1725,7 +1730,7 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGr
     rasterState->cullMode = VK_CULL_MODE_NONE;
     pplcfg->pipelineStates.push_back(rasterState);
     auto depthState = vsg::DepthStencilState::create();
-    if(depth_data.size() > 0) {
+    if(depth_data.size() > 0 && enable_real_depth_occlusion != 0) {
         // 有深度数据时，启用深度写入（用于相机深度前置渲染）
         depthState->depthTestEnable = VK_TRUE;
         depthState->depthWriteEnable = VK_TRUE;

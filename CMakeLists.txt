@@ -68,7 +68,15 @@ if(UNIX)
 elseif(WIN32)
     target_link_libraries(Rendering PRIVATE
         vsgRenderer
-        ${CAD_DATA_MANAGER_DIR}/winlib/cadDataManager.lib
+        vsgImGui::vsgImGui
+        vsgXchange::vsgXchange
+        flatbuffers::flatbuffers
+        assimp::assimp
+        CUDA::cudart
+        CUDA::cuda_driver
+        ${VIDEO_CODEC_SDK_DIR}/Lib/x64/nvcuvid.lib
+        ${VIDEO_CODEC_SDK_DIR}/Lib/x64/nvencodeapi.lib
+        ${CAD_DATA_MANAGER_WIN_DIR}/libs/Windows/cadDataManager.lib
     )
 
     add_custom_command(TARGET Rendering POST_BUILD

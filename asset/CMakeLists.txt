@@ -12,11 +12,7 @@ add_subdirectory(thirdParty/vsgImGui)
 add_subdirectory(thirdParty/vsgXchange)
 
 # 创建渲染库
-if(UNIX)
-    add_library(vsgRenderer SHARED ${ASSET_SRCS})
-else()
-    add_library(vsgRenderer STATIC ${ASSET_SRCS})
-endif()
+add_library(vsgRenderer STATIC ${ASSET_SRCS})
 
 
 # 公共头文件路径

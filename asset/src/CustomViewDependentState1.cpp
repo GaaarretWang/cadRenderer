@@ -136,7 +136,7 @@ void CustomViewDependentState1::init(ResourceRequirements& requirements)
     // set up ShadowMaps
     auto shadowMapSampler = Sampler::create();
     auto shadowMapSamplerNoCompare = Sampler::create();
-// #define HARDWARE_PCF 1
+#define HARDWARE_PCF 1
 #if HARDWARE_PCF == 1
     shadowMapSampler->minFilter = VK_FILTER_LINEAR;
     shadowMapSampler->magFilter = VK_FILTER_LINEAR;

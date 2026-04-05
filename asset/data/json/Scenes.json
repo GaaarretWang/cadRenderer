@@ -23,22 +23,22 @@
                     "transform_sequence": [
                         [
                             [
-                                -0.001,
-                                -1.2246467991473531e-19,
+                                0.001,
+                                2.4492935982947063e-19,
                                 0.0,
                                 0.57010593
                             ],
                             [
-                                1.2246467991473531e-19,
-                                -0.001,
+                                -2.4492935982947063e-19,
+                                0.001,
                                 0.0,
-                                69.57281873789397
+                                0.4578189667758039
                             ],
                             [
                                 0.0,
                                 0.0,
                                 0.001,
-                                -0.08403899046325691
+                                3.348960858856201
                             ],
                             [
                                 0.0,
@@ -55,22 +55,22 @@
                     "transform_sequence": [
                         [
                             [
-                                -0.001,
-                                -1.2246467991473531e-19,
+                                0.001,
+                                2.4492935982947063e-19,
                                 0.0,
                                 0.57010593
                             ],
                             [
-                                1.2246467991473531e-19,
-                                -0.001,
+                                -2.4492935982947063e-19,
+                                0.001,
                                 0.0,
-                                69.57281873789397
+                                0.4578189667758039
                             ],
                             [
                                 0.0,
                                 0.0,
                                 0.001,
-                                -0.08403899046325691
+                                3.348960858856201
                             ],
                             [
                                 0.0,
@@ -87,22 +87,22 @@
                     "transform_sequence": [
                         [
                             [
-                                -0.001,
-                                -1.2246467991473531e-19,
+                                0.001,
+                                2.4492935982947063e-19,
                                 0.0,
                                 0.57010593
                             ],
                             [
-                                1.2246467991473531e-19,
-                                -0.001,
+                                -2.4492935982947063e-19,
+                                0.001,
                                 0.0,
-                                69.57281873789397
+                                0.4578189667758039
                             ],
                             [
                                 0.0,
                                 0.0,
                                 0.001,
-                                -0.08403899046325691
+                                3.348960858856201
                             ],
                             [
                                 0.0,
@@ -119,22 +119,22 @@
                     "transform_sequence": [
                         [
                             [
-                                -0.001,
-                                -1.2246467991473531e-19,
+                                0.001,
+                                2.4492935982947063e-19,
                                 0.0,
                                 0.57010593
                             ],
                             [
-                                1.2246467991473531e-19,
-                                -0.001,
+                                -2.4492935982947063e-19,
+                                0.001,
                                 0.0,
-                                69.57281873789397
+                                0.4578189667758039
                             ],
                             [
                                 0.0,
                                 0.0,
                                 0.001,
-                                -0.08403899046325691
+                                3.348960858856201
                             ],
                             [
                                 0.0,
@@ -151,22 +151,22 @@
                     "transform_sequence": [
                         [
                             [
-                                -0.001,
-                                -1.2246467991473531e-19,
+                                0.001,
+                                2.4492935982947063e-19,
                                 0.0,
                                 0.57010593
                             ],
                             [
-                                1.2246467991473531e-19,
-                                -0.001,
+                                -2.4492935982947063e-19,
+                                0.001,
                                 0.0,
-                                69.57281873789397
+                                0.4578189667758039
                             ],
                             [
                                 0.0,
                                 0.0,
                                 0.001,
-                                -0.08403899046325691
+                                3.348960858856201
                             ],
                             [
                                 0.0,
@@ -178,41 +178,50 @@
                     ]
                 }
             ],
+            "msaa": 1,
             "name": "airplane_parts",
             "render_params": {
-                "blocker_sample_num": 57,
+                "blocker_sample_num": 8,
                 "denoise_size": 5,
+                "enable_real_depth_occlusion": 0,
                 "exposure": 11.708000183105469,
-                "hdr_image_num": 8,
-                "pcf_sample_num": 55,
+                "hdr_image_num": 12,
+                "pcf_sample_num": 8,
                 "pcf_softness": 5.784999847412109,
-                "pcss_softness": 7.625999927520752,
-                "pcss_softness_falloff": 0.1889999955892563,
-                "shadow_bias": 0.0,
+                "pcss_softness": 0.000554799975361675,
+                "pcss_softness_falloff": 0.00021300000662449747,
+                "shadow_bias": 1.3999999737279722e-06,
+                "shadow_mode": 0,
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
                 "ssao_radius": 0.656000018119812
+            },
+            "scene_media": {
+                "color_path": "asset/data/dataset3/color1711699289.885392.png",
+                "depth_path": "asset/data/dataset3/depth1711699289.885392.png",
+                "pose_path": "asset/data/cameraPose/vsg_pose.txt",
+                "type": "static_image"
             },
             "shadow_receiver_path": "asset/data/obj/shadow_receiver2.obj",
             "shadow_receiver_transform": [
                 [
                     [
-                        20.0,
-                        0.0,
-                        0.0,
-                        0.0
-                    ],
-                    [
-                        0.0,
-                        20.0,
+                        -20.0,
+                        -2.4492935982947065e-15,
                         0.0,
                         0.0
                     ],
                     [
+                        2.4492935982947065e-15,
+                        -20.0,
+                        0.0,
+                        -69.11499977111816
+                    ],
+                    [
                         0.0,
                         0.0,
                         20.0,
-                        14.288999557495117
+                        18.606999397277832
                     ],
                     [
                         0.0,
@@ -272,6 +281,7 @@
                     ]
                 }
             ],
+            "msaa": 4,
             "name": "dashboard",
             "render_params": {
                 "blocker_sample_num": 8,
@@ -286,6 +296,12 @@
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
                 "ssao_radius": 0.656000018119812
+            },
+            "scene_media": {
+                "color_path": "asset/data/dataset3/resized_factory.png",
+                "depth_path": "asset/data/dataset3/black_depth_1280x960.png",
+                "pose_path": "asset/data/cameraPose/vsg_pose.txt",
+                "type": "static_image"
             },
             "shadow_receiver_path": "asset/data/obj/shadow_receiver2.obj",
             "shadow_receiver_transform": [
@@ -398,6 +414,7 @@
                     ]
                 }
             ],
+            "msaa": 1,
             "name": "spheres",
             "render_params": {
                 "blocker_sample_num": 8,
@@ -412,6 +429,12 @@
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
                 "ssao_radius": 0.656000018119812
+            },
+            "scene_media": {
+                "color_path": "asset/data/dataset3/resized_factory.png",
+                "depth_path": "asset/data/dataset3/black_depth_1280x960.png",
+                "pose_path": "asset/data/cameraPose/vsg_pose.txt",
+                "type": "static_image"
             },
             "shadow_receiver_path": "asset/data/obj/shadow_receiver2.obj",
             "shadow_receiver_transform": [
@@ -472,15 +495,15 @@
                             ],
                             [
                                 0.001,
-                                -0.0,
                                 0.0,
-                                1.0148200806674001
+                                0.0,
+                                1.668820064931774
                             ],
                             [
-                                -0.0,
+                                0.0,
                                 -0.001,
                                 0.0,
-                                -0.22068900000000014
+                                -0.7586890025033952
                             ],
                             [
                                 0.0,
@@ -492,20 +515,29 @@
                     ]
                 }
             ],
+            "msaa": 1,
             "name": "whole_engine",
             "render_params": {
-                "blocker_sample_num": 15,
+                "blocker_sample_num": 16,
                 "denoise_size": 5,
+                "enable_real_depth_occlusion": 0,
                 "exposure": 11.708000183105469,
-                "hdr_image_num": 4,
+                "hdr_image_num": 12,
                 "pcf_sample_num": 16,
                 "pcf_softness": 5.784999847412109,
-                "pcss_softness": 10.347000122070313,
-                "pcss_softness_falloff": 0.4259999990463257,
-                "shadow_bias": 0.0008999999845400453,
+                "pcss_softness": 0.00042230001417919993,
+                "pcss_softness_falloff": 0.00013109999417793006,
+                "shadow_bias": 0.001130299991928041,
+                "shadow_mode": 0,
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
                 "ssao_radius": 0.656000018119812
+            },
+            "scene_media": {
+                "color_path": "asset/data/dataset3/color1711699289.885392.png",
+                "depth_path": "asset/data/dataset3/depth1711699289.885392.png",
+                "pose_path": "asset/data/cameraPose/vsg_pose.txt",
+                "type": "static_image"
             },
             "shadow_receiver_path": "asset/data/obj/shadow_receiver2.obj",
             "shadow_receiver_transform": [
@@ -520,13 +552,13 @@
                         0.0,
                         1.0,
                         0.0,
-                        0.0
+                        0.6539999842643738
                     ],
                     [
                         0.0,
                         0.0,
                         1.0,
-                        0.0
+                        -0.3840000033378601
                     ],
                     [
                         0.0,
@@ -586,20 +618,29 @@
                     ]
                 }
             ],
+            "msaa": 1,
             "name": "helicopter_engine",
             "render_params": {
-                "blocker_sample_num": 8,
-                "denoise_size": 5,
-                "exposure": 8.057000160217285,
-                "hdr_image_num": 8,
-                "pcf_sample_num": 8,
+                "blocker_sample_num": 16,
+                "denoise_size": 3,
+                "enable_real_depth_occlusion": 0,
+                "exposure": 10.425999641418457,
+                "hdr_image_num": 12,
+                "pcf_sample_num": 16,
                 "pcf_softness": 5.784999847412109,
-                "pcss_softness": 1.2029999494552612,
-                "pcss_softness_falloff": 0.32199999690055847,
-                "shadow_bias": 0.0,
+                "pcss_softness": 0.00015809999604243785,
+                "pcss_softness_falloff": 6.179999763844535e-05,
+                "shadow_bias": 2.300000051036477e-05,
+                "shadow_mode": 0,
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
-                "ssao_radius": 0.656000018119812
+                "ssao_radius": 0.9210000038146973
+            },
+            "scene_media": {
+                "color_path": "asset/data/dataset3/color1711699289.885392.png",
+                "depth_path": "asset/data/dataset3/depth1711699289.885392.png",
+                "pose_path": "asset/data/cameraPose/vsg_pose.txt",
+                "type": "static_image"
             },
             "shadow_receiver_path": "asset/data/obj/shadow_receiver2.obj",
             "shadow_receiver_transform": [
@@ -680,12 +721,13 @@
                     ]
                 }
             ],
+            "msaa": 4,
             "name": "cockpit",
             "render_params": {
                 "blocker_sample_num": 8,
                 "denoise_size": 5,
                 "exposure": 11.708000183105469,
-                "hdr_image_num": 8,
+                "hdr_image_num": 4,
                 "pcf_sample_num": 8,
                 "pcf_softness": 5.784999847412109,
                 "pcss_softness": 20.100000381469727,
@@ -694,6 +736,12 @@
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
                 "ssao_radius": 0.656000018119812
+            },
+            "scene_media": {
+                "color_dir": "asset/data/dataset3/color",
+                "depth_dir": "asset/data/dataset3/depth",
+                "pose_path": "asset/data/cameraPose/vsg_pose.txt",
+                "type": "dynamic_video"
             },
             "shadow_receiver_path": "asset/data/obj/shadow_receiver2.obj",
             "shadow_receiver_transform": [
@@ -1286,20 +1334,29 @@
                     ]
                 }
             ],
+            "msaa": 4,
             "name": "glass_models_all",
             "render_params": {
                 "blocker_sample_num": 8,
-                "denoise_size": 3,
-                "exposure": 4.263999938964844,
-                "hdr_image_num": 8,
+                "denoise_size": 1,
+                "enable_real_depth_occlusion": 1,
+                "exposure": 4.73799991607666,
+                "hdr_image_num": 4,
                 "pcf_sample_num": 8,
                 "pcf_softness": 5.784999847412109,
-                "pcss_softness": 14.236000061035156,
-                "pcss_softness_falloff": 0.21299999952316284,
-                "shadow_bias": 9.999999747378752e-05,
+                "pcss_softness": 5.310000051395036e-05,
+                "pcss_softness_falloff": 5.080000119050965e-05,
+                "shadow_bias": 0.0,
+                "shadow_mode": 1,
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
-                "ssao_radius": 0.20900000631809235
+                "ssao_radius": 0.2370000034570694
+            },
+            "scene_media": {
+                "color_path": "asset/data/dataset3/resized_factory.png",
+                "depth_path": "asset/data/dataset3/black_depth_1280x960.png",
+                "pose_path": "asset/data/cameraPose/vsg_pose.txt",
+                "type": "static_image"
             },
             "shadow_receiver_path": "asset/data/obj/shadow_receiver2.obj",
             "shadow_receiver_transform": [
@@ -1332,7 +1389,7 @@
             ]
         },
         {
-            "description": "直升机引擎场景",
+            "description": "舱壁场景",
             "id": 7,
             "line_point_style": {
                 "line_color": [
@@ -1353,22 +1410,22 @@
                     "transform_sequence": [
                         [
                             [
-                                0.0,
-                                -0.001,
+                                0.001,
+                                -6.123233995736766e-20,
                                 0.0,
                                 2.07136948333786
                             ],
                             [
+                                6.123233995736766e-20,
                                 0.001,
                                 0.0,
-                                0.0,
-                                3.2963150221140576
+                                1.2963150221140576
                             ],
                             [
                                 0.0,
                                 0.0,
                                 0.001,
-                                0.38428834386901856
+                                -0.03871164909763336
                             ],
                             [
                                 0.0,
@@ -1380,20 +1437,29 @@
                     ]
                 }
             ],
+            "msaa": 1,
             "name": "cangbi",
             "render_params": {
-                "blocker_sample_num": 39,
+                "blocker_sample_num": 16,
                 "denoise_size": 5,
+                "enable_real_depth_occlusion": 0,
                 "exposure": 4.501999855041504,
-                "hdr_image_num": 8,
-                "pcf_sample_num": 38,
+                "hdr_image_num": 12,
+                "pcf_sample_num": 16,
                 "pcf_softness": 31.280000686645508,
-                "pcss_softness": 7.117000102996826,
-                "pcss_softness_falloff": 0.07100000232458115,
-                "shadow_bias": 0.0,
-                "shadow_type": 0,
+                "pcss_softness": 0.001056100009009242,
+                "pcss_softness_falloff": 3.999999989900971e-06,
+                "shadow_bias": 1.3199999557400588e-05,
+                "shadow_mode": 0,
+                "shadow_type": 1,
                 "ssao_kernel_size": 64,
                 "ssao_radius": 0.656000018119812
+            },
+            "scene_media": {
+                "color_path": "asset/data/dataset3/color1711699289.885392.png",
+                "depth_path": "asset/data/dataset3/depth1711699289.885392.png",
+                "pose_path": "asset/data/cameraPose/vsg_pose.txt",
+                "type": "static_image"
             },
             "shadow_receiver_path": "asset/data/obj/shadow_receiver2.obj",
             "shadow_receiver_transform": [
@@ -1408,13 +1474,13 @@
                         0.0,
                         1.05,
                         0.0,
-                        0.0
+                        -2.0
                     ],
                     [
                         0.0,
                         0.0,
                         1.05,
-                        0.0
+                        -0.26899999380111694
                     ],
                     [
                         0.0,

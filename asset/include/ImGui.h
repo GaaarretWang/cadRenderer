@@ -10,12 +10,15 @@
 class vsgRendererServer;
 #include <CADMesh.h>
 // 引入JSON库
-#include "json.hpp"
+#include <json/json.hpp>
 #include <fstream>
 #include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <cmath>
+#include <memory>
+#include "JsonConfigManager.h"
+#include "MyMask.h"
 
 // 简化JSON命名空间
 using json = nlohmann::json;
@@ -42,12 +45,7 @@ struct GlobalPCData{
 struct InstanceTransformState {
     std::string instance_name;
     vsg::dmat4 original_transform;
-    float translate[3] = {0.f, 0.f, 0.f};   // 米
-    float rotate[3] = {0.f, 0.f, 0.f};      // 度（欧拉角XYZ）
-    float scale_percent = 100.0f;             // 百分比
     bool selected = false;
-
-    vsg::dmat4 computeFinalTransform() const; // original * userTransform
 };
 
 // 全局renderer指针（initRenderer中设置）
@@ -71,10 +69,6 @@ namespace gui
         float lightColor[4][4];
     };
 
-    struct SceneParams : public Inherit<Object, SceneParams>
-    {
-    };
-
     struct Params : public Inherit<Object, Params>
     {
         bool showGui = true; // you can toggle this with your own EventHandler and key
@@ -83,8 +77,6 @@ namespace gui
         float metallic = 0.5f;
         float cubeTransform[4]{0.f, 0.f, 0.f, 0.2f};
         LightParams lightParams;
-        float model_translate[3]{180000.0f, -180000.0f, 60000.0f};
-        float model_scale = 100.0f;
         float currentFps = 0.0f;
         float render_server_times[2];
         float render_func_times[8];
@@ -113,6 +105,7 @@ namespace gui
         std::string m_scenes_json_path;     // data/json/Scenes.json
         std::string m_materials_json_path;  // data/json/Materials.json
         std::string m_lightinfo_json_path;  // data/json/LightInfo.json
+        std::shared_ptr<JsonConfigManager> m_json_manager;
         mutable float pcf_softness;
         mutable float pcss_softness;
         mutable float pcss_softness_falloff;
@@ -126,6 +119,9 @@ namespace gui
         mutable float m_scale_max = 200.f;
         mutable float m_translate_min[3] = {-2.f, -2.f, -2.f};
         mutable float m_translate_max[3] = {2.f, 2.f, 2.f};
+        mutable float m_shared_translate[3] = {0.f, 0.f, 0.f};
+        mutable float m_shared_rotate[3] = {0.f, 0.f, 0.f};
+        mutable float m_shared_scale_percent = 100.0f;
 
         // 调整构造函数参数，接收三个JSON路径
         MyGui(vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data,
@@ -159,6 +155,11 @@ namespace gui
         void saveBaseBrightnessToLightInfo() const;
         void resetSelectedInstances() const;
         void saveTransformsToScenesJson() const;
+        void resetSharedTransform() const;
+        bool hasAnySelectedInstance() const;
+        vsg::dmat4 computeTransformedMatrix(const InstanceTransformState& state) const;
+        void applyPoseForState(const InstanceTransformState& state) const;
+        void applyPoseForAllStates() const;
     };
 
 } // namespace gui

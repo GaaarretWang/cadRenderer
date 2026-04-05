@@ -28,14 +28,18 @@ constexpr vsg::Mask MASK_SHADOW_CASTER = 2ul;
 constexpr vsg::Mask MASK_SHADOW_RECEIVER = 4ul;
 constexpr vsg::Mask MASK_SKYBOX = 8ul;
 constexpr vsg::Mask MASK_WIREFRAME = 16ul;
-constexpr vsg::Mask MASK_CAMERA_IMAGE = 32ul;
+constexpr vsg::Mask MASK_CAMERA_IMAGE_NO_DEPTH = 32ul;
 constexpr vsg::Mask MASK_TEXT = 64ul;
 constexpr vsg::Mask MASK_SSAO = 128ul;
+constexpr vsg::Mask MASK_CAMERA_IMAGE_DEPTH = 256ul;
 constexpr vsg::Mask MASK_DRAW = ~(MASK_SSAO | MASK_SKYBOX);
 
-enum mergeShaderType{
-    FULL_MODEL, 
-    CAMERA_DEPTH,
-    CAD_DAPTH
+enum RenderMode
+{
+    FULL_MODEL = 0,
+    CAMERA_DEPTH = 1
 };
+
+constexpr int SHADOW_RECEIVER_PLANE = FULL_MODEL;
+constexpr int SHADOW_REAL_DEPTH = CAMERA_DEPTH;
 #endif // MYMASK_H
