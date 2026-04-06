@@ -236,7 +236,7 @@ public:
         #endif
         decode_image->pNextAllocInfo = &decodeExportMemoryAllocateInfo;
         decode_image->compile(device);
-        auto decodeDeviceMemory = vsg::DeviceMemory::create(device, decode_image->getMemoryRequirements(device->deviceID), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &decodeExportMemoryAllocateInfo);
+        auto decodeDeviceMemory = vsg::DeviceMemory::create(device, decode_image->getMemoryRequirements(device->deviceID), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         decode_image->bind(decodeDeviceMemory, 0);
         auto decodeBufferSize = decode_image->getMemoryRequirements(device->deviceID).size;            
         std::cout << "bufferSize = " << decodeBufferSize << std::endl;

@@ -54,7 +54,10 @@ public:
         auto physicalDevice = window->getPhysicalDevice();
         auto swapchain = window->getSwapchain();
 
-        // get the colour buffer image of the previous rendered frame as the current frame hasn't been rendered yet.  The 1 in window->imageIndex(1) means image from 1 frame ago.
+        // First: decode with CUDA so decode_image has valid data before Vulkan reads from it
+        m_encoder->decode(vPacket);
+        cudaDeviceSynchronize();
+
         auto sourceImage = m_encoder->decode_image;
 
         VkFormat sourceImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
@@ -97,11 +100,11 @@ public:
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
         );
 
-        // 3.b) transition swapChainImage from present to transfer source initialLayout
+        // 3.b) transition decode_image from undefined to transfer source layout
         auto transitionSourceImageToTransferSourceLayoutBarrier = vsg::ImageMemoryBarrier::create(
             VK_ACCESS_MEMORY_READ_BIT,                                     // srcAccessMask
             VK_ACCESS_TRANSFER_READ_BIT,                                   // dstAccessMask
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,                               // oldLayout
+            VK_IMAGE_LAYOUT_UNDEFINED,                                     // oldLayout
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,                          // newLayout
             VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
             VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
@@ -177,12 +180,12 @@ public:
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // subresourceRange
         );
 
-        // 3.e) transition swap chain image back to present
+        // 3.e) transition decode_image back to general layout
         auto transitionSourceImageBackToPresentBarrier = vsg::ImageMemoryBarrier::create(
             VK_ACCESS_TRANSFER_READ_BIT,                                   // srcAccessMask
             VK_ACCESS_MEMORY_READ_BIT,                                     // dstAccessMask
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,                          // oldLayout
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,                               // newLayout
+            VK_IMAGE_LAYOUT_GENERAL,                                       // newLayout
             VK_QUEUE_FAMILY_IGNORED,                                       // srcQueueFamilyIndex
             VK_QUEUE_FAMILY_IGNORED,                                       // dstQueueFamilyIndex
             sourceImage,                                                   // image
@@ -207,8 +210,6 @@ public:
         vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
             commands->record(commandBuffer);
         });
-
-        m_encoder->decode(vPacket);
     }
 
     vsg::ref_ptr<vsg::Image> screenshot_image(vsg::ref_ptr<vsg::Window> window)

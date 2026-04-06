@@ -391,21 +391,25 @@ namespace gui
     {
         auto* renderer = vsgserver::renderer;
         ImGui::Text("hdr num:");
-        for(int i = 1; i <= vsgserver::renderer->hdr_image_max_num; ++i){
-            std::string num_str = std::to_string(i);
-            if(i > 1) {
-                ImGui::SameLine(0.0f, 5.0f);
-            }
-            if(ImGui::Button(num_str.c_str())){
-                vsgserver::renderer->hdr_image_num = i;
-                vsgserver::renderer->updateEnvLighting();
-                // 閼奉亜濮╅弴瀛樻煀 baseBrightness 娑撳搫顕惔鎿R閻ㄥ嫬鈧?
-                auto it = vsgserver::renderer->hdr_base_brightness.find(i);
-                if (it != vsgserver::renderer->hdr_base_brightness.end()) {
-                    m_pc_data->value().baseBrightness = it->second;
+        static int last_hdr_num = -1;
+        if(last_hdr_num == vsgserver::renderer->hdr_image_num){
+            for(int i = 1; i <= vsgserver::renderer->hdr_image_max_num; ++i){
+                std::string num_str = std::to_string(i);
+                if(i > 1) {
+                    ImGui::SameLine(0.0f, 5.0f);
+                }
+                if(ImGui::Button(num_str.c_str())){
+                    vsgserver::renderer->hdr_image_num = i;
+                    vsgserver::renderer->updateEnvLighting();
+                    // 閼奉亜濮╅弴瀛樻煀 baseBrightness 娑撳搫顕惔鎿R閻ㄥ嫬鈧?
+                    auto it = vsgserver::renderer->hdr_base_brightness.find(i);
+                    if (it != vsgserver::renderer->hdr_base_brightness.end()) {
+                        m_pc_data->value().baseBrightness = it->second;
+                    }
                 }
             }
         }
+        last_hdr_num = vsgserver::renderer->hdr_image_num;
 
         ImGui::Separator();
         ImGui::Text("Global Render Params:");

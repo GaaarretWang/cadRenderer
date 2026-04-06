@@ -300,20 +300,6 @@ public:
         vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
             command->record(commandBuffer);
         });
-
-        IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
-        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNodeNoDepth, render_width, render_height, camera_info,
-                               depth_info,
-                               vsg::ref_ptr<vsg::Data>(pc_data),
-                               0,
-                               shadow_mode,
-                               camera_image_params);
-        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNodeDepth, render_width, render_height, camera_info,
-                               depth_info,
-                               vsg::ref_ptr<vsg::Data>(pc_data),
-                               1,
-                               shadow_mode,
-                               camera_image_params);
     }
 
     void update_directional_lights(){
