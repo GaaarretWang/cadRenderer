@@ -26,7 +26,6 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::Viewer> viewer = vsg::Viewer::create();
     vsg::ref_ptr<vsg::Viewer> viewer_IBL = vsg::Viewer::create();
     vsg::ref_ptr<vsg::View> view;
-    vsg::ref_ptr<vsg::View> overlay_view;
 
     std::unordered_map<std::string, CADMesh*> transfered_meshes; //path, mesh*
 
@@ -45,8 +44,7 @@ class vsgRendererServer
     //IBL
     IBL::VsgContext vsgContext = {};
     vsg::ref_ptr<vsg::StateGroup> drawSkyboxNode = vsg::StateGroup::create();
-    vsg::ref_ptr<vsg::StateGroup> drawCameraImageNodeNoDepth = vsg::StateGroup::create();
-    vsg::ref_ptr<vsg::StateGroup> drawCameraImageNodeDepth = vsg::StateGroup::create();
+    vsg::ref_ptr<vsg::StateGroup> drawCameraImageNode = vsg::StateGroup::create();
     vsg::ref_ptr<vsg::StateGroup> drawShadowBackgroundNode = vsg::StateGroup::create();
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;
     vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
@@ -96,8 +94,6 @@ class vsgRendererServer
     unsigned short * depth_pixels = nullptr;
     int enable_real_depth_occlusion = 0;
     int shadow_mode = SHADOW_RECEIVER_PLANE;
-    int last_synced_depth_occlusion = -1;
-    int last_synced_shadow_mode = -1;
 
     VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_4_BIT;//多重采样的倍数
 
@@ -145,12 +141,6 @@ class vsgRendererServer
     }
 
 public:
-    void normalizeRenderSettings()
-    {
-        setRealDepthOcclusion(enable_real_depth_occlusion);
-        setShadowMode(shadow_mode);
-    }
-
     void setRealDepthOcclusion(int enabled)
     {
         enable_real_depth_occlusion = (enabled != 0) ? 1 : 0;
@@ -180,33 +170,6 @@ public:
             camera_image_params->value().shadowMode = static_cast<float>(shadow_mode);
             camera_image_params->dirty();
         }
-    }
-
-    void updateShadowReceiverMask()
-    {
-        const bool use_receiver_plane = shadow_mode == SHADOW_RECEIVER_PLANE;
-        if (view)
-        {
-            if (use_receiver_plane) view->mask |= MASK_SHADOW_RECEIVER;
-            else view->mask &= ~MASK_SHADOW_RECEIVER;
-        }
-        if (overlay_view)
-        {
-            if (use_receiver_plane) overlay_view->mask |= MASK_SHADOW_RECEIVER;
-            else overlay_view->mask &= ~MASK_SHADOW_RECEIVER;
-        }
-    }
-
-    void updateCameraImageMask()
-    {
-        if (!view) return;
-
-        const bool needs_camera_depth_path =
-            (enable_real_depth_occlusion != 0) || (shadow_mode == SHADOW_REAL_DEPTH);
-
-        view->mask &= ~(MASK_CAMERA_IMAGE_NO_DEPTH | MASK_CAMERA_IMAGE_DEPTH);
-        if (needs_camera_depth_path) view->mask |= MASK_CAMERA_IMAGE_DEPTH;
-        else view->mask |= MASK_CAMERA_IMAGE_NO_DEPTH;
     }
 
     void setWidthAndHeight(int width, int height, double render_scale, double encode_scale){
@@ -273,17 +236,9 @@ public:
         }
 
         IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
-        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNodeNoDepth, render_width, render_height, camera_info,
+        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, camera_info,
                                depth_info,
                                vsg::ref_ptr<vsg::Data>(pc_data),
-                               0,
-                               shadow_mode,
-                               camera_image_params);
-        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNodeDepth, render_width, render_height, camera_info,
-                               depth_info,
-                               vsg::ref_ptr<vsg::Data>(pc_data),
-                               1,
-                               shadow_mode,
                                camera_image_params);
     }
 
@@ -300,6 +255,10 @@ public:
         vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
             command->record(commandBuffer);
         });
+
+        IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
+        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height,
+            camera_info, depth_info, vsg::ref_ptr<vsg::Data>(pc_data), camera_image_params);
     }
 
     void update_directional_lights(){
@@ -414,7 +373,7 @@ public:
         cvds_pose->draw_shadow_pose = true;
     }
 
-        void updateEnvLighting(){
+    void updateEnvLighting(){
         updateEnvMap();
         update_directional_lights();
         IBL::textures.params->dirty();

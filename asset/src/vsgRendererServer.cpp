@@ -27,8 +27,6 @@ std::string getDirectoryPath(const std::string& path) {
 
 void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)
 {
-    normalizeRenderSettings();
-
     options->fileCache = vsg::getEnv("VSG_FILE_CACHE"); //2
     options->paths = vsg::getEnvPaths("VSG_FILE_PATH");
     options->paths.push_back(engine_path + "asset/data/");
@@ -174,8 +172,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto SSAODenoiseGroup = vsg::Group::create();
 
     auto rootSwitch = vsg::Switch::create();
-    rootSwitch->addChild(MASK_CAMERA_IMAGE_NO_DEPTH, drawCameraImageNodeNoDepth);
-    rootSwitch->addChild(MASK_CAMERA_IMAGE_DEPTH, drawCameraImageNodeDepth);
+    rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraImageNode);
     rootSwitch->addChild(MASK_SKYBOX, drawSkyboxNode);
     rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowGroup);
     rootSwitch->addChild(MASK_PBR_FULL, modelGroup);
@@ -306,7 +303,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     view = vsg::View::create(camera, scenegraph_safe);
     CADMesh::active_view = view.get();
     // view->features = vsg::RECORD_LIGHTS;
-    view->mask = MASK_CAMERA_IMAGE_NO_DEPTH | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
+    view->mask = MASK_CAMERA_IMAGE | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
     // view->mask = MASK_SKYBOX | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
     auto shadow_view_dependent_state = CustomViewDependentState::create(view.get(), device, computeQueueFamily, options);
     view->viewDependentState = shadow_view_dependent_state;
@@ -382,11 +379,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
     viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
     viewer->addEventHandler(vsg::Trackball::create(camera));
-    overlay_view = view1;
-    updateShadowReceiverMask();
-    updateCameraImageMask();
-    last_synced_depth_occlusion = enable_real_depth_occlusion;
-    last_synced_shadow_mode = shadow_mode;
 
     viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph, commandGraph1});
     viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
@@ -461,21 +453,7 @@ bool vsgRendererServer::render() {
         vsg::LookAt* lookAt = dynamic_cast<vsg::LookAt*>(camera->viewMatrix.get());
         pc_data->value().camera_pos = lookAt->eye;
     }
-    if (enable_real_depth_occlusion != last_synced_depth_occlusion || shadow_mode != last_synced_shadow_mode)
-    {
-        syncConstantData();
-        if (enable_real_depth_occlusion != last_synced_depth_occlusion ||
-            shadow_mode != last_synced_shadow_mode)
-        {
-            updateCameraImageMask();
-        }
-        if (shadow_mode != last_synced_shadow_mode)
-        {
-            updateShadowReceiverMask();
-        }
-        last_synced_depth_occlusion = enable_real_depth_occlusion;
-        last_synced_shadow_mode = shadow_mode;
-    }
+    syncConstantData();
     pc_data->value().frame_num = ++frame_num;
     pc_data->value().last_view = vsg::mat4(camera->viewMatrix->transform());
     pc_data->dirty();

@@ -125,8 +125,6 @@ namespace IBL
                                            vsg::ImageInfoList camera_data = {},
                                            vsg::ImageInfoList depth_data = {},
                                            vsg::ref_ptr<vsg::Data> shadow_pc_data = {},
-                                           int enable_real_depth_occlusion = 0,
-                                           int shadow_mode = 0,
                                            vsg::ref_ptr<vsg::Data> tonemap_params_override = {});
 
     vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options> options);

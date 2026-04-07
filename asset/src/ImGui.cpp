@@ -189,10 +189,6 @@ namespace gui
             m_pc_data->value().baseBrightness = it->second;
         }
         vsgserver::renderer->syncConstantData();
-        vsgserver::renderer->updateShadowReceiverMask();
-        vsgserver::renderer->updateCameraImageMask();
-        vsgserver::renderer->updateEnvMap();
-        vsgserver::renderer->update_directional_lights();
     }
 
     // 浠嶮aterials.json鍔犺浇鏉愯川鍙傛暟
@@ -391,6 +387,7 @@ namespace gui
     {
         auto* renderer = vsgserver::renderer;
         ImGui::Text("hdr num:");
+        bool hdr_state_change = false;
         static int last_hdr_num = -1;
         if(last_hdr_num == vsgserver::renderer->hdr_image_num){
             for(int i = 1; i <= vsgserver::renderer->hdr_image_max_num; ++i){
@@ -400,13 +397,19 @@ namespace gui
                 }
                 if(ImGui::Button(num_str.c_str())){
                     vsgserver::renderer->hdr_image_num = i;
-                    vsgserver::renderer->updateEnvLighting();
-                    // 閼奉亜濮╅弴瀛樻煀 baseBrightness 娑撳搫顕惔鎿R閻ㄥ嫬鈧?
-                    auto it = vsgserver::renderer->hdr_base_brightness.find(i);
-                    if (it != vsgserver::renderer->hdr_base_brightness.end()) {
-                        m_pc_data->value().baseBrightness = it->second;
-                    }
+                    hdr_state_change = true;
                 }
+            }
+        }
+        else{
+            hdr_state_change = true;
+        }
+
+        if(hdr_state_change){
+            vsgserver::renderer->updateEnvLighting();
+            auto it = vsgserver::renderer->hdr_base_brightness.find(vsgserver::renderer->hdr_image_num);
+            if (it != vsgserver::renderer->hdr_base_brightness.end()) {
+                m_pc_data->value().baseBrightness = it->second;
             }
         }
         last_hdr_num = vsgserver::renderer->hdr_image_num;
@@ -418,7 +421,6 @@ namespace gui
         {
             renderer->setRealDepthOcclusion(depth_occlusion_enabled ? 1 : 0);
             renderer->syncConstantData();
-            renderer->updateCameraImageMask();
         }
 
         int shadow_mode = (renderer->shadow_mode == SHADOW_REAL_DEPTH) ? SHADOW_REAL_DEPTH : SHADOW_RECEIVER_PLANE;
@@ -427,8 +429,6 @@ namespace gui
         {
             renderer->setShadowMode(shadow_mode);
             renderer->syncConstantData();
-            renderer->updateShadowReceiverMask();
-            renderer->updateCameraImageMask();
         }
 
         if (ImGui::RadioButton("PCF", m_pc_data->value().shadow_type == 0)){
