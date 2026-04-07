@@ -858,10 +858,6 @@ float computeF0Base_Merged(float f0) {
 
 void main()
 {
-    if(highlight > 0){
-        outColor = vec4(1, 1, 1, 1);
-        return;
-    }
 
     float brightnessCutoff = 0.001;
 
@@ -1060,8 +1056,13 @@ void main()
         // 閽冲埗鏈€缁堢粨鏋?
         scene_brightness = clamp(scene_brightness, 0.0, 1.0);
     }
+    if(highlight > 0){
+        outColor = vec4(scene_brightness, 0, 0, 1);
+    }
+    else{
+        outColor = vec4(color * scene_brightness, baseColor.w);
+    }
 
-    outColor = vec4(color * scene_brightness, baseColor.w);
     if(baseColor.w > 0.8){
         outNormal = vec4(worldN, 1);
         outWorldPos = vec4(worldViewDir, 1);

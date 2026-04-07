@@ -577,14 +577,9 @@ namespace gui
         }
     }
 
-    // 瀹炰緥鍙樻崲闈㈡澘锛堢嫭绔嬬獥鍙ｏ級
-    void MyGui::drawInstanceTransformPanel() const
+    void MyGui::drawInstanceTransformContent() const
     {
         if (m_instance_states.empty()) return;
-
-        ImGui::SetNextWindowPos(ImVec2(370, 10), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(500, 700), ImGuiCond_Always);
-        ImGui::Begin("Instance Transforms");
 
         if (ImGui::Button("Select All")) {
             for (auto& state : m_instance_states) {
@@ -673,16 +668,19 @@ namespace gui
         ImGui::SameLine();
         if (ImGui::Button("Save to Scenes.json"))
             saveTransformsToScenesJson();
-
-        ImGui::End();
     }
     void MyGui::record(vsg::CommandBuffer& cb) const
     {
         if (!global_params->showGui) return;
 
-        ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Always);
-        ImGui::SetNextWindowSize(ImVec2(350, 600), ImGuiCond_Always);
-        ImGui::Begin("GUI");
+        ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(500, 800), ImGuiCond_FirstUseEver);
+        ImGui::Begin("AR/MR Engine");
+
+        ImGui::Text("Render FPS:\t%.1f (%.3f ms)", 1000.0f / global_params->currentFps, global_params->currentFps);
+        ImGui::Text("Camera Tracking FPS:\t%.1f", vsgserver::renderer->camera_tracking_fps);
+        ImGui::Separator();
+
         if (ImGui::Button("Save Params"))
             saveParams();
 
@@ -694,10 +692,10 @@ namespace gui
             drawMaterialControls();
         if (ImGui::CollapsingHeader("Lines & Points"))
             drawLinePointControls();
-        ImGui::End();
+        if (ImGui::CollapsingHeader("Instance Transforms", ImGuiTreeNodeFlags_DefaultOpen))
+            drawInstanceTransformContent();
 
-        // 閻欘剛鐝涚粣妤€褰?
-        drawInstanceTransformPanel();
+        ImGui::End();
     }
 
 } // namespace gui

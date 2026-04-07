@@ -52,6 +52,7 @@ class vsgRendererServer
     std::unordered_map<int, float> hdr_base_brightness; // 每个HDR的baseBrightness
     int hdr_image_num = 4;
     int hdr_image_max_num = 7;
+    float camera_tracking_fps = 0.0f;
 
     std::string shadow_receiver_path;
     vsg::dmat4 shadow_receiver_transform;
@@ -405,6 +406,24 @@ public:
         auto output_indices = static_cast<uint32_t*>(CADMesh::dynamic_points.indices->dataPointer(0));
         std::fill_n(output_indices, CADMesh::dynamic_points.indices->size(), 0);
         std::copy(indices_pointer, indices_pointer + std::min(indices_size, CADMesh::dynamic_points.indices->size()), output_indices);
+        CADMesh::dynamic_points.indices->dirty();
+    }
+
+    void clearPointAndLineData(){
+        auto output_line_vertices = static_cast<float*>(CADMesh::dynamic_lines.vertices->dataPointer(0));
+        std::fill_n(output_line_vertices, CADMesh::dynamic_lines.vertices->size() * 3, -10000.f);
+        CADMesh::dynamic_lines.vertices->dirty();
+
+        auto output_line_indices = static_cast<uint32_t*>(CADMesh::dynamic_lines.indices->dataPointer(0));
+        std::fill_n(output_line_indices, CADMesh::dynamic_lines.indices->size(), 0);
+        CADMesh::dynamic_lines.indices->dirty();
+
+        auto output_point_vertices = static_cast<float*>(CADMesh::dynamic_points.vertices->dataPointer(0));
+        std::fill_n(output_point_vertices, CADMesh::dynamic_points.vertices->size() * 3, -10000.f);
+        CADMesh::dynamic_points.vertices->dirty();
+
+        auto output_point_indices = static_cast<uint32_t*>(CADMesh::dynamic_points.indices->dataPointer(0));
+        std::fill_n(output_point_indices, CADMesh::dynamic_points.indices->size(), 0);
         CADMesh::dynamic_points.indices->dirty();
     }
 

@@ -151,7 +151,7 @@ namespace gui
         void drawPerformanceInfo() const;
         void drawMaterialControls() const;
         void drawLinePointControls() const;
-        void drawInstanceTransformPanel() const;
+        void drawInstanceTransformContent() const;
         void saveBaseBrightnessToLightInfo() const;
         void resetSelectedInstances() const;
         void saveTransformsToScenesJson() const;
