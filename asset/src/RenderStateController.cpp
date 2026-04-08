@@ -221,7 +221,6 @@ void RenderStateController::applyDepthOcclusionState(const RenderStateHub& state
 
     vsgserver::renderer->setRealDepthOcclusion(state.pipeline.enable_real_depth_occlusion);
     vsgserver::renderer->syncConstantData();
-    vsgserver::renderer->updateCameraImageMask();
 }
 
 void RenderStateController::applyShadowModeState(const RenderStateHub& state) const
@@ -230,6 +229,4 @@ void RenderStateController::applyShadowModeState(const RenderStateHub& state) co
 
     vsgserver::renderer->setShadowMode(state.pipeline.shadow_mode);
     vsgserver::renderer->syncConstantData();
-    vsgserver::renderer->updateShadowReceiverMask();
-    vsgserver::renderer->updateCameraImageMask();
 }
