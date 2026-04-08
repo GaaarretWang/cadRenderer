@@ -52,7 +52,7 @@ public:
         // Place the client window in the visible 2x2 grid instead of below the desktop.
         auto decodeWindowTraits = createWindowTraits("Decode", 1, options);
 
-        decodeWindowTraits->device = device; //共享设备
+        decodeWindowTraits->device = device; // Share the device with the decode window.
         decode_window = vsg::Window::create(decodeWindowTraits);
         VkExtent2D extent = {};
         extent.width = render_width;
@@ -76,14 +76,14 @@ public:
     }
 
     bool render(std::vector<std::vector<uint8_t>> &vPacket){
-        //--------------------------------------------------------------渲染循环----------------------------------------------------------//
+        //--------------------------------------------------------------Render loop----------------------------------------------------------//
         while (decode_viewer->advanceToNextFrame())
         {
             decode_screenshotHandler->decodeImage(decode_window, vPacket);
 
-            decode_viewer->handleEvents(); //将保存在`UIEvents`对象中的事件传递给注册的事件处理器（`EventHandlers`）。通过调用这个函数，可以处理并响应窗口中发生的事件。
+            decode_viewer->handleEvents(); // Dispatch UIEvents to the registered event handlers.
             decode_viewer->update();
-            decode_viewer->recordAndSubmit(); //于记录和提交命令图。它会遍历`RecordAndSubmitTasks`列表中的任务，并对每个任务执行记录和提交操作。
+            decode_viewer->recordAndSubmit(); // Record and submit each pending command-graph task.
             decode_viewer->present();
             return true;
         }

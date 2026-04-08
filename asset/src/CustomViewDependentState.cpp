@@ -345,14 +345,14 @@ void CustomViewDependentState::traverse(RecordTraversal& rt) const
     if (!view->features) return;
     if (!draw_shadow_light && !draw_shadow_pose) return;
 
-    // 仅在模型位姿变化时重新计算bounds
+    // Recompute bounds only when the model pose changes.
     if (draw_shadow_pose) {
         vsg::ComputeBounds computeSceneBounds_virtual;
         computeSceneBounds_virtual.traversalMask = MASK_PBR_FULL;
         view->accept(computeSceneBounds_virtual);
         scene_bound_ws_virtual = computeSceneBounds_virtual.bounds;
     }
-    // 否则使用缓存的 scene_bound_ws_virtual
+    // Otherwise reuse the cached scene_bound_ws_virtual value.
 
     // useful reference : https://learn.microsoft.com/en-us/windows/win32/dxtecharts/cascaded-shadow-maps
     // PCF filtering : https://github.com/SaschaWillems/Vulkan/issues/231
@@ -508,12 +508,12 @@ void CustomViewDependentState::traverse(RecordTraversal& rt) const
             ortho->top = ls_bounds_virtual.max.y;
             ortho->nearDistance = -ls_bounds_virtual.max.z;
 
-            // 计算包围盒8个角点到世界坐标z=-2平面的交点，保留最远的距离
+            // Intersect the eight bounding-box corners with the world-space z = -2 plane and keep the farthest distance.
             double target_world_z = -2.0;
             double max_far_distance = ortho->nearDistance;
 
             if (std::abs(light_z.z) > 1e-6) {
-                // 遍历包围盒的8个角点
+                // Iterate over the eight corners of the bounding box.
                 for (int i = 0; i < 8; ++i) {
                     dvec3 corner(
                         (i & 1) ? ws_bounds.max.x : ws_bounds.min.x,
@@ -521,27 +521,27 @@ void CustomViewDependentState::traverse(RecordTraversal& rt) const
                         (i & 4) ? ws_bounds.max.z : ws_bounds.min.z
                     );
 
-                    // 计算从角点沿光照方向到目标平面的参数t
+                    // Compute parameter t from the corner along the light direction toward the target plane.
                     double t = (target_world_z - corner.z) / light_z.z;
 
                     if (t > 0.0) {
-                        // 计算世界坐标交点
+                        // Compute the intersection point in world space.
                         dvec3 intersection_world = corner + light_z * t;
 
-                        // 变换到光照空间
+                        // Transform the point into light space.
                         dvec4 intersection_light = lookAt->transform() * dvec4(intersection_world, 1.0);
 
-                        // 更新最远距离
+                        // Update the farthest distance.
                         max_far_distance = std::max(max_far_distance, -intersection_light.z);
                     }
                 }
             }
 
-            // 限制最大距离
+            // Clamp the maximum distance.
             double max_additional_distance = (ls_bounds_virtual.max.z - ls_bounds_virtual.min.z) * 2.0;
             ortho->farDistance = std::min(max_far_distance, ortho->nearDistance + max_additional_distance);
 
-            // 确保包含真实场景
+            // Ensure the real scene remains enclosed.
             if(!std::isinf(ls_bounds_real.min.z))
                 ortho->farDistance = std::max(-ls_bounds_real.min.z, ortho->farDistance);
 

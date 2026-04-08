@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include <vsg/all.h>
 
-// 前置声明
+// Forward declarations.
 namespace tinyobj {
     struct material_t;
 }

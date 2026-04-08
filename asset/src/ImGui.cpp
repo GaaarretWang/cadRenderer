@@ -1,6 +1,6 @@
 ﻿#define _USE_MATH_DEFINES
 #include "ImGui.h"
-// 閸︺劏绻栭柌灞藉瘶閸氼偄鐣弫瀵告畱vsgRendererServer婢跺瓨鏋冩禒璁圭礉濮濄倖妞傞崜宥呮倻婢圭増妲戝鑼缎掗崘鍏呯贩鐠ф牠妫舵０?
+// Keep the renderer header here because the GUI writes directly into the server state.
 #include <vsgRendererServer.h>
 
 namespace vsgserver {
@@ -8,7 +8,7 @@ namespace vsgserver {
 }
 
 // final = T * original * Rz * Ry * Rx * S
-// 楠炲磭些閸︺劌涔忔笟褝绱欐稉鏍櫕缁屾椽妫块敍澶涚礉閺冨娴嗛崪宀€缂夐弨鎯ф躬閸欏厖鏅堕敍鍫濈湰闁劎鈹栭梻杈剧礆
+// Apply transforms in the order translation * original * rotationZ * rotationY * rotationX * scale.
 
 
 namespace gui
@@ -54,7 +54,7 @@ namespace gui
         }
     }
 
-    // 鐎圭偟骞囬弸鍕偓鐘插毐閺?
+    // Build the GUI controller and bind its JSON-backed state.
     MyGui::MyGui(vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data,
                  const std::string& scenes_json_path,
                  const std::string& materials_json_path,
@@ -64,12 +64,12 @@ namespace gui
           m_scenes_json_path(scenes_json_path), m_materials_json_path(materials_json_path),
           m_lightinfo_json_path(lightinfo_json_path)
     {
-        // 閸旂姾娴嘕SON閺傚洣娆㈤崚婵嗩潗閸栨牕寮弫?
+        // Initialize the JSON manager, serializers, and controller helpers.
         m_json_manager = std::make_shared<JsonConfigManager>(m_scenes_json_path, m_materials_json_path, m_lightinfo_json_path);
         m_scene_serializer = std::make_shared<SceneConfigSerializer>(m_json_manager);
         m_state_controller = std::make_shared<RenderStateController>(m_json_manager, m_scene_serializer);
         loadParams();
-        // 閸掓繂顫愰崠鏍х杽娓氬褰夐幑銏㈠Ц閹?
+        // Cache the per-instance transform state used by the pose controls.
         initInstanceStates();
     }
 
@@ -135,17 +135,17 @@ namespace gui
 
     void MyGui::compile(vsg::Context& context)
     {
-        // 缁屽搫鐤勯悳棰佺箽閹镐椒绗夐崣?
+        // No extra compile-time resources are required for this GUI node.
     }
 
-    // 鐎圭偟骞囬崝鐘烘祰JSON閸欏倹鏆?
+    // Load both render parameters and material parameters from JSON.
     void MyGui::loadParams()
     {
         loadRenderParams();
         loadMaterialParams();
     }
 
-    // 娴犲洞cenes.json閸旂姾娴囪ぐ鎾冲閸︾儤娅欓惃鍕閺屾挸寮弫?
+    // Load the current scene render state from Scenes.json.
     void MyGui::loadRenderParams()
     {
         std::cout << "Loading render params from: " << m_scenes_json_path << std::endl;
@@ -204,7 +204,7 @@ namespace gui
         vsgserver::renderer->syncConstantData();
     }
 
-    // 浠嶮aterials.json鍔犺浇鏉愯川鍙傛暟
+    // Load material parameters from Materials.json.
     void MyGui::loadMaterialParams()
     {
         try
@@ -226,14 +226,14 @@ namespace gui
         }
     }
 
-    // 鐎圭偟骞囨穱婵嗙摠閸欏倹鏆熼崚鐧慡ON閺傚洣娆?
+    // Save both render parameters and material parameters back to JSON.
     void MyGui::saveParams() const
     {
         saveRenderParams();
         saveMaterialParams();
     }
 
-    // 娣囨繂鐡╞aseBrightness閸掔檽ightInfo.json
+    // Persist the current baseBrightness value into LightInfo.json.
     void MyGui::saveBaseBrightnessToLightInfo() const
     {
         if (!m_json_manager)
@@ -257,7 +257,7 @@ namespace gui
         }
     }
 
-    // 淇濆瓨娓叉煋鍙傛暟鍒癝cenes.json鐨勫綋鍓嶅満鏅?
+    // Save the current scene render parameters to Scenes.json.
     void MyGui::saveRenderParams() const
     {
         if (!m_json_manager)
@@ -293,7 +293,7 @@ namespace gui
         std::cout << "Render params saved to: " << m_scenes_json_path << " (scene_id=" << CADMesh::current_scene_id << ")" << std::endl;
     }
 
-    // 淇濆瓨鏉愯川鍙傛暟鍒癕aterials.json
+    // Save material parameters to Materials.json.
     void MyGui::saveMaterialParams() const
     {
         if (!m_state_controller)
@@ -316,7 +316,7 @@ namespace gui
         }
     }
 
-    // 娓叉煋鍙傛暟闈㈡澘
+    // Draw the render-parameter control panel.
     void MyGui::drawRenderParams() const
     {
         ImGui::Text("hdr num:");
@@ -424,7 +424,7 @@ namespace gui
         ImGui::Text("getEncodeImage():\t%.3f ms", global_params->render_server_times[1]);
     }
 
-    // 閺夋劘宸濋幒褍鍩楅棃銏℃緲
+    // Draw material controls for each unique PBR material.
     void MyGui::drawMaterialControls() const
     {
         std::unordered_set<vsg::PbrMaterial*> unique_material;
@@ -456,7 +456,7 @@ namespace gui
         }
     }
 
-    // 缁?閻愯鐗卞蹇斿付閸掑爼娼伴弶?
+    // Draw line and point color controls.
     void MyGui::drawLinePointControls() const
     {
         ImGui::SliderFloat3("line color", CADMesh::dynamic_lines.colors->value().data(), 0.0f, 1.0f);
@@ -474,8 +474,8 @@ namespace gui
         resetSharedTransform();
     }
 
-    // 娣囨繂鐡ㄩ崣妯诲床閸掔櫇cenes.json
-    // 娣囨繂鐡ㄩ崣妯诲床閸掔櫇cenes.json
+    // Save the current instance transforms to Scenes.json.
+    // Selected instances use the edited transform; unselected instances keep the original one.
     void MyGui::saveTransformsToScenesJson() const
     {
         if (!m_json_manager)

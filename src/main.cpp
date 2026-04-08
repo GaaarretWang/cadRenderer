@@ -16,22 +16,22 @@
 
 int main(int argc, char** argv){
     try {
-        // 手动解析PNG测试参数（不使用vsg::CommandLine，避免消费其他模块需要的参数）
+        // Parse PNG test arguments manually so other modules can still consume their own flags.
         bool save_ref = false;
         bool compare_ref = false;
-        double diff_threshold = 0.01; // 差异率阈值，默认1%
+        double diff_threshold = 0.01; // Difference-ratio threshold, default 1%.
         std::string scene_id_str = "0";
         for(int i = 1; i < argc; i++){
             std::string arg = argv[i];
             if(arg == "--save-ref") save_ref = true;
             else if(arg == "--compare-ref") compare_ref = true;
             else if(arg == "--diff-threshold" && i + 1 < argc) diff_threshold = std::stod(argv[++i]);
-            else if((arg == "--scene" || arg == "-s") && i + 1 < argc) scene_id_str = argv[i + 1]; // 不消费，留给RenderingServer
+            else if((arg == "--scene" || arg == "-s") && i + 1 < argc) scene_id_str = argv[i + 1]; // Do not consume it here; RenderingServer still needs it.
         }
 
-    // 解析命令行参数
+    // Parse command-line arguments.
     vsg::CommandLine arguments(&argc, argv);
-    int max_frames = 0; // 0表示无限运行
+    int max_frames = 0; // Zero means run indefinitely.
     arguments.read("--frames", max_frames);
     arguments.read("-f", max_frames);
 
@@ -51,25 +51,25 @@ int main(int argc, char** argv){
     int frameCount = 0;
     int total_frames_rendered = 0;
     while((max_frames <= 0 || total_frames_rendered < max_frames)){
-        // 增量帧计数器
+        // Increment the frame counter.
         frameCount++;
         total_frames_rendered++;
 
-        // 计算经过的时间
+        // Compute the elapsed time.
         auto currentTime = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> elapsedTime = currentTime - startTime;
 
-        // 检查是否已过一秒
+        // Check whether one second has elapsed.
         if (elapsedTime.count() >= 1.0f)
         {
-            // 计算 FPS
+            // Compute FPS.
             float fps = frameCount / elapsedTime.count();
             gui::global_params->currentFps = fps;
 
-            // 将FPS输出到控制台
+            // Print FPS to the console.
             std::cout << "FPS: " << fps << std::endl;
 
-            // 下一秒重置
+            // Reset counters for the next second.
             frameCount = 0;
             startTime = currentTime;
         }
@@ -85,7 +85,7 @@ int main(int argc, char** argv){
 #endif
     }
 
-    // 达到指定帧数后，执行PNG参考图保存/对比
+    // Save or compare PNG reference images after reaching the requested frame count.
     if(save_ref || compare_ref){
         int rw = rendering_server.renderer.render_width;
         int rh = rendering_server.renderer.render_height;
@@ -124,7 +124,7 @@ int main(int argc, char** argv){
         }
     }
 
-    // 达到指定帧数，程序停止
+    // Stop once the requested frame count is reached.
     std::cout << "Program stopped after " << total_frames_rendered << " frames" << std::endl;
         return 0;
     } catch (const std::exception& e) {

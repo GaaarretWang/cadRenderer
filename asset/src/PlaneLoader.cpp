@@ -1,6 +1,6 @@
 ﻿#include "PlaneLoader.h"
 
-// 辅助函数：计算向量叉积
+// Helper: compute the cross product of two vectors.
 std::vector<double> cross(const std::vector<double>& a, const std::vector<double>& b) {
     return std::vector<double>{
         a[1] * b[2] - a[2] * b[1],
@@ -9,7 +9,7 @@ std::vector<double> cross(const std::vector<double>& a, const std::vector<double
     };
 }
 
-// 辅助函数：向量单位化
+// Helper: normalize a vector.
 void normalize(std::vector<double>& v) {
     double length = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
     if (length > 0) {
@@ -20,13 +20,13 @@ void normalize(std::vector<double>& v) {
 }
 
 MeshData convertPlaneDataToWireframe(const PlaneData& planeData, float subdivision_length) {
-    // 第一遍：计算所有平面的总顶点数和总线段数
+    // First pass: compute the total vertex count and line-segment count for all planes.
     size_t totalVertices = 0;
     size_t totalLineSegments = 0;
 
     struct PlaneGrid {
-        int N; // U 方向细分数
-        int M; // V 方向细分数
+        int N; // Subdivision count along U.
+        int M; // Subdivision count along V.
     };
     std::vector<PlaneGrid> grids(planeData.origin.size());
 
@@ -36,20 +36,20 @@ MeshData convertPlaneDataToWireframe(const PlaneData& planeData, float subdivisi
         double lenU = std::sqrt(u[0]*u[0] + u[1]*u[1] + u[2]*u[2]);
         double lenV = std::sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
 
-        // 选择 N, M 使得 ||U||/N ≈ ||V||/M（小格近似正方形）
+        // Choose N and M so that ||U|| / N ~= ||V|| / M and the cells remain close to square.
         int N = std::max(1, static_cast<int>(std::round(lenU / subdivision_length)));
         int M = std::max(1, static_cast<int>(std::round(lenV / subdivision_length)));
         grids[p] = {N, M};
 
         totalVertices += (N + 1) * (M + 1);
-        // 水平线 (M+1) + 垂直线 (N+1) + 对角线 (N+M-1) = 2N + 2M + 1
+        // Horizontal (M+1) + vertical (N+1) + diagonal (N+M-1) lines = 2N + 2M + 1.
         totalLineSegments += 2 * N + 2 * M + 1;
     }
 
     MeshData meshData;
     meshData.vertices = vsg::vec3Array::create(totalVertices);
     meshData.normals = vsg::vec3Array::create(totalVertices);
-    meshData.indices = vsg::uintArray::create(totalLineSegments * 2); // 每条线段 2 个索引
+    meshData.indices = vsg::uintArray::create(totalLineSegments * 2); // Two indices per line segment.
 
     size_t vertexOffset = 0;
     size_t indexOffset = 0;
@@ -62,7 +62,7 @@ MeshData convertPlaneDataToWireframe(const PlaneData& planeData, float subdivisi
         int N = grids[p].N;
         int M = grids[p].M;
 
-        // 生成 (N+1)*(M+1) 个顶点网格
+        // Generate the (N+1) * (M+1) vertex grid.
         // vertex(i,j) = origin + i*(U/N) + j*(V/M)
         auto vertexIdx = [&](int i, int j) -> uint32_t {
             return static_cast<uint32_t>(vertexOffset + i * (M + 1) + j);
@@ -82,21 +82,21 @@ MeshData convertPlaneDataToWireframe(const PlaneData& planeData, float subdivisi
             }
         }
 
-        // 水平线 (M+1 条): 每条从 vertex(0,j) 到 vertex(N,j)
+        // Horizontal lines (M+1): each one goes from vertex(0, j) to vertex(N, j).
         for (int j = 0; j <= M; ++j) {
             meshData.indices->set(indexOffset++, vertexIdx(0, j));
             meshData.indices->set(indexOffset++, vertexIdx(N, j));
         }
 
-        // 垂直线 (N+1 条): 每条从 vertex(i,0) 到 vertex(i,M)
+        // Vertical lines (N+1): each one goes from vertex(i, 0) to vertex(i, M).
         for (int i = 0; i <= N; ++i) {
             meshData.indices->set(indexOffset++, vertexIdx(i, 0));
             meshData.indices->set(indexOffset++, vertexIdx(i, M));
         }
 
-        // 对角线 (N+M-1 条): 沿 d=i-j 方向的共线对角线
-        // d 从 -(M-1) 到 (N-1)
-        // 每条对角线从 vertex(max(0,d), max(0,-d)) 到 vertex(min(N,M+d), min(M,N-d))
+        // Diagonal lines (N+M-1): collinear diagonals along the d = i - j direction.
+        // d ranges from -(M-1) to (N-1).
+        // Each diagonal runs from vertex(max(0, d), max(0, -d)) to vertex(min(N, M + d), min(M, N - d)).
         for (int d = -(M - 1); d <= (N - 1); ++d) {
             int i_start = std::max(0, d);
             int j_start = std::max(0, -d);
@@ -119,35 +119,35 @@ MeshData convertPlaneDataToWireframe(const PlaneData& planeData, float subdivisi
 PlaneData createTestPlanes() {
     PlaneData planeData;
 
-    // 定义立方体的尺寸
+    // Define the cube dimensions.
     double size0 = 4.0;
 
-    // 1. 前面 (facing -Z)
+    // 1. Front face (facing -Z).
     planeData.origin.push_back({-size0/2, -size0/2, -1.2});
     planeData.normals.push_back({0.0, 0.0, 1.0});
     planeData.u.push_back({size0, 0.0, 0.0});
     planeData.v.push_back({0.0, size0, 0.0});
 
 
-    // 1. 前面 (facing -Z)
+    // 1. Front face (facing -Z).
     planeData.origin.push_back({-0.0, 0.78, -0.72});
     planeData.normals.push_back({0.0, 0.0, 1.0});
     planeData.u.push_back({0.4, 0.0, 0.0});
     planeData.v.push_back({0.0, 0.4, 0.0});
 
-    // // 2. 右面 (facing +X)
+    // // 2. Right face (facing +X).
     // planeData.origin.push_back({size/2, -size/2, -size/2});
     // planeData.normals.push_back({1.0, 0.0, 0.0});
     // planeData.u.push_back({0.0, 0.0, size});
     // planeData.v.push_back({0.0, size, 0.0});
 
-    // // 3. 后面 (facing +Z)
+    // // 3. Back face (facing +Z).
     // planeData.origin.push_back({size/2, -size/2, size/2});
     // planeData.normals.push_back({0.0, 0.0, 1.0});
     // planeData.u.push_back({-size, 0.0, 0.0});
     // planeData.v.push_back({0.0, size, 0.0});
 
-    // // 4. 左面 (facing -X)
+    // // 4. Left face (facing -X).
     // planeData.origin.push_back({-size/2, -size/2, size/2});
     // planeData.normals.push_back({-1.0, 0.0, 0.0});
     // planeData.u.push_back({0.0, 0.0, -size});

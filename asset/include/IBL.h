@@ -10,7 +10,7 @@
 namespace IBL
 {
     template<typename T>
-    using ptr = vsg::ref_ptr<T>;//简化智能指针书写
+    using ptr = vsg::ref_ptr<T>; // Short alias for the smart-pointer type.
 
     namespace Constants
     {

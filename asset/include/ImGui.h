@@ -6,10 +6,10 @@
 #include <vsgImGui/Texture.h>
 #include <vsgImGui/RenderImGui.h>
 #include <vsgImGui/SendEventsToImGui.h>
-// 移除直接包含 vsgRendererServer.h，改为前向声明
+// Avoid including vsgRendererServer.h directly; use a forward declaration instead.
 class vsgRendererServer;
 #include <CADMesh.h>
-// 引入JSON库
+// JSON library include.
 #include <json/json.hpp>
 #include <fstream>
 #include <filesystem>
@@ -22,7 +22,7 @@ class vsgRendererServer;
 #include "SceneConfigSerializer.h"
 #include "MyMask.h"
 
-// 简化JSON命名空间
+// Short alias for the JSON namespace.
 using json = nlohmann::json;
 namespace fs = std::filesystem;
 
@@ -43,14 +43,14 @@ struct GlobalPCData{
     uint32_t frame_num = 0;
 };
 
-// 实例变换状态
+// Per-instance transform state.
 struct InstanceTransformState {
     std::string instance_name;
     vsg::dmat4 original_transform;
     bool selected = false;
 };
 
-// 全局renderer指针（initRenderer中设置）
+// Global renderer pointer, set by initRenderer.
 namespace vsgserver {
     extern vsgRendererServer* renderer;
 }
@@ -91,7 +91,7 @@ namespace gui
     };
     extern vsg::ref_ptr<Params> global_params;
 
-    // 工具函数：提取路径最后一个/后的内容作为Key
+    // Helper: use the final path segment as the persistence key.
     inline std::string extractMaterialKey(const std::string& full_path)
     {
         size_t last_slash = full_path.find_last_of('/');
@@ -115,9 +115,9 @@ namespace gui
         mutable float pcss_softness;
         mutable float pcss_softness_falloff;
 
-        // 实例变换状态
+        // Per-instance transform state.
         mutable std::vector<InstanceTransformState> m_instance_states;
-        // 滑条范围
+        // Slider ranges.
         mutable float m_rotate_min[3] = {-180.f, -180.f, -180.f};
         mutable float m_rotate_max[3] = {180.f, 180.f, 180.f};
         mutable float m_scale_min = 50.f;
@@ -128,7 +128,7 @@ namespace gui
         mutable float m_shared_rotate[3] = {0.f, 0.f, 0.f};
         mutable float m_shared_scale_percent = 100.0f;
 
-        // 调整构造函数参数，接收三个JSON路径
+        // Constructor now accepts the three JSON paths.
         MyGui(vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data,
               const std::string& scenes_json_path,
               const std::string& materials_json_path,
@@ -137,13 +137,13 @@ namespace gui
 
         void compile(vsg::Context& context) override;
 
-        // 声明加载参数函数（实现放cpp）
+        // Load-parameter declarations are implemented in the .cpp file.
         void loadParams();
 
-        // 保存参数到JSON文件（保留历史Key）
+        // Save parameters back to JSON while preserving existing keys.
         void saveParams() const;
 
-        // 声明record函数（实现放cpp）
+        // The record implementation lives in the .cpp file.
         void record(vsg::CommandBuffer& cb) const override;
 
     private:

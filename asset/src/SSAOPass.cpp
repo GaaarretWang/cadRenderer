@@ -22,30 +22,30 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAOShaderSet(vsg::ref_ptr<const vs
     shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
 
     shaderSet->addDescriptorBinding(
-        "colorInputAttachment",          // 名称（需和 GLSL 中一致）
-        "",                               // 无预编译宏（必启用，因为 subpass 1 必须读）
-        MATERIAL_DESCRIPTOR_SET,  // 输入附件专属的 descriptor set
-        0,             // binding 索引（和 GLSL 中 input_attachment_index 对应）
-        VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,  // 类型必须是输入附件！
-        1,                                // 数组大小（1 个）
-        VK_SHADER_STAGE_FRAGMENT_BIT,     // 仅片段着色器读取
+        "colorInputAttachment",          // Name; must match the GLSL declaration.
+        "",                               // No preprocessor macro; subpass 1 always reads it.
+        MATERIAL_DESCRIPTOR_SET,  // Descriptor set dedicated to input attachments.
+        0,             // Binding index matching GLSL input_attachment_index.
+        VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,  // Must use an input-attachment descriptor.
+        1,                                // Single descriptor.
+        VK_SHADER_STAGE_FRAGMENT_BIT,     // Read only in the fragment shader.
         vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM})
     );
     shaderSet->addDescriptorBinding(
-        "normalInputAttachment",          // 名称（需和 GLSL 中一致）
-        "",                               // 无预编译宏（必启用，因为 subpass 1 必须读）
-        MATERIAL_DESCRIPTOR_SET,  // 输入附件专属的 descriptor set
-        1,             // binding 索引（和 GLSL 中 input_attachment_index 对应）
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  // 类型必须是输入附件！
-        1,                                // 数组大小（1 个）
-        VK_SHADER_STAGE_FRAGMENT_BIT,     // 仅片段着色器读取
+        "normalInputAttachment",          // Name; must match the GLSL declaration.
+        "",                               // No preprocessor macro; subpass 1 always reads it.
+        MATERIAL_DESCRIPTOR_SET,  // Descriptor set dedicated to input attachments.
+        1,             // Binding index matching GLSL input_attachment_index.
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  // Combined image sampler for this attachment.
+        1,                                // Single descriptor.
+        VK_SHADER_STAGE_FRAGMENT_BIT,     // Read only in the fragment shader.
         vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM})
     );
     shaderSet->addDescriptorBinding(
-        "worldPosInputAttachment",        // 名称（需和 GLSL 中一致）
-        "",                               // 无预编译宏
-        MATERIAL_DESCRIPTOR_SET,  // 同一 input set
-        2,           // binding 索引
+        "worldPosInputAttachment",        // Name; must match the GLSL declaration.
+        "",                               // No preprocessor macro.
+        MATERIAL_DESCRIPTOR_SET,  // Reuse the same input-attachment set.
+        2,           // Binding index.
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         1,
         VK_SHADER_STAGE_FRAGMENT_BIT,
@@ -65,14 +65,14 @@ void SSAOPass::buildSSAOData(vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<vs
     graphicsPipelineConfig->subpass = 1;
 
     unsigned int seed = 100;
-    std::mt19937 generator(seed); // 梅森旋转算法，性能和随机性都好
+    std::mt19937 generator(seed); // Mersenne Twister with good speed and randomness for this use case.
     std::uniform_real_distribution<float> distribution(0, 1.0f);
 
-    auto samplerNoiseData = vsg::ubvec4Array2D::create(extent.width, extent.height); // VSG 2D 纹理数据容器（RGBA8）
+    auto samplerNoiseData = vsg::ubvec4Array2D::create(extent.width, extent.height); // VSG 2D texture container in RGBA8 format.
     for (uint32_t i = 0; i < extent.width; ++i){
         for (uint32_t j = 0; j < extent.height; ++j){
-            float randX = distribution(generator); // C++ 标准线性随机数（x 分量）
-            float randY = distribution(generator); // C++ 标准线性随机数（y 分量）
+            float randX = distribution(generator); // Random x component.
+            float randY = distribution(generator); // Random y component.
             samplerNoiseData->set(i, j, vsg::ubvec4(static_cast<uint8_t>(randX * 255.0f), 
                     static_cast<uint8_t>(randY * 255.0f), static_cast<uint8_t>(0), static_cast<uint8_t>(0)));
         }
@@ -121,9 +121,9 @@ void SSAOPass::buildSSAOData(vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<vs
     auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
     indirectBuffer->set(0, cmd);
     auto draw_indirect = vsg::DrawIndexedIndirect::create(
-        indirectBuffer,  // 间接命令缓冲区
-        1,              // 绘制命令数量
-        sizeof(VkDrawIndexedIndirectCommand) // 命令步长
+        indirectBuffer,  // Indirect-command buffer.
+        1,              // Number of draw commands.
+        sizeof(VkDrawIndexedIndirectCommand) // Command stride.
     );
     drawCommands->addChild(draw_indirect);
     graphicsPipelineConfig->init();
@@ -156,24 +156,24 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAODenoiseShaderSet(vsg::ref_ptr<c
     shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
 
     shaderSet->addDescriptorBinding(
-        "colorInputAttachment",          // 名称（需和 GLSL 中一致）
-        "",                               // 无预编译宏（必启用，因为 subpass 1 必须读）
-        MATERIAL_DESCRIPTOR_SET,  // 输入附件专属的 descriptor set
-        0,             // binding 索引（和 GLSL 中 input_attachment_index 对应）
-        VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,  // 类型必须是输入附件！
-        1,                                // 数组大小（1 个）
-        VK_SHADER_STAGE_FRAGMENT_BIT,     // 仅片段着色器读取
+        "colorInputAttachment",          // Name; must match the GLSL declaration.
+        "",                               // No preprocessor macro; subpass 1 always reads it.
+        MATERIAL_DESCRIPTOR_SET,  // Descriptor set dedicated to input attachments.
+        0,             // Binding index matching GLSL input_attachment_index.
+        VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,  // Must use an input-attachment descriptor.
+        1,                                // Single descriptor.
+        VK_SHADER_STAGE_FRAGMENT_BIT,     // Read only in the fragment shader.
         vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM})
     );
 
     shaderSet->addDescriptorBinding(
-        "shadowInputAttachment",          // 名称（需和 GLSL 中一致）
-        "",                               // 无预编译宏（必启用，因为 subpass 1 必须读）
-        MATERIAL_DESCRIPTOR_SET,  // 输入附件专属的 descriptor set
-        1,             // binding 索引（和 GLSL 中 input_attachment_index 对应）
-        VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,  // 类型必须是输入附件！
-        1,                                // 数组大小（1 个）
-        VK_SHADER_STAGE_FRAGMENT_BIT,     // 仅片段着色器读取
+        "shadowInputAttachment",          // Name; must match the GLSL declaration.
+        "",                               // No preprocessor macro; subpass 1 always reads it.
+        MATERIAL_DESCRIPTOR_SET,  // Descriptor set dedicated to input attachments.
+        1,             // Binding index matching GLSL input_attachment_index.
+        VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,  // Must use an input-attachment descriptor.
+        1,                                // Single descriptor.
+        VK_SHADER_STAGE_FRAGMENT_BIT,     // Read only in the fragment shader.
         vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM})
     );
     shaderSet->addDescriptorBinding("samplerSSAO", "", MATERIAL_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
@@ -181,13 +181,13 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAODenoiseShaderSet(vsg::ref_ptr<c
     
     auto colorBlendState = vsg::ColorBlendState::create();
     colorBlendState->attachments[0] = {
-        VK_FALSE,                                      // 开启混合
-        VK_BLEND_FACTOR_SRC_ALPHA,                    // 源颜色因子：取当前片元的 Alpha 值
-        VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,          // 目标颜色因子：1 - 源 Alpha（经典半透公式）
-        VK_BLEND_OP_ADD,                              // 颜色混合：源×源Alpha + 目标×(1-源Alpha)
-        VK_BLEND_FACTOR_ONE,                          // 源 Alpha 因子：1
-        VK_BLEND_FACTOR_ZERO,                         // 目标 Alpha 因子：0
-        VK_BLEND_OP_ADD,                              // Alpha 混合：源Alpha×1 + 目标Alpha×0
+        VK_FALSE,                                      // Disable blending.
+        VK_BLEND_FACTOR_SRC_ALPHA,                    // Source color factor: current fragment alpha.
+        VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,          // Destination color factor: 1 - source alpha.
+        VK_BLEND_OP_ADD,                              // Color blend: src * srcAlpha + dst * (1 - srcAlpha).
+        VK_BLEND_FACTOR_ONE,                          // Source alpha factor: 1.
+        VK_BLEND_FACTOR_ZERO,                         // Destination alpha factor: 0.
+        VK_BLEND_OP_ADD,                              // Alpha blend: srcAlpha * 1 + dstAlpha * 0.
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
     };
     colorBlendState->attachments.resize(2, colorBlendState->attachments[0]); 
@@ -242,9 +242,9 @@ void SSAOPass::buildSSAODenoiseData(vsg::ref_ptr<vsg::Options> options, vsg::ref
     auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
     indirectBuffer->set(0, cmd);
     auto draw_indirect = vsg::DrawIndexedIndirect::create(
-        indirectBuffer,  // 间接命令缓冲区
-        1,              // 绘制命令数量
-        sizeof(VkDrawIndexedIndirectCommand) // 命令步长
+        indirectBuffer,  // Indirect-command buffer.
+        1,              // Number of draw commands.
+        sizeof(VkDrawIndexedIndirectCommand) // Command stride.
     );
 
     drawCommands->addChild(draw_indirect);

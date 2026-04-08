@@ -92,15 +92,15 @@ struct ProtoData
     std::string material_persist_key;
     std::string fb_color_group_key;
     vsg::ref_ptr<vsg::mat4Array> instance_buffer;
-    vsg::ref_ptr<vsg::mat4Array> last_instance_buffer; // 上一帧的proto矩阵
+    vsg::ref_ptr<vsg::mat4Array> last_instance_buffer; // Proto matrices from the previous frame.
     vsg::ref_ptr<vsg::BufferInfo> input_instance_buffer_info;
-    vsg::ref_ptr<vsg::BufferInfo> last_instance_buffer_info; // 上一帧的proto矩阵BufferInfo
+    vsg::ref_ptr<vsg::BufferInfo> last_instance_buffer_info; // BufferInfo for the previous-frame proto matrices.
     vsg::ref_ptr<vsg::uintArray> highlight_buffer;
     vsg::ref_ptr<vsg::BufferInfo> input_highlight_buffer_info;
     vsg::ref_ptr<vsg::BufferInfo> output_instance_buffer_info;
     std::vector<std::string> instance_id;
     std::vector<vsg::dmat4> instance_matrix;
-    std::vector<uint32_t> instance_model_indices;  // 每实例的 model 矩阵全局索引
+    std::vector<uint32_t> instance_model_indices;  // Global model-matrix index for each instance.
     vsg::ref_ptr<vsg::ShaderSet> shaderset;
     vsg::ref_ptr<vsg::Group> scene;
     vsg::ref_ptr<vsg::DrawIndexedIndirect> draw_indirect;
@@ -231,7 +231,7 @@ private:
     std::unordered_map<std::string, uint32_t> uniqueMaterials;
 
 public:
-    std::string fbFileName; // 存储模型文件名，用于PMI独立查询
+    std::string fbFileName; // Store the model filename for standalone PMI queries.
 
     std::unordered_map<std::string, uint32_t> protoIndex;
     std::unordered_map<std::string, uint32_t> protoTriangleNum;
@@ -269,20 +269,20 @@ public:
     static DynamicTexts pmi_texts;
     static std::vector<PMITransformNode> pmi_transform_nodes;
 
-    // 场景实例数据（供ImGui读取）
+    // Scene instance data consumed by ImGui.
     static std::vector<std::string> scene_instance_names;
     static std::vector<vsg::dmat4> scene_original_transforms;
     static std::string scenes_json_path;
     static int current_scene_id;
     static vsg::View* active_view;
 
-    // 实例名 → 模型相对路径映射（供保存Scenes.json时使用）
+    // Instance-name to model-relative-path mapping used when saving Scenes.json.
     static std::unordered_map<std::string, std::string> instance_name_to_rel_path;
 
-    // 每帧开始时：将当前矩阵拷贝到上一帧矩阵缓冲
+    // At the start of each frame, copy the current matrices into the previous-frame buffers.
     static void copyCurrentToLastMatrices();
 
-    // 运行时更新指定model的PMI变换矩阵
+    // Update the PMI transform matrices for the specified model at runtime.
     static void updatePMITransforms(uint32_t model_idx);
 
     std::vector<std::string> proto_ids;

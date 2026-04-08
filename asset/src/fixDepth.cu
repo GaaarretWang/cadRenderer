@@ -31,21 +31,21 @@ __global__ static void convert_4_to_channels(int w, int h, unsigned short * dept
     }  
 }  
 
-// CUDA-Vulkan interop版本：CPU深度上传到interop内存，原地inpainting，无需D2H回传
+// CUDA-Vulkan interop path: upload CPU depth into interop memory and run in-place inpainting with no D2H copy.
 void fix_depth_interop(int w, int h, unsigned short * host_depth, void* depth_device_ptr){
     unsigned short* interop_ptr = static_cast<unsigned short*>(depth_device_ptr);
 
-    // CPU → interop GPU内存（直接写入Vulkan可采样的内存）
+    // CPU -> interop GPU memory (write directly into Vulkan-sampled memory).
     cudaMemcpy(interop_ptr, host_depth, sizeof(unsigned short) * w * h, cudaMemcpyHostToDevice);
 
     dim3 block(16, 16);
     dim3 grid((w + block.x - 1) / block.x,
               (h + block.y - 1) / block.y);
 
-    // 在interop内存上原地运行inpainting kernel
+    // Run the inpainting kernel in place on the interop memory.
     for(int iterate_num = 0; iterate_num < 15; iterate_num++){
         convert_4_to_channels<<<grid, block>>>(w, h, interop_ptr);
     }
     cudaDeviceSynchronize();
-    // 无需 cudaMemcpyDeviceToHost — Vulkan直接采样此内存
+    // No cudaMemcpyDeviceToHost is needed because Vulkan samples this memory directly.
 }

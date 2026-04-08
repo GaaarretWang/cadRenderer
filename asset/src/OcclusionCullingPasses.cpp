@@ -11,13 +11,13 @@ namespace OcclusionCullingPasses{
     void initOcclusionCullingPassesImageInfo(VkExtent2D extent, vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget){
         depthPyramidImage = vsg::Image::create();
         depthPyramidImage->imageType = VK_IMAGE_TYPE_2D;
-        depthPyramidImage->format = VK_FORMAT_R32_SFLOAT; // 假设与深度附件兼容
-        depthPyramidImage->mipLevels = 10; // 共 7 层
-        depthPyramidImage->arrayLayers = 1; // 共 7 层
-        depthPyramidImage->usage = VK_IMAGE_USAGE_STORAGE_BIT |          // 计算着色器读写
+        depthPyramidImage->format = VK_FORMAT_R32_SFLOAT; // Treat it as compatible with the depth data we need.
+        depthPyramidImage->mipLevels = 10; // Total mip count.
+        depthPyramidImage->arrayLayers = 1; // Single array layer.
+        depthPyramidImage->usage = VK_IMAGE_USAGE_STORAGE_BIT |          // Read and write from compute shaders.
                                     VK_IMAGE_USAGE_SAMPLED_BIT | 
-                                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |     // 可能需要mipmap生成
-                                    VK_IMAGE_USAGE_TRANSFER_DST_BIT;      // 可能需要初始化
+                                    VK_IMAGE_USAGE_TRANSFER_SRC_BIT |     // May be needed for mip generation.
+                                    VK_IMAGE_USAGE_TRANSFER_DST_BIT;      // May be needed for initialization.
         depthPyramidImage->initialLayout = VK_IMAGE_LAYOUT_GENERAL;
         depthPyramidImage->extent.width = extent.width;
         depthPyramidImage->extent.height = extent.height;
@@ -26,9 +26,9 @@ namespace OcclusionCullingPasses{
         depth_pyramid_sampler = vsg::Sampler::create();
         depth_pyramid_sampler->minLod = 0;
         depth_pyramid_sampler->maxLod = static_cast<uint32_t>(std::max(0, mip_level_count - 1));
-        depth_pyramid_sampler->magFilter = VK_FILTER_NEAREST;  // 放大时使用 Nearest
-        depth_pyramid_sampler->minFilter = VK_FILTER_NEAREST;  // 缩小时使用 Nearest
-        depth_pyramid_sampler->mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST; // Mipmap 使用 Nearest
+        depth_pyramid_sampler->magFilter = VK_FILTER_NEAREST;  // Use nearest filtering when magnifying.
+        depth_pyramid_sampler->minFilter = VK_FILTER_NEAREST;  // Use nearest filtering when minifying.
+        depth_pyramid_sampler->mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST; // Use nearest filtering between mip levels.
 
         depthPyramidImageView = vsg::ImageView::create(depthPyramidImage);
         depthPyramidImageView->subresourceRange.baseMipLevel = 0;
@@ -210,7 +210,7 @@ namespace OcclusionCullingPasses{
                 VK_QUEUE_FAMILY_IGNORED,
                 VK_QUEUE_FAMILY_IGNORED,
                 depthPyramidImage,
-                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // 前一层级
+                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1} // Previous mip level.
             );
 
             depth_pyramid_CommandGraph->addChild(vsg::PipelineBarrier::create(
@@ -263,7 +263,7 @@ namespace OcclusionCullingPasses{
                 VK_QUEUE_FAMILY_IGNORED,
                 VK_QUEUE_FAMILY_IGNORED,
                 depthPyramidImage,
-                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, 1} // 前一层级
+                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, 1} // Previous mip level.
             );
 
             depth_pyramid_CommandGraph->addChild(vsg::PipelineBarrier::create(
@@ -273,22 +273,22 @@ namespace OcclusionCullingPasses{
             ));
         }
         auto pyramidFinalBarrier = vsg::ImageMemoryBarrier::create(
-            VK_ACCESS_SHADER_WRITE_BIT,          // 前序：金字塔生成的写入
-            VK_ACCESS_SHADER_READ_BIT,           // 后续：剔除阶段的读取
-            VK_IMAGE_LAYOUT_GENERAL,             // 金字塔生成时的布局
-            VK_IMAGE_LAYOUT_GENERAL,             // 剔除读取时的布局（保持一致）
+            VK_ACCESS_SHADER_WRITE_BIT,          // Previous step: depth-pyramid writes.
+            VK_ACCESS_SHADER_READ_BIT,           // Next step: culling reads.
+            VK_IMAGE_LAYOUT_GENERAL,             // Layout during depth-pyramid generation.
+            VK_IMAGE_LAYOUT_GENERAL,             // Layout used while culling reads it.
             VK_QUEUE_FAMILY_IGNORED,
             VK_QUEUE_FAMILY_IGNORED,
             depthPyramidImage,
             VkImageSubresourceRange{
-                VK_IMAGE_ASPECT_COLOR_BIT,       // 关键！depthPyramidImage是R32_SFLOAT（普通颜色格式），不是深度格式，不能用DEPTH_BIT
-                0, 10, 0, 1                       // 同步所有7个mip层
+                VK_IMAGE_ASPECT_COLOR_BIT,       // Important: depthPyramidImage is R32_SFLOAT, not a depth format.
+                0, 10, 0, 1                       // Synchronize all mip levels.
             }
         );
 
         depth_pyramid_CommandGraph->addChild(vsg::PipelineBarrier::create(
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,  // 前序阶段：金字塔生成的计算阶段
-            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,  // 后续阶段：剔除的计算阶段
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,  // Previous stage: depth-pyramid generation.
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,  // Next stage: culling compute pass.
             0,
             pyramidFinalBarrier
         ));

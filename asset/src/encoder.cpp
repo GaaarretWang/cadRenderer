@@ -154,7 +154,7 @@ void* getExportHandle(vsg::ref_ptr<vsg::Buffer> buffer, vsg::ref_ptr<vsg::Device
 {
 
 #ifdef _WIN32
-    HANDLE handle = INVALID_HANDLE_VALUE; // ʹ�� HANDLE �����������洢 Win32 ���
+    HANDLE handle = INVALID_HANDLE_VALUE; // Use HANDLE to store the exported Win32 handle.
     VkMemoryGetWin32HandleInfoKHR handleInfo = {};
     handleInfo.sType = VK_STRUCTURE_TYPE_MEMORY_GET_WIN32_HANDLE_INFO_KHR;
     handleInfo.memory = buffer->getDeviceMemory(m_device->deviceID)->vk();
@@ -485,7 +485,7 @@ Cudasema::Cudasema(vsg::ref_ptr<vsg::Semaphore> semaphore, vsg::ref_ptr<vsg::Dev
     HANDLE handle = nullptr;
     CUexternalSemaphore p = NULL;
 
-    // 获取信号量的句柄，此处假设 getExportHandle 函数用于获取信号量句柄
+    // Fetch the exported semaphore handle.
     if ((p = getExportHandle(semaphore, m_device)) == NULL) {
         throw std::runtime_error("Failed to get export handle for semaphore");
     }
@@ -497,7 +497,7 @@ Cudasema::Cudasema(vsg::ref_ptr<vsg::Semaphore> semaphore, vsg::ref_ptr<vsg::Dev
     int fd = -1;
     CUexternalSemaphore p = NULL;
 
-    // 获取信号量的句柄，此处假设 getExportHandle 函数用于获取信号量句柄
+    // Fetch the exported semaphore handle.
     if ((p = getExportHandle(semaphore, m_device)) == NULL) {
         throw std::runtime_error("Failed to get export handle for semaphore");
     }

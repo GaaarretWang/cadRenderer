@@ -5,23 +5,23 @@
 #include <cmath>
 #include <iostream>
 
-// 保存 vsg::Data 为 PNG 文件
+// Save vsg::Data as a PNG file.
 bool ImageUtils::savePNG(const std::string& filepath, vsg::ref_ptr<vsg::Data> data) {
     if (!data) {
         vsg::error("savePNG: null data pointer");
         return false;
     }
 
-    // 确保目录存在
+    // Ensure the output directory exists.
     std::filesystem::path path(filepath);
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
     }
 
-    // 创建 vsgXchange 选项
+    // Create the vsgXchange options object.
     auto options = vsg::Options::create(vsgXchange::images::create());
 
-    // 写入文件
+    // Write the file.
     if (!vsg::write(data, filepath, options)) {
         vsg::error("Failed to save PNG: ", filepath);
         return false;
@@ -31,7 +31,7 @@ bool ImageUtils::savePNG(const std::string& filepath, vsg::ref_ptr<vsg::Data> da
     return true;
 }
 
-// 保存原始像素数据为 PNG 文件（兼容现有调用）
+// Save raw pixel data as a PNG file for compatibility with existing call sites.
 bool ImageUtils::savePNG(const std::string& filepath,
                           const uint8_t* pixels,
                           int width, int height, int channels) {
@@ -40,7 +40,7 @@ bool ImageUtils::savePNG(const std::string& filepath,
         return false;
     }
 
-    // 创建 vsg::Data 对象
+    // Create the vsg::Data wrapper.
     vsg::ref_ptr<vsg::Data> data;
 
     if (channels == 4) {
@@ -66,7 +66,7 @@ bool ImageUtils::savePNG(const std::string& filepath,
     return savePNG(filepath, data);
 }
 
-// 加载 PNG 文件为 vsg::Data
+// Load a PNG file into vsg::Data.
 vsg::ref_ptr<vsg::Data> ImageUtils::loadPNG(const std::string& filepath, int desired_channels) {
     auto options = vsg::Options::create(vsgXchange::images::create());
     auto data = vsg::read_cast<vsg::Data>(filepath, options);
@@ -79,7 +79,7 @@ vsg::ref_ptr<vsg::Data> ImageUtils::loadPNG(const std::string& filepath, int des
     return data;
 }
 
-// 对比两个 PNG 文件
+// Compare two PNG files.
 ImageUtils::CompareResult ImageUtils::comparePNG(const std::string& file1,
                                                    const std::string& file2,
                                                    int tolerance) {
@@ -97,7 +97,7 @@ ImageUtils::CompareResult ImageUtils::comparePNG(const std::string& file1,
         return result;
     }
 
-    // 获取图像尺寸
+    // Read the image dimensions.
     int w1 = data1->width(), h1 = data1->height();
     int w2 = data2->width(), h2 = data2->height();
 
@@ -111,11 +111,11 @@ ImageUtils::CompareResult ImageUtils::comparePNG(const std::string& file1,
     result.total_pixels = w1 * h1;
     result.diff_pixels = 0;
 
-    // 获取像素数据指针
+    // Fetch the pixel-data pointers.
     const uint8_t* pixels1 = static_cast<const uint8_t*>(data1->dataPointer());
     const uint8_t* pixels2 = static_cast<const uint8_t*>(data2->dataPointer());
 
-    // 逐像素对比
+    // Compare pixels one by one.
     for (int i = 0; i < result.total_pixels; i++) {
         int offset = i * 4;
         bool pixel_diff = false;
@@ -137,7 +137,7 @@ ImageUtils::CompareResult ImageUtils::comparePNG(const std::string& file1,
     return result;
 }
 
-// 对比内存数据与参考图像
+// Compare in-memory data against a reference image.
 ImageUtils::CompareResult ImageUtils::compareWithRef(const uint8_t* pixels,
                                                        int width, int height, int channels,
                                                        const std::string& ref_path,
@@ -171,7 +171,7 @@ ImageUtils::CompareResult ImageUtils::compareWithRef(const uint8_t* pixels,
     return result;
 }
 
-// 从内存中的 PNG 数据解码为 RGB 图像（用于 loadImagePair）
+// Decode in-memory PNG data into an RGB image for loadImagePair.
 unsigned char* ImageUtils::convertColor(const std::string& png_data, int& width, int& height) {
     const stbi_uc* data_ptr = reinterpret_cast<const stbi_uc*>(png_data.data());
     int channels = 3;
@@ -179,7 +179,7 @@ unsigned char* ImageUtils::convertColor(const std::string& png_data, int& width,
     return pixels;
 }
 
-// 从内存中的 PNG 数据解码为 16-bit 深度图像（用于 loadImagePair）
+// Decode in-memory PNG data into a 16-bit depth image for loadImagePair.
 unsigned short* ImageUtils::convertDepth(const std::string& png_data, int& width, int& height) {
     const stbi_uc* data_ptr = reinterpret_cast<const stbi_uc*>(png_data.data());
     int channels = 1;

@@ -4,21 +4,21 @@
 std::string getDirectoryPath(const std::string& path) {
     if (path.empty()) return path;
 
-    // 查找最后一个 '/' 或 '\'（同时支持两种分隔符）
+    // Find the last '/' or '\' so both separator styles are supported.
     size_t lastSeparator = path.find_last_of("/\\");
 
-    // 如果没有找到分隔符，说明是当前目录下的文件，返回当前目录 "."
+    // If no separator exists, the file lives in the current directory, so return ".".
     if (lastSeparator == std::string::npos) {
         return ".";
     }
 
-    // 截取从开头到最后一个分隔符的前一个位置（不包含分隔符本身）
-    // 例如 "a/b/c.txt" → 截取到 "a/b"
+    // Slice from the beginning up to the last separator, excluding the separator itself.
+    // Example: "a/b/c.txt" becomes "a/b".
     std::string dirPath = path.substr(0, lastSeparator);
 
-    // 特殊情况：如果路径是根目录（如 "/a" 或 "C:\b"），确保不返回空
+    // Special case: if the path is rooted, do not return an empty string.
     if (dirPath.empty()) {
-        // 对于 "/" 或 "C:\" 这类根路径，返回自身（保留根符号）
+        // For "/" or "C:\", return the root path itself.
         return path.substr(0, lastSeparator + 1);
     }
 
@@ -41,7 +41,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     vsg::info("SERVER: Init Vulkan Device");
 
-    //手动初始化vulkan设备
+    // Initialize the Vulkan device manually.
     vsg::Names instanceExtensions;
     vsg::Names requestedLayers;
     bool debugLayer = false;
@@ -58,11 +58,11 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     instanceExtensions.push_back("VK_KHR_surface");
     
     #ifdef _WIN32
-        instanceExtensions.push_back("VK_KHR_win32_surface");//如果你使用windows
+        instanceExtensions.push_back("VK_KHR_win32_surface"); // Windows surface extension
         instanceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME);
         instanceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
     #else
-        instanceExtensions.push_back("VK_KHR_xcb_surface"); //如果你使用linux
+        instanceExtensions.push_back("VK_KHR_xcb_surface"); // Linux XCB surface extension
     #endif
 
     vsg::Names validatedNames = vsg::validateInstancelayerNames(requestedLayers);
@@ -81,7 +81,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     vsg::ref_ptr<vsg::Instance> instance;
     try {
-        instance = vsg::Instance::create(instanceExtensions, validatedNames, vulkanVersion);//问题语
+        instance = vsg::Instance::create(instanceExtensions, validatedNames, vulkanVersion); // Create the Vulkan instance.
     } catch (const vsg::Exception& ex) {
         vsg::error("Error creating Vulkan Instance: ", ex.message, ", result code: ", ex.result);
         return;
@@ -143,8 +143,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsg::info("IBL: Environment lighting data created, creating window");
 
 
-    //创建窗口数据
-    // 只包含虚拟物体
+    // Create the window resources.
+    // This pass contains virtual objects only.
     auto cadWindowTraits = createWindowTraits("Model", 0, options);
     cadWindowTraits->device = device;
     window = vsg::Window::create(cadWindowTraits);
@@ -159,9 +159,9 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     offscreenTarget->buildRenderPass(device, window->surfaceFormat().format, window->depthFormat(), requiresDepthRead);
     offscreenTarget->buildFramebuffer(window->extent2D());
 
-    double nearFarRatio = 0.0001;       //近平面和远平面之间的比例
+    double nearFarRatio = 0.0001;       // Ratio between the near and far planes.
 
-    //---------------------------------------------------场景创建--------------------------------------//
+    //---------------------------------------------------Create scene----------------------------------//
     auto modelGroup = vsg::Group::create();
     auto modelShadowGroup = vsg::Group::create();
     auto shadowGroup = vsg::Group::create();
@@ -188,16 +188,16 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         0
     );
     auto ssaoImageBarrier = vsg::ImageMemoryBarrier::create(
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,          // 前序：金字塔生成的写入
-        VK_ACCESS_SHADER_READ_BIT,           // 后续：剔除阶段的读取
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,          // Previous step: color attachment writes
+        VK_ACCESS_SHADER_READ_BIT,           // Next step: fragment shader reads
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_QUEUE_FAMILY_IGNORED,
         VK_QUEUE_FAMILY_IGNORED,
         offscreenTarget->ssaoResultImage,
         VkImageSubresourceRange{
-            VK_IMAGE_ASPECT_COLOR_BIT,       // 关键！depthPyramidImage是R32_SFLOAT（普通颜色格式），不是深度格式，不能用DEPTH_BIT
-            0, 1, 0, 1                       // 同步所有7个mip层
+            VK_IMAGE_ASPECT_COLOR_BIT,       // Important: this image uses a color format rather than a depth format.
+            0, 1, 0, 1                       // Synchronize the whole image
         }
     );
     SSAOPipelineBarrier->add(ssaoImageBarrier);
@@ -209,15 +209,15 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     scenegraph_safe->addChild(rootSwitch1);
     
 
-    // -----------------------设置相机参数------------------------------//
-    double radius = 2000.0; // 固定观察距离
+    // -----------------------Configure camera parameters------------------------//
+    double radius = 2000.0; // Fixed viewing distance.
     auto viewport = vsg::ViewportState::create(0, 0, cadWindowTraits->width, cadWindowTraits->height);
     // auto perspective = vsg::Perspective::create(60.0, static_cast<double>(640) / static_cast<double>(480), nearFarRatio * radius, radius * 10.0);
     auto perspective = vsg::Perspective::create(fx, fy, cx, cy, width, height, near_plane, far_plane);
 
-    vsg::dvec3 centre = {0.0, 0.0, 1.0};                    // 固定观察点
-    vsg::dvec3 eye = vsg::dvec3(0.0, 0.0, 0.0); // 固定相机位置
-    vsg::dvec3 up = {0.0, -1.0, 0.0};                        // 固定观察方向
+    vsg::dvec3 centre = {0.0, 0.0, 1.0};                    // Fixed look-at target.
+    vsg::dvec3 eye = vsg::dvec3(0.0, 0.0, 0.0); // Fixed camera position.
+    vsg::dvec3 up = {0.0, -1.0, 0.0};                        // Fixed up direction.
     auto lookAt = vsg::LookAt::create(eye, centre, up);
     camera = vsg::Camera::create(perspective, lookAt, viewport);
     pending_camera_matrix = lookAt->transform();
@@ -235,7 +235,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         CADMesh* shadow_receiver_mesh = new CADMesh();
         shadow_receiver_mesh->preprocessProtoData(shadow_receiver_path.c_str(), getDirectoryPath(shadow_receiver_path).c_str(), shadow_receiver_transform, shadow_shader, shadowGroup, "shadow_receiver");
     }
-    //---------------------------------------读取CAD模型------------------------------------------//
+    //---------------------------------------Load CAD models--------------------------------------//
     for(int i = 0; i < model_paths.size(); i ++){
         std::string &path_i = model_paths[i];
         size_t pos = path_i.find_last_of('.');
@@ -252,17 +252,17 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         }
         if(format == "obj")
         {
-            transfer_model->preprocessProtoData(path_i.c_str(), texture_path_i.c_str(), model_transforms[i], IBL::customPbrShaderSet(options), modelGroup, instance_names[i]); //读取obj文件
+            transfer_model->preprocessProtoData(path_i.c_str(), texture_path_i.c_str(), model_transforms[i], IBL::customPbrShaderSet(options), modelGroup, instance_names[i]); // Load the OBJ model.
         }
         else if(format == "fb")
         {
             transfer_model->preprocessFBProtoData(path_i, texture_path_i.c_str(), model_transforms[i], IBL::customPbrShaderSet(options), modelGroup, instance_names[i]);
         }
     }
-    // 填充CADMesh场景实例静态数据
+    // Populate CADMesh static scene-instance data.
     CADMesh::scene_instance_names = instance_names;
     CADMesh::scene_original_transforms = model_transforms;
-    // 记录实例名→相对路径映射（engine_path + 相对路径 = 绝对路径）
+    // Record the instance-name to relative-path mapping.
     for (int i = 0; i < model_paths.size(); i++) {
         std::string rel_path = model_paths[i];
         if (rel_path.find(engine_path) == 0)
@@ -278,9 +278,9 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
                 VK_SHADER_STAGE_ALL, 128, pc_data);
 
-    CADMesh::buildDrawData(modelGroup, pc, constant_data_buffer_info_list, offscreenTarget->shadowSampleImageView); //读取obj文件
-    CADMesh::buildDynamicLinesData(line_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
-    CADMesh::buildDynamicPointsData(point_shader, wireframeGroup, constant_data_buffer_info_list); //读取obj文件
+    CADMesh::buildDrawData(modelGroup, pc, constant_data_buffer_info_list, offscreenTarget->shadowSampleImageView); // Build draw data.
+    CADMesh::buildDynamicLinesData(line_shader, wireframeGroup, constant_data_buffer_info_list); // Build dynamic line data.
+    CADMesh::buildDynamicPointsData(point_shader, wireframeGroup, constant_data_buffer_info_list); // Build dynamic point data.
     CADMesh::buildDynamicTextsData(textGroup, options, vsg::findFile("fonts/times.vsgt", options->paths).string());
     CADMesh::processPMI(transfered_meshes, line_shader, wireframeGroup, textGroup, options, constant_data_buffer_info_list, vsg::findFile("fonts/times.vsgt", options->paths).string());
     vsg::info("Model processing done");
@@ -288,7 +288,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     SSAOPass::buildSSAOData(options, SSAOGroup, offscreenTarget->gbufferImageView0, offscreenTarget->gbufferImageView1, offscreenTarget->gbufferImageView2, extent);
     SSAOPass::buildSSAODenoiseData(options, SSAODenoiseGroup, offscreenTarget->gbufferImageView0, offscreenTarget->shadowWriteImageView, offscreenTarget->ssaoResultImageView);
 
-    // HDR环境光采样
+    // Sample HDR environment lighting.
     init_directional_lights();
     update_directional_lights();
     scenegraph_safe->addChild(curLightGroup);
@@ -298,7 +298,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto computeQueueFamily = commandGraph->queueFamily;
     auto computeQueueFamily1 = commandGraph1->queueFamily;
 
-    //----------------------------------------------------------------窗口1----------------------------------------------------------//
+    //---------------------------------------------------------------Window 1-----------------------------------------------//
     viewer->addWindow(window);
     view = vsg::View::create(camera, scenegraph_safe);
     CADMesh::active_view = view.get();
@@ -381,13 +381,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     viewer->addEventHandler(vsg::Trackball::create(camera));
 
     viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph, commandGraph1});
-    viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
+    viewer->compile(); // Compile the command graphs into executable work.
 
     OcclusionCullingPasses::buildFirstComputePass(depth_cull_command_graph1, options);
     OcclusionCullingPasses::buildDepthPyramid(depth_pyramid_CommandGraph, options, extent, offscreenTarget);
     OcclusionCullingPasses::buildSecondComputePass(depth_pyramid_CommandGraph, options, extent);
 
-    viewer->compile(); //编译命令图。接受一个可选的`ResourceHints`对象作为参数，用于提供编译时的一些提示和配置。通过调用这个函数，可以将命令图编译为可执行的命令。
+    viewer->compile(); // Recompile after adding the compute passes.
 
     VkExtent2D encode_extent = {};
     encode_extent.width = encode_width;
@@ -446,7 +446,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     vsg::info("CUDA-Vulkan depth interop image created, buffer size = ", depthBufferSize);
 
-    // 初始化 GPU copy 基础设施（用于 vkCmdCopyImage: interop → depth_info image）
+    // Initialize GPU-copy resources used by vkCmdCopyImage for interop -> depth_info image.
     auto interopPhysicalDevice = window->getPhysicalDevice();
     auto interopQueueFamilyIndex = interopPhysicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
     depth_copy_commandPool = vsg::CommandPool::create(device, interopQueueFamilyIndex);
@@ -464,10 +464,10 @@ bool vsgRendererServer::render() {
     pc_data->value().last_view = vsg::mat4(camera->viewMatrix->transform());
     pc_data->dirty();
 
-    // 每帧开始时：将当前矩阵拷贝到上一帧矩阵缓冲
+    // At the start of each frame, copy the current matrices into the previous-frame buffers.
     CADMesh::copyCurrentToLastMatrices();
 
-    // 检查并应用待更新的相机矩阵
+    // Apply the pending camera matrix if one has been queued.
     if (camera_dirty) {
         auto lookat = camera->viewMatrix.cast<vsg::LookAt>();
         if (lookat) {
@@ -483,9 +483,9 @@ bool vsgRendererServer::render() {
     while (viewer->advanceToNextFrame()) {
 
         auto t1 = std::chrono::high_resolution_clock::now();
-        // Interop路径: CPU→GPU(直接到interop内存) → kernel(原地) → vkCmdCopyImage → shader采样depth_info
+        // Interop path: CPU -> GPU interop memory -> in-place kernel -> vkCmdCopyImage -> shader reads depth_info.
         fix_depth_interop(width, height, depth_pixels, reinterpret_cast<void*>(depth_cuimage->get()));
-        // GPU端拷贝 interop → depth_info image
+        // GPU-side copy from the interop image into depth_info.
         copyInteropToDepthImage();
 
         auto t2 = std::chrono::high_resolution_clock::now();
@@ -528,7 +528,7 @@ void vsgRendererServer::copyInteropToDepthImage() {
     auto depth_target_image = depth_info[0]->imageView->image;
     auto command = vsg::Commands::create();
 
-    // 1. Barrier: interop image UNDEFINED→TRANSFER_SRC, depth_info image SHADER_READ_ONLY→TRANSFER_DST
+    // 1. Barrier: interop image UNDEFINED -> TRANSFER_SRC, depth_info image SHADER_READ_ONLY -> TRANSFER_DST.
     auto preCopyBarrier = vsg::PipelineBarrier::create(
         VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
         VK_PIPELINE_STAGE_TRANSFER_BIT, 0);
@@ -549,7 +549,7 @@ void vsgRendererServer::copyInteropToDepthImage() {
 
     command->addChild(preCopyBarrier);
 
-    // 2. CopyImage: interop → depth_info image
+    // 2. CopyImage: interop -> depth_info image.
     auto copyImage = vsg::CopyImage::create();
     copyImage->srcImage = depth_interop_image;
     copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
@@ -563,7 +563,7 @@ void vsgRendererServer::copyInteropToDepthImage() {
     copyImage->regions.push_back(region);
     command->addChild(copyImage);
 
-    // 3. Barrier: depth_info image TRANSFER_DST→SHADER_READ_ONLY
+    // 3. Barrier: depth_info image TRANSFER_DST -> SHADER_READ_ONLY.
     auto postCopyBarrier = vsg::PipelineBarrier::create(
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0);

@@ -12,8 +12,8 @@ class CustomViewDependentState : public vsg::Inherit<vsg::ViewDependentState, Cu
 public:
     mutable vsg::dbox scene_bound_ws_virtual;
     vsg::dbox scene_bound_ws_real;
-    mutable bool draw_shadow_light = true;  // 光照变化时设置
-    mutable bool draw_shadow_pose = true;   // 模型位姿变化时设置
+    mutable bool draw_shadow_light = true;  // Set when lighting changes.
+    mutable bool draw_shadow_pose = true;   // Set when the model pose changes.
     vsg::ref_ptr<vsg::CommandGraph> computeCommandGraphShadow;
     vsg::ref_ptr<vsg::Options> options;
     vsg::ref_ptr<vsg::DescriptorImage> shadowMapSamplerImages;

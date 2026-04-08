@@ -129,7 +129,7 @@ static struct IBLVkEvents {
 
 void createImage2D(vsg::Context& context, VkFormat format, VkImageUsageFlags usage, VkExtent2D extent, ptr<vsg::Image>& image, ptr<vsg::ImageView>& imageView)
 {
-    // TODO: 内存分配延迟到RenderGraph的编译
+    // TODO: defer memory allocation until RenderGraph compilation.
     // Image
     image = vsg::Image::create();
     image->imageType = VK_IMAGE_TYPE_2D;
@@ -183,8 +183,8 @@ void createImageCube(vsg::Context& context,
     //imageView->subresourceRange.layerCount = 6;
     //imageView->image = image;
     
-    // !! vsg::createImageView 用了 ImageView::create(image, aspect)，compile()之后再指定viewType就没用了。
-    // 调用前手动修改ImageView的type
+    // !! vsg::createImageView uses ImageView::create(image, aspect), so changing viewType after compile() has no effect.
+    // Manually set ImageView::type before calling it.
 
     auto aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT;
     vsg::Device* device = context.device;
@@ -285,7 +285,7 @@ void createRTTRenderPass(ptr<vsg::Context> context, VkFormat format, VkImageLayo
     renderPass = vsg::RenderPass::create(context->device.get(), attachments, subpasses, dependencies);
 }
 
-ptr<vsg::ImageMemoryBarrier> createImageMemoryBarrier(//Layout转换图像缓冲区(关于图像的内存屏障)
+ptr<vsg::ImageMemoryBarrier> createImageMemoryBarrier(// Layout transition image barrier
     ptr<vsg::Image> image,
     VkImageSubresourceRange subresourceRange,
     VkImageLayout oldImageLayout,
@@ -391,7 +391,7 @@ ptr<vsg::ImageMemoryBarrier> createImageMemoryBarrier(//Layout转换图像缓冲
     return ImageMemoryBarrier::create(srcAccessMask, dstAccessMask, oldImageLayout, newImageLayout, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, image, subresourceRange);
 }
 
-ptr<vsg::PipelineBarrier> createImageLayoutPipelineBarrier(//Layout转换管线屏障
+ptr<vsg::PipelineBarrier> createImageLayoutPipelineBarrier(// Layout transition pipeline barrier
     ptr<vsg::Image> image,
     VkImageLayout oldImageLayout,
     VkImageLayout newImageLayout,
@@ -943,15 +943,15 @@ void generateBRDFLUT(VsgContext &vsgContext)
     auto draw = vsg::Draw::create(3, 1, 0, 0);
     pipelineNode->addChild(draw);
 
-    // 应该做一个Dummy Scene中，进行对应的Graphic States管理，加入Descriptor Pipeline绑定和全屏Quad几何绑定
-    // Scene节点挂在rtt_RenderGraph下面, like this
+    // A dummy scene should manage the matching graphics states, descriptor bindings, pipeline bindings, and fullscreen quad.
+    // Attach the scene node under rtt_RenderGraph like this.
     // literally vsg::createRenderGraphForView() below
     auto dummyCamera = vsg::Camera::create(); // or reuse camera from main render loop.
     auto rtt_view = vsg::View::create(dummyCamera, pipelineNode);
     //rtt_rendergraph->addChild(rtt_view);
     rtt_rendergraph->addChild(pipelineNode);
 
-    // 先创建各种贴图和RenderPass （rtt_rendergraph），然后创建Descriptor和（rtt_view/dummyScene）
+    // First create the textures and render pass (rtt_rendergraph), then create the descriptor set and (rtt_view / dummyScene).
     auto commandGraph = vsg::CommandGraph::create(vsgContext.device, vsgContext.queueFamily); // done with
     //rtt_commandGraph->submitOrder = -1; // render before the main_commandGraph, or nest in main_commandGraph
     commandGraph->addChild(rtt_rendergraph);
@@ -1133,7 +1133,7 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
         commandGraph->addChild(rendergraph);
 
         // setup barrier and copy framebuffer to cubemap face.
-        // renderpass之后，fb的layout为VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL，需要再转换到VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+        // After the render pass, transition the framebuffer layout from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
         auto setFBLayoutTransferSrc = createImageLayoutPipelineBarrier(pFBImage, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
         commandGraph->addChild(setFBLayoutTransferSrc);
 
@@ -1209,7 +1209,7 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
     viewer->addRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
-void generateIrradianceCube(VsgContext& vsgContext, int hdr)//生成辐照度贴图
+void generateIrradianceCube(VsgContext& vsgContext, int hdr) // Generate the irradiance cube map.
 {
     //auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreenquad.vert", appData.options->paths);
     //auto fragShaderFilepath = vsg::findFile("shaders/IBL/irradianceCube.frag", appData.options->paths);
@@ -1390,7 +1390,7 @@ void generateIrradianceCube(VsgContext& vsgContext, int hdr)//生成辐照度贴
 
             // renderpass to offscreen framebuffer
             commandGraph->addChild(rendergraph);
-            // renderpass之后，fb的layout为VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL，需要再转换到VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+            // After the render pass, transition the framebuffer layout from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
             auto setFBLayoutTransfeSrc = createImageLayoutPipelineBarrier(pFBImage, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
             commandGraph->addChild(setFBLayoutTransfeSrc);
 
@@ -1615,7 +1615,7 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
 
             // renderpass to offscreen framebuffer
             commandGraph->addChild(rendergraph);
-            // renderpass之后，fb的layout为VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL，需要再转换到VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL
+            // After the render pass, transition the framebuffer layout from VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL to VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL.
             auto setFBLayoutTransfeSrc = createImageLayoutPipelineBarrier(pFBImage, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
             commandGraph->addChild(setFBLayoutTransfeSrc);
 
@@ -1703,7 +1703,7 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
     if(depth_data.size() > 0) skyBoxShaderSet->addDescriptorBinding("depthImage", "CAMERA_DEPTH", 0, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ushortArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
 
     if(hasShadowInSkybox) {
-        // CAMERA_DEPTH + shadow: 扩展push constant范围, 添加VIEW_DESCRIPTOR_SET绑定
+        // CAMERA_DEPTH + shadow: extend the push-constant range and add the VIEW_DESCRIPTOR_SET binding.
         skyBoxShaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 256);
 
         #define VIEW_DESCRIPTOR_SET 1
@@ -1713,7 +1713,7 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
         skyBoxShaderSet->addDescriptorBinding("shadowMapsSampler", "", VIEW_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
         skyBoxShaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(VIEW_DESCRIPTOR_SET));
 
-        // 支持4个attachment输出 (outColor + location 1,2,3)
+        // Support four attachment outputs (outColor plus locations 1, 2, and 3).
         auto colorBlendState = vsg::ColorBlendState::create();
         colorBlendState->attachments.resize(4, colorBlendState->attachments[0]);
         skyBoxShaderSet->defaultGraphicsPipelineStates.push_back(colorBlendState);
@@ -1729,10 +1729,10 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
     pplcfg->pipelineStates.push_back(rasterState);
     auto depthState = vsg::DepthStencilState::create();
     if(depth_data.size() > 0) {
-        // 有深度数据时，启用深度写入（用于相机深度前置渲染）
+        // Enable depth writes when depth data is available for the camera-depth prepass.
         depthState->depthTestEnable = VK_TRUE;
         depthState->depthWriteEnable = VK_TRUE;
-        depthState->depthCompareOp = VK_COMPARE_OP_ALWAYS; // 始终通过深度测试（skybox始终写入）
+        depthState->depthCompareOp = VK_COMPARE_OP_ALWAYS; // Always pass the depth test so the skybox always writes.
     } else {
         depthState->depthTestEnable = VK_FALSE;
         depthState->depthWriteEnable = VK_FALSE;
@@ -1751,7 +1751,7 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
     drawCmds->addChild(DrawIndexed::create(gSkyboxCube.indices->size(), 1, 0, 0, 0));
     pplcfg->copyTo(root);
 
-    // 在CAMERA_DEPTH+shadow模式下, 添加push constant绑定shadow参数
+    // In CAMERA_DEPTH + shadow mode, add push constants for the shadow parameters.
     if(hasShadowInSkybox) {
         auto pc = vsg::PushConstants::create(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, shadow_pc_data);
         root->stateCommands.push_back(pc);
@@ -1914,13 +1914,13 @@ vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options>
     
     auto colorBlendState = vsg::ColorBlendState::create();
     colorBlendState->attachments[0] = {
-        VK_TRUE,                                      // 开启混合
-        VK_BLEND_FACTOR_SRC_ALPHA,                    // 源颜色因子：取当前片元的 Alpha 值
-        VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,          // 目标颜色因子：1 - 源 Alpha（经典半透公式）
-        VK_BLEND_OP_ADD,                              // 颜色混合：源×源Alpha + 目标×(1-源Alpha)
-        VK_BLEND_FACTOR_ONE,                          // 源 Alpha 因子：1
-        VK_BLEND_FACTOR_ZERO,                         // 目标 Alpha 因子：0
-        VK_BLEND_OP_ADD,                              // Alpha 混合：源Alpha×1 + 目标Alpha×0
+        VK_TRUE,                                      // Enable blending
+        VK_BLEND_FACTOR_SRC_ALPHA,                    // Source color factor: current fragment alpha
+        VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,          // Destination color factor: 1 - source alpha
+        VK_BLEND_OP_ADD,                              // Color blend: src * srcAlpha + dst * (1 - srcAlpha)
+        VK_BLEND_FACTOR_ONE,                          // Source alpha factor: 1
+        VK_BLEND_FACTOR_ZERO,                         // Destination alpha factor: 0
+        VK_BLEND_OP_ADD,                              // Alpha blend: srcAlpha * 1 + dstAlpha * 0
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
     };
     colorBlendState->attachments.resize(4, colorBlendState->attachments[0]); 

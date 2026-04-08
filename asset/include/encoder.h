@@ -283,10 +283,10 @@ public:
         void* encode_input = (void*)encode_deviceptr;
         if(m_extent.width != m_encode_extent.width && m_extent.height != m_encode_extent.height){
             cudaMemcpy(
-                (void*)d_cuda_input,        // 目标：CUDA 输入内存
-                (void*)encode_deviceptr,    // 源：Vulkan 导出的 CUDA 可访问指针
-                static_cast<size_t>(m_extent.width * m_extent.height * 4),            // 拷贝大小（原始图像总字节数：original_extent.w * original_extent.h * 4）
-                cudaMemcpyDeviceToDevice    // 拷贝类型：GPU 设备内存→GPU 设备内存
+                (void*)d_cuda_input,        // Destination CUDA input memory
+                (void*)encode_deviceptr,    // Source pointer exported from Vulkan and visible to CUDA
+                static_cast<size_t>(m_extent.width * m_extent.height * 4),            // Copy size in bytes for the full image
+                cudaMemcpyDeviceToDevice    // Device-to-device GPU memory copy
             );
 
             cudaUpsampleImage(

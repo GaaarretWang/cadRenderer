@@ -107,7 +107,7 @@ void OBJLoader::load_obj(const char* filename, const char* materials_path, vsg::
         components_to_vec3s(attrib.vertices, vertices);
     }
     if(attrib.normals.size() != 0) {
-        components_to_vec3s(attrib.normals, vertnormals);//不单独拿出来就不执行,不加上述if else会超限segmentation fault (core dumped)
+        components_to_vec3s(attrib.normals, vertnormals); // Keep this separate; removing the guard above can trigger a segmentation fault.
     }
     if(attrib.texcoords.size() != 0) {
         components_to_vec2s(attrib.texcoords, vertuvs);

@@ -1,4 +1,4 @@
-#ifndef VSGRENDERERSERVER_H
+﻿#ifndef VSGRENDERERSERVER_H
 #define VSGRENDERERSERVER_H
 #pragma  once
 #include <iostream>
@@ -50,7 +50,7 @@ class vsgRendererServer
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;
     vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> hdr_to_light_group_map;
-    std::unordered_map<int, float> hdr_base_brightness; // 每个HDR的baseBrightness
+    std::unordered_map<int, float> hdr_base_brightness; // baseBrightness value for each HDR environment.
     int hdr_image_num = 4;
     int hdr_image_max_num = 7;
     float camera_tracking_fps = 0.0f;
@@ -61,10 +61,10 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data = vsg::Value<GlobalPCData>::create();
     vsg::ref_ptr<vsg::Value<GlobalConstantData>> constant_data = vsg::Value<GlobalConstantData>::create();
     vsg::BufferInfoList constant_data_buffer_info_list;
-    float fx = 386.52199190267083;//焦距(x轴上)
-    float fy = 387.32300428823663;//焦距(y轴上)
-    float cx = 326.5103569741365;//图像中心点(x轴)
-    float cy = 237.40293732598795;//图像中心点(y轴)
+    float fx = 386.52199190267083; // Focal length on the x axis.
+    float fy = 387.32300428823663; // Focal length on the y axis.
+    float cx = 326.5103569741365; // Principal point on the x axis.
+    float cy = 237.40293732598795; // Principal point on the y axis.
 
     float near_plane = 0.1f;
     float far_plane = 65.535f;
@@ -82,11 +82,11 @@ class vsgRendererServer
     vsg::ImageInfoList depth_info;
     vsg::ref_ptr<vsg::Value<IBL::DynamicSkyboxParams>> camera_image_params = vsg::Value<IBL::DynamicSkyboxParams>::create();
 
-    // CUDA-Vulkan interop深度图像
+    // CUDA-Vulkan interop depth image.
     vsg::ref_ptr<vsg::Image> depth_interop_image;
-    Cudaimage* depth_cuimage = nullptr; // interop的CUDA映射
+    Cudaimage* depth_cuimage = nullptr; // CUDA mapping for the interop image.
 
-    // GPU copy 基础设施（interop → depth_info image）
+    // GPU-copy resources for interop -> depth_info image.
     vsg::ref_ptr<vsg::CommandPool> depth_copy_commandPool;
     vsg::ref_ptr<vsg::Fence> depth_copy_fence;
     vsg::ref_ptr<vsg::Queue> depth_copy_queue;
@@ -97,7 +97,7 @@ class vsgRendererServer
     int enable_real_depth_occlusion = 0;
     int shadow_mode = SHADOW_RECEIVER_PLANE;
 
-    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_4_BIT;//多重采样的倍数
+    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_4_BIT; // MSAA sample count.
 
     uint32_t frame_num = 0;
     vsg::dmat4 pending_camera_matrix;
@@ -105,7 +105,7 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(std::string windowTitle, int num,  vsg::ref_ptr<vsg::Options> options)
     {
         auto windowTraits = vsg::WindowTraits::create();
-        windowTraits->samples = msaaSamples;  // 设置多重采样
+        windowTraits->samples = msaaSamples;  // Configure multisampling.
         windowTraits->windowTitle = windowTitle;
         windowTraits->width = render_width;
         windowTraits->height = render_height;
@@ -121,7 +121,7 @@ class vsgRendererServer
         if (windowTraits->samples != VK_SAMPLE_COUNT_1_BIT)
         {
             windowTraits->vulkanVersion = VK_API_VERSION_1_2;
-            windowTraits->depthImageUsage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT; // 优化内存
+            windowTraits->depthImageUsage |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT; // Allow transient depth-memory optimization.
         }
         windowTraits->deviceExtensionNames = {
             VK_KHR_MULTIVIEW_EXTENSION_NAME,
@@ -192,7 +192,7 @@ public:
     }
 
     void setUpShader(){
-        //-----------------------------------------设置shader------------------------------------//
+        //-----------------------------------------Configure shaders--------------------------------//
         ConfigShader config_shader;
         shadow_shader = config_shader.buildShadowShader(vsg::findFile("shaders/shadow.vert", options->paths).string(), vsg::findFile("shaders/shadow.frag", options->paths).string());
         line_shader = config_shader.buildLineShader(vsg::findFile("shaders/line.vert", options->paths).string(), vsg::findFile("shaders/line.frag", options->paths).string());
@@ -307,7 +307,7 @@ public:
             vsg::ref_ptr<vsg::Group> light_i = vsg::Group::create();
             lightGroups[hdr_idx] = light_i;
 
-            // 读取 baseBrightness（如果存在）
+            // Read baseBrightness when it exists.
             if (hdr_data.contains("baseBrightness")) {
                 hdr_base_brightness[hdr_idx] = hdr_data["baseBrightness"].get<float>();
             }
@@ -467,7 +467,7 @@ public:
         final_screenshotHandler->encodeImage(window, vPacket);
     }
 
-    // GPU端拷贝: interop image → depth_info image (vkCmdCopyImage)
+    // GPU-side copy: interop image -> depth_info image (vkCmdCopyImage).
     void copyInteropToDepthImage();
 };
 

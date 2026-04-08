@@ -122,7 +122,7 @@ std::unordered_map<std::string, std::string> CADMesh::instance_name_to_rel_path;
 
 void CADMesh::copyCurrentToLastMatrices()
 {
-    // 拷贝全局模型矩阵到上一帧缓冲
+    // Copy the global model matrices into the previous-frame buffer.
     if (global_model_matrix_buffer && last_global_model_matrix_buffer) {
         for (size_t i = 0; i < global_model_matrix_buffer->size(); i++) {
             last_global_model_matrix_buffer->set(i, global_model_matrix_buffer->at(i));
@@ -130,7 +130,7 @@ void CADMesh::copyCurrentToLastMatrices()
         last_global_model_matrix_buffer->dirty();
     }
 
-    // 拷贝每个proto的实例矩阵到上一帧缓冲
+    // Copy each proto instance matrix into the previous-frame buffer.
     for (ProtoData* proto_data : insert_order_to_data) {
         if (proto_data->instance_buffer && proto_data->last_instance_buffer) {
             for (size_t i = 0; i < proto_data->instance_buffer->size(); i++) {
@@ -200,15 +200,15 @@ vsg::vec3 CADMesh::toVec3(const flatbuffers::String* string_vector)
 
 vsg::vec4 CADMesh::hexToRGB(const std::string& color)
 {
-    // 去掉 '#' 字符
+    // Strip the leading '#'.
     std::string testcolor = color.substr(1);
 
-    // 将 hex 转换为 RGB
+    // Convert the hex triplet to RGB.
     int red = std::stoi(testcolor.substr(0, 2), nullptr, 16);
     int green = std::stoi(testcolor.substr(2, 2), nullptr, 16);
     int blue = std::stoi(testcolor.substr(4, 2), nullptr, 16);
 
-    // 将 RGB 转换为 0.0 到 1.0 之间的浮点数
+    // Normalize the RGB values into the [0, 1] range.
     float r = red / 255.0f;
     float g = green / 255.0f;
     float b = blue / 255.0f;
@@ -219,7 +219,7 @@ vsg::vec4 CADMesh::hexToRGB(const std::string& color)
 void CADMesh::preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)
 {
     if(proto_ids.size() > 0){
-        // 注册全局 model 矩阵
+        // Register the global model matrix.
         uint32_t model_idx;
         if (model_name_to_global_index.count(model_instance_name) == 0) {
             model_idx = global_model_matrices_accumulator.size();
@@ -245,25 +245,25 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
     }
 
     bool LoadByJson = false; 
-	//执行接口的init方法：包含Json文件读取等一些初始化操作
+	// Initialize the data interface, including JSON loading and other setup work.
     cadDataManager::DataInterface datainterface;
 	datainterface.init();
 
-	//---------------------------------------通过json文件加载数据------------------------------------
+	//---------------------------------------Load data from JSON---------------------------------------
 	if (LoadByJson) {
 		bool isReadLocalFBData = datainterface.isReadLocalFBData();
 		if (isReadLocalFBData) {
-			//通过json文件参数读取本地路径下的fb文件
+			// Read the local FB file according to the JSON configuration.
 			datainterface.parseLocalModel();
 		}
 		else {
 			bool isConvertModelByFile = datainterface.isConvertModelByFile();
 			if (isConvertModelByFile) {
-				//path为本地文件路径，直接上传本地CAD文件进行转换
+				// The path points to a local file, so convert the local CAD file directly.
 				datainterface.convertModelByFile();
 			}
 			else {
-				//path为云端文件路径，直接转换云端CAD模型
+				// The path points to a cloud file, so convert the remote CAD model directly.
 				datainterface.convertModelByPath();
 			}
 		}
@@ -271,7 +271,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
 		//auto fbModelData = datainterface.getModelFlatbuffersData();
 	}
     
-	//---------------------------------------通过传参加载数据------------------------------------------
+	//--------------------------------------Load data from arguments-----------------------------------
 	if (!LoadByJson) {
         size_t lastSlash = model_path.find_last_of("/\\");
         std::string fbFilePath = model_path.substr(0, lastSlash);
@@ -279,38 +279,38 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
         std::string cloudPath = "/home/cadar/cadDataManager/model";
         std::string cloudName = "TT8-R600.stp";
 
-		//std::string fbFileName = "NAUO6副本.fb";
+		//std::string fbFileName = "sample_copy.fb";
 		//std::string fbFilePath = "G:/1.4project/caddatamanagerfor1.4/FBData";
 
-		//std::string cadFileName = "卡通吉普车.stp";
+		//std::string cadFileName = "cartoon_jeep.stp";
 		//std::string cadFilePath = "F:/model";
 
-		//转换本地flatBuffer模型
+		// Convert a local FlatBuffer model.
 #ifdef _WIN32
 		fbFileName = utf8ToGbk(fbFileName);
 		fbFilePath = utf8ToGbk(fbFilePath);
 #endif
 		datainterface.parseLocalModel(fbFileName, fbFilePath);
 
-		//转换本地CAD模型
+		// Convert a local CAD model.
 		//DataInterface::convertModelByFile("127.0.0.1", 9000, cadFileName, cadFilePath, ConversionPrecision::low);
 
-		//转换云端CAD模型  转云端的用这个代码，速度比较慢，测试用本地的。
+		// Convert a cloud-hosted CAD model. This path is slower, so local data is preferred for testing.
 		// datainterface.convertModelByPath("101.76.208.70", 9000, cloudName, cloudPath, cadDataManager::ConversionPrecision::low);
     
-		//通过以上任何一种方式转换模型后，数据接口都将获取最后转换的模型数据
+		// After any conversion path finishes, the data interface exposes the latest converted model data.
 		//auto renderInfo = DataInterface::getRenderInfo();
 		//auto pmi = DataInterface::getPmiInfos(true);
 		//auto instances = DataInterface::getInstances();
 
-		//通过setActiveDocumentData，传入文件名，可以切换“活跃状态”，再次获取数据时将获取“活跃模型数据”
+		// Use setActiveDocumentData(filename) to switch the active model before fetching its data again.
 		//DataInterface::setActiveDocumentData(fbFileName);
 		//auto renderInfo2 = DataInterface::getRenderInfo();
 
-		//通过removeModelData移除模型数据
+		// Use removeModelData to remove model data from the interface.
 		//DataInterface::removeModelData(cadFileName);
 	}
-    datainterface.loadMaterialData("../asset/data/JsonData/CockpitMaterial.json");//括号输入json路径
+    datainterface.loadMaterialData("../asset/data/JsonData/CockpitMaterial.json"); // Pass the material JSON path here.
 	// auto info = datainterface.getRenderInfo();
     auto MapInfo = datainterface.getRenderInfoMap();
 	pmi = datainterface.getPmiInfos();
@@ -330,7 +330,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
 
     uint8_t* buffer_data;
     int buffer_size;
-    // 注册全局 model 矩阵
+    // Register the global model matrix.
     uint32_t model_idx;
     if (model_name_to_global_index.count(model_instance_name) == 0) {
         model_idx = global_model_matrices_accumulator.size();
@@ -342,11 +342,11 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
     for (auto it = MapInfo.begin(); it != MapInfo.end(); ++it){
         auto info = it->second;
         for (int o = 0; o < info.size(); o++) {
-            std::unordered_map<TinyModelVertex, uint32_t> uniqueVertices; //存储点信息，相同点只存一份
-            std::vector<TinyModelVertex> mVertices{};                     //保存点在数组中位置信息
-            std::vector<vsg::vec3> mVerticesPos{};                        //保存点在数组中位置信息
-            std::vector<vsg::vec3> mVerticesNor{};                        //保存点在数组中位置信息
-            std::vector<uint32_t> mIndices{};                             //索引，找点
+            std::unordered_map<TinyModelVertex, uint32_t> uniqueVertices; // Store unique vertex data once.
+            std::vector<TinyModelVertex> mVertices{};                     // Store vertex-position entries.
+            std::vector<vsg::vec3> mVerticesPos{};                        // Store vertex positions.
+            std::vector<vsg::vec3> mVerticesNor{};                        // Store vertex normals.
+            std::vector<uint32_t> mIndices{};                             // Store indices into the vertex arrays.
             
             cadDataManager::RenderInfo modelfbs = info[o];
             int num = modelfbs.matrixNum;
@@ -362,17 +362,17 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
             auto metalness = modelPar->mMetalness;
             auto specular = modelPar->mSpecular;
             auto opacity = modelPar->mOpacity;
-            auto color = modelPar->mColor;//后续会改成三维rgb
+            auto color = modelPar->mColor; // This will later be upgraded to a 3D RGB representation.
             auto emissive = modelPar->mEmissive;
             auto emissiveIntensity = modelPar->mEmissiveIntensity;
             auto shininess = modelPar->mShininess;
             auto roughness = modelPar->mRoughness;
             auto transmission = modelPar->mTransmission;
-            auto material = modelPar->getMaterialName();//这里得到材质的名称(未生效)
+            auto material = modelPar->getMaterialName(); // Fetch the material name here, though it is not applied yet.
             auto proto_instance_ids = modelfbs.instanceIds;
             const std::string color_group_key = normalizeMaterialColorKey(color);
 
-            //设置材质参数
+            // Set the material parameters.
             vsg::ref_ptr<vsg::PbrMaterialValue> default_material = vsg::PbrMaterialValue::create(); 
             default_material->value().baseColorFactor = hexToRGB(color);
             default_material->value().roughnessFactor = roughness;
@@ -392,7 +392,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
 
             if (type == "mesh")
             {
-                vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(position.size() / 3); //分配数组空间
+                vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(position.size() / 3); // Allocate array storage.
                 vsg::ref_ptr<vsg::vec3Array> normals = vsg::vec3Array::create(normal.size() / 3);
                 vsg::ref_ptr<vsg::vec2Array> uvs = vsg::vec2Array::create(uv.size() / 2);
                 vsg::ref_ptr<vsg::uintArray> indices = vsg::uintArray::create(modelIndex.size());
@@ -481,7 +481,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
 void CADMesh::preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)
 {
     if(proto_ids.size() > 0){
-        // 注册全局 model 矩阵
+        // Register the global model matrix.
         uint32_t model_idx;
         if (model_name_to_global_index.count(model_instance_name) == 0) {
             model_idx = global_model_matrices_accumulator.size();
@@ -533,7 +533,7 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
     std::cout << "indices.size()" << indices.size() << std::endl;
     for (int i = 0; i < indices.size(); i += 1)
     {
-        std::unordered_map<TinyModelVertex, uint32_t> uniqueVertices; //存储点信息，相同点只存一份
+        std::unordered_map<TinyModelVertex, uint32_t> uniqueVertices; // Store unique vertex data once.
         std::vector<TinyModelVertex> mVertices;
         std::vector<uint32_t> mIndices;
         std::cout << "indices[i][0]->size()" << indices[i][0]->size() << std::endl;
@@ -549,12 +549,12 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
             int index_coord = indices[i][2]->at(j);
             if(index_coord < verticesUV->size())
                 vertex.uv = verticesUV->at(index_coord);    
-            if (uniqueVertices.count(vertex) == 0) //if unique 唯一
-            {                                      //push进数组。记录位置
+            if (uniqueVertices.count(vertex) == 0) // Insert the vertex only if it is new.
+            {                                      // Append the vertex and record its position.
                 uniqueVertices[vertex] = static_cast<uint32_t>(mVertices.size());
                 mVertices.push_back(vertex);
             }
-            mIndices.push_back(uniqueVertices[vertex]); //根据新proto的数组，索引位置改变
+            mIndices.push_back(uniqueVertices[vertex]); // Rebuild indices against the new proto-local vertex array.
         }
         auto vertices_i = vsg::vec3Array::create(mVertices.size()); 
         auto normals_i = vsg::vec3Array::create(mVertices.size());
@@ -620,7 +620,7 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
         }
         proto_id_default_matrix_map[proto_id] = std::vector<vsg::dmat4>();
         proto_id_instance_name_map[proto_id] = std::vector<std::string>();
-        // 注册全局 model 矩阵
+        // Register the global model matrix.
         uint32_t model_idx;
         if (model_name_to_global_index.count(model_instance_name) == 0) {
             model_idx = global_model_matrices_accumulator.size();
@@ -656,11 +656,11 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
                 auto* mrPtr = static_cast<uint8_t*>(mrData->dataPointer());
 
                 for (size_t i = 0; i < metallicData->dataSize()/4; ++i) {
-                    // 假设RGBA顺序，取R通道（每4字节中的第0字节）
-                    uint8_t metallic = metallicPtr[i * 4];      // R通道
-                    uint8_t roughness = roughnessPtr[i * 4];     // R通道
-                    mrPtr[i*2] = metallic; // 组合为双通道
-                    mrPtr[i*2+1] = roughness; // 组合为双通道
+                    // Assume RGBA ordering and read the R channel from each four-byte texel.
+                    uint8_t metallic = metallicPtr[i * 4];      // R channel
+                    uint8_t roughness = roughnessPtr[i * 4];     // R channel
+                    mrPtr[i*2] = metallic; // Pack into the two-channel output texture.
+                    mrPtr[i*2+1] = roughness; // Pack into the two-channel output texture.
                 }
                 texture_name_to_image_map[proto_data->mr_path] = createImageInfo(mrData);
             }
@@ -697,7 +697,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         }
         proto_data->input_instance_buffer_info = vsg::BufferInfo::create(proto_data->instance_buffer);
 
-        // 创建上一帧proto矩阵缓冲区
+        // Create the previous-frame proto matrix buffer.
         proto_data->last_instance_buffer = vsg::mat4Array::create(proto_data->instance_matrix.size());
         proto_data->last_instance_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
         for(int i = 0; i < proto_data->instance_matrix.size(); i ++){
@@ -715,7 +715,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         }
         proto_data->input_highlight_buffer_info = vsg::BufferInfo::create(proto_data->highlight_buffer);
 
-        // 2个mat4，1个int，3个padding int，一共36
+        // Two mat4 values, one int, and three padding ints: 36 scalars total.
         auto instance_data_buffer = vsg::floatArray::create(proto_data->instance_matrix.size() * 512);
         proto_data->output_instance_buffer_info = vsg::BufferInfo::create(instance_data_buffer);
 
@@ -793,9 +793,9 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
         indirectBuffer->set(0, cmd);
         auto draw_indirect = vsg::DrawIndexedIndirect::create(
-            indirectBuffer,  // 间接命令缓冲区
-            1,              // 绘制命令数量
-            sizeof(VkDrawIndexedIndirectCommand) // 命令步长
+            indirectBuffer,  // Indirect-command buffer
+            1,              // Number of draw commands
+            sizeof(VkDrawIndexedIndirectCommand) // Command stride
         );
         draw_indirect->instanceMatrix = proto_data->instance_buffer;
         draw_indirect->highlightBuffer = proto_data->highlight_buffer;
@@ -815,25 +815,25 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         proto_data->scene->addChild(stateGroup);
     }
 
-    // 创建全局 model 矩阵缓冲区
+    // Create the global model-matrix buffer.
     global_model_matrix_buffer = vsg::mat4Array::create(global_model_matrices_accumulator.size());
     global_model_matrix_buffer->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
     for (size_t i = 0; i < global_model_matrices_accumulator.size(); i++)
         global_model_matrix_buffer->set(i, vsg::mat4(global_model_matrices_accumulator[i]));
     global_model_matrix_buffer_info = vsg::BufferInfo::create(global_model_matrix_buffer);
 
-    // 创建上一帧全局 model 矩阵缓冲区
+    // Create the previous-frame global model-matrix buffer.
     last_global_model_matrix_buffer = vsg::mat4Array::create(global_model_matrices_accumulator.size());
     last_global_model_matrix_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
     for (size_t i = 0; i < global_model_matrices_accumulator.size(); i++)
         last_global_model_matrix_buffer->set(i, vsg::mat4(global_model_matrices_accumulator[i]));
     last_global_model_matrix_buffer_info = vsg::BufferInfo::create(last_global_model_matrix_buffer);
 
-    // 释放累积器内存
+    // Release the temporary accumulator storage.
     global_model_matrices_accumulator.clear();
     global_model_matrices_accumulator.shrink_to_fit();
 
-    // 设置所有 draw_indirect 的 globalModelMatrix
+    // Bind the globalModelMatrix for every draw-indirect entry.
     for (ProtoData* proto_data : insert_order_to_data) {
         proto_data->draw_indirect->globalModelMatrix = global_model_matrix_buffer;
     }
@@ -870,9 +870,9 @@ void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset
     auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
     indirectBuffer->set(0, cmd);
     auto draw_indirect = vsg::DrawIndexedIndirect::create(
-        indirectBuffer,  // 间接命令缓冲区
-        1,              // 绘制命令数量
-        sizeof(VkDrawIndexedIndirectCommand) // 命令步长
+        indirectBuffer,  // Indirect-command buffer
+        1,              // Number of draw commands
+        sizeof(VkDrawIndexedIndirectCommand) // Command stride
     );
     drawCommands->addChild(draw_indirect);
     // auto draw_indexed = vsg::DrawIndexed::create(proto_data->indices->size(), proto_data->instance_matrix.size() / 2, 0, 0, 0);
@@ -928,9 +928,9 @@ void CADMesh::buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderse
     auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
     indirectBuffer->set(0, cmd);
     auto draw_indirect = vsg::DrawIndexedIndirect::create(
-        indirectBuffer,  // 间接命令缓冲区
-        1,              // 绘制命令数量
-        sizeof(VkDrawIndexedIndirectCommand) // 命令步长
+        indirectBuffer,  // Indirect-command buffer
+        1,              // Number of draw commands
+        sizeof(VkDrawIndexedIndirectCommand) // Command stride
     );
     drawCommands->addChild(draw_indirect);
     // auto draw_indexed = vsg::DrawIndexed::create(proto_data->indices->size(), proto_data->instance_matrix.size() / 2, 0, 0, 0);
@@ -989,7 +989,7 @@ void CADMesh::buildDynamicTextsData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr
     }
 }
 
-// 辅助函数：通过positionToIndex去重顶点，构建共享顶点+索引的线段网格
+// Helper: deduplicate vertices through positionToIndex and build a shared-vertex line mesh.
 static std::pair<std::vector<vsg::vec3>, std::vector<uint32_t>> drawLinePMI(
     const std::vector<std::pair<vsg::vec3, vsg::vec3>>& lineSegments)
 {
@@ -1031,7 +1031,7 @@ void CADMesh::processPMI(
     int total_lines = 0;
     int total_text = 0;
 
-    // 加载字体（全局只需一次）
+    // Load the font once for all PMI labels.
     auto font = vsg::read_cast<vsg::Font>(font_path, options);
     if (!font) {
         vsg::info("PMI: FAILED to read font, aborting");
@@ -1039,14 +1039,14 @@ void CADMesh::processPMI(
         return;
     }
 
-    // 遍历每个CADMesh，独立查询PMI数据
+    // Iterate over each CADMesh and query its PMI data independently.
     for (auto& [path, mesh] : transfered_meshes) {
         if (mesh->fbFileName.empty()) {
             vsg::info("PMI: skipping mesh with empty fbFileName, path=", path);
             continue;
         }
 
-        // 切换活跃模型，获取此模型的PMI数据
+        // Switch the active model before fetching PMI data for this mesh.
         cadDataManager::DataInterface::setActiveDocumentData(mesh->fbFileName);
         auto pmiList = cadDataManager::DataInterface::getPmiInfos();
 
@@ -1056,26 +1056,26 @@ void CADMesh::processPMI(
 
         vsg::info("PMI: model '", mesh->fbFileName, "' has ", pmiList.size(), " PMI items");
 
-        // 找到此mesh关联的所有model_idx（可能有多个instance_name指向同一个CADMesh）
+        // Find all model_idx entries associated with this mesh.
         std::vector<uint32_t> model_indices;
         for (auto& [inst_name, idx] : model_name_to_global_index) {
-            // 通过id_to_matrix_index_map找到instance_name对应的proto_data
+            // Use id_to_matrix_index_map to resolve the proto_data for each instance.
             auto it = id_to_matrix_index_map.find(inst_name);
             if (it != id_to_matrix_index_map.end() && !it->second.empty()) {
-                // 检查是否属于当前mesh（通过proto_id匹配）
-                // 所有来自同一CADMesh的instance共享proto_id
+                // Check whether the instance belongs to the current mesh via proto_id.
+                // Instances coming from the same CADMesh share the same proto_id.
                 model_indices.push_back(idx);
             }
         }
-        // 去重model_indices
+        // Deduplicate model_indices.
         std::sort(model_indices.begin(), model_indices.end());
         model_indices.erase(std::unique(model_indices.begin(), model_indices.end()), model_indices.end());
 
-        // 对每个PMI进行处理
+        // Process each PMI entry.
         for (auto& pmiInfo : pmiList) {
             total_pmi++;
 
-            // 找到此PMI所属的protoId对应的所有model_idx（支持多个实例）
+            // Find all model_idx entries matching this PMI protoId.
             std::vector<uint32_t> matched_model_indices;
             for (auto& [inst_name, idx] : model_name_to_global_index) {
                 auto map_it = id_to_matrix_index_map.find(inst_name);
@@ -1094,7 +1094,7 @@ void CADMesh::processPMI(
                 continue;
             }
 
-            // ---- 绘制箭头线段 ----
+            // ---- Build the arrow line segments ----
             if (pmiInfo.points.size() < 2) {
                 vsg::info("PMI: type=", pmiInfo.type, " skipped - points.size()=", pmiInfo.points.size(), " < 2");
                 continue;
@@ -1114,10 +1114,10 @@ void CADMesh::processPMI(
                 vsg::vec3 temp4(pmiInfo.points[3][0], pmiInfo.points[3][1], pmiInfo.points[3][2]);
                 temp2 = (temp2 + temp1 * 2.f) / 3.f;
                 temp4 = (temp4 + temp3 * 2.f) / 3.f;
-                // 箭头加权平均点：temp5 = (3*p1 + 2*p4) / 5, temp6 = (3*p4 + 2*p1) / 5
+                // Weighted arrow points: temp5 = (3*p1 + 2*p4) / 5, temp6 = (3*p4 + 2*p1) / 5.
                 vsg::vec3 temp5 = (temp2 * 3.0f + temp4 * 2.0f) / 5.0f;
                 vsg::vec3 temp6 = (temp4 * 3.0f + temp2 * 2.0f) / 5.0f;
-                // 画4条线：temp1→temp2, temp3→temp4, temp2→temp5, temp6→temp4
+                // Draw four segments: temp1->temp2, temp3->temp4, temp2->temp5, temp6->temp4.
                 lineSegments.push_back({temp1, temp2});
                 lineSegments.push_back({temp3, temp4});
                 lineSegments.push_back({temp2, temp5});
@@ -1126,10 +1126,10 @@ void CADMesh::processPMI(
             } else if (pmiInfo.type == "Radius") {
                 vsg::vec3 temp1(pmiInfo.points[0][0], pmiInfo.points[0][1], pmiInfo.points[0][2]);
                 vsg::vec3 temp2(pmiInfo.points[1][0], pmiInfo.points[1][1], pmiInfo.points[1][2]);
-                // 箭头加权平均点：temp5 = (2*p0 + p1) / 3, temp6 = (2*p1 + p0) / 3
+                // Weighted arrow points: temp5 = (2*p0 + p1) / 3, temp6 = (2*p1 + p0) / 3.
                 vsg::vec3 temp5 = (temp1 * 2.0f + temp2) / 3.0f;
                 vsg::vec3 temp6 = (temp2 * 2.0f + temp1) / 3.0f;
-                // 画2条线：temp1→temp5, temp6→temp2
+                // Draw two segments: temp1->temp5 and temp6->temp2.
                 lineSegments.push_back({temp1, temp5});
                 lineSegments.push_back({temp6, temp2});
             } else if (pmiInfo.type == "Diameter") {
@@ -1139,9 +1139,9 @@ void CADMesh::processPMI(
                 }
                 vsg::vec3 temp1(pmiInfo.points[0][0], pmiInfo.points[0][1], pmiInfo.points[0][2]);
                 vsg::vec3 temp2(pmiInfo.points[1][0], pmiInfo.points[1][1], pmiInfo.points[1][2]);
-                // temp3 = text[0]位置
+                // temp3 uses the first text anchor position.
                 vsg::vec3 temp3(pmiInfo.text[0][0], pmiInfo.text[0][1], pmiInfo.text[0][2]);
-                // 画2条线：temp1→temp2, temp2→temp3
+                // Draw two segments: temp1->temp2 and temp2->temp3.
                 lineSegments.push_back({temp1, temp2});
                 lineSegments.push_back({temp2, temp3});
             } else {
@@ -1162,7 +1162,7 @@ void CADMesh::processPMI(
             auto pmi_color = vsg::vec4Value::create(vsg::vec4{0.0f, 0.0f, 0.0f, 1.0f});
             pmi_color->properties.dataVariance = vsg::DataVariance::STATIC_DATA;
 
-            // 创建绘制管线
+            // Create the draw pipeline.
             auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(line_shader);
             graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
             graphicsPipelineConfig->assignTexture("depthImage", depth_info);
@@ -1198,7 +1198,7 @@ void CADMesh::processPMI(
             lineStateGroup->addChild(vsg::SetLineWidth::create(4.0f));
             lineStateGroup->addChild(drawCommands);
 
-            // 预计算 instance 矩阵列表
+            // Precompute the instance-matrix list.
             std::vector<vsg::dmat4> inst_matrices;
             if (pmiInfo.instanceMatrixList.empty()) {
                 inst_matrices.push_back(vsg::dmat4());
@@ -1214,7 +1214,7 @@ void CADMesh::processPMI(
                 }
             }
 
-            // 为每个匹配的 model_idx 创建 PMI 线段
+            // Create PMI line segments for each matched model_idx.
             for (auto midx : matched_model_indices) {
                 for (auto& im : inst_matrices) {
                     auto transform = vsg::MatrixTransform::create();
@@ -1226,12 +1226,12 @@ void CADMesh::processPMI(
                 }
             }
 
-            // ---- PMI 文字节点 ----
+            // ---- PMI text nodes ----
             if (pmiInfo.text.empty() || pmiInfo.value.empty()) {
                 continue;
             }
 
-            // 为每个匹配的 model_idx 创建文字节点
+            // Create text nodes for each matched model_idx.
             for (auto midx : matched_model_indices) {
                 for (auto& im : inst_matrices) {
                     auto text_label = vsg::stringValue::create(pmiInfo.value + "mm");
