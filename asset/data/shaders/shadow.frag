@@ -526,7 +526,7 @@ float SampleShadow_PCSS_Area(vec3 posTCShadowmap, vec2 posSS, float shadowSoftne
     //2) Penumbra Estimation
     maxSampleZDistance *= PenumbraSizePunctual(posTCShadowmap.z, blocker);
     // Extend the sampling cone only up to a certain margin before the blocker. Extending it past that distance will make samples miss the blocker and the shadow will fade.
-    maxSampleZDistance = min(maxSampleZDistance, (blocker - posTCShadowmap.z) * 0.9);
+    maxSampleZDistance = min(maxSampleZDistance, (blocker - posTCShadowmap.z) * 1.8);
     // minFilterRadius can extend the cone past the above, so min&max instead of clamp.
     maxSampleZDistance = max(maxSampleZDistance, minFilterRadius * 10);
 

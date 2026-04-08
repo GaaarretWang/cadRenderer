@@ -377,7 +377,7 @@ namespace gui
         }
         else if(m_render_state.pipeline.frame_params.shadow_type == 1)
         {
-            ImGui::SliderFloat("pcss_softness", &(pcss_softness), 0.0f, 0.01f, "%.7f", ImGuiSliderFlags_Logarithmic);
+            ImGui::SliderFloat("pcss_softness", &(pcss_softness), 0.0f, 0.1f, "%.7f", ImGuiSliderFlags_Logarithmic);
             ImGui::SliderFloat("pcss_softness_falloff", &(pcss_softness_falloff), 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic);
             m_render_state.pipeline.pcss_softness = pcss_softness;
             m_render_state.pipeline.pcss_softness_falloff = pcss_softness_falloff;
@@ -616,7 +616,7 @@ namespace gui
         ImGui::SetNextWindowSize(ImVec2(500, 800), ImGuiCond_FirstUseEver);
         ImGui::Begin("AR/MR Engine");
 
-        ImGui::Text("Render FPS:\t%.1f (%.3f ms)", 1000.0f / global_params->currentFps, global_params->currentFps);
+        ImGui::Text("Render FPS:\t%.1f", 1000.0f / global_params->currentFps);
         ImGui::Text("Camera Tracking FPS:\t%.1f", vsgserver::renderer->camera_tracking_fps);
         ImGui::Separator();
 
