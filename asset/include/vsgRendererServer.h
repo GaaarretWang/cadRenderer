@@ -2,10 +2,12 @@
 #define VSGRENDERERSERVER_H
 #pragma  once
 #include <iostream>
+#include <memory>
 #include <unordered_set>
 #include <screenshot.h>
 #include <vsg/all.h>
 #include "ConfigShader.h"
+#include "FrameImageResources.h"
 #include "ImGui.h"
 #include "MyMask.h"
 #include "CustomViewDependentState.h"
@@ -76,10 +78,7 @@ class vsgRendererServer
     int encode_width;
     int encode_height;
 
-    vsg::ref_ptr<vsg::Data> vsg_color_image;
-    vsg::ref_ptr<vsg::Data> vsg_depth_image;
-    vsg::ImageInfoList camera_info;
-    vsg::ImageInfoList depth_info;
+    std::unique_ptr<FrameImageResources> frame_image_resources;
     vsg::ref_ptr<vsg::Value<IBL::DynamicSkyboxParams>> camera_image_params = vsg::Value<IBL::DynamicSkyboxParams>::create();
 
     // CUDA-Vulkan interop depth image.
@@ -238,8 +237,8 @@ public:
         }
 
         IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
-        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, camera_info,
-                               depth_info,
+        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, frame_image_resources->cameraInfo(),
+                               frame_image_resources->depthInfo(),
                                vsg::ref_ptr<vsg::Data>(pc_data),
                                camera_image_params);
     }
@@ -260,7 +259,7 @@ public:
 
         IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
         IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height,
-            camera_info, depth_info, vsg::ref_ptr<vsg::Data>(pc_data), camera_image_params);
+            frame_image_resources->cameraInfo(), frame_image_resources->depthInfo(), vsg::ref_ptr<vsg::Data>(pc_data), camera_image_params);
     }
 
     void update_directional_lights(){
@@ -324,15 +323,6 @@ public:
         }
     }
 
-    vsg::ImageInfoList createImageInfo(vsg::ref_ptr<vsg::Data> in_data){
-        auto sampler = vsg::Sampler::create();
-        sampler->magFilter = VK_FILTER_NEAREST;
-        sampler->minFilter = VK_FILTER_NEAREST;
-
-        vsg::ref_ptr<vsg::ImageInfo> imageInfosIBL = vsg::ImageInfo::create(sampler, in_data);
-        vsg::ImageInfoList imageInfosListIBL = {imageInfosIBL};
-        return imageInfosListIBL;
-    }
     vsg::ref_ptr<vsg::Options> options = vsg::Options::create();
 
     void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform);

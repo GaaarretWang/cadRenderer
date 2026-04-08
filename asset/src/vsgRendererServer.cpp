@@ -69,14 +69,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     vsg::info("mainV2: Create Instance");
 
-    vsg_color_image = vsg::ubvec3Array2D::create(width, height);
-    vsg_depth_image = vsg::ushortArray2D::create(width, height);
-    vsg_color_image->properties.format = VK_FORMAT_R8G8B8_UNORM;
-    vsg_color_image->properties.dataVariance = vsg::DYNAMIC_DATA;
-    vsg_depth_image->properties.format = VK_FORMAT_R16_UNORM;
-    vsg_depth_image->properties.dataVariance = vsg::DYNAMIC_DATA;
-    camera_info = createImageInfo(vsg_color_image);
-    depth_info = createImageInfo(vsg_depth_image);
+    frame_image_resources = std::make_unique<FrameImageResources>();
+    frame_image_resources->initialize(width, height);
 
 
     vsg::ref_ptr<vsg::Instance> instance;
@@ -228,8 +222,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     syncConstantData();
 
-    CADMesh::camera_info = camera_info;
-    CADMesh::depth_info = depth_info;
+    CADMesh::camera_info = frame_image_resources->cameraInfo();
+    CADMesh::depth_info = frame_image_resources->depthInfo();
     if(shadow_receiver_path != "")
     {
         CADMesh* shadow_receiver_mesh = new CADMesh();
@@ -489,11 +483,12 @@ bool vsgRendererServer::render() {
         copyInteropToDepthImage();
 
         auto t2 = std::chrono::high_resolution_clock::now();
-        uint8_t* vsg_color_image_beginPointer = static_cast<uint8_t*>(vsg_color_image->dataPointer(0));
+        auto color_image = frame_image_resources->colorImage();
+        uint8_t* vsg_color_image_beginPointer = static_cast<uint8_t*>(color_image->dataPointer(0));
         std::copy(color_pixels, color_pixels + width * height * 3, vsg_color_image_beginPointer);
 
         auto t3 = std::chrono::high_resolution_clock::now();
-        vsg_color_image->dirty();
+        color_image->dirty();
 
         gui::global_params->render_func_times[0] = std::chrono::duration<double, std::milli>(t1 - t0).count();
         gui::global_params->render_func_times[1] = std::chrono::duration<double, std::milli>(t2 - t1).count();
@@ -525,7 +520,7 @@ bool vsgRendererServer::render() {
 }
 
 void vsgRendererServer::copyInteropToDepthImage() {
-    auto depth_target_image = depth_info[0]->imageView->image;
+    auto depth_target_image = frame_image_resources->depthInfo()[0]->imageView->image;
     auto command = vsg::Commands::create();
 
     // 1. Barrier: interop image UNDEFINED -> TRANSFER_SRC, depth_info image SHADER_READ_ONLY -> TRANSFER_DST.
