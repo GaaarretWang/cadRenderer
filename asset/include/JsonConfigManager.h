@@ -80,6 +80,8 @@ class JsonConfigManager
 public:
     JsonConfigManager(std::string scenes_json_path, std::string materials_json_path, std::string lightinfo_json_path);
 
+    bool loadScenesJson(nlohmann::json& out_json, std::string* error_message = nullptr) const;
+    bool saveScenesJson(const nlohmann::json& in_json, std::string* error_message = nullptr) const;
     bool loadSceneConfig(const std::string& scene_name_or_id, SceneConfig& out_scene, std::string* error_message = nullptr) const;
 
     bool loadSceneRenderParamsAndStyle(int scene_id, SceneRenderParams& out_params, SceneLinePointStyle& out_style, std::string* error_message = nullptr) const;

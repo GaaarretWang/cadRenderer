@@ -4,34 +4,21 @@
 #include <chrono>
 #include <thread>
 
-namespace
+RenderingServer::RenderingServer()
 {
-VkSampleCountFlagBits toSampleCount(int msaa)
-{
-    switch (msaa)
-    {
-        case 1: return VK_SAMPLE_COUNT_1_BIT;
-        case 2: return VK_SAMPLE_COUNT_2_BIT;
-        case 4: return VK_SAMPLE_COUNT_4_BIT;
-        case 8: return VK_SAMPLE_COUNT_8_BIT;
-        default: return VK_SAMPLE_COUNT_4_BIT;
-    }
+    json_manager_ = std::make_shared<JsonConfigManager>(
+        rendering_dir + "asset/data/json/Scenes.json",
+        rendering_dir + "asset/data/json/Materials.json",
+        rendering_dir + "asset/data/json/LightInfo.json");
+    scene_serializer_ = std::make_shared<SceneConfigSerializer>(json_manager_);
 }
-}
-
-RenderingServer::RenderingServer() = default;
 
 RenderingServer::~RenderingServer() = default;
 
 bool RenderingServer::loadSceneFromJSON(const std::string& scene_name_or_id)
 {
-    JsonConfigManager config_manager(
-        rendering_dir + "asset/data/json/Scenes.json",
-        rendering_dir + "asset/data/json/Materials.json",
-        rendering_dir + "asset/data/json/LightInfo.json");
-
     std::string error_message;
-    if (!config_manager.loadSceneConfig(scene_name_or_id, loaded_scene_config, &error_message))
+    if (!scene_serializer_->loadSceneConfig(scene_name_or_id, loaded_scene_config, &error_message))
     {
         vsg::error(error_message);
         return false;
@@ -39,17 +26,11 @@ bool RenderingServer::loadSceneFromJSON(const std::string& scene_name_or_id)
 
     clearSceneData();
     loaded_scene_id = loaded_scene_config.id;
-
-    for (const auto& model : loaded_scene_config.models)
-    {
-        model_paths.push_back(rendering_dir + model.path);
-        model_transforms.push_back(model.transform);
-        instance_names.push_back(model.instance_name);
-    }
-
-    renderer.shadow_receiver_path = rendering_dir + loaded_scene_config.shadow_receiver_path;
-    renderer.shadow_receiver_transform = loaded_scene_config.shadow_receiver_transform;
-    renderer.msaaSamples = toSampleCount(loaded_scene_config.msaa);
+    scene_payload_ = SceneInitAssembler::buildSceneInitPayload(loaded_scene_config, rendering_dir);
+    renderer.shadow_receiver_path = scene_payload_.shadow_receiver_path;
+    renderer.shadow_receiver_transform = scene_payload_.shadow_receiver_transform;
+    renderer.msaaSamples = scene_payload_.msaa_samples;
+    renderer.cull_mode_none_model_paths = scene_payload_.cull_mode_none_model_paths;
 
     if (!frame_provider.initialize(loaded_scene_config, rendering_dir, width, height, &error_message))
     {
@@ -60,20 +41,14 @@ bool RenderingServer::loadSceneFromJSON(const std::string& scene_name_or_id)
     stop_cameara_pos = frame_provider.isStatic();
     cameara_pos_bool = true;
 
-    vsg::info("Scene '", scene_name_or_id, "' loaded: models=", model_paths.size(), ", frames=", frame_provider.frameCount());
+    vsg::info("Scene '", scene_name_or_id, "' loaded: models=", scene_payload_.model_paths.size(), ", frames=", frame_provider.frameCount());
     return true;
 }
 
 void RenderingServer::applyFrameData(const FrameData& frame_data)
 {
     lookat_vector = frame_data.lookat;
-
-    vsg::dvec3 centre = {lookat_vector[0], lookat_vector[1], lookat_vector[2]};
-    vsg::dvec3 eye = {lookat_vector[3], lookat_vector[4], lookat_vector[5]};
-    vsg::dvec3 up = {lookat_vector[6], lookat_vector[7], lookat_vector[8]};
-    renderer.updateCamera(centre, eye, up);
-
-    renderer.setRealColorAndImage(frame_data.image.color.get(), frame_data.image.depth.get());
+    renderer.applyFrameInput(SceneInitAssembler::buildCameraFrameInput(frame_data));
 }
 
 int RenderingServer::Init(int argc, char** argv)
@@ -96,11 +71,7 @@ int RenderingServer::Init(int argc, char** argv)
     CADMesh::scenes_json_path = rendering_dir + "asset/data/json/Scenes.json";
     CADMesh::current_scene_id = loaded_scene_id;
 
-    renderer.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/twoAirplaneBody.fb");
-    renderer.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/twoAirplaneBody_white.fb");
-    renderer.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/window.fb");
-
-    renderer.initRenderer(rendering_dir, model_transforms, model_paths, instance_names, vsg::dmat4());
+    renderer.initRenderer(rendering_dir, scene_payload_.model_transforms, scene_payload_.model_paths, scene_payload_.instance_names, vsg::dmat4());
     if (frame_provider.hasFrame())
     {
         applyFrameData(frame_provider.currentFrame());
@@ -158,8 +129,6 @@ int RenderingServer::Update()
 
 void RenderingServer::clearSceneData()
 {
-    model_paths.clear();
-    model_transforms.clear();
-    instance_names.clear();
+    scene_payload_ = SceneInitPayload{};
     frame_provider.reset();
 }

@@ -55,7 +55,7 @@ if "%BUILD_ONLY%"=="1" (
 
 echo [3/3] Running...
 pushd "%BUILD_DIR%"
-"%EXE_PATH%" -s 7
+"%EXE_PATH%" -s 2
 popd
 
 exit /b 0

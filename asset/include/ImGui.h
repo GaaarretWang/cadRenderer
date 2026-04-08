@@ -18,6 +18,8 @@ class vsgRendererServer;
 #include <cmath>
 #include <memory>
 #include "JsonConfigManager.h"
+#include "RenderStateController.h"
+#include "SceneConfigSerializer.h"
 #include "MyMask.h"
 
 // 简化JSON命名空间
@@ -106,6 +108,9 @@ namespace gui
         std::string m_materials_json_path;  // data/json/Materials.json
         std::string m_lightinfo_json_path;  // data/json/LightInfo.json
         std::shared_ptr<JsonConfigManager> m_json_manager;
+        std::shared_ptr<RenderStateController> m_state_controller;
+        std::shared_ptr<SceneConfigSerializer> m_scene_serializer;
+        mutable RenderStateHub m_render_state;
         mutable float pcf_softness;
         mutable float pcss_softness;
         mutable float pcss_softness_falloff;

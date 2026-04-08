@@ -9,6 +9,8 @@
 #include <vsgRendererServer.h>
 
 #include "SceneFrameProvider.h"
+#include "SceneConfigSerializer.h"
+#include "SceneInitAssembler.h"
 
 class RenderingServer {
 public:
@@ -22,9 +24,6 @@ public:
     float fy = 387.32300428823663;
     float cx = 326.5103569741365;
     float cy = 237.40293732598795;
-    std::vector<vsg::dmat4> model_transforms;
-    std::vector<std::string> model_paths;
-    std::vector<std::string> instance_names;
     std::string rendering_dir = "../";
     double upsample_scale = 2;
     double encode_scale = 2;
@@ -40,6 +39,9 @@ private:
     SceneConfig loaded_scene_config;
     int loaded_scene_id = -1;
     SceneFrameProvider frame_provider;
+    SceneInitPayload scene_payload_;
+    std::shared_ptr<JsonConfigManager> json_manager_;
+    std::shared_ptr<SceneConfigSerializer> scene_serializer_;
 
 public:
     RenderingServer();

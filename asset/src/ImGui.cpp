@@ -66,6 +66,8 @@ namespace gui
     {
         // 閸旂姾娴嘕SON閺傚洣娆㈤崚婵嗩潗閸栨牕寮弫?
         m_json_manager = std::make_shared<JsonConfigManager>(m_scenes_json_path, m_materials_json_path, m_lightinfo_json_path);
+        m_scene_serializer = std::make_shared<SceneConfigSerializer>(m_json_manager);
+        m_state_controller = std::make_shared<RenderStateController>(m_json_manager, m_scene_serializer);
         loadParams();
         // 閸掓繂顫愰崠鏍х杽娓氬褰夐幑銏㈠Ц閹?
         initInstanceStates();
@@ -152,30 +154,41 @@ namespace gui
             std::cerr << "JsonConfigManager is not initialized." << std::endl;
             return;
         }
+        if (!m_scene_serializer)
+        {
+            std::cerr << "SceneConfigSerializer is not initialized." << std::endl;
+            return;
+        }
+        if (!m_state_controller)
+        {
+            std::cerr << "RenderStateController is not initialized." << std::endl;
+            return;
+        }
 
-        SceneRenderParams params;
+        RenderStateHub state;
         SceneLinePointStyle style;
         std::string error_message;
-        if (!m_json_manager->loadSceneRenderParamsAndStyle(CADMesh::current_scene_id, params, style, &error_message))
+        if (!m_state_controller->loadRenderState(CADMesh::current_scene_id, state, style, &error_message))
         {
             std::cerr << "Failed to load render params: " << error_message << std::endl;
             return;
         }
 
-        vsgserver::renderer->hdr_image_num = params.hdr_image_num;
-        vsgserver::renderer->setRealDepthOcclusion(params.enable_real_depth_occlusion);
-        vsgserver::renderer->setShadowMode(params.shadow_mode);
-        m_pc_data->value().ssao_radius = params.ssao_radius;
-        m_pc_data->value().ssao_kernel_size = params.ssao_kernel_size;
-        m_pc_data->value().exposure = params.exposure;
-        m_pc_data->value().denoise_size = params.denoise_size;
-        m_pc_data->value().shadow_bias = params.shadow_bias;
-        m_pc_data->value().blocker_sample_num = params.blocker_sample_num;
-        m_pc_data->value().pcf_sample_num = params.pcf_sample_num;
-        m_pc_data->value().shadow_type = params.shadow_type;
-        pcf_softness = params.pcf_softness;
-        pcss_softness = params.pcss_softness;
-        pcss_softness_falloff = params.pcss_softness_falloff;
+        m_render_state = state;
+        vsgserver::renderer->hdr_image_num = m_render_state.pipeline.hdr_image_num;
+        vsgserver::renderer->setRealDepthOcclusion(m_render_state.pipeline.enable_real_depth_occlusion);
+        vsgserver::renderer->setShadowMode(m_render_state.pipeline.shadow_mode);
+        m_pc_data->value().ssao_radius = m_render_state.pipeline.frame_params.ssao_radius;
+        m_pc_data->value().ssao_kernel_size = m_render_state.pipeline.frame_params.ssao_kernel_size;
+        m_pc_data->value().exposure = m_render_state.pipeline.frame_params.exposure;
+        m_pc_data->value().denoise_size = m_render_state.pipeline.frame_params.denoise_size;
+        m_pc_data->value().shadow_bias = m_render_state.pipeline.frame_params.shadow_bias;
+        m_pc_data->value().blocker_sample_num = m_render_state.pipeline.frame_params.blocker_sample_num;
+        m_pc_data->value().pcf_sample_num = m_render_state.pipeline.frame_params.pcf_sample_num;
+        m_pc_data->value().shadow_type = m_render_state.pipeline.frame_params.shadow_type;
+        pcf_softness = m_render_state.pipeline.pcf_softness;
+        pcss_softness = m_render_state.pipeline.pcss_softness;
+        pcss_softness_falloff = m_render_state.pipeline.pcss_softness_falloff;
 
         CADMesh::dynamic_lines.colors->value() = vsg::vec4(style.line_color.r, style.line_color.g, style.line_color.b, 1.0f);
         CADMesh::dynamic_lines.colors->dirty();
@@ -196,62 +209,15 @@ namespace gui
     {
         try
         {
-            if (!m_json_manager) {
-                std::cerr << "JsonConfigManager is not initialized." << std::endl;
+            if (!m_state_controller) {
+                std::cerr << "RenderStateController is not initialized." << std::endl;
                 return;
             }
 
-            json mat_data;
             std::string error_message;
-            if (!m_json_manager->loadMaterialsJson(mat_data, &error_message)) {
+            if (!m_state_controller->loadMaterialParams(&error_message)) {
                 std::cerr << "Failed to load material params: " << error_message << std::endl;
                 return;
-            }
-
-            if (!mat_data.contains("material_params"))
-            {
-                return;
-            }
-
-            auto& material_params = mat_data["material_params"];
-            std::unordered_set<std::string> loaded_fb_groups;
-            bool material_changed = false;
-            for (auto& id_data : CADMesh::proto_id_to_data_map)
-            {
-                const std::string& id = id_data.first;
-                ProtoData* proto_data = id_data.second;
-                if (proto_data->material_index >= CADMesh::global_material_buffer->size())
-                    continue;
-
-                vsg::PbrMaterial* pbr_ptr = static_cast<PbrMaterial*>(CADMesh::global_material_buffer->dataPointer(proto_data->material_index));
-                std::string mat_key = getMaterialPersistKey(id, proto_data);
-
-                if (proto_data->material_source == ProtoData::MaterialSource::Fb)
-                {
-                    if (proto_data->fb_color_group_key.empty())
-                        continue;
-
-                    if (loaded_fb_groups.find(proto_data->fb_color_group_key) != loaded_fb_groups.end())
-                        continue;
-                    loaded_fb_groups.insert(proto_data->fb_color_group_key);
-
-                    auto leader_it = CADMesh::fb_color_to_leader_material_key.find(proto_data->fb_color_group_key);
-                    if (leader_it != CADMesh::fb_color_to_leader_material_key.end())
-                    {
-                        mat_key = leader_it->second;
-                    }
-                }
-
-                if (!material_params.contains(mat_key))
-                    continue;
-
-                applyMaterialJsonToMaterial(material_params[mat_key], pbr_ptr);
-                material_changed = true;
-            }
-
-            if (material_changed)
-            {
-                CADMesh::global_material_buffer->dirty();
             }
         }
         catch (const std::exception& e)
@@ -277,22 +243,10 @@ namespace gui
         }
 
         try {
-            json json_data;
             std::string error_message;
-            if (!m_json_manager->loadLightInfoJson(json_data, &error_message)) {
-                std::cerr << "Failed to load LightInfo.json: " << error_message << std::endl;
-                return;
-            }
-
             int hdr_num = vsgserver::renderer->hdr_image_num;
-            std::string hdr_key = std::to_string(hdr_num);
             float bb = m_pc_data->value().baseBrightness;
-
-            if (json_data.contains(hdr_key)) {
-                json_data[hdr_key]["baseBrightness"] = bb;
-            }
-
-            if (!m_json_manager->saveLightInfoJson(json_data, &error_message)) {
+            if (!m_state_controller || !m_state_controller->saveBaseBrightnessToLightInfo(hdr_num, bb, &error_message)) {
                 std::cerr << "Failed to save LightInfo.json: " << error_message << std::endl;
                 return;
             }
@@ -312,28 +266,27 @@ namespace gui
             return;
         }
 
-        SceneRenderParams params;
-        params.hdr_image_num = vsgserver::renderer->hdr_image_num;
-        params.enable_real_depth_occlusion = vsgserver::renderer->enable_real_depth_occlusion;
-        params.shadow_mode = vsgserver::renderer->shadow_mode;
-        params.ssao_radius = m_pc_data->value().ssao_radius;
-        params.ssao_kernel_size = m_pc_data->value().ssao_kernel_size;
-        params.exposure = m_pc_data->value().exposure;
-        params.denoise_size = m_pc_data->value().denoise_size;
-        params.shadow_bias = m_pc_data->value().shadow_bias;
-        params.blocker_sample_num = m_pc_data->value().blocker_sample_num;
-        params.pcf_sample_num = m_pc_data->value().pcf_sample_num;
-        params.shadow_type = m_pc_data->value().shadow_type;
-        params.pcf_softness = pcf_softness;
-        params.pcss_softness = pcss_softness;
-        params.pcss_softness_falloff = pcss_softness_falloff;
+        m_render_state.pipeline.hdr_image_num = vsgserver::renderer->hdr_image_num;
+        m_render_state.pipeline.enable_real_depth_occlusion = vsgserver::renderer->enable_real_depth_occlusion;
+        m_render_state.pipeline.shadow_mode = vsgserver::renderer->shadow_mode;
+        m_render_state.pipeline.frame_params.ssao_radius = m_pc_data->value().ssao_radius;
+        m_render_state.pipeline.frame_params.ssao_kernel_size = m_pc_data->value().ssao_kernel_size;
+        m_render_state.pipeline.frame_params.exposure = m_pc_data->value().exposure;
+        m_render_state.pipeline.frame_params.denoise_size = m_pc_data->value().denoise_size;
+        m_render_state.pipeline.frame_params.shadow_bias = m_pc_data->value().shadow_bias;
+        m_render_state.pipeline.frame_params.blocker_sample_num = m_pc_data->value().blocker_sample_num;
+        m_render_state.pipeline.frame_params.pcf_sample_num = m_pc_data->value().pcf_sample_num;
+        m_render_state.pipeline.frame_params.shadow_type = m_pc_data->value().shadow_type;
+        m_render_state.pipeline.pcf_softness = pcf_softness;
+        m_render_state.pipeline.pcss_softness = pcss_softness;
+        m_render_state.pipeline.pcss_softness_falloff = pcss_softness_falloff;
 
         SceneLinePointStyle style;
         style.line_color = vsg::vec3(CADMesh::dynamic_lines.colors->value().r, CADMesh::dynamic_lines.colors->value().g, CADMesh::dynamic_lines.colors->value().b);
         style.point_color = vsg::vec3(CADMesh::dynamic_points.colors->value().r, CADMesh::dynamic_points.colors->value().g, CADMesh::dynamic_points.colors->value().b);
 
         std::string error_message;
-        if (!m_json_manager->saveSceneRenderParamsAndStyle(CADMesh::current_scene_id, params, style, &error_message)) {
+        if (!m_state_controller || !m_state_controller->saveRenderState(CADMesh::current_scene_id, m_render_state, style, &error_message)) {
             std::cerr << "Failed to save render params: " << error_message << std::endl;
             return;
         }
@@ -343,35 +296,16 @@ namespace gui
     // 淇濆瓨鏉愯川鍙傛暟鍒癕aterials.json
     void MyGui::saveMaterialParams() const
     {
-        if (!m_json_manager)
+        if (!m_state_controller)
         {
-            std::cerr << "JsonConfigManager is not initialized." << std::endl;
+            std::cerr << "RenderStateController is not initialized." << std::endl;
             return;
         }
 
         try {
-            json mat_json;
             std::string error_message;
-            if (!m_json_manager->loadMaterialsJson(mat_json, &error_message)) {
+            if (!m_state_controller->saveMaterialParams(&error_message)) {
                 std::cerr << "Failed to load material params: " << error_message << std::endl;
-                return;
-            }
-
-            json& material_params = mat_json["material_params"];
-            for (auto& id_data : CADMesh::proto_id_to_data_map)
-            {
-                std::string id = id_data.first;
-                ProtoData* proto_data = id_data.second;
-                if (proto_data->material_index >= CADMesh::global_material_buffer->size())
-                    continue;
-
-                vsg::PbrMaterial* pbr_ptr = static_cast<PbrMaterial*>(CADMesh::global_material_buffer->dataPointer(proto_data->material_index));
-                std::string mat_key = getMaterialPersistKey(id, proto_data);
-                writeMaterialJson(material_params[mat_key], pbr_ptr);
-            }
-
-            if (!m_json_manager->saveMaterialsJson(mat_json, &error_message)) {
-                std::cerr << "Failed to save material params: " << error_message << std::endl;
                 return;
             }
             std::cout << "Material params saved to: " << m_materials_json_path << std::endl;
@@ -385,73 +319,68 @@ namespace gui
     // 娓叉煋鍙傛暟闈㈡澘
     void MyGui::drawRenderParams() const
     {
-        auto* renderer = vsgserver::renderer;
         ImGui::Text("hdr num:");
-        bool hdr_state_change = false;
         static int last_hdr_num = -1;
-        if(last_hdr_num == vsgserver::renderer->hdr_image_num){
-            for(int i = 1; i <= vsgserver::renderer->hdr_image_max_num; ++i){
-                std::string num_str = std::to_string(i);
-                if(i > 1) {
-                    ImGui::SameLine(0.0f, 5.0f);
-                }
-                if(ImGui::Button(num_str.c_str())){
-                    vsgserver::renderer->hdr_image_num = i;
-                    hdr_state_change = true;
-                }
+        if (last_hdr_num != vsgserver::renderer->hdr_image_num)
+        {
+            m_render_state.pipeline.hdr_image_num = vsgserver::renderer->hdr_image_num;
+            m_state_controller->applyHdrSelection(m_render_state, m_pc_data->value().baseBrightness);
+        }
+        for (int i = 1; i <= vsgserver::renderer->hdr_image_max_num; ++i) {
+            std::string num_str = std::to_string(i);
+            if (i > 1) {
+                ImGui::SameLine(0.0f, 5.0f);
             }
-        }
-        else{
-            hdr_state_change = true;
-        }
-
-        if(hdr_state_change){
-            vsgserver::renderer->updateEnvLighting();
-            auto it = vsgserver::renderer->hdr_base_brightness.find(vsgserver::renderer->hdr_image_num);
-            if (it != vsgserver::renderer->hdr_base_brightness.end()) {
-                m_pc_data->value().baseBrightness = it->second;
+            if (ImGui::Button(num_str.c_str())) {
+                m_render_state.pipeline.hdr_image_num = i;
+                m_state_controller->applyHdrSelection(m_render_state, m_pc_data->value().baseBrightness);
             }
         }
         last_hdr_num = vsgserver::renderer->hdr_image_num;
 
         ImGui::Separator();
         ImGui::Text("Global Render Params:");
-        bool depth_occlusion_enabled = renderer->enable_real_depth_occlusion != 0;
+        bool depth_occlusion_enabled = m_render_state.pipeline.enable_real_depth_occlusion != 0;
         if (ImGui::Checkbox("Depth Occlusion", &depth_occlusion_enabled))
         {
-            renderer->setRealDepthOcclusion(depth_occlusion_enabled ? 1 : 0);
-            renderer->syncConstantData();
+            m_render_state.pipeline.enable_real_depth_occlusion = depth_occlusion_enabled ? 1 : 0;
+            m_state_controller->applyDepthOcclusionState(m_render_state);
         }
 
-        int shadow_mode = (renderer->shadow_mode == SHADOW_REAL_DEPTH) ? SHADOW_REAL_DEPTH : SHADOW_RECEIVER_PLANE;
+        int shadow_mode = (m_render_state.pipeline.shadow_mode == SHADOW_REAL_DEPTH) ? SHADOW_REAL_DEPTH : SHADOW_RECEIVER_PLANE;
         const char* shadow_mode_items[] = {"Receiver Plane", "Real Depth"};
         if (ImGui::Combo("Shadow Mode", &shadow_mode, shadow_mode_items, IM_ARRAYSIZE(shadow_mode_items)))
         {
-            renderer->setShadowMode(shadow_mode);
-            renderer->syncConstantData();
+            m_render_state.pipeline.shadow_mode = shadow_mode;
+            m_state_controller->applyShadowModeState(m_render_state);
         }
 
-        if (ImGui::RadioButton("PCF", m_pc_data->value().shadow_type == 0)){
+        if (ImGui::RadioButton("PCF", m_render_state.pipeline.frame_params.shadow_type == 0)){
+            m_render_state.pipeline.frame_params.shadow_type = 0;
             m_pc_data->value().shadow_type = 0;
         }
         ImGui::SameLine();
-        if (ImGui::RadioButton("PCSS", m_pc_data->value().shadow_type == 1))
+        if (ImGui::RadioButton("PCSS", m_render_state.pipeline.frame_params.shadow_type == 1))
         {
+            m_render_state.pipeline.frame_params.shadow_type = 1;
             m_pc_data->value().shadow_type = 1;
         }
 
         ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 100.0f);
         if (ImGui::Button("Save baseBrightness"))
             saveBaseBrightnessToLightInfo();
-        if (m_pc_data->value().shadow_type == 0)
+        if (m_render_state.pipeline.frame_params.shadow_type == 0)
         {
             ImGui::SliderFloat("pcf_softness", &(pcf_softness), 0.0f, 100.0f);
+            m_render_state.pipeline.pcf_softness = pcf_softness;
             m_pc_data->value().softness = pcf_softness;
         }
-        else if(m_pc_data->value().shadow_type == 1)
+        else if(m_render_state.pipeline.frame_params.shadow_type == 1)
         {
             ImGui::SliderFloat("pcss_softness", &(pcss_softness), 0.0f, 0.01f, "%.7f", ImGuiSliderFlags_Logarithmic);
             ImGui::SliderFloat("pcss_softness_falloff", &(pcss_softness_falloff), 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic);
+            m_render_state.pipeline.pcss_softness = pcss_softness;
+            m_render_state.pipeline.pcss_softness_falloff = pcss_softness_falloff;
             m_pc_data->value().softness = pcss_softness;
             m_pc_data->value().softness_falloff = pcss_softness_falloff;
         }
@@ -464,6 +393,16 @@ namespace gui
         ImGui::SliderInt("denoise_size", &(m_pc_data->value().denoise_size), 1, 9);
 
         ImGui::SliderFloat("exposure", &(m_pc_data->value().exposure), 0.0f, 50.f);
+
+        m_render_state.pipeline.frame_params.baseBrightness = m_pc_data->value().baseBrightness;
+        m_render_state.pipeline.frame_params.shadow_type = m_pc_data->value().shadow_type;
+        m_render_state.pipeline.frame_params.blocker_sample_num = m_pc_data->value().blocker_sample_num;
+        m_render_state.pipeline.frame_params.pcf_sample_num = m_pc_data->value().pcf_sample_num;
+        m_render_state.pipeline.frame_params.shadow_bias = m_pc_data->value().shadow_bias;
+        m_render_state.pipeline.frame_params.ssao_radius = m_pc_data->value().ssao_radius;
+        m_render_state.pipeline.frame_params.ssao_kernel_size = m_pc_data->value().ssao_kernel_size;
+        m_render_state.pipeline.frame_params.denoise_size = m_pc_data->value().denoise_size;
+        m_render_state.pipeline.frame_params.exposure = m_pc_data->value().exposure;
     }
 
     void MyGui::drawPerformanceInfo() const
@@ -561,7 +500,7 @@ namespace gui
             }
 
             std::string error_message;
-            if (!m_json_manager->saveSceneTransforms(CADMesh::current_scene_id, transforms, &error_message)) {
+            if (!m_state_controller || !m_state_controller->saveSceneTransforms(CADMesh::current_scene_id, transforms, &error_message)) {
                 std::cerr << "Failed to save transforms: " << error_message << std::endl;
                 return;
             }

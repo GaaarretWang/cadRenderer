@@ -4808,7 +4808,7 @@
                 1.0
             ],
             "metallicFactor": 1.0,
-            "roughnessFactor": 1.0240000486373901
+            "roughnessFactor": 1.0190000534057617
         },
         "shang1(you).fb13A11E74-1A53-488D-9AC1-5C202ED39DF91": {
             "baseColorFactor": [
@@ -5057,17 +5057,17 @@
                 1.0,
                 1.0
             ],
-            "metallicFactor": 1.00600004196167,
+            "metallicFactor": 0.9589999914169312,
             "roughnessFactor": 0.0
         },
         "sphere_diffuse.obj0": {
             "baseColorFactor": [
-                1.0,
+                0.0,
                 1.0,
                 1.0,
                 1.0
             ],
-            "metallicFactor": 1.0,
+            "metallicFactor": 0.8289999961853027,
             "roughnessFactor": 1.00600004196167
         },
         "twoAirplaneBody_white.fb236ED760-A91B-42DB-A280-61F109E51FAA1": {

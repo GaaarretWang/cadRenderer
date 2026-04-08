@@ -14,6 +14,7 @@
 #include "PlaneLoader.h"
 #include "SSAOPass.h"
 #include "OcclusionCullingPasses.h"
+#include "RenderState.h"
 
 #include "fixDepth.h"
 #include "json.hpp"
@@ -339,6 +340,14 @@ public:
     void setRealColorAndImage(unsigned char * real_color, unsigned short * real_depth){
         color_pixels = real_color;
         depth_pixels = real_depth;
+    }
+
+    void applyFrameInput(const CameraFrameInput& frame_input){
+        vsg::dvec3 centre = {frame_input.lookat[0], frame_input.lookat[1], frame_input.lookat[2]};
+        vsg::dvec3 eye = {frame_input.lookat[3], frame_input.lookat[4], frame_input.lookat[5]};
+        vsg::dvec3 up = {frame_input.lookat[6], frame_input.lookat[7], frame_input.lookat[8]};
+        updateCamera(centre, eye, up);
+        setRealColorAndImage(frame_input.color, frame_input.depth);
     }
 
     void updateCamera(vsg::dvec3 centre, vsg::dvec3 eye, vsg::dvec3 up){

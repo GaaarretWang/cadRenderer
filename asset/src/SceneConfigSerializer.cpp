@@ -1,74 +1,15 @@
-#include "JsonConfigManager.h"
+#include "SceneConfigSerializer.h"
 
-#include <fstream>
-#include <iomanip>
 #include <algorithm>
 #include <cctype>
+#include <stdexcept>
 
-namespace
-{
-int normalizeDepthOcclusionFlag(int value)
-{
-    return value != 0 ? 1 : 0;
-}
-
-int normalizeShadowModeValue(int value)
-{
-    return value == CAMERA_DEPTH ? CAMERA_DEPTH : FULL_MODEL;
-}
-}
-
-JsonConfigManager::JsonConfigManager(std::string scenes_json_path, std::string materials_json_path, std::string lightinfo_json_path)
-    : scenes_json_path_(std::move(scenes_json_path)),
-      materials_json_path_(std::move(materials_json_path)),
-      lightinfo_json_path_(std::move(lightinfo_json_path))
+SceneConfigSerializer::SceneConfigSerializer(std::shared_ptr<JsonConfigManager> json_manager)
+    : json_manager_(std::move(json_manager))
 {
 }
 
-bool JsonConfigManager::loadScenesJson(nlohmann::json& out_json, std::string* error_message) const
-{
-    return loadJsonFromFile(scenes_json_path_, out_json, error_message);
-}
-
-bool JsonConfigManager::saveScenesJson(const nlohmann::json& in_json, std::string* error_message) const
-{
-    return saveJsonToFile(scenes_json_path_, in_json, error_message);
-}
-
-bool JsonConfigManager::loadJsonFromFile(const std::string& path, json& out_json, std::string* error_message) const
-{
-    std::ifstream file(path);
-    if (!file.is_open())
-    {
-        if (error_message) *error_message = "Failed to open file: " + path;
-        return false;
-    }
-
-    try
-    {
-        file >> out_json;
-    }
-    catch (const std::exception& e)
-    {
-        if (error_message) *error_message = "Failed to parse JSON file: " + path + " error: " + e.what();
-        return false;
-    }
-    return true;
-}
-
-bool JsonConfigManager::saveJsonToFile(const std::string& path, const json& in_json, std::string* error_message) const
-{
-    std::ofstream file(path);
-    if (!file.is_open())
-    {
-        if (error_message) *error_message = "Failed to open file for writing: " + path;
-        return false;
-    }
-    file << std::setw(4) << in_json << std::endl;
-    return true;
-}
-
-bool JsonConfigManager::parseInt(const std::string& input, int& value)
+bool SceneConfigSerializer::parseInt(const std::string& input, int& value)
 {
     if (input.empty()) return false;
     const bool negative = input[0] == '-';
@@ -82,7 +23,7 @@ bool JsonConfigManager::parseInt(const std::string& input, int& value)
     return true;
 }
 
-bool JsonConfigManager::findSceneByIdOrName(json& scenes_root, const std::string& scene_name_or_id, json*& out_scene, std::string* error_message) const
+bool SceneConfigSerializer::findSceneByIdOrName(json& scenes_root, const std::string& scene_name_or_id, json*& out_scene, std::string* error_message) const
 {
     out_scene = nullptr;
     if (!scenes_root.contains("scenes") || !scenes_root["scenes"].is_array())
@@ -117,12 +58,11 @@ bool JsonConfigManager::findSceneByIdOrName(json& scenes_root, const std::string
     return false;
 }
 
-bool JsonConfigManager::findSceneById(json& scenes_root, int scene_id, json*& out_scene) const
+bool SceneConfigSerializer::findSceneById(json& scenes_root, int scene_id, json*& out_scene) const
 {
     out_scene = nullptr;
     if (!scenes_root.contains("scenes") || !scenes_root["scenes"].is_array())
     {
-        scenes_root["scenes"] = json::array();
         return false;
     }
 
@@ -134,10 +74,11 @@ bool JsonConfigManager::findSceneById(json& scenes_root, int scene_id, json*& ou
             return true;
         }
     }
+
     return false;
 }
 
-vsg::dmat4 JsonConfigManager::parseMatrixFromJson(const json& matrix_array)
+vsg::dmat4 SceneConfigSerializer::parseMatrixFromJson(const json& matrix_array)
 {
     if (!matrix_array.is_array() || matrix_array.size() != 4)
     {
@@ -159,25 +100,64 @@ vsg::dmat4 JsonConfigManager::parseMatrixFromJson(const json& matrix_array)
     return mat;
 }
 
-JsonConfigManager::json JsonConfigManager::matrixToRowMajorJson(const vsg::dmat4& mat)
+SceneConfigSerializer::json SceneConfigSerializer::matrixToRowMajorJson(const vsg::dmat4& mat)
 {
-    json mat2d = json::array();
+    json rows = json::array();
     for (int row = 0; row < 4; ++row)
     {
-        json row_arr = json::array();
+        json row_json = json::array();
         for (int col = 0; col < 4; ++col)
         {
-            row_arr.push_back(mat[col][row]);
+            row_json.push_back(mat[col][row]);
         }
-        mat2d.push_back(row_arr);
+        rows.push_back(std::move(row_json));
     }
-    return mat2d;
+    return rows;
 }
 
-bool JsonConfigManager::loadSceneConfig(const std::string& scene_name_or_id, SceneConfig& out_scene, std::string* error_message) const
+SceneConfigSerializer::json& SceneConfigSerializer::ensureSceneForSave(json& scenes_root, int scene_id) const
+{
+    if (!scenes_root.contains("scenes") || !scenes_root["scenes"].is_array())
+    {
+        scenes_root["scenes"] = json::array();
+    }
+
+    json* target_scene = nullptr;
+    if (findSceneById(scenes_root, scene_id, target_scene) && target_scene != nullptr)
+    {
+        return *target_scene;
+    }
+
+    json new_scene;
+    new_scene["id"] = scene_id;
+    new_scene["name"] = "scene_" + std::to_string(scene_id);
+    new_scene["description"] = "Auto-created scene";
+    new_scene["models"] = json::array();
+    new_scene["msaa"] = 4;
+    new_scene["scene_media"] = {
+        {"type", "dynamic_video"},
+        {"pose_path", "asset/data/cameraPose/vsg_pose.txt"},
+        {"color_dir", "asset/data/dataset3/color"},
+        {"depth_dir", "asset/data/dataset3/depth"}
+    };
+    scenes_root["scenes"].push_back(std::move(new_scene));
+    return scenes_root["scenes"].back();
+}
+
+int SceneConfigSerializer::normalizeDepthOcclusionFlag(int value)
+{
+    return value != 0 ? 1 : 0;
+}
+
+int SceneConfigSerializer::normalizeShadowModeValue(int value)
+{
+    return value == CAMERA_DEPTH ? CAMERA_DEPTH : FULL_MODEL;
+}
+
+bool SceneConfigSerializer::loadSceneConfig(const std::string& scene_name_or_id, SceneConfig& out_scene, std::string* error_message) const
 {
     json scenes_root;
-    if (!loadJsonFromFile(scenes_json_path_, scenes_root, error_message))
+    if (!json_manager_->loadScenesJson(scenes_root, error_message))
     {
         return false;
     }
@@ -245,10 +225,10 @@ bool JsonConfigManager::loadSceneConfig(const std::string& scene_name_or_id, Sce
     return true;
 }
 
-bool JsonConfigManager::loadSceneRenderParamsAndStyle(int scene_id, SceneRenderParams& out_params, SceneLinePointStyle& out_style, std::string* error_message) const
+bool SceneConfigSerializer::loadSceneRenderParamsAndStyle(int scene_id, SceneRenderParams& out_params, SceneLinePointStyle& out_style, std::string* error_message) const
 {
     json scenes_root;
-    if (!loadJsonFromFile(scenes_json_path_, scenes_root, error_message))
+    if (!json_manager_->loadScenesJson(scenes_root, error_message))
     {
         return false;
     }
@@ -328,42 +308,21 @@ bool JsonConfigManager::loadSceneRenderParamsAndStyle(int scene_id, SceneRenderP
     return true;
 }
 
-bool JsonConfigManager::saveSceneRenderParamsAndStyle(int scene_id, const SceneRenderParams& params, const SceneLinePointStyle& style, std::string* error_message) const
+bool SceneConfigSerializer::saveSceneRenderParamsAndStyle(int scene_id, const SceneRenderParams& params, const SceneLinePointStyle& style, std::string* error_message) const
 {
     json scenes_root;
-    if (!loadJsonFromFile(scenes_json_path_, scenes_root, error_message))
+    if (!json_manager_->loadScenesJson(scenes_root, error_message))
     {
         return false;
     }
-    if (!scenes_root.contains("scenes") || !scenes_root["scenes"].is_array())
-    {
-        scenes_root["scenes"] = json::array();
-    }
 
-    json* target_scene = nullptr;
-    if (!findSceneById(scenes_root, scene_id, target_scene) || target_scene == nullptr)
-    {
-        json new_scene;
-        new_scene["id"] = scene_id;
-        new_scene["name"] = "scene_" + std::to_string(scene_id);
-        new_scene["description"] = "Auto-created scene";
-        new_scene["models"] = json::array();
-        new_scene["msaa"] = 4;
-        new_scene["scene_media"] = {
-            {"type", "dynamic_video"},
-            {"pose_path", "asset/data/cameraPose/vsg_pose.txt"},
-            {"color_dir", "asset/data/dataset3/color"},
-            {"depth_dir", "asset/data/dataset3/depth"}
-        };
-        scenes_root["scenes"].push_back(new_scene);
-        target_scene = &scenes_root["scenes"].back();
-    }
+    json& target_scene = ensureSceneForSave(scenes_root, scene_id);
 
     SceneRenderParams normalized_params = params;
     normalized_params.enable_real_depth_occlusion = normalizeDepthOcclusionFlag(normalized_params.enable_real_depth_occlusion);
     normalized_params.shadow_mode = normalizeShadowModeValue(normalized_params.shadow_mode);
 
-    (*target_scene)["render_params"] = {
+    target_scene["render_params"] = {
         {"hdr_image_num", normalized_params.hdr_image_num},
         {"enable_real_depth_occlusion", normalized_params.enable_real_depth_occlusion},
         {"shadow_mode", normalized_params.shadow_mode},
@@ -380,80 +339,39 @@ bool JsonConfigManager::saveSceneRenderParamsAndStyle(int scene_id, const SceneR
         {"pcss_softness_falloff", normalized_params.pcss_softness_falloff}
     };
 
-    (*target_scene)["line_point_style"] = {
+    target_scene["line_point_style"] = {
         {"line_color", {style.line_color.r, style.line_color.g, style.line_color.b}},
         {"point_color", {style.point_color.r, style.point_color.g, style.point_color.b}}
     };
 
-    return saveJsonToFile(scenes_json_path_, scenes_root, error_message);
+    return json_manager_->saveScenesJson(scenes_root, error_message);
 }
 
-bool JsonConfigManager::saveSceneTransforms(int scene_id, const std::vector<SceneModelTransformSave>& transforms, std::string* error_message) const
+bool SceneConfigSerializer::saveSceneTransforms(int scene_id, const std::vector<SceneModelTransformSave>& transforms, std::string* error_message) const
 {
     json scenes_root;
-    if (!loadJsonFromFile(scenes_json_path_, scenes_root, error_message))
+    if (!json_manager_->loadScenesJson(scenes_root, error_message))
     {
         return false;
     }
-    if (!scenes_root.contains("scenes") || !scenes_root["scenes"].is_array())
-    {
-        scenes_root["scenes"] = json::array();
-    }
 
-    json* target_scene = nullptr;
-    if (!findSceneById(scenes_root, scene_id, target_scene) || target_scene == nullptr)
-    {
-        json new_scene;
-        new_scene["id"] = scene_id;
-        new_scene["name"] = "scene_" + std::to_string(scene_id);
-        new_scene["description"] = "Saved from Instance Transform UI";
-        new_scene["models"] = json::array();
-        new_scene["msaa"] = 4;
-        new_scene["scene_media"] = {
-            {"type", "dynamic_video"},
-            {"pose_path", "asset/data/cameraPose/vsg_pose.txt"},
-            {"color_dir", "asset/data/dataset3/color"},
-            {"depth_dir", "asset/data/dataset3/depth"}
-        };
-        scenes_root["scenes"].push_back(new_scene);
-        target_scene = &scenes_root["scenes"].back();
-    }
+    json& target_scene = ensureSceneForSave(scenes_root, scene_id);
 
-    (*target_scene)["models"] = json::array();
-    auto& models = (*target_scene)["models"];
+    target_scene["models"] = json::array();
+    auto& models = target_scene["models"];
     for (const auto& t : transforms)
     {
         if (t.is_shadow_receiver)
         {
-            (*target_scene)["shadow_receiver_transform"] = json::array({matrixToRowMajorJson(t.transform)});
+            target_scene["shadow_receiver_transform"] = json::array({matrixToRowMajorJson(t.transform)});
             continue;
         }
         json model_json;
         model_json["instance_name"] = t.instance_name;
         model_json["path"] = t.path;
         model_json["transform_sequence"] = json::array({matrixToRowMajorJson(t.transform)});
-        models.push_back(model_json);
+        models.push_back(std::move(model_json));
     }
 
-    return saveJsonToFile(scenes_json_path_, scenes_root, error_message);
-}
-
-bool JsonConfigManager::loadMaterialsJson(nlohmann::json& out_json, std::string* error_message) const
-{
-    return loadJsonFromFile(materials_json_path_, out_json, error_message);
-}
-
-bool JsonConfigManager::saveMaterialsJson(const nlohmann::json& in_json, std::string* error_message) const
-{
-    return saveJsonToFile(materials_json_path_, in_json, error_message);
-}
-
-bool JsonConfigManager::loadLightInfoJson(nlohmann::json& out_json, std::string* error_message) const
-{
-    return loadJsonFromFile(lightinfo_json_path_, out_json, error_message);
-}
-
-bool JsonConfigManager::saveLightInfoJson(const nlohmann::json& in_json, std::string* error_message) const
-{
-    return saveJsonToFile(lightinfo_json_path_, in_json, error_message);
+    return json_manager_->saveScenesJson(scenes_root, error_message);
 }
