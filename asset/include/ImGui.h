@@ -19,6 +19,7 @@ class vsgRendererServer;
 #include <memory>
 #include "JsonConfigManager.h"
 #include "RenderStateController.h"
+#include "SceneRuntimeController.h"
 #include "SceneConfigSerializer.h"
 #include "MyMask.h"
 
@@ -109,8 +110,11 @@ namespace gui
         std::string m_lightinfo_json_path;  // data/json/LightInfo.json
         std::shared_ptr<JsonConfigManager> m_json_manager;
         std::shared_ptr<RenderStateController> m_state_controller;
+        std::shared_ptr<SceneRuntimeController> m_runtime_controller;
         std::shared_ptr<SceneConfigSerializer> m_scene_serializer;
         mutable RenderStateHub m_render_state;
+        mutable SceneLinePointStyle m_line_point_style;
+        mutable float m_base_brightness = 2.0f;
         mutable float pcf_softness;
         mutable float pcss_softness;
         mutable float pcss_softness_falloff;

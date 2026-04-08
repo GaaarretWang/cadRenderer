@@ -68,6 +68,10 @@ namespace gui
         m_json_manager = std::make_shared<JsonConfigManager>(m_scenes_json_path, m_materials_json_path, m_lightinfo_json_path);
         m_scene_serializer = std::make_shared<SceneConfigSerializer>(m_json_manager);
         m_state_controller = std::make_shared<RenderStateController>(m_json_manager, m_scene_serializer);
+        if (vsgserver::renderer)
+        {
+            m_runtime_controller = std::make_shared<SceneRuntimeController>(*vsgserver::renderer, m_state_controller, m_render_state, m_line_point_style, m_base_brightness);
+        }
         loadParams();
         // Cache the per-instance transform state used by the pose controls.
         initInstanceStates();
@@ -122,7 +126,10 @@ namespace gui
     void MyGui::applyPoseForState(const InstanceTransformState& state) const
     {
         const vsg::dmat4 target = state.selected ? computeTransformedMatrix(state) : state.original_transform;
-        vsgserver::renderer->updateObjectPose(state.instance_name, target);
+        if (m_runtime_controller)
+        {
+            m_runtime_controller->setInstanceTransform(state.instance_name, target);
+        }
     }
 
     void MyGui::applyPoseForAllStates() const
@@ -175,9 +182,7 @@ namespace gui
         }
 
         m_render_state = state;
-        vsgserver::renderer->hdr_image_num = m_render_state.pipeline.hdr_image_num;
-        vsgserver::renderer->setRealDepthOcclusion(m_render_state.pipeline.enable_real_depth_occlusion);
-        vsgserver::renderer->setShadowMode(m_render_state.pipeline.shadow_mode);
+        m_line_point_style = style;
         m_pc_data->value().ssao_radius = m_render_state.pipeline.frame_params.ssao_radius;
         m_pc_data->value().ssao_kernel_size = m_render_state.pipeline.frame_params.ssao_kernel_size;
         m_pc_data->value().exposure = m_render_state.pipeline.frame_params.exposure;
@@ -190,18 +195,24 @@ namespace gui
         pcss_softness = m_render_state.pipeline.pcss_softness;
         pcss_softness_falloff = m_render_state.pipeline.pcss_softness_falloff;
 
-        CADMesh::dynamic_lines.colors->value() = vsg::vec4(style.line_color.r, style.line_color.g, style.line_color.b, 1.0f);
+        CADMesh::dynamic_lines.colors->value() = vsg::vec4(m_line_point_style.line_color.r, m_line_point_style.line_color.g, m_line_point_style.line_color.b, 1.0f);
         CADMesh::dynamic_lines.colors->dirty();
-        CADMesh::dynamic_points.colors->value() = vsg::vec4(style.point_color.r, style.point_color.g, style.point_color.b, 1.0f);
+        CADMesh::dynamic_points.colors->value() = vsg::vec4(m_line_point_style.point_color.r, m_line_point_style.point_color.g, m_line_point_style.point_color.b, 1.0f);
         CADMesh::dynamic_points.colors->dirty();
 
-        int hdr_num = vsgserver::renderer->hdr_image_num;
+        if (m_runtime_controller)
+        {
+            m_runtime_controller->initializeForScene(CADMesh::current_scene_id);
+            m_runtime_controller->applyLoadedState();
+        }
+
+        int hdr_num = m_render_state.pipeline.hdr_image_num;
         auto it = vsgserver::renderer->hdr_base_brightness.find(hdr_num);
         if (it != vsgserver::renderer->hdr_base_brightness.end())
         {
-            m_pc_data->value().baseBrightness = it->second;
+            m_base_brightness = it->second;
         }
-        vsgserver::renderer->syncConstantData();
+        m_pc_data->value().baseBrightness = m_base_brightness;
     }
 
     // Load material parameters from Materials.json.
@@ -244,14 +255,12 @@ namespace gui
 
         try {
             std::string error_message;
-            int hdr_num = vsgserver::renderer->hdr_image_num;
-            float bb = m_pc_data->value().baseBrightness;
-            if (!m_state_controller || !m_state_controller->saveBaseBrightnessToLightInfo(hdr_num, bb, &error_message)) {
+            if (!m_runtime_controller || !m_runtime_controller->saveBaseBrightness(&error_message)) {
                 std::cerr << "Failed to save LightInfo.json: " << error_message << std::endl;
                 return;
             }
-            vsgserver::renderer->hdr_base_brightness[hdr_num] = bb;
-            std::cout << "baseBrightness saved to LightInfo.json (HDR " << hdr_num << " = " << bb << ")" << std::endl;
+            vsgserver::renderer->hdr_base_brightness[m_render_state.pipeline.hdr_image_num] = m_base_brightness;
+            std::cout << "baseBrightness saved to LightInfo.json (HDR " << m_render_state.pipeline.hdr_image_num << " = " << m_base_brightness << ")" << std::endl;
         } catch (const std::exception& e) {
             std::cerr << "Failed to save baseBrightness: " << e.what() << std::endl;
         }
@@ -266,27 +275,8 @@ namespace gui
             return;
         }
 
-        m_render_state.pipeline.hdr_image_num = vsgserver::renderer->hdr_image_num;
-        m_render_state.pipeline.enable_real_depth_occlusion = vsgserver::renderer->enable_real_depth_occlusion;
-        m_render_state.pipeline.shadow_mode = vsgserver::renderer->shadow_mode;
-        m_render_state.pipeline.frame_params.ssao_radius = m_pc_data->value().ssao_radius;
-        m_render_state.pipeline.frame_params.ssao_kernel_size = m_pc_data->value().ssao_kernel_size;
-        m_render_state.pipeline.frame_params.exposure = m_pc_data->value().exposure;
-        m_render_state.pipeline.frame_params.denoise_size = m_pc_data->value().denoise_size;
-        m_render_state.pipeline.frame_params.shadow_bias = m_pc_data->value().shadow_bias;
-        m_render_state.pipeline.frame_params.blocker_sample_num = m_pc_data->value().blocker_sample_num;
-        m_render_state.pipeline.frame_params.pcf_sample_num = m_pc_data->value().pcf_sample_num;
-        m_render_state.pipeline.frame_params.shadow_type = m_pc_data->value().shadow_type;
-        m_render_state.pipeline.pcf_softness = pcf_softness;
-        m_render_state.pipeline.pcss_softness = pcss_softness;
-        m_render_state.pipeline.pcss_softness_falloff = pcss_softness_falloff;
-
-        SceneLinePointStyle style;
-        style.line_color = vsg::vec3(CADMesh::dynamic_lines.colors->value().r, CADMesh::dynamic_lines.colors->value().g, CADMesh::dynamic_lines.colors->value().b);
-        style.point_color = vsg::vec3(CADMesh::dynamic_points.colors->value().r, CADMesh::dynamic_points.colors->value().g, CADMesh::dynamic_points.colors->value().b);
-
         std::string error_message;
-        if (!m_state_controller || !m_state_controller->saveRenderState(CADMesh::current_scene_id, m_render_state, style, &error_message)) {
+        if (!m_runtime_controller || !m_runtime_controller->saveRenderState(&error_message)) {
             std::cerr << "Failed to save render params: " << error_message << std::endl;
             return;
         }
@@ -320,89 +310,85 @@ namespace gui
     void MyGui::drawRenderParams() const
     {
         ImGui::Text("hdr num:");
-        static int last_hdr_num = -1;
-        if (last_hdr_num != vsgserver::renderer->hdr_image_num)
-        {
-            m_render_state.pipeline.hdr_image_num = vsgserver::renderer->hdr_image_num;
-            m_state_controller->applyHdrSelection(m_render_state, m_pc_data->value().baseBrightness);
-        }
         for (int i = 1; i <= vsgserver::renderer->hdr_image_max_num; ++i) {
             std::string num_str = std::to_string(i);
             if (i > 1) {
                 ImGui::SameLine(0.0f, 5.0f);
             }
             if (ImGui::Button(num_str.c_str())) {
-                m_render_state.pipeline.hdr_image_num = i;
-                m_state_controller->applyHdrSelection(m_render_state, m_pc_data->value().baseBrightness);
+                if (m_runtime_controller) {
+                    m_runtime_controller->setHdrImageNum(i);
+                    m_pc_data->value().baseBrightness = m_base_brightness;
+                }
             }
         }
-        last_hdr_num = vsgserver::renderer->hdr_image_num;
 
         ImGui::Separator();
         ImGui::Text("Global Render Params:");
         bool depth_occlusion_enabled = m_render_state.pipeline.enable_real_depth_occlusion != 0;
         if (ImGui::Checkbox("Depth Occlusion", &depth_occlusion_enabled))
         {
-            m_render_state.pipeline.enable_real_depth_occlusion = depth_occlusion_enabled ? 1 : 0;
-            m_state_controller->applyDepthOcclusionState(m_render_state);
+            if (m_runtime_controller) m_runtime_controller->setDepthOcclusionEnabled(depth_occlusion_enabled);
         }
 
         int shadow_mode = (m_render_state.pipeline.shadow_mode == SHADOW_REAL_DEPTH) ? SHADOW_REAL_DEPTH : SHADOW_RECEIVER_PLANE;
         const char* shadow_mode_items[] = {"Receiver Plane", "Real Depth"};
         if (ImGui::Combo("Shadow Mode", &shadow_mode, shadow_mode_items, IM_ARRAYSIZE(shadow_mode_items)))
         {
-            m_render_state.pipeline.shadow_mode = shadow_mode;
-            m_state_controller->applyShadowModeState(m_render_state);
+            if (m_runtime_controller) m_runtime_controller->setShadowMode(shadow_mode);
         }
 
         if (ImGui::RadioButton("PCF", m_render_state.pipeline.frame_params.shadow_type == 0)){
-            m_render_state.pipeline.frame_params.shadow_type = 0;
+            if (m_runtime_controller) m_runtime_controller->setShadowType(0);
             m_pc_data->value().shadow_type = 0;
         }
         ImGui::SameLine();
         if (ImGui::RadioButton("PCSS", m_render_state.pipeline.frame_params.shadow_type == 1))
         {
-            m_render_state.pipeline.frame_params.shadow_type = 1;
+            if (m_runtime_controller) m_runtime_controller->setShadowType(1);
             m_pc_data->value().shadow_type = 1;
         }
 
-        ImGui::SliderFloat("baseBrightness", &(m_pc_data->value().baseBrightness), 0.0f, 100.0f);
+        if (ImGui::SliderFloat("baseBrightness", &m_base_brightness, 0.0f, 100.0f))
+        {
+            if (m_runtime_controller) m_runtime_controller->setBaseBrightness(m_base_brightness);
+            m_pc_data->value().baseBrightness = m_base_brightness;
+        }
         if (ImGui::Button("Save baseBrightness"))
             saveBaseBrightnessToLightInfo();
         if (m_render_state.pipeline.frame_params.shadow_type == 0)
         {
-            ImGui::SliderFloat("pcf_softness", &(pcf_softness), 0.0f, 100.0f);
-            m_render_state.pipeline.pcf_softness = pcf_softness;
+            if (ImGui::SliderFloat("pcf_softness", &(pcf_softness), 0.0f, 100.0f) && m_runtime_controller)
+                m_runtime_controller->setPcfSoftness(pcf_softness);
             m_pc_data->value().softness = pcf_softness;
         }
         else if(m_render_state.pipeline.frame_params.shadow_type == 1)
         {
-            ImGui::SliderFloat("pcss_softness", &(pcss_softness), 0.0f, 0.1f, "%.7f", ImGuiSliderFlags_Logarithmic);
-            ImGui::SliderFloat("pcss_softness_falloff", &(pcss_softness_falloff), 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic);
-            m_render_state.pipeline.pcss_softness = pcss_softness;
-            m_render_state.pipeline.pcss_softness_falloff = pcss_softness_falloff;
+            if (ImGui::SliderFloat("pcss_softness", &(pcss_softness), 0.0f, 0.1f, "%.7f", ImGuiSliderFlags_Logarithmic) && m_runtime_controller)
+                m_runtime_controller->setPcssSoftness(pcss_softness);
+            if (ImGui::SliderFloat("pcss_softness_falloff", &(pcss_softness_falloff), 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic) && m_runtime_controller)
+                m_runtime_controller->setPcssSoftnessFalloff(pcss_softness_falloff);
             m_pc_data->value().softness = pcss_softness;
             m_pc_data->value().softness_falloff = pcss_softness_falloff;
         }
-        ImGui::SliderInt("blocker_sample_num", &(m_pc_data->value().blocker_sample_num), 1, 64);
-        ImGui::SliderInt("pcf_sample_num", &(m_pc_data->value().pcf_sample_num), 1, 64);
-        ImGui::SliderFloat("shadow bias", &(m_pc_data->value().shadow_bias), 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic);
+        if (ImGui::SliderInt("blocker_sample_num", &(m_pc_data->value().blocker_sample_num), 1, 64) && m_runtime_controller)
+            m_runtime_controller->setBlockerSampleNum(m_pc_data->value().blocker_sample_num);
+        if (ImGui::SliderInt("pcf_sample_num", &(m_pc_data->value().pcf_sample_num), 1, 64) && m_runtime_controller)
+            m_runtime_controller->setPcfSampleNum(m_pc_data->value().pcf_sample_num);
+        if (ImGui::SliderFloat("shadow bias", &(m_pc_data->value().shadow_bias), 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic) && m_runtime_controller)
+            m_runtime_controller->setShadowBias(m_pc_data->value().shadow_bias);
 
-        ImGui::SliderFloat("ssao_radius", &(m_pc_data->value().ssao_radius), 0.0f, 2.0f);
-        ImGui::SliderInt("ssao_kernel_size", &(m_pc_data->value().ssao_kernel_size), 16, 128);
-        ImGui::SliderInt("denoise_size", &(m_pc_data->value().denoise_size), 1, 9);
+        if (ImGui::SliderFloat("ssao_radius", &(m_pc_data->value().ssao_radius), 0.0f, 2.0f) && m_runtime_controller)
+            m_runtime_controller->setSsaoRadius(m_pc_data->value().ssao_radius);
+        if (ImGui::SliderInt("ssao_kernel_size", &(m_pc_data->value().ssao_kernel_size), 16, 128) && m_runtime_controller)
+            m_runtime_controller->setSsaoKernelSize(m_pc_data->value().ssao_kernel_size);
+        if (ImGui::SliderInt("denoise_size", &(m_pc_data->value().denoise_size), 1, 9) && m_runtime_controller)
+            m_runtime_controller->setDenoiseSize(m_pc_data->value().denoise_size);
 
-        ImGui::SliderFloat("exposure", &(m_pc_data->value().exposure), 0.0f, 50.f);
+        if (ImGui::SliderFloat("exposure", &(m_pc_data->value().exposure), 0.0f, 50.f) && m_runtime_controller)
+            m_runtime_controller->setExposure(m_pc_data->value().exposure);
 
-        m_render_state.pipeline.frame_params.baseBrightness = m_pc_data->value().baseBrightness;
-        m_render_state.pipeline.frame_params.shadow_type = m_pc_data->value().shadow_type;
-        m_render_state.pipeline.frame_params.blocker_sample_num = m_pc_data->value().blocker_sample_num;
-        m_render_state.pipeline.frame_params.pcf_sample_num = m_pc_data->value().pcf_sample_num;
-        m_render_state.pipeline.frame_params.shadow_bias = m_pc_data->value().shadow_bias;
-        m_render_state.pipeline.frame_params.ssao_radius = m_pc_data->value().ssao_radius;
-        m_render_state.pipeline.frame_params.ssao_kernel_size = m_pc_data->value().ssao_kernel_size;
-        m_render_state.pipeline.frame_params.denoise_size = m_pc_data->value().denoise_size;
-        m_render_state.pipeline.frame_params.exposure = m_pc_data->value().exposure;
+        m_render_state.pipeline.frame_params.baseBrightness = m_base_brightness;
     }
 
     void MyGui::drawPerformanceInfo() const
@@ -459,17 +445,32 @@ namespace gui
     // Draw line and point color controls.
     void MyGui::drawLinePointControls() const
     {
-        ImGui::SliderFloat3("line color", CADMesh::dynamic_lines.colors->value().data(), 0.0f, 1.0f);
-        CADMesh::dynamic_lines.colors->dirty();
-        ImGui::SliderFloat3("point color", CADMesh::dynamic_points.colors->value().data(), 0.0f, 1.0f);
-        CADMesh::dynamic_points.colors->dirty();
+        if (ImGui::SliderFloat3("line color", CADMesh::dynamic_lines.colors->value().data(), 0.0f, 1.0f))
+        {
+            if (m_runtime_controller)
+            {
+                m_runtime_controller->setLineColor(vsg::vec3(CADMesh::dynamic_lines.colors->value().r, CADMesh::dynamic_lines.colors->value().g, CADMesh::dynamic_lines.colors->value().b));
+            }
+            CADMesh::dynamic_lines.colors->dirty();
+        }
+        if (ImGui::SliderFloat3("point color", CADMesh::dynamic_points.colors->value().data(), 0.0f, 1.0f))
+        {
+            if (m_runtime_controller)
+            {
+                m_runtime_controller->setPointColor(vsg::vec3(CADMesh::dynamic_points.colors->value().r, CADMesh::dynamic_points.colors->value().g, CADMesh::dynamic_points.colors->value().b));
+            }
+            CADMesh::dynamic_points.colors->dirty();
+        }
     }
 
     void MyGui::resetSelectedInstances() const
     {
         for (auto& state : m_instance_states) {
             if (!state.selected) continue;
-            vsgserver::renderer->updateObjectPose(state.instance_name, state.original_transform);
+            if (m_runtime_controller)
+            {
+                m_runtime_controller->setInstanceTransform(state.instance_name, state.original_transform);
+            }
         }
         resetSharedTransform();
     }
@@ -500,7 +501,7 @@ namespace gui
             }
 
             std::string error_message;
-            if (!m_state_controller || !m_state_controller->saveSceneTransforms(CADMesh::current_scene_id, transforms, &error_message)) {
+            if (!m_runtime_controller || !m_runtime_controller->saveSceneTransforms(transforms, &error_message)) {
                 std::cerr << "Failed to save transforms: " << error_message << std::endl;
                 return;
             }

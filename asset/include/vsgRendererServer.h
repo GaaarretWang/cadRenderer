@@ -51,7 +51,7 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> hdr_to_light_group_map;
     std::unordered_map<int, float> hdr_base_brightness; // baseBrightness value for each HDR environment.
-    int hdr_image_num = 4;
+    int hdr_image_num = -1;
     int hdr_image_max_num = 7;
     float camera_tracking_fps = 0.0f;
 
