@@ -2,6 +2,7 @@
 #include "vsg/all.h"
 #ifdef _WIN32
 #include "Logger.h"
+#include <dxgi1_2.h>
 #include <vsg/platform/win32/Win32_Window.h>
 #else
 #include <vsg/platform/xcb/Xcb_Window.h>
@@ -182,10 +183,16 @@ public:
         encode_destination_image->pNext = &encodeExternalMemoryImageCreateInfo;
         VkExportMemoryAllocateInfo encodeExportMemoryAllocateInfo = {};
         encodeExportMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
-        encodeExportMemoryAllocateInfo.pNext = nullptr;
         #ifdef _WIN32
+        VkExportMemoryWin32HandleInfoKHR encodeExportMemoryWin32HandleInfo = {};
+        encodeExportMemoryWin32HandleInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR;
+        encodeExportMemoryWin32HandleInfo.pAttributes = nullptr;
+        encodeExportMemoryWin32HandleInfo.dwAccess = DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE;
+        encodeExportMemoryWin32HandleInfo.name = nullptr;
+        encodeExportMemoryAllocateInfo.pNext = &encodeExportMemoryWin32HandleInfo;
         encodeExportMemoryAllocateInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
         #else
+        encodeExportMemoryAllocateInfo.pNext = nullptr;
         encodeExportMemoryAllocateInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
         #endif
         encode_destination_image->pNextAllocInfo = &encodeExportMemoryAllocateInfo;
@@ -228,15 +235,21 @@ public:
         decode_image->pNext = &decodeExternalMemoryImageCreateInfo;
         VkExportMemoryAllocateInfo decodeExportMemoryAllocateInfo = {};
         decodeExportMemoryAllocateInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
-        decodeExportMemoryAllocateInfo.pNext = nullptr;
         #ifdef _WIN32
+        VkExportMemoryWin32HandleInfoKHR decodeExportMemoryWin32HandleInfo = {};
+        decodeExportMemoryWin32HandleInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR;
+        decodeExportMemoryWin32HandleInfo.pAttributes = nullptr;
+        decodeExportMemoryWin32HandleInfo.dwAccess = DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE;
+        decodeExportMemoryWin32HandleInfo.name = nullptr;
+        decodeExportMemoryAllocateInfo.pNext = &decodeExportMemoryWin32HandleInfo;
         decodeExportMemoryAllocateInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
         #else
+        decodeExportMemoryAllocateInfo.pNext = nullptr;
         decodeExportMemoryAllocateInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
         #endif
         decode_image->pNextAllocInfo = &decodeExportMemoryAllocateInfo;
         decode_image->compile(device);
-        auto decodeDeviceMemory = vsg::DeviceMemory::create(device, decode_image->getMemoryRequirements(device->deviceID), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        auto decodeDeviceMemory = vsg::DeviceMemory::create(device, decode_image->getMemoryRequirements(device->deviceID), VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &decodeExportMemoryAllocateInfo);
         decode_image->bind(decodeDeviceMemory, 0);
         auto decodeBufferSize = decode_image->getMemoryRequirements(device->deviceID).size;            
         std::cout << "bufferSize = " << decodeBufferSize << std::endl;

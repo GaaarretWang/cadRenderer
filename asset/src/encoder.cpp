@@ -125,7 +125,7 @@ void* getExportHandle(vsg::ref_ptr<vsg::Image> image, vsg::ref_ptr<vsg::Device> 
     VkResult result = func(m_device->vk(), &handleInfo, &handle);
     if (result != VK_SUCCESS)
     {
-        std::cout << "Failed to get Win32 handle" << std::endl;
+        std::cout << "Failed to get Win32 image handle, VkResult=" << result << std::endl;
         return nullptr;
     }
     return handle;
@@ -168,7 +168,7 @@ void* getExportHandle(vsg::ref_ptr<vsg::Buffer> buffer, vsg::ref_ptr<vsg::Device
     }
     VkResult result = func(m_device->vk(), &handleInfo, &handle);
     if (result != VK_SUCCESS) {
-        std::cout << "Failed to get Win32 handle" << std::endl;
+        std::cout << "Failed to get Win32 buffer handle, VkResult=" << result << std::endl;
         return nullptr;
     }
     return handle;

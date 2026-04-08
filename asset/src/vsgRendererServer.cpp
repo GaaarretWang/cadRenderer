@@ -419,10 +419,16 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     VkExportMemoryAllocateInfo depthExportAllocInfo = {};
     depthExportAllocInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
-    depthExportAllocInfo.pNext = nullptr;
     #ifdef _WIN32
+    VkExportMemoryWin32HandleInfoKHR depthExportMemoryWin32HandleInfo = {};
+    depthExportMemoryWin32HandleInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR;
+    depthExportMemoryWin32HandleInfo.pAttributes = nullptr;
+    depthExportMemoryWin32HandleInfo.dwAccess = DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE;
+    depthExportMemoryWin32HandleInfo.name = nullptr;
+    depthExportAllocInfo.pNext = &depthExportMemoryWin32HandleInfo;
     depthExportAllocInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
     #else
+    depthExportAllocInfo.pNext = nullptr;
     depthExportAllocInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
     #endif
     depth_interop_image->pNextAllocInfo = &depthExportAllocInfo;
