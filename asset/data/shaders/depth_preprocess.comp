@@ -1,0 +1,58 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+layout(push_constant) uniform PushConstants {
+    uint width;
+    uint height;
+    float validDepthThreshold;
+    uint padding;
+} pc;
+
+layout(set = 0, binding = 0) uniform sampler2D inputDepthImage;
+layout(set = 0, binding = 1, r32f) uniform image2D outputDepthImage;
+
+bool isValidDepth(float depthValue)
+{
+    return depthValue > pc.validDepthThreshold;
+}
+
+void main()
+{
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= int(pc.width) || pixel.y >= int(pc.height))
+    {
+        return;
+    }
+
+    float currentDepth = texelFetch(inputDepthImage, pixel, 0).r;
+    if (isValidDepth(currentDepth))
+    {
+        imageStore(outputDepthImage, pixel, vec4(currentDepth, 0.0, 0.0, 1.0));
+        return;
+    }
+
+    float totalDepth = 0.0;
+    uint validCount = 0;
+    for (int offsetY = -1; offsetY <= 1; ++offsetY)
+    {
+        for (int offsetX = -1; offsetX <= 1; ++offsetX)
+        {
+            ivec2 neighbor = pixel + ivec2(offsetX, offsetY);
+            if (neighbor.x < 0 || neighbor.y < 0 || neighbor.x >= int(pc.width) || neighbor.y >= int(pc.height))
+            {
+                continue;
+            }
+
+            float neighborDepth = texelFetch(inputDepthImage, neighbor, 0).r;
+            if (isValidDepth(neighborDepth))
+            {
+                totalDepth += neighborDepth;
+                validCount += 1;
+            }
+        }
+    }
+
+    float filledDepth = (validCount > 0) ? (totalDepth / float(validCount)) : currentDepth;
+    imageStore(outputDepthImage, pixel, vec4(filledDepth, 0.0, 0.0, 1.0));
+}

@@ -331,6 +331,9 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto clear_image_commandgraph = vsg::CommandGraph::create(device, computeQueueFamily);
     Utils::BuildClearCommandGraph(clear_image_commandgraph, extent, offscreenTarget, msaaSamples);
     commandGraph->addChild(clear_image_commandgraph);
+    auto depth_preprocess_command_graph = vsg::CommandGraph::create(device, computeQueueFamily);
+    depth_preprocess_stage.build(depth_preprocess_command_graph, options, *frame_image_resources);
+    commandGraph->addChild(depth_preprocess_command_graph);
     auto depth_cull_command_graph1 = vsg::CommandGraph::create(device, computeQueueFamily);
     commandGraph->addChild(depth_cull_command_graph1);
     commandGraph->addChild(renderGraph);
@@ -387,65 +390,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     encode_extent.width = encode_width;
     encode_extent.height = encode_height;
     final_screenshotHandler = ScreenshotHandler::create(window, extent, encode_extent, ENCODER);
-
-    depth_interop_image = vsg::Image::create();
-    depth_interop_image->imageType = VK_IMAGE_TYPE_2D;
-    depth_interop_image->format = VK_FORMAT_R16_UNORM;
-    depth_interop_image->extent.width = width;
-    depth_interop_image->extent.height = height;
-    depth_interop_image->extent.depth = 1;
-    depth_interop_image->arrayLayers = 1;
-    depth_interop_image->mipLevels = 1;
-    depth_interop_image->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    depth_interop_image->samples = VK_SAMPLE_COUNT_1_BIT;
-    depth_interop_image->tiling = VK_IMAGE_TILING_LINEAR;
-    depth_interop_image->usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-
-    VkExternalMemoryImageCreateInfo depthExtMemInfo = {};
-    depthExtMemInfo.sType = VK_STRUCTURE_TYPE_EXTERNAL_MEMORY_IMAGE_CREATE_INFO_KHR;
-    depthExtMemInfo.pNext = nullptr;
-    #ifdef _WIN32
-    depthExtMemInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
-    #else
-    depthExtMemInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
-    #endif
-    depth_interop_image->pNext = &depthExtMemInfo;
-
-    VkExportMemoryAllocateInfo depthExportAllocInfo = {};
-    depthExportAllocInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO;
-    #ifdef _WIN32
-    VkExportMemoryWin32HandleInfoKHR depthExportMemoryWin32HandleInfo = {};
-    depthExportMemoryWin32HandleInfo.sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_WIN32_HANDLE_INFO_KHR;
-    depthExportMemoryWin32HandleInfo.pAttributes = nullptr;
-    depthExportMemoryWin32HandleInfo.dwAccess = DXGI_SHARED_RESOURCE_READ | DXGI_SHARED_RESOURCE_WRITE;
-    depthExportMemoryWin32HandleInfo.name = nullptr;
-    depthExportAllocInfo.pNext = &depthExportMemoryWin32HandleInfo;
-    depthExportAllocInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR;
-    #else
-    depthExportAllocInfo.pNext = nullptr;
-    depthExportAllocInfo.handleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR;
-    #endif
-    depth_interop_image->pNextAllocInfo = &depthExportAllocInfo;
-    depth_interop_image->compile(device);
-
-    auto depthDeviceMemory = vsg::DeviceMemory::create(device,
-        depth_interop_image->getMemoryRequirements(device->deviceID),
-        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        &depthExportAllocInfo);
-    depth_interop_image->bind(depthDeviceMemory, 0);
-
-    auto depthBufferSize = depth_interop_image->getMemoryRequirements(device->deviceID).size;
-    VkExtent2D depthExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
-    depth_cuimage = new Cudaimage(depth_interop_image, device, depthBufferSize, depthExtent);
-
-    vsg::info("CUDA-Vulkan depth interop image created, buffer size = ", depthBufferSize);
-
-    // Initialize GPU-copy resources used by vkCmdCopyImage for interop -> depth_info image.
-    auto interopPhysicalDevice = window->getPhysicalDevice();
-    auto interopQueueFamilyIndex = interopPhysicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
-    depth_copy_commandPool = vsg::CommandPool::create(device, interopQueueFamilyIndex);
-    depth_copy_fence = vsg::Fence::create(device);
-    depth_copy_queue = device->getQueue(interopQueueFamilyIndex);
 }
 
 bool vsgRendererServer::render() {
@@ -477,10 +421,7 @@ bool vsgRendererServer::render() {
     while (viewer->advanceToNextFrame()) {
 
         auto t1 = std::chrono::high_resolution_clock::now();
-        // Interop path: CPU -> GPU interop memory -> in-place kernel -> vkCmdCopyImage -> shader reads depth_info.
-        fix_depth_interop(width, height, depth_pixels, reinterpret_cast<void*>(depth_cuimage->get()));
-        // GPU-side copy from the interop image into depth_info.
-        copyInteropToDepthImage();
+        frame_image_resources->uploadDepthPixels(depth_pixels);
 
         auto t2 = std::chrono::high_resolution_clock::now();
         auto color_image = frame_image_resources->colorImage();
@@ -519,63 +460,4 @@ bool vsgRendererServer::render() {
     return false;
 }
 
-void vsgRendererServer::copyInteropToDepthImage() {
-    auto depth_target_image = frame_image_resources->depthInfo()[0]->imageView->image;
-    auto command = vsg::Commands::create();
-
-    // 1. Barrier: interop image UNDEFINED -> TRANSFER_SRC, depth_info image SHADER_READ_ONLY -> TRANSFER_DST.
-    auto preCopyBarrier = vsg::PipelineBarrier::create(
-        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-        VK_PIPELINE_STAGE_TRANSFER_BIT, 0);
-
-    preCopyBarrier->add(vsg::ImageMemoryBarrier::create(
-        0, VK_ACCESS_TRANSFER_READ_BIT,
-        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-        depth_interop_image,
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
-
-    preCopyBarrier->add(vsg::ImageMemoryBarrier::create(
-        VK_ACCESS_SHADER_READ_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-        depth_target_image,
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
-
-    command->addChild(preCopyBarrier);
-
-    // 2. CopyImage: interop -> depth_info image.
-    auto copyImage = vsg::CopyImage::create();
-    copyImage->srcImage = depth_interop_image;
-    copyImage->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    copyImage->dstImage = depth_target_image;
-    copyImage->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-
-    VkImageCopy region = {};
-    region.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    region.dstSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
-    region.extent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1};
-    copyImage->regions.push_back(region);
-    command->addChild(copyImage);
-
-    // 3. Barrier: depth_info image TRANSFER_DST -> SHADER_READ_ONLY.
-    auto postCopyBarrier = vsg::PipelineBarrier::create(
-        VK_PIPELINE_STAGE_TRANSFER_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0);
-
-    postCopyBarrier->add(vsg::ImageMemoryBarrier::create(
-        VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED,
-        depth_target_image,
-        VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
-
-    command->addChild(postCopyBarrier);
-
-    // 4. Submit GPU command
-    vsg::submitCommandsToQueue(depth_copy_commandPool, depth_copy_fence, 100000000000,
-        depth_copy_queue, [&](vsg::CommandBuffer& commandBuffer) {
-        command->record(commandBuffer);
-    });
-}
 

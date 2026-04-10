@@ -7,6 +7,7 @@
 #include <screenshot.h>
 #include <vsg/all.h>
 #include "ConfigShader.h"
+#include "DepthPreprocessStage.h"
 #include "FrameImageResources.h"
 #include "ImGui.h"
 #include "MyMask.h"
@@ -18,7 +19,6 @@
 #include "OcclusionCullingPasses.h"
 #include "RenderState.h"
 
-#include "fixDepth.h"
 #include "json.hpp"
 #include "OffscreenRenderTarget.h"
 
@@ -81,14 +81,7 @@ class vsgRendererServer
     std::unique_ptr<FrameImageResources> frame_image_resources;
     vsg::ref_ptr<vsg::Value<IBL::DynamicSkyboxParams>> camera_image_params = vsg::Value<IBL::DynamicSkyboxParams>::create();
 
-    // CUDA-Vulkan interop depth image.
-    vsg::ref_ptr<vsg::Image> depth_interop_image;
-    Cudaimage* depth_cuimage = nullptr; // CUDA mapping for the interop image.
-
-    // GPU-copy resources for interop -> depth_info image.
-    vsg::ref_ptr<vsg::CommandPool> depth_copy_commandPool;
-    vsg::ref_ptr<vsg::Fence> depth_copy_fence;
-    vsg::ref_ptr<vsg::Queue> depth_copy_queue;
+    DepthPreprocessStage depth_preprocess_stage;
 
     //every frame's real color and depth
     unsigned char * color_pixels = nullptr;
@@ -456,9 +449,6 @@ public:
     void getEncodeImage(std::vector<std::vector<uint8_t>>& vPacket){
         final_screenshotHandler->encodeImage(window, vPacket);
     }
-
-    // GPU-side copy: interop image -> depth_info image (vkCmdCopyImage).
-    void copyInteropToDepthImage();
 };
 
 #endif //VSGR_RENDERER_SERVER_H
