@@ -446,6 +446,10 @@ bool vsgRendererServer::render() {
 
         auto t7 = std::chrono::high_resolution_clock::now();
         viewer->present();
+        if (vsgserver::runtime_controller)
+        {
+            vsgserver::runtime_controller->clearServerDirtyFlags();
+        }
 
         auto t8 = std::chrono::high_resolution_clock::now();
 
@@ -456,6 +460,10 @@ bool vsgRendererServer::render() {
         gui::global_params->render_func_times[7] = std::chrono::duration<double, std::milli>(t8 - t7).count();
 
         return true;
+    }
+    if (vsgserver::runtime_controller)
+    {
+        vsgserver::runtime_controller->clearServerDirtyFlags();
     }
     return false;
 }

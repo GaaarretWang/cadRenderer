@@ -54,6 +54,7 @@ struct InstanceTransformState {
 // Global renderer pointer, set by initRenderer.
 namespace vsgserver {
     extern vsgRendererServer* renderer;
+    extern SceneRuntimeController* runtime_controller;
 }
 
 namespace gui
@@ -155,6 +156,7 @@ namespace gui
         void loadMaterialParams();
         void saveRenderParams() const;
         void saveMaterialParams() const;
+        void syncStateFromRuntime() const;
         void initInstanceStates();
         void drawRenderParams() const;
         void drawPerformanceInfo() const;

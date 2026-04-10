@@ -4,6 +4,7 @@
 
 #include "CADMesh.h"
 #include "RenderStateSerializer.h"
+#include "SceneRuntimeController.h"
 #include "vsgRendererServer.h"
 
 using json = nlohmann::json;
@@ -11,6 +12,7 @@ using json = nlohmann::json;
 namespace vsgserver
 {
     extern vsgRendererServer* renderer;
+    extern SceneRuntimeController* runtime_controller;
 }
 
 namespace
@@ -207,11 +209,19 @@ void RenderStateController::applyHdrSelection(const RenderStateHub& state, float
 
     vsgserver::renderer->hdr_image_num = state.pipeline.hdr_image_num;
     vsgserver::renderer->updateEnvLighting();
+    if (vsgserver::runtime_controller)
+    {
+        vsgserver::runtime_controller->markServerDirty(RuntimeParam::Hdr);
+    }
 
     const auto it = vsgserver::renderer->hdr_base_brightness.find(state.pipeline.hdr_image_num);
     if (it != vsgserver::renderer->hdr_base_brightness.end())
     {
         inout_base_brightness = it->second;
+        if (vsgserver::runtime_controller)
+        {
+            vsgserver::runtime_controller->markServerDirty(RuntimeParam::BaseBrightness);
+        }
     }
 }
 
@@ -221,6 +231,10 @@ void RenderStateController::applyDepthOcclusionState(const RenderStateHub& state
 
     vsgserver::renderer->setRealDepthOcclusion(state.pipeline.enable_real_depth_occlusion);
     vsgserver::renderer->syncConstantData();
+    if (vsgserver::runtime_controller)
+    {
+        vsgserver::runtime_controller->markServerDirty(RuntimeParam::DepthOcclusion);
+    }
 }
 
 void RenderStateController::applyShadowModeState(const RenderStateHub& state) const
@@ -229,4 +243,8 @@ void RenderStateController::applyShadowModeState(const RenderStateHub& state) co
 
     vsgserver::renderer->setShadowMode(state.pipeline.shadow_mode);
     vsgserver::renderer->syncConstantData();
+    if (vsgserver::runtime_controller)
+    {
+        vsgserver::runtime_controller->markServerDirty(RuntimeParam::ShadowMode);
+    }
 }
