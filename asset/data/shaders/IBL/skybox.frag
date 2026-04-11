@@ -47,6 +47,8 @@ layout(set = VIEW_DESCRIPTOR_SET, binding = 3) uniform sampler2DArray shadowMaps
 
 layout (location = 0) out vec4 outColor;
 #ifdef CAMERA_DEPTH
+layout (location = 1) out vec4 outNormal;
+layout (location = 2) out vec4 outWorldPos;
 layout (location = 3) out vec4 outShadow;
 #endif
 
@@ -429,6 +431,8 @@ void main()
 	vec2 screen_uv = vec2(gl_FragCoord.x / tonemapParams.width, gl_FragCoord.y / tonemapParams.height);	
 	float scene_brightness = 1.0;
 	#ifdef CAMERA_DEPTH
+		outNormal = vec4(0.0, 0.0, 0.0, 0.0);
+		outWorldPos = vec4(0.0, 0.0, 0.0, 0.0);
 		vec2 depth_uv = vec2(gl_FragCoord.x / tonemapParams.width, gl_FragCoord.y / tonemapParams.height);
 		gl_FragDepth = 0.0;
 		float camera_depth_norm = texture(depthImageSampler, depth_uv).r;

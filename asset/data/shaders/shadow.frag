@@ -67,6 +67,8 @@ layout(location = 6) in float InstanceID;
 layout(location = 8) in vec3 lastWorldPos;
 
 layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outNormal;
+layout(location = 2) out vec4 outWorldPos;
 layout(location = 3) out vec4 outShadow;
 
 layout(push_constant) uniform PushConstants {
@@ -550,6 +552,9 @@ void main()
         float cameraDepth = texture(depthImage, screen_uv).r;
         if(cadDepth > cameraDepth){
             outColor = texture(cameraImage, screen_uv);
+            outNormal = vec4(0, 0, 0, 0);
+            outWorldPos = vec4(0, 0, 0, 0);
+            outShadow = vec4(1.0, -10000000.0, gl_FragCoord.z, 1.0);
             return;
         }
     }
@@ -663,5 +668,7 @@ void main()
 
     outColor.rgb = texture(cameraImage, screen_uv).rgb * scene_brightness;
     outColor.a = 1;
+    outNormal = vec4(0.0, 0.0, 0.0, 0.0);
+    outWorldPos = vec4(0.0, 0.0, 0.0, 0.0);
     outShadow = vec4(scene_brightness, InstanceID, gl_FragCoord.z, 1);
 }
