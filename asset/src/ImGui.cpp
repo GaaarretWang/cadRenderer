@@ -142,6 +142,60 @@ namespace gui
         }
     }
 
+    bool MyGui::applyUiFloatChange(float value,
+                                   const std::function<bool(float)>& setter,
+                                   const std::function<void(float)>& on_success) const
+    {
+        if (!m_runtime_controller || !setter || !on_success)
+        {
+            return false;
+        }
+
+        if (!setter(value))
+        {
+            return false;
+        }
+
+        on_success(value);
+        return true;
+    }
+
+    bool MyGui::applyUiIntChange(int value,
+                                 const std::function<bool(int)>& setter,
+                                 const std::function<void(int)>& on_success) const
+    {
+        if (!m_runtime_controller || !setter || !on_success)
+        {
+            return false;
+        }
+
+        if (!setter(value))
+        {
+            return false;
+        }
+
+        on_success(value);
+        return true;
+    }
+
+    bool MyGui::applyUiVec3Change(const vsg::vec3& value,
+                                  const std::function<bool(const vsg::vec3&)>& setter,
+                                  const std::function<void(const vsg::vec3&)>& on_success) const
+    {
+        if (!m_runtime_controller || !setter || !on_success)
+        {
+            return false;
+        }
+
+        if (!setter(value))
+        {
+            return false;
+        }
+
+        on_success(value);
+        return true;
+    }
+
     void MyGui::compile(vsg::Context& context)
     {
         // No extra compile-time resources are required for this GUI node.
@@ -362,12 +416,10 @@ namespace gui
                 ImGui::SameLine(0.0f, 5.0f);
             }
             if (ImGui::Button(num_str.c_str())) {
-                if (m_runtime_controller) {
-                    if (m_runtime_controller->setHdrFromUi(i))
-                    {
-                        m_pc_data->value().baseBrightness = m_base_brightness;
-                    }
-                }
+                applyUiIntChange(
+                    i,
+                    [this](int hdr) { return m_runtime_controller->setHdrFromUi(hdr); },
+                    [this](int) { m_pc_data->value().baseBrightness = m_base_brightness; });
             }
         }
 
@@ -387,124 +439,130 @@ namespace gui
         }
 
         if (ImGui::RadioButton("PCF", m_render_state.pipeline.frame_params.shadow_type == 0)){
-            if (m_runtime_controller && m_runtime_controller->setShadowTypeFromUi(0))
-            {
-                m_pc_data->value().shadow_type = 0;
-            }
+            applyUiIntChange(
+                0,
+                [this](int type) { return m_runtime_controller->setShadowTypeFromUi(type); },
+                [this](int type) { m_pc_data->value().shadow_type = type; });
         }
         ImGui::SameLine();
         if (ImGui::RadioButton("PCSS", m_render_state.pipeline.frame_params.shadow_type == 1))
         {
-            if (m_runtime_controller && m_runtime_controller->setShadowTypeFromUi(1))
-            {
-                m_pc_data->value().shadow_type = 1;
-            }
+            applyUiIntChange(
+                1,
+                [this](int type) { return m_runtime_controller->setShadowTypeFromUi(type); },
+                [this](int type) { m_pc_data->value().shadow_type = type; });
         }
 
         if (ImGui::SliderFloat("baseBrightness", &m_base_brightness, 0.0f, 100.0f))
         {
-            if (m_runtime_controller && m_runtime_controller->setBaseBrightnessFromUi(m_base_brightness))
-            {
-                m_pc_data->value().baseBrightness = m_base_brightness;
-            }
+            applyUiFloatChange(
+                m_base_brightness,
+                [this](float value) { return m_runtime_controller->setBaseBrightnessFromUi(value); },
+                [this](float value) { m_pc_data->value().baseBrightness = value; });
         }
         if (ImGui::Button("Save baseBrightness"))
             saveBaseBrightnessToLightInfo();
         if (m_render_state.pipeline.frame_params.shadow_type == 0)
         {
             float softness = pcf_softness;
-            if (ImGui::SliderFloat("pcf_softness", &softness, 0.0f, 100.0f) && m_runtime_controller)
+            if (ImGui::SliderFloat("pcf_softness", &softness, 0.0f, 100.0f))
             {
-                if (m_runtime_controller->setPcfSoftnessFromUi(softness))
-                {
-                    pcf_softness = softness;
-                    m_pc_data->value().softness = softness;
-                }
+                applyUiFloatChange(
+                    softness,
+                    [this](float value) { return m_runtime_controller->setPcfSoftnessFromUi(value); },
+                    [this](float value) {
+                        pcf_softness = value;
+                        m_pc_data->value().softness = value;
+                    });
             }
         }
         else if(m_render_state.pipeline.frame_params.shadow_type == 1)
         {
             float softness = pcss_softness;
-            if (ImGui::SliderFloat("pcss_softness", &softness, 0.0f, 0.1f, "%.7f", ImGuiSliderFlags_Logarithmic) && m_runtime_controller)
+            if (ImGui::SliderFloat("pcss_softness", &softness, 0.0f, 0.1f, "%.7f", ImGuiSliderFlags_Logarithmic))
             {
-                if (m_runtime_controller->setPcssSoftnessFromUi(softness))
-                {
-                    pcss_softness = softness;
-                    m_pc_data->value().softness = softness;
-                }
+                applyUiFloatChange(
+                    softness,
+                    [this](float value) { return m_runtime_controller->setPcssSoftnessFromUi(value); },
+                    [this](float value) {
+                        pcss_softness = value;
+                        m_pc_data->value().softness = value;
+                    });
             }
 
             float softness_falloff = pcss_softness_falloff;
-            if (ImGui::SliderFloat("pcss_softness_falloff", &softness_falloff, 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic) && m_runtime_controller)
+            if (ImGui::SliderFloat("pcss_softness_falloff", &softness_falloff, 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic))
             {
-                if (m_runtime_controller->setPcssSoftnessFalloffFromUi(softness_falloff))
-                {
-                    pcss_softness_falloff = softness_falloff;
-                    m_pc_data->value().softness_falloff = softness_falloff;
-                }
+                applyUiFloatChange(
+                    softness_falloff,
+                    [this](float value) { return m_runtime_controller->setPcssSoftnessFalloffFromUi(value); },
+                    [this](float value) {
+                        pcss_softness_falloff = value;
+                        m_pc_data->value().softness_falloff = value;
+                    });
             }
         }
         int blocker_sample_num = m_pc_data->value().blocker_sample_num;
-        if (ImGui::SliderInt("blocker_sample_num", &blocker_sample_num, 1, 64) && m_runtime_controller)
+        if (ImGui::SliderInt("blocker_sample_num", &blocker_sample_num, 1, 64))
         {
-            if (m_runtime_controller->setBlockerSampleNumFromUi(blocker_sample_num))
-            {
-                m_pc_data->value().blocker_sample_num = blocker_sample_num;
-            }
+            applyUiIntChange(
+                blocker_sample_num,
+                [this](int value) { return m_runtime_controller->setBlockerSampleNumFromUi(value); },
+                [this](int value) { m_pc_data->value().blocker_sample_num = value; });
         }
 
         int pcf_sample_num = m_pc_data->value().pcf_sample_num;
-        if (ImGui::SliderInt("pcf_sample_num", &pcf_sample_num, 1, 64) && m_runtime_controller)
+        if (ImGui::SliderInt("pcf_sample_num", &pcf_sample_num, 1, 64))
         {
-            if (m_runtime_controller->setPcfSampleNumFromUi(pcf_sample_num))
-            {
-                m_pc_data->value().pcf_sample_num = pcf_sample_num;
-            }
+            applyUiIntChange(
+                pcf_sample_num,
+                [this](int value) { return m_runtime_controller->setPcfSampleNumFromUi(value); },
+                [this](int value) { m_pc_data->value().pcf_sample_num = value; });
         }
 
         float shadow_bias = m_pc_data->value().shadow_bias;
-        if (ImGui::SliderFloat("shadow bias", &shadow_bias, 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic) && m_runtime_controller)
+        if (ImGui::SliderFloat("shadow bias", &shadow_bias, 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic))
         {
-            if (m_runtime_controller->setShadowBiasFromUi(shadow_bias))
-            {
-                m_pc_data->value().shadow_bias = shadow_bias;
-            }
+            applyUiFloatChange(
+                shadow_bias,
+                [this](float value) { return m_runtime_controller->setShadowBiasFromUi(value); },
+                [this](float value) { m_pc_data->value().shadow_bias = value; });
         }
 
         float ssao_radius = m_pc_data->value().ssao_radius;
-        if (ImGui::SliderFloat("ssao_radius", &ssao_radius, 0.0f, 2.0f) && m_runtime_controller)
+        if (ImGui::SliderFloat("ssao_radius", &ssao_radius, 0.0f, 2.0f))
         {
-            if (m_runtime_controller->setSsaoRadiusFromUi(ssao_radius))
-            {
-                m_pc_data->value().ssao_radius = ssao_radius;
-            }
+            applyUiFloatChange(
+                ssao_radius,
+                [this](float value) { return m_runtime_controller->setSsaoRadiusFromUi(value); },
+                [this](float value) { m_pc_data->value().ssao_radius = value; });
         }
 
         int ssao_kernel_size = m_pc_data->value().ssao_kernel_size;
-        if (ImGui::SliderInt("ssao_kernel_size", &ssao_kernel_size, 16, 128) && m_runtime_controller)
+        if (ImGui::SliderInt("ssao_kernel_size", &ssao_kernel_size, 16, 128))
         {
-            if (m_runtime_controller->setSsaoKernelSizeFromUi(ssao_kernel_size))
-            {
-                m_pc_data->value().ssao_kernel_size = ssao_kernel_size;
-            }
+            applyUiIntChange(
+                ssao_kernel_size,
+                [this](int value) { return m_runtime_controller->setSsaoKernelSizeFromUi(value); },
+                [this](int value) { m_pc_data->value().ssao_kernel_size = value; });
         }
 
         int denoise_size = m_pc_data->value().denoise_size;
-        if (ImGui::SliderInt("denoise_size", &denoise_size, 1, 9) && m_runtime_controller)
+        if (ImGui::SliderInt("denoise_size", &denoise_size, 1, 9))
         {
-            if (m_runtime_controller->setDenoiseSizeFromUi(denoise_size))
-            {
-                m_pc_data->value().denoise_size = denoise_size;
-            }
+            applyUiIntChange(
+                denoise_size,
+                [this](int value) { return m_runtime_controller->setDenoiseSizeFromUi(value); },
+                [this](int value) { m_pc_data->value().denoise_size = value; });
         }
 
         float exposure = m_pc_data->value().exposure;
-        if (ImGui::SliderFloat("exposure", &exposure, 0.0f, 50.f) && m_runtime_controller)
+        if (ImGui::SliderFloat("exposure", &exposure, 0.0f, 50.f))
         {
-            if (m_runtime_controller->setExposureFromUi(exposure))
-            {
-                m_pc_data->value().exposure = exposure;
-            }
+            applyUiFloatChange(
+                exposure,
+                [this](float value) { return m_runtime_controller->setExposureFromUi(value); },
+                [this](float value) { m_pc_data->value().exposure = value; });
         }
 
         m_render_state.pipeline.frame_params.baseBrightness = m_base_brightness;
@@ -570,12 +628,13 @@ namespace gui
             CADMesh::dynamic_lines.colors->value().b};
         if (ImGui::SliderFloat3("line color", line_color, 0.0f, 1.0f))
         {
-            if (m_runtime_controller &&
-                m_runtime_controller->setLineColorFromUi(vsg::vec3(line_color[0], line_color[1], line_color[2])))
-            {
-                CADMesh::dynamic_lines.colors->value() = vsg::vec4(line_color[0], line_color[1], line_color[2], 1.0f);
-                CADMesh::dynamic_lines.colors->dirty();
-            }
+            applyUiVec3Change(
+                vsg::vec3(line_color[0], line_color[1], line_color[2]),
+                [this](const vsg::vec3& value) { return m_runtime_controller->setLineColorFromUi(value); },
+                [](const vsg::vec3& value) {
+                    CADMesh::dynamic_lines.colors->value() = vsg::vec4(value.r, value.g, value.b, 1.0f);
+                    CADMesh::dynamic_lines.colors->dirty();
+                });
         }
 
         float point_color[3] = {
@@ -584,12 +643,13 @@ namespace gui
             CADMesh::dynamic_points.colors->value().b};
         if (ImGui::SliderFloat3("point color", point_color, 0.0f, 1.0f))
         {
-            if (m_runtime_controller &&
-                m_runtime_controller->setPointColorFromUi(vsg::vec3(point_color[0], point_color[1], point_color[2])))
-            {
-                CADMesh::dynamic_points.colors->value() = vsg::vec4(point_color[0], point_color[1], point_color[2], 1.0f);
-                CADMesh::dynamic_points.colors->dirty();
-            }
+            applyUiVec3Change(
+                vsg::vec3(point_color[0], point_color[1], point_color[2]),
+                [this](const vsg::vec3& value) { return m_runtime_controller->setPointColorFromUi(value); },
+                [](const vsg::vec3& value) {
+                    CADMesh::dynamic_points.colors->value() = vsg::vec4(value.r, value.g, value.b, 1.0f);
+                    CADMesh::dynamic_points.colors->dirty();
+                });
         }
     }
 

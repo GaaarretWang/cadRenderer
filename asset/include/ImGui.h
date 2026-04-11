@@ -17,6 +17,7 @@ class vsgRendererServer;
 #include <unordered_map>
 #include <cmath>
 #include <memory>
+#include <functional>
 #include "JsonConfigManager.h"
 #include "RenderStateController.h"
 #include "SceneRuntimeController.h"
@@ -171,6 +172,15 @@ namespace gui
         vsg::dmat4 computeTransformedMatrix(const InstanceTransformState& state) const;
         void applyPoseForState(const InstanceTransformState& state) const;
         void applyPoseForAllStates() const;
+        bool applyUiFloatChange(float value,
+                                const std::function<bool(float)>& setter,
+                                const std::function<void(float)>& on_success) const;
+        bool applyUiIntChange(int value,
+                              const std::function<bool(int)>& setter,
+                              const std::function<void(int)>& on_success) const;
+        bool applyUiVec3Change(const vsg::vec3& value,
+                               const std::function<bool(const vsg::vec3&)>& setter,
+                               const std::function<void(const vsg::vec3&)>& on_success) const;
     };
 
 } // namespace gui
