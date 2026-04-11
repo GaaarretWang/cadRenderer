@@ -132,6 +132,7 @@ set(SOURCES
     io/read.cpp
     io/write.cpp
     io/mem_stream.cpp
+    io/VkFileLogger.cpp
 
     text/CpuLayoutTechnique.cpp
     text/GpuLayoutTechnique.cpp
