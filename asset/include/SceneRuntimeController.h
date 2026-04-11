@@ -92,6 +92,7 @@ public:
 private:
     static bool sameVec3(const vsg::vec3& lhs, const vsg::vec3& rhs);
     bool canApplyUiChange(RuntimeParam param) const;
+    void applyHdrStateToRenderer(bool refresh_env_lighting);
     void applyRenderModesToRenderer();
     void applyFrameParamsToPcData();
     void applyLinePointColors();

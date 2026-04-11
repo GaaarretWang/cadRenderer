@@ -39,6 +39,7 @@ struct SceneConfig
     int msaa = 4;
     SceneMediaConfig media;
     std::vector<SceneModelConfig> models;
+    std::vector<std::string> cull_mode_none_model_paths;
     std::string shadow_receiver_path = "asset/data/obj/shadow_receiver2.obj";
     vsg::dmat4 shadow_receiver_transform = vsg::dmat4();
 };

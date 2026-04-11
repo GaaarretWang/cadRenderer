@@ -1,4 +1,3 @@
-#include "fixDepth.h"
 #include <cuda_runtime.h>
 
 // Bilinear upsampling kernel: input image (R8G8B8A8_UNORM) -> output image (R8G8B8A8_UNORM).

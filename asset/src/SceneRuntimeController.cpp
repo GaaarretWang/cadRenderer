@@ -57,12 +57,28 @@ void SceneRuntimeController::initializeForScene(int scene_id)
     clearServerDirtyFlags();
 }
 
-void SceneRuntimeController::applyRenderModesToRenderer()
+void SceneRuntimeController::applyHdrStateToRenderer(bool refresh_env_lighting)
 {
     state_.hdr_image_max_num = normalizeHdrImageMaxNum(state_.hdr_image_max_num);
     state_.hdr_image_num = clampHdrImageNum(state_.hdr_image_num, state_.hdr_image_max_num);
     renderer_.hdr_image_max_num = state_.hdr_image_max_num;
     renderer_.hdr_image_num = state_.hdr_image_num;
+
+    syncHdrBrightnessFromState();
+
+    if (refresh_env_lighting &&
+        applied_hdr_image_num_ != state_.hdr_image_num &&
+        renderer_.view &&
+        renderer_.window &&
+        renderer_.device)
+    {
+        renderer_.requestEnvLightingUpdate();
+        applied_hdr_image_num_ = state_.hdr_image_num;
+    }
+}
+
+void SceneRuntimeController::applyRenderModesToRenderer()
+{
     renderer_.setRealDepthOcclusion(state_.enable_real_depth_occlusion);
     renderer_.setShadowMode(state_.shadow_mode);
     renderer_.syncConstantData();
@@ -116,7 +132,7 @@ void SceneRuntimeController::applyLinePointColors()
 
 void SceneRuntimeController::applyLoadedState()
 {
-    syncHdrBrightnessFromState();
+    applyHdrStateToRenderer(true);
     applyRenderModesToRenderer();
     applyFrameParamsToPcData();
     applyLinePointColors();
@@ -204,13 +220,7 @@ bool SceneRuntimeController::setHdrImageNum(int hdr_num)
     }
 
     state_.hdr_image_num = hdr_num;
-    syncHdrBrightnessFromState();
-    renderer_.hdr_image_num = state_.hdr_image_num;
-    if (renderer_.view && renderer_.window && renderer_.device)
-    {
-        renderer_.updateEnvLighting();
-        applied_hdr_image_num_ = state_.hdr_image_num;
-    }
+    applyHdrStateToRenderer(true);
     applyFrameParamsToPcData();
     return true;
 }

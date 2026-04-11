@@ -27,9 +27,18 @@ SceneInitPayload SceneInitAssembler::buildSceneInitPayload(const SceneConfig& sc
         payload.instance_names.push_back(model.instance_name);
     }
 
-    payload.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/twoAirplaneBody.fb");
-    payload.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/twoAirplaneBody_white.fb");
-    payload.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/window.fb");
+    const bool is_legacy_airplane_scene = scene_config.id == 0 || scene_config.name == "airplane_parts";
+    if (is_legacy_airplane_scene)
+    {
+        payload.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/twoAirplaneBody.fb");
+        payload.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/twoAirplaneBody_white.fb");
+        payload.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/window.fb");
+    }
+
+    for (const auto& model_path : scene_config.cull_mode_none_model_paths)
+    {
+        payload.cull_mode_none_model_paths.insert(rendering_dir + model_path);
+    }
     return payload;
 }
 

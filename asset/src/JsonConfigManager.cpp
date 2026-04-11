@@ -230,6 +230,17 @@ bool JsonConfigManager::loadSceneConfig(const std::string& scene_name_or_id, Sce
         }
     }
 
+    if (scene_json->contains("cull_mode_none_model_paths") && (*scene_json)["cull_mode_none_model_paths"].is_array())
+    {
+        for (const auto& path : (*scene_json)["cull_mode_none_model_paths"])
+        {
+            if (path.is_string())
+            {
+                out_scene.cull_mode_none_model_paths.push_back(path.get<std::string>());
+            }
+        }
+    }
+
     if (scene_json->contains("shadow_receiver_path"))
     {
         out_scene.shadow_receiver_path = (*scene_json)["shadow_receiver_path"].get<std::string>();

@@ -94,6 +94,8 @@ class vsgRendererServer
     uint32_t frame_num = 0;
     vsg::dmat4 pending_camera_matrix;
     bool camera_dirty = false;
+    bool env_lighting_update_ready = false;
+    bool env_lighting_update_pending = false;
     vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(std::string windowTitle, int num,  vsg::ref_ptr<vsg::Options> options)
     {
         auto windowTraits = vsg::WindowTraits::create();
@@ -351,8 +353,36 @@ public:
         update_directional_lights();
         IBL::textures.params->dirty();
         viewer->compile();
-        auto* light_state = static_cast<CustomViewDependentState*>(view->viewDependentState.get());
-        light_state->draw_shadow_light = true;
+        if (view && view->viewDependentState)
+        {
+            auto* light_state = static_cast<CustomViewDependentState*>(view->viewDependentState.get());
+            if (light_state)
+            {
+                light_state->draw_shadow_light = true;
+            }
+        }
+    }
+
+    void requestEnvLightingUpdate()
+    {
+        if (!env_lighting_update_ready || !view || !window || !device || !view->viewDependentState)
+        {
+            env_lighting_update_pending = true;
+            return;
+        }
+
+        env_lighting_update_pending = false;
+        updateEnvLighting();
+    }
+
+    void flushPendingEnvLightingUpdate()
+    {
+        env_lighting_update_ready = true;
+        if (env_lighting_update_pending)
+        {
+            env_lighting_update_pending = false;
+            updateEnvLighting();
+        }
     }
 
     bool render();

@@ -58,6 +58,9 @@ void vsgRendererServer::loadHDRConfig()
 
 void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)
 {
+    env_lighting_update_ready = false;
+    env_lighting_update_pending = false;
+
     options->fileCache = vsg::getEnv("VSG_FILE_CACHE"); //2
     options->paths = vsg::getEnvPaths("VSG_FILE_PATH");
     options->paths.push_back(engine_path + "asset/data/");
@@ -421,6 +424,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     encode_extent.width = encode_width;
     encode_extent.height = encode_height;
     final_screenshotHandler = ScreenshotHandler::create(window, extent, encode_extent, ENCODER);
+
+    flushPendingEnvLightingUpdate();
 }
 
 bool vsgRendererServer::render() {
