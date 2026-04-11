@@ -2,6 +2,7 @@
 #include "ImGui.h"
 // Keep the renderer header here because the GUI writes directly into the server state.
 #include <vsgRendererServer.h>
+#include <algorithm>
 
 namespace vsgserver {
     vsgRendererServer* renderer = nullptr;
@@ -67,11 +68,12 @@ namespace gui
     {
         // Initialize the JSON manager, serializers, and controller helpers.
         m_json_manager = std::make_shared<JsonConfigManager>(m_scenes_json_path, m_materials_json_path, m_lightinfo_json_path);
-        m_scene_serializer = std::make_shared<SceneConfigSerializer>(m_json_manager);
-        m_state_controller = std::make_shared<RenderStateController>(m_json_manager, m_scene_serializer);
+        auto scene_serializer = std::make_shared<SceneConfigSerializer>(m_json_manager);
+        m_state_controller = std::make_shared<RenderStateController>(m_json_manager, scene_serializer);
+        m_state_persistence = std::make_shared<SceneStatePersistenceCoordinator>(m_json_manager, scene_serializer);
         if (vsgserver::renderer)
         {
-            m_runtime_controller = std::make_shared<SceneRuntimeController>(*vsgserver::renderer, m_state_controller, m_render_state, m_line_point_style, m_base_brightness);
+            m_runtime_controller = std::make_shared<SceneRuntimeController>(*vsgserver::renderer, m_state_persistence, m_runtime_state);
             vsgserver::runtime_controller = m_runtime_controller.get();
         }
         loadParams();
@@ -85,7 +87,6 @@ namespace gui
         for (size_t i = 0; i < CADMesh::scene_instance_names.size(); i++) {
             InstanceTransformState state;
             state.instance_name = CADMesh::scene_instance_names[i];
-            state.original_transform = CADMesh::scene_original_transforms[i];
             m_instance_states.push_back(state);
         }
     }
@@ -108,6 +109,7 @@ namespace gui
 
     vsg::dmat4 MyGui::computeTransformedMatrix(const InstanceTransformState& state) const
     {
+        const vsg::dmat4 original_transform = m_runtime_controller ? m_runtime_controller->sceneTransformOrIdentity(state.instance_name) : vsg::dmat4();
         const double tx = m_shared_translate[0];
         const double ty = m_shared_translate[1];
         const double tz = m_shared_translate[2];
@@ -122,12 +124,12 @@ namespace gui
         auto Rx = vsg::rotate(rx, 1.0, 0.0, 0.0);
         auto S = vsg::scale(s, s, s);
 
-        return T * state.original_transform * Rz * Ry * Rx * S;
+        return T * original_transform * Rz * Ry * Rx * S;
     }
 
     void MyGui::applyPoseForState(const InstanceTransformState& state) const
     {
-        const vsg::dmat4 target = state.selected ? computeTransformedMatrix(state) : state.original_transform;
+        const vsg::dmat4 target = state.selected ? computeTransformedMatrix(state) : (m_runtime_controller ? m_runtime_controller->sceneTransformOrIdentity(state.instance_name) : vsg::dmat4());
         if (m_runtime_controller)
         {
             m_runtime_controller->setInstanceTransform(state.instance_name, target);
@@ -212,63 +214,18 @@ namespace gui
     void MyGui::loadRenderParams()
     {
         std::cout << "Loading render params from: " << m_scenes_json_path << std::endl;
-        if (!m_json_manager)
+        if (!m_runtime_controller)
         {
-            std::cerr << "JsonConfigManager is not initialized." << std::endl;
-            return;
-        }
-        if (!m_scene_serializer)
-        {
-            std::cerr << "SceneConfigSerializer is not initialized." << std::endl;
-            return;
-        }
-        if (!m_state_controller)
-        {
-            std::cerr << "RenderStateController is not initialized." << std::endl;
+            std::cerr << "SceneRuntimeController is not initialized." << std::endl;
             return;
         }
 
-        RenderStateHub state;
-        SceneLinePointStyle style;
         std::string error_message;
-        if (!m_state_controller->loadRenderState(CADMesh::current_scene_id, state, style, &error_message))
+        if (!m_runtime_controller->loadSceneState(CADMesh::current_scene_id, &error_message))
         {
             std::cerr << "Failed to load render params: " << error_message << std::endl;
             return;
         }
-
-        m_render_state = state;
-        m_line_point_style = style;
-        m_pc_data->value().ssao_radius = m_render_state.pipeline.frame_params.ssao_radius;
-        m_pc_data->value().ssao_kernel_size = m_render_state.pipeline.frame_params.ssao_kernel_size;
-        m_pc_data->value().exposure = m_render_state.pipeline.frame_params.exposure;
-        m_pc_data->value().denoise_size = m_render_state.pipeline.frame_params.denoise_size;
-        m_pc_data->value().shadow_bias = m_render_state.pipeline.frame_params.shadow_bias;
-        m_pc_data->value().blocker_sample_num = m_render_state.pipeline.frame_params.blocker_sample_num;
-        m_pc_data->value().pcf_sample_num = m_render_state.pipeline.frame_params.pcf_sample_num;
-        m_pc_data->value().shadow_type = m_render_state.pipeline.frame_params.shadow_type;
-        pcf_softness = m_render_state.pipeline.pcf_softness;
-        pcss_softness = m_render_state.pipeline.pcss_softness;
-        pcss_softness_falloff = m_render_state.pipeline.pcss_softness_falloff;
-
-        CADMesh::dynamic_lines.colors->value() = vsg::vec4(m_line_point_style.line_color.r, m_line_point_style.line_color.g, m_line_point_style.line_color.b, 1.0f);
-        CADMesh::dynamic_lines.colors->dirty();
-        CADMesh::dynamic_points.colors->value() = vsg::vec4(m_line_point_style.point_color.r, m_line_point_style.point_color.g, m_line_point_style.point_color.b, 1.0f);
-        CADMesh::dynamic_points.colors->dirty();
-
-        if (m_runtime_controller)
-        {
-            m_runtime_controller->initializeForScene(CADMesh::current_scene_id);
-            m_runtime_controller->applyLoadedState();
-        }
-
-        int hdr_num = m_render_state.pipeline.hdr_image_num;
-        auto it = vsgserver::renderer->hdr_base_brightness.find(hdr_num);
-        if (it != vsgserver::renderer->hdr_base_brightness.end())
-        {
-            m_base_brightness = it->second;
-        }
-        m_pc_data->value().baseBrightness = m_base_brightness;
     }
 
     // Load material parameters from Materials.json.
@@ -315,8 +272,8 @@ namespace gui
                 std::cerr << "Failed to save LightInfo.json: " << error_message << std::endl;
                 return;
             }
-            vsgserver::renderer->hdr_base_brightness[m_render_state.pipeline.hdr_image_num] = m_base_brightness;
-            std::cout << "baseBrightness saved to LightInfo.json (HDR " << m_render_state.pipeline.hdr_image_num << " = " << m_base_brightness << ")" << std::endl;
+            const auto& state = m_runtime_controller->state();
+            std::cout << "baseBrightness saved to LightInfo.json (HDR " << state.hdr_image_num << " = " << state.baseBrightness << ")" << std::endl;
         } catch (const std::exception& e) {
             std::cerr << "Failed to save baseBrightness: " << e.what() << std::endl;
         }
@@ -337,50 +294,6 @@ namespace gui
             return;
         }
         std::cout << "Render params saved to: " << m_scenes_json_path << " (scene_id=" << CADMesh::current_scene_id << ")" << std::endl;
-    }
-
-    void MyGui::syncStateFromRuntime() const
-    {
-        if (!vsgserver::renderer)
-        {
-            return;
-        }
-
-        m_render_state.pipeline.hdr_image_num = vsgserver::renderer->hdr_image_num;
-        m_render_state.pipeline.enable_real_depth_occlusion = vsgserver::renderer->enable_real_depth_occlusion;
-        m_render_state.pipeline.shadow_mode = vsgserver::renderer->shadow_mode;
-
-        m_render_state.pipeline.frame_params.ssao_radius = m_pc_data->value().ssao_radius;
-        m_render_state.pipeline.frame_params.ssao_kernel_size = m_pc_data->value().ssao_kernel_size;
-        m_render_state.pipeline.frame_params.exposure = m_pc_data->value().exposure;
-        m_render_state.pipeline.frame_params.denoise_size = m_pc_data->value().denoise_size;
-        m_render_state.pipeline.frame_params.shadow_bias = m_pc_data->value().shadow_bias;
-        m_render_state.pipeline.frame_params.blocker_sample_num = m_pc_data->value().blocker_sample_num;
-        m_render_state.pipeline.frame_params.pcf_sample_num = m_pc_data->value().pcf_sample_num;
-        m_render_state.pipeline.frame_params.shadow_type = m_pc_data->value().shadow_type;
-        m_render_state.pipeline.frame_params.baseBrightness = m_pc_data->value().baseBrightness;
-
-        m_base_brightness = m_pc_data->value().baseBrightness;
-        if (m_render_state.pipeline.frame_params.shadow_type == 0)
-        {
-            pcf_softness = m_pc_data->value().softness;
-        }
-        else
-        {
-            pcss_softness = m_pc_data->value().softness;
-            pcss_softness_falloff = m_pc_data->value().softness_falloff;
-        }
-
-        if (CADMesh::dynamic_lines.colors)
-        {
-            const auto& line_color = CADMesh::dynamic_lines.colors->value();
-            m_line_point_style.line_color = vsg::vec3(line_color.r, line_color.g, line_color.b);
-        }
-        if (CADMesh::dynamic_points.colors)
-        {
-            const auto& point_color = CADMesh::dynamic_points.colors->value();
-            m_line_point_style.point_color = vsg::vec3(point_color.r, point_color.g, point_color.b);
-        }
     }
 
     // Save material parameters to Materials.json.
@@ -409,8 +322,14 @@ namespace gui
     // Draw the render-parameter control panel.
     void MyGui::drawRenderParams() const
     {
+        if (!m_runtime_controller)
+        {
+            return;
+        }
+
+        const SceneRuntimeState& state = m_runtime_controller->state();
         ImGui::Text("hdr num:");
-        for (int i = 1; i <= vsgserver::renderer->hdr_image_max_num; ++i) {
+        for (int i = 1; i <= state.hdr_image_max_num; ++i) {
             std::string num_str = std::to_string(i);
             if (i > 1) {
                 ImGui::SameLine(0.0f, 5.0f);
@@ -419,153 +338,143 @@ namespace gui
                 applyUiIntChange(
                     i,
                     [this](int hdr) { return m_runtime_controller->setHdrFromUi(hdr); },
-                    [this](int) { m_pc_data->value().baseBrightness = m_base_brightness; });
+                    [](int) {});
             }
         }
 
         ImGui::Separator();
         ImGui::Text("Global Render Params:");
-        bool depth_occlusion_enabled = m_render_state.pipeline.enable_real_depth_occlusion != 0;
+        bool depth_occlusion_enabled = state.enable_real_depth_occlusion != 0;
         if (ImGui::Checkbox("Depth Occlusion", &depth_occlusion_enabled))
         {
-            if (m_runtime_controller) m_runtime_controller->setDepthOcclusionEnabledFromUi(depth_occlusion_enabled);
+            m_runtime_controller->setDepthOcclusionEnabledFromUi(depth_occlusion_enabled);
         }
 
-        int shadow_mode = (m_render_state.pipeline.shadow_mode == SHADOW_REAL_DEPTH) ? SHADOW_REAL_DEPTH : SHADOW_RECEIVER_PLANE;
+        int shadow_mode = (state.shadow_mode == SHADOW_REAL_DEPTH) ? SHADOW_REAL_DEPTH : SHADOW_RECEIVER_PLANE;
         const char* shadow_mode_items[] = {"Receiver Plane", "Real Depth"};
         if (ImGui::Combo("Shadow Mode", &shadow_mode, shadow_mode_items, IM_ARRAYSIZE(shadow_mode_items)))
         {
-            if (m_runtime_controller) m_runtime_controller->setShadowModeFromUi(shadow_mode);
+            m_runtime_controller->setShadowModeFromUi(shadow_mode);
         }
 
-        if (ImGui::RadioButton("PCF", m_render_state.pipeline.frame_params.shadow_type == 0)){
+        if (ImGui::RadioButton("PCF", state.shadow_type == 0)){
             applyUiIntChange(
                 0,
                 [this](int type) { return m_runtime_controller->setShadowTypeFromUi(type); },
-                [this](int type) { m_pc_data->value().shadow_type = type; });
+                [](int) {});
         }
         ImGui::SameLine();
-        if (ImGui::RadioButton("PCSS", m_render_state.pipeline.frame_params.shadow_type == 1))
+        if (ImGui::RadioButton("PCSS", state.shadow_type == 1))
         {
             applyUiIntChange(
                 1,
                 [this](int type) { return m_runtime_controller->setShadowTypeFromUi(type); },
-                [this](int type) { m_pc_data->value().shadow_type = type; });
+                [](int) {});
         }
 
-        if (ImGui::SliderFloat("baseBrightness", &m_base_brightness, 0.0f, 100.0f))
+        float base_brightness = state.baseBrightness;
+        if (ImGui::SliderFloat("baseBrightness", &base_brightness, 0.0f, 100.0f))
         {
             applyUiFloatChange(
-                m_base_brightness,
+                base_brightness,
                 [this](float value) { return m_runtime_controller->setBaseBrightnessFromUi(value); },
-                [this](float value) { m_pc_data->value().baseBrightness = value; });
+                [](float) {});
         }
         if (ImGui::Button("Save baseBrightness"))
             saveBaseBrightnessToLightInfo();
-        if (m_render_state.pipeline.frame_params.shadow_type == 0)
+        if (state.shadow_type == 0)
         {
-            float softness = pcf_softness;
+            float softness = state.pcf_softness;
             if (ImGui::SliderFloat("pcf_softness", &softness, 0.0f, 100.0f))
             {
                 applyUiFloatChange(
                     softness,
                     [this](float value) { return m_runtime_controller->setPcfSoftnessFromUi(value); },
-                    [this](float value) {
-                        pcf_softness = value;
-                        m_pc_data->value().softness = value;
-                    });
+                    [](float) {});
             }
         }
-        else if(m_render_state.pipeline.frame_params.shadow_type == 1)
+        else if(state.shadow_type == 1)
         {
-            float softness = pcss_softness;
+            float softness = state.pcss_softness;
             if (ImGui::SliderFloat("pcss_softness", &softness, 0.0f, 0.1f, "%.7f", ImGuiSliderFlags_Logarithmic))
             {
                 applyUiFloatChange(
                     softness,
                     [this](float value) { return m_runtime_controller->setPcssSoftnessFromUi(value); },
-                    [this](float value) {
-                        pcss_softness = value;
-                        m_pc_data->value().softness = value;
-                    });
+                    [](float) {});
             }
 
-            float softness_falloff = pcss_softness_falloff;
+            float softness_falloff = state.pcss_softness_falloff;
             if (ImGui::SliderFloat("pcss_softness_falloff", &softness_falloff, 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic))
             {
                 applyUiFloatChange(
                     softness_falloff,
                     [this](float value) { return m_runtime_controller->setPcssSoftnessFalloffFromUi(value); },
-                    [this](float value) {
-                        pcss_softness_falloff = value;
-                        m_pc_data->value().softness_falloff = value;
-                    });
+                    [](float) {});
             }
         }
-        int blocker_sample_num = m_pc_data->value().blocker_sample_num;
+        int blocker_sample_num = state.blocker_sample_num;
         if (ImGui::SliderInt("blocker_sample_num", &blocker_sample_num, 1, 64))
         {
             applyUiIntChange(
                 blocker_sample_num,
                 [this](int value) { return m_runtime_controller->setBlockerSampleNumFromUi(value); },
-                [this](int value) { m_pc_data->value().blocker_sample_num = value; });
+                [](int) {});
         }
 
-        int pcf_sample_num = m_pc_data->value().pcf_sample_num;
+        int pcf_sample_num = state.pcf_sample_num;
         if (ImGui::SliderInt("pcf_sample_num", &pcf_sample_num, 1, 64))
         {
             applyUiIntChange(
                 pcf_sample_num,
                 [this](int value) { return m_runtime_controller->setPcfSampleNumFromUi(value); },
-                [this](int value) { m_pc_data->value().pcf_sample_num = value; });
+                [](int) {});
         }
 
-        float shadow_bias = m_pc_data->value().shadow_bias;
+        float shadow_bias = state.shadow_bias;
         if (ImGui::SliderFloat("shadow bias", &shadow_bias, 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic))
         {
             applyUiFloatChange(
                 shadow_bias,
                 [this](float value) { return m_runtime_controller->setShadowBiasFromUi(value); },
-                [this](float value) { m_pc_data->value().shadow_bias = value; });
+                [](float) {});
         }
 
-        float ssao_radius = m_pc_data->value().ssao_radius;
+        float ssao_radius = state.ssao_radius;
         if (ImGui::SliderFloat("ssao_radius", &ssao_radius, 0.0f, 2.0f))
         {
             applyUiFloatChange(
                 ssao_radius,
                 [this](float value) { return m_runtime_controller->setSsaoRadiusFromUi(value); },
-                [this](float value) { m_pc_data->value().ssao_radius = value; });
+                [](float) {});
         }
 
-        int ssao_kernel_size = m_pc_data->value().ssao_kernel_size;
+        int ssao_kernel_size = state.ssao_kernel_size;
         if (ImGui::SliderInt("ssao_kernel_size", &ssao_kernel_size, 16, 128))
         {
             applyUiIntChange(
                 ssao_kernel_size,
                 [this](int value) { return m_runtime_controller->setSsaoKernelSizeFromUi(value); },
-                [this](int value) { m_pc_data->value().ssao_kernel_size = value; });
+                [](int) {});
         }
 
-        int denoise_size = m_pc_data->value().denoise_size;
+        int denoise_size = state.denoise_size;
         if (ImGui::SliderInt("denoise_size", &denoise_size, 1, 9))
         {
             applyUiIntChange(
                 denoise_size,
                 [this](int value) { return m_runtime_controller->setDenoiseSizeFromUi(value); },
-                [this](int value) { m_pc_data->value().denoise_size = value; });
+                [](int) {});
         }
 
-        float exposure = m_pc_data->value().exposure;
+        float exposure = state.exposure;
         if (ImGui::SliderFloat("exposure", &exposure, 0.0f, 50.f))
         {
             applyUiFloatChange(
                 exposure,
                 [this](float value) { return m_runtime_controller->setExposureFromUi(value); },
-                [this](float value) { m_pc_data->value().exposure = value; });
+                [](float) {});
         }
-
-        m_render_state.pipeline.frame_params.baseBrightness = m_base_brightness;
     }
 
     void MyGui::drawPerformanceInfo() const
@@ -622,34 +531,28 @@ namespace gui
     // Draw line and point color controls.
     void MyGui::drawLinePointControls() const
     {
-        float line_color[3] = {
-            CADMesh::dynamic_lines.colors->value().r,
-            CADMesh::dynamic_lines.colors->value().g,
-            CADMesh::dynamic_lines.colors->value().b};
+        if (!m_runtime_controller)
+        {
+            return;
+        }
+
+        const SceneRuntimeState& state = m_runtime_controller->state();
+        float line_color[3] = {state.line_color.r, state.line_color.g, state.line_color.b};
         if (ImGui::SliderFloat3("line color", line_color, 0.0f, 1.0f))
         {
             applyUiVec3Change(
                 vsg::vec3(line_color[0], line_color[1], line_color[2]),
                 [this](const vsg::vec3& value) { return m_runtime_controller->setLineColorFromUi(value); },
-                [](const vsg::vec3& value) {
-                    CADMesh::dynamic_lines.colors->value() = vsg::vec4(value.r, value.g, value.b, 1.0f);
-                    CADMesh::dynamic_lines.colors->dirty();
-                });
+                [](const vsg::vec3&) {});
         }
 
-        float point_color[3] = {
-            CADMesh::dynamic_points.colors->value().r,
-            CADMesh::dynamic_points.colors->value().g,
-            CADMesh::dynamic_points.colors->value().b};
+        float point_color[3] = {state.point_color.r, state.point_color.g, state.point_color.b};
         if (ImGui::SliderFloat3("point color", point_color, 0.0f, 1.0f))
         {
             applyUiVec3Change(
                 vsg::vec3(point_color[0], point_color[1], point_color[2]),
                 [this](const vsg::vec3& value) { return m_runtime_controller->setPointColorFromUi(value); },
-                [](const vsg::vec3& value) {
-                    CADMesh::dynamic_points.colors->value() = vsg::vec4(value.r, value.g, value.b, 1.0f);
-                    CADMesh::dynamic_points.colors->dirty();
-                });
+                [](const vsg::vec3&) {});
         }
     }
 
@@ -659,7 +562,7 @@ namespace gui
             if (!state.selected) continue;
             if (m_runtime_controller)
             {
-                m_runtime_controller->setInstanceTransform(state.instance_name, state.original_transform);
+                m_runtime_controller->setInstanceTransform(state.instance_name, m_runtime_controller->sceneTransformOrIdentity(state.instance_name));
             }
         }
         resetSharedTransform();
@@ -677,17 +580,20 @@ namespace gui
 
         try {
             std::vector<SceneModelTransformSave> transforms;
-            transforms.reserve(m_instance_states.size());
-            for (const auto& state : m_instance_states) {
-                SceneModelTransformSave item;
-                item.instance_name = state.instance_name;
-                item.transform = state.selected ? computeTransformedMatrix(state) : state.original_transform;
-                item.is_shadow_receiver = (state.instance_name == "shadow_receiver");
-                if (!item.is_shadow_receiver) {
-                    auto it = CADMesh::instance_name_to_rel_path.find(state.instance_name);
-                    item.path = (it != CADMesh::instance_name_to_rel_path.end()) ? it->second : "";
+            if (m_runtime_controller)
+            {
+                transforms = m_runtime_controller->state().scene_transforms;
+                for (auto& item : transforms)
+                {
+                    const auto selected_it = std::find_if(
+                        m_instance_states.begin(),
+                        m_instance_states.end(),
+                        [&item](const InstanceTransformState& ui_state) { return ui_state.instance_name == item.instance_name; });
+                    if (selected_it != m_instance_states.end() && selected_it->selected)
+                    {
+                        item.transform = computeTransformedMatrix(*selected_it);
+                    }
                 }
-                transforms.push_back(std::move(item));
             }
 
             std::string error_message;
@@ -697,9 +603,6 @@ namespace gui
             }
 
             std::cout << "Transforms saved to: " << CADMesh::scenes_json_path << " (scene_id=" << CADMesh::current_scene_id << ")" << std::endl;
-            for (auto& state : m_instance_states) {
-                state.original_transform = state.selected ? computeTransformedMatrix(state) : state.original_transform;
-            }
             resetSharedTransform();
             applyPoseForAllStates();
         } catch (const std::exception& e) {
@@ -802,7 +705,6 @@ namespace gui
     void MyGui::record(vsg::CommandBuffer& cb) const
     {
         if (!global_params->showGui) return;
-        syncStateFromRuntime();
 
         ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_FirstUseEver);
         ImGui::SetNextWindowSize(ImVec2(500, 800), ImGuiCond_FirstUseEver);

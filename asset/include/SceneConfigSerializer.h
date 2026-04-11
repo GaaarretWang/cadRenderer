@@ -4,6 +4,7 @@
 #include <string>
 
 #include "JsonConfigManager.h"
+#include "RenderState.h"
 
 class SceneConfigSerializer
 {
@@ -11,9 +12,9 @@ public:
     explicit SceneConfigSerializer(std::shared_ptr<JsonConfigManager> json_manager);
 
     bool loadSceneConfig(const std::string& scene_name_or_id, SceneConfig& out_scene, std::string* error_message = nullptr) const;
-    bool loadSceneRenderParamsAndStyle(int scene_id, SceneRenderParams& out_params, SceneLinePointStyle& out_style, std::string* error_message = nullptr) const;
-    bool saveSceneRenderParamsAndStyle(int scene_id, const SceneRenderParams& params, const SceneLinePointStyle& style, std::string* error_message = nullptr) const;
-    bool saveSceneTransforms(int scene_id, const std::vector<SceneModelTransformSave>& transforms, std::string* error_message = nullptr) const;
+    bool loadSceneRuntimeState(int scene_id, SceneRuntimeState& out_state, std::string* error_message = nullptr) const;
+    bool saveSceneRenderState(int scene_id, const SceneRuntimeState& state, std::string* error_message = nullptr) const;
+    bool saveSceneTransforms(int scene_id, const SceneRuntimeState& state, std::string* error_message = nullptr) const;
 
 private:
     using json = nlohmann::json;

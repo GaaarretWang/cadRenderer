@@ -31,30 +31,6 @@ struct SceneModelConfig
     vsg::dmat4 transform = vsg::dmat4();
 };
 
-struct SceneRenderParams
-{
-    int hdr_image_num = 4;
-    int enable_real_depth_occlusion = -1;
-    int shadow_mode = -1;
-    float ssao_radius = 0.1f;
-    int ssao_kernel_size = 64;
-    float exposure = 8.0f;
-    int denoise_size = 5;
-    float shadow_bias = 0.0001f;
-    int blocker_sample_num = 16;
-    int pcf_sample_num = 16;
-    int shadow_type = 1;
-    float pcf_softness = 1.0f;
-    float pcss_softness = 1.0f;
-    float pcss_softness_falloff = 1.0f;
-};
-
-struct SceneLinePointStyle
-{
-    vsg::vec3 line_color = vsg::vec3(1.0f, 1.0f, 1.0f);
-    vsg::vec3 point_color = vsg::vec3(1.0f, 1.0f, 1.0f);
-};
-
 struct SceneConfig
 {
     int id = -1;
@@ -83,10 +59,6 @@ public:
     bool loadScenesJson(nlohmann::json& out_json, std::string* error_message = nullptr) const;
     bool saveScenesJson(const nlohmann::json& in_json, std::string* error_message = nullptr) const;
     bool loadSceneConfig(const std::string& scene_name_or_id, SceneConfig& out_scene, std::string* error_message = nullptr) const;
-
-    bool loadSceneRenderParamsAndStyle(int scene_id, SceneRenderParams& out_params, SceneLinePointStyle& out_style, std::string* error_message = nullptr) const;
-    bool saveSceneRenderParamsAndStyle(int scene_id, const SceneRenderParams& params, const SceneLinePointStyle& style, std::string* error_message = nullptr) const;
-    bool saveSceneTransforms(int scene_id, const std::vector<SceneModelTransformSave>& transforms, std::string* error_message = nullptr) const;
 
     bool loadMaterialsJson(nlohmann::json& out_json, std::string* error_message = nullptr) const;
     bool saveMaterialsJson(const nlohmann::json& in_json, std::string* error_message = nullptr) const;

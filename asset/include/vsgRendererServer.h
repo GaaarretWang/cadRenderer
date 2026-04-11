@@ -260,22 +260,7 @@ public:
         curLightGroup->addChild(lightGroups[hdr_image_num]);
     }
 
-    void loadHDRConfig(){
-        std::string json_path = vsg::findFile("json/LightInfo.json", options->paths).string();
-        std::ifstream json_file(json_path);
-
-        if (!json_file.is_open()) {
-            std::cerr << "错误：无法打开光源配置文件 " << json_path << std::endl;
-            return;
-        }
-
-        json json_data = json::parse(json_file);
-        json_file.close();
-
-        if (json_data.contains("hdr_image_max_num")) {
-            hdr_image_max_num = json_data["hdr_image_max_num"].get<int>();
-        }
-    }
+    void loadHDRConfig();
 
     void init_directional_lights(){
         std::string json_path = vsg::findFile("json/LightInfo.json", options->paths).string();
@@ -298,11 +283,6 @@ public:
             int hdr_idx = std::stoi(hdr_idx_str);
             vsg::ref_ptr<vsg::Group> light_i = vsg::Group::create();
             lightGroups[hdr_idx] = light_i;
-
-            // Read baseBrightness when it exists.
-            if (hdr_data.contains("baseBrightness")) {
-                hdr_base_brightness[hdr_idx] = hdr_data["baseBrightness"].get<float>();
-            }
 
             for (auto& light_data : hdr_data["lights"]) {
                 auto directional_light = vsg::DirectionalLight::create();

@@ -4,7 +4,8 @@
 #include <string>
 #include <vector>
 
-#include "RenderStateController.h"
+#include "RenderState.h"
+#include "SceneStatePersistenceCoordinator.h"
 
 class vsgRendererServer;
 
@@ -33,16 +34,18 @@ class SceneRuntimeController
 {
 public:
     SceneRuntimeController(vsgRendererServer& renderer,
-                           std::shared_ptr<RenderStateController> persistence_controller,
-                           RenderStateHub& render_state,
-                           SceneLinePointStyle& line_point_style,
-                           float& base_brightness);
+                           std::shared_ptr<SceneStatePersistenceCoordinator> persistence_coordinator,
+                           SceneRuntimeState& state);
 
+    bool loadSceneState(int scene_id, std::string* error_message = nullptr);
     void initializeForScene(int scene_id);
     void applyLoadedState();
     void clearServerDirtyFlags();
     void markServerDirty(RuntimeParam param);
     bool isServerDirty(RuntimeParam param) const;
+
+    const SceneRuntimeState& state() const { return state_; }
+    SceneRuntimeState& state() { return state_; }
 
     bool setHdrImageNum(int hdr_num);
     bool setHdrFromUi(int hdr_num);
@@ -81,19 +84,23 @@ public:
     bool setInstanceTransform(const std::string& instance_name, const vsg::dmat4& transform) const;
 
     bool saveRenderState(std::string* error_message = nullptr) const;
-    bool saveBaseBrightness(std::string* error_message = nullptr) const;
-    bool saveSceneTransforms(const std::vector<SceneModelTransformSave>& transforms, std::string* error_message = nullptr) const;
+    bool saveBaseBrightness(std::string* error_message = nullptr);
+    bool saveSceneTransforms(const std::vector<SceneModelTransformSave>& transforms, std::string* error_message = nullptr);
+    bool findSceneTransform(const std::string& instance_name, SceneModelTransformSave& out_transform) const;
+    vsg::dmat4 sceneTransformOrIdentity(const std::string& instance_name) const;
 
 private:
-    static bool nearlyEqual(float lhs, float rhs, float epsilon = 1e-6f);
     static bool sameVec3(const vsg::vec3& lhs, const vsg::vec3& rhs);
     bool canApplyUiChange(RuntimeParam param) const;
+    void applyRenderModesToRenderer();
+    void applyFrameParamsToPcData();
+    void applyLinePointColors();
+    void syncHdrBrightnessFromState();
+    void replaceSceneTransforms(const std::vector<SceneModelTransformSave>& transforms);
 
     vsgRendererServer& renderer_;
-    std::shared_ptr<RenderStateController> persistence_controller_;
-    RenderStateHub& render_state_;
-    SceneLinePointStyle& line_point_style_;
-    float& base_brightness_;
+    std::shared_ptr<SceneStatePersistenceCoordinator> persistence_coordinator_;
+    SceneRuntimeState& state_;
     int scene_id_ = -1;
     int applied_hdr_image_num_ = -1;
     bool hdr_server_dirty_ = false;

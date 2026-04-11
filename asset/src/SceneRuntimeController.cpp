@@ -1,20 +1,53 @@
 #include "SceneRuntimeController.h"
 
-#include <cmath>
+#include <algorithm>
 
+#include "CADMesh.h"
 #include "vsgRendererServer.h"
 
-SceneRuntimeController::SceneRuntimeController(vsgRendererServer& renderer,
-                                               std::shared_ptr<RenderStateController> persistence_controller,
-                                               RenderStateHub& render_state,
-                                               SceneLinePointStyle& line_point_style,
-                                               float& base_brightness)
-    : renderer_(renderer),
-      persistence_controller_(std::move(persistence_controller)),
-      render_state_(render_state),
-      line_point_style_(line_point_style),
-      base_brightness_(base_brightness)
+namespace
 {
+constexpr int kDefaultHdrMin = 1;
+
+int normalizeHdrImageMaxNum(int value)
+{
+    return std::max(value, kDefaultHdrMin);
+}
+
+int clampHdrImageNum(int value, int hdr_image_max_num)
+{
+    return std::clamp(value, kDefaultHdrMin, normalizeHdrImageMaxNum(hdr_image_max_num));
+}
+}
+
+SceneRuntimeController::SceneRuntimeController(vsgRendererServer& renderer,
+                                               std::shared_ptr<SceneStatePersistenceCoordinator> persistence_coordinator,
+                                               SceneRuntimeState& state)
+    : renderer_(renderer),
+      persistence_coordinator_(std::move(persistence_coordinator)),
+      state_(state)
+{
+}
+
+bool SceneRuntimeController::loadSceneState(int scene_id, std::string* error_message)
+{
+    if (!persistence_coordinator_)
+    {
+        if (error_message) *error_message = "SceneStatePersistenceCoordinator is not initialized.";
+        return false;
+    }
+
+    SceneRuntimeState loaded_state;
+    if (!persistence_coordinator_->loadSceneState(scene_id, loaded_state, error_message))
+    {
+        return false;
+    }
+
+    initializeForScene(scene_id);
+    state_ = std::move(loaded_state);
+    applyLoadedState();
+    clearServerDirtyFlags();
+    return true;
 }
 
 void SceneRuntimeController::initializeForScene(int scene_id)
@@ -24,19 +57,69 @@ void SceneRuntimeController::initializeForScene(int scene_id)
     clearServerDirtyFlags();
 }
 
+void SceneRuntimeController::applyRenderModesToRenderer()
+{
+    state_.hdr_image_max_num = normalizeHdrImageMaxNum(state_.hdr_image_max_num);
+    state_.hdr_image_num = clampHdrImageNum(state_.hdr_image_num, state_.hdr_image_max_num);
+    renderer_.hdr_image_max_num = state_.hdr_image_max_num;
+    renderer_.hdr_image_num = state_.hdr_image_num;
+    renderer_.setRealDepthOcclusion(state_.enable_real_depth_occlusion);
+    renderer_.setShadowMode(state_.shadow_mode);
+    renderer_.syncConstantData();
+}
+
+void SceneRuntimeController::syncHdrBrightnessFromState()
+{
+    state_.hdr_image_max_num = normalizeHdrImageMaxNum(state_.hdr_image_max_num);
+    state_.hdr_image_num = clampHdrImageNum(state_.hdr_image_num, state_.hdr_image_max_num);
+    renderer_.hdr_base_brightness = state_.hdr_base_brightness;
+    const auto it = state_.hdr_base_brightness.find(state_.hdr_image_num);
+    if (it != state_.hdr_base_brightness.end())
+    {
+        state_.baseBrightness = it->second;
+    }
+}
+
+void SceneRuntimeController::applyFrameParamsToPcData()
+{
+    if (!renderer_.pc_data)
+    {
+        return;
+    }
+
+    renderer_.pc_data->value().baseBrightness = state_.baseBrightness;
+    renderer_.pc_data->value().ssao_radius = state_.ssao_radius;
+    renderer_.pc_data->value().ssao_kernel_size = state_.ssao_kernel_size;
+    renderer_.pc_data->value().exposure = state_.exposure;
+    renderer_.pc_data->value().denoise_size = state_.denoise_size;
+    renderer_.pc_data->value().shadow_bias = state_.shadow_bias;
+    renderer_.pc_data->value().blocker_sample_num = state_.blocker_sample_num;
+    renderer_.pc_data->value().pcf_sample_num = state_.pcf_sample_num;
+    renderer_.pc_data->value().shadow_type = state_.shadow_type;
+    renderer_.pc_data->value().softness = (state_.shadow_type == 0) ? state_.pcf_softness : state_.pcss_softness;
+    renderer_.pc_data->value().softness_falloff = state_.pcss_softness_falloff;
+}
+
+void SceneRuntimeController::applyLinePointColors()
+{
+    if (CADMesh::dynamic_lines.colors)
+    {
+        CADMesh::dynamic_lines.colors->value() = vsg::vec4(state_.line_color.r, state_.line_color.g, state_.line_color.b, 1.0f);
+        CADMesh::dynamic_lines.colors->dirty();
+    }
+    if (CADMesh::dynamic_points.colors)
+    {
+        CADMesh::dynamic_points.colors->value() = vsg::vec4(state_.point_color.r, state_.point_color.g, state_.point_color.b, 1.0f);
+        CADMesh::dynamic_points.colors->dirty();
+    }
+}
+
 void SceneRuntimeController::applyLoadedState()
 {
-    renderer_.hdr_image_num = render_state_.pipeline.hdr_image_num;
-    renderer_.setRealDepthOcclusion(render_state_.pipeline.enable_real_depth_occlusion);
-    renderer_.setShadowMode(render_state_.pipeline.shadow_mode);
-    renderer_.syncConstantData();
-
-    const auto it = renderer_.hdr_base_brightness.find(render_state_.pipeline.hdr_image_num);
-    if (it != renderer_.hdr_base_brightness.end())
-    {
-        base_brightness_ = it->second;
-    }
-    render_state_.pipeline.frame_params.baseBrightness = base_brightness_;
+    syncHdrBrightnessFromState();
+    applyRenderModesToRenderer();
+    applyFrameParamsToPcData();
+    applyLinePointColors();
 }
 
 void SceneRuntimeController::clearServerDirtyFlags()
@@ -112,29 +195,24 @@ bool SceneRuntimeController::isServerDirty(RuntimeParam param) const
 
 bool SceneRuntimeController::setHdrImageNum(int hdr_num)
 {
-    if (hdr_num <= 0)
+    hdr_num = clampHdrImageNum(hdr_num, state_.hdr_image_max_num);
+
+    const bool changed = state_.hdr_image_num != hdr_num;
+    if (!changed)
     {
-        hdr_num = 1;
+        return false;
     }
 
-    const bool changed = applied_hdr_image_num_ != hdr_num;
-    render_state_.pipeline.hdr_image_num = hdr_num;
-    renderer_.hdr_image_num = hdr_num;
-
-    if (changed && renderer_.view && renderer_.window && renderer_.device)
+    state_.hdr_image_num = hdr_num;
+    syncHdrBrightnessFromState();
+    renderer_.hdr_image_num = state_.hdr_image_num;
+    if (renderer_.view && renderer_.window && renderer_.device)
     {
         renderer_.updateEnvLighting();
-        applied_hdr_image_num_ = hdr_num;
+        applied_hdr_image_num_ = state_.hdr_image_num;
     }
-
-    const auto it = renderer_.hdr_base_brightness.find(render_state_.pipeline.hdr_image_num);
-    if (it != renderer_.hdr_base_brightness.end())
-    {
-        base_brightness_ = it->second;
-        render_state_.pipeline.frame_params.baseBrightness = base_brightness_;
-    }
-
-    return changed;
+    applyFrameParamsToPcData();
+    return true;
 }
 
 bool SceneRuntimeController::setHdrFromUi(int hdr_num)
@@ -144,13 +222,14 @@ bool SceneRuntimeController::setHdrFromUi(int hdr_num)
 
 bool SceneRuntimeController::setBaseBrightness(float value)
 {
-    if (nearlyEqual(base_brightness_, value))
+    if (state_.baseBrightness == value)
     {
         return false;
     }
 
-    base_brightness_ = value;
-    render_state_.pipeline.frame_params.baseBrightness = value;
+    state_.baseBrightness = value;
+    state_.hdr_base_brightness[state_.hdr_image_num] = value;
+    applyFrameParamsToPcData();
     return true;
 }
 
@@ -162,14 +241,13 @@ bool SceneRuntimeController::setBaseBrightnessFromUi(float value)
 bool SceneRuntimeController::setDepthOcclusionEnabled(bool enabled)
 {
     const int normalized = enabled ? 1 : 0;
-    if (render_state_.pipeline.enable_real_depth_occlusion == normalized)
+    if (state_.enable_real_depth_occlusion == normalized)
     {
         return false;
     }
 
-    render_state_.pipeline.enable_real_depth_occlusion = normalized;
-    renderer_.setRealDepthOcclusion(normalized);
-    renderer_.syncConstantData();
+    state_.enable_real_depth_occlusion = normalized;
+    applyRenderModesToRenderer();
     return true;
 }
 
@@ -181,14 +259,13 @@ bool SceneRuntimeController::setDepthOcclusionEnabledFromUi(bool enabled)
 bool SceneRuntimeController::setShadowMode(int mode)
 {
     const int normalized = (mode == SHADOW_REAL_DEPTH) ? SHADOW_REAL_DEPTH : SHADOW_RECEIVER_PLANE;
-    if (render_state_.pipeline.shadow_mode == normalized)
+    if (state_.shadow_mode == normalized)
     {
         return false;
     }
 
-    render_state_.pipeline.shadow_mode = normalized;
-    renderer_.setShadowMode(normalized);
-    renderer_.syncConstantData();
+    state_.shadow_mode = normalized;
+    applyRenderModesToRenderer();
     return true;
 }
 
@@ -199,12 +276,13 @@ bool SceneRuntimeController::setShadowModeFromUi(int mode)
 
 bool SceneRuntimeController::setShadowType(int type)
 {
-    if (render_state_.pipeline.frame_params.shadow_type == type)
+    if (state_.shadow_type == type)
     {
         return false;
     }
 
-    render_state_.pipeline.frame_params.shadow_type = type;
+    state_.shadow_type = type;
+    applyFrameParamsToPcData();
     return true;
 }
 
@@ -215,12 +293,13 @@ bool SceneRuntimeController::setShadowTypeFromUi(int type)
 
 bool SceneRuntimeController::setExposure(float value)
 {
-    if (nearlyEqual(render_state_.pipeline.frame_params.exposure, value))
+    if (state_.exposure == value)
     {
         return false;
     }
 
-    render_state_.pipeline.frame_params.exposure = value;
+    state_.exposure = value;
+    applyFrameParamsToPcData();
     return true;
 }
 
@@ -231,12 +310,13 @@ bool SceneRuntimeController::setExposureFromUi(float value)
 
 bool SceneRuntimeController::setSsaoRadius(float value)
 {
-    if (nearlyEqual(render_state_.pipeline.frame_params.ssao_radius, value))
+    if (state_.ssao_radius == value)
     {
         return false;
     }
 
-    render_state_.pipeline.frame_params.ssao_radius = value;
+    state_.ssao_radius = value;
+    applyFrameParamsToPcData();
     return true;
 }
 
@@ -247,12 +327,13 @@ bool SceneRuntimeController::setSsaoRadiusFromUi(float value)
 
 bool SceneRuntimeController::setSsaoKernelSize(int value)
 {
-    if (render_state_.pipeline.frame_params.ssao_kernel_size == value)
+    if (state_.ssao_kernel_size == value)
     {
         return false;
     }
 
-    render_state_.pipeline.frame_params.ssao_kernel_size = value;
+    state_.ssao_kernel_size = value;
+    applyFrameParamsToPcData();
     return true;
 }
 
@@ -263,12 +344,13 @@ bool SceneRuntimeController::setSsaoKernelSizeFromUi(int value)
 
 bool SceneRuntimeController::setDenoiseSize(int value)
 {
-    if (render_state_.pipeline.frame_params.denoise_size == value)
+    if (state_.denoise_size == value)
     {
         return false;
     }
 
-    render_state_.pipeline.frame_params.denoise_size = value;
+    state_.denoise_size = value;
+    applyFrameParamsToPcData();
     return true;
 }
 
@@ -279,12 +361,13 @@ bool SceneRuntimeController::setDenoiseSizeFromUi(int value)
 
 bool SceneRuntimeController::setShadowBias(float value)
 {
-    if (nearlyEqual(render_state_.pipeline.frame_params.shadow_bias, value))
+    if (state_.shadow_bias == value)
     {
         return false;
     }
 
-    render_state_.pipeline.frame_params.shadow_bias = value;
+    state_.shadow_bias = value;
+    applyFrameParamsToPcData();
     return true;
 }
 
@@ -295,12 +378,13 @@ bool SceneRuntimeController::setShadowBiasFromUi(float value)
 
 bool SceneRuntimeController::setBlockerSampleNum(int value)
 {
-    if (render_state_.pipeline.frame_params.blocker_sample_num == value)
+    if (state_.blocker_sample_num == value)
     {
         return false;
     }
 
-    render_state_.pipeline.frame_params.blocker_sample_num = value;
+    state_.blocker_sample_num = value;
+    applyFrameParamsToPcData();
     return true;
 }
 
@@ -311,12 +395,13 @@ bool SceneRuntimeController::setBlockerSampleNumFromUi(int value)
 
 bool SceneRuntimeController::setPcfSampleNum(int value)
 {
-    if (render_state_.pipeline.frame_params.pcf_sample_num == value)
+    if (state_.pcf_sample_num == value)
     {
         return false;
     }
 
-    render_state_.pipeline.frame_params.pcf_sample_num = value;
+    state_.pcf_sample_num = value;
+    applyFrameParamsToPcData();
     return true;
 }
 
@@ -327,12 +412,13 @@ bool SceneRuntimeController::setPcfSampleNumFromUi(int value)
 
 bool SceneRuntimeController::setPcfSoftness(float value)
 {
-    if (nearlyEqual(render_state_.pipeline.pcf_softness, value))
+    if (state_.pcf_softness == value)
     {
         return false;
     }
 
-    render_state_.pipeline.pcf_softness = value;
+    state_.pcf_softness = value;
+    applyFrameParamsToPcData();
     return true;
 }
 
@@ -343,12 +429,13 @@ bool SceneRuntimeController::setPcfSoftnessFromUi(float value)
 
 bool SceneRuntimeController::setPcssSoftness(float value)
 {
-    if (nearlyEqual(render_state_.pipeline.pcss_softness, value))
+    if (state_.pcss_softness == value)
     {
         return false;
     }
 
-    render_state_.pipeline.pcss_softness = value;
+    state_.pcss_softness = value;
+    applyFrameParamsToPcData();
     return true;
 }
 
@@ -359,12 +446,13 @@ bool SceneRuntimeController::setPcssSoftnessFromUi(float value)
 
 bool SceneRuntimeController::setPcssSoftnessFalloff(float value)
 {
-    if (nearlyEqual(render_state_.pipeline.pcss_softness_falloff, value))
+    if (state_.pcss_softness_falloff == value)
     {
         return false;
     }
 
-    render_state_.pipeline.pcss_softness_falloff = value;
+    state_.pcss_softness_falloff = value;
+    applyFrameParamsToPcData();
     return true;
 }
 
@@ -375,12 +463,13 @@ bool SceneRuntimeController::setPcssSoftnessFalloffFromUi(float value)
 
 bool SceneRuntimeController::setLineColor(const vsg::vec3& color)
 {
-    if (sameVec3(line_point_style_.line_color, color))
+    if (sameVec3(state_.line_color, color))
     {
         return false;
     }
 
-    line_point_style_.line_color = color;
+    state_.line_color = color;
+    applyLinePointColors();
     return true;
 }
 
@@ -391,12 +480,13 @@ bool SceneRuntimeController::setLineColorFromUi(const vsg::vec3& color)
 
 bool SceneRuntimeController::setPointColor(const vsg::vec3& color)
 {
-    if (sameVec3(line_point_style_.point_color, color))
+    if (sameVec3(state_.point_color, color))
     {
         return false;
     }
 
-    line_point_style_.point_color = color;
+    state_.point_color = color;
+    applyLinePointColors();
     return true;
 }
 
@@ -411,49 +501,82 @@ bool SceneRuntimeController::setInstanceTransform(const std::string& instance_na
     return true;
 }
 
+void SceneRuntimeController::replaceSceneTransforms(const std::vector<SceneModelTransformSave>& transforms)
+{
+    state_.scene_transforms = transforms;
+}
+
 bool SceneRuntimeController::saveRenderState(std::string* error_message) const
 {
-    if (!persistence_controller_ || scene_id_ < 0)
+    if (!persistence_coordinator_ || scene_id_ < 0)
     {
         if (error_message) *error_message = "SceneRuntimeController is not initialized.";
         return false;
     }
 
-    return persistence_controller_->saveRenderState(scene_id_, render_state_, line_point_style_, error_message);
+    return persistence_coordinator_->saveSceneRenderState(scene_id_, state_, error_message);
 }
 
-bool SceneRuntimeController::saveBaseBrightness(std::string* error_message) const
+bool SceneRuntimeController::saveBaseBrightness(std::string* error_message)
 {
-    if (!persistence_controller_)
+    if (!persistence_coordinator_)
     {
         if (error_message) *error_message = "SceneRuntimeController is not initialized.";
         return false;
     }
 
-    return persistence_controller_->saveBaseBrightnessToLightInfo(render_state_.pipeline.hdr_image_num, base_brightness_, error_message);
+    state_.hdr_base_brightness[state_.hdr_image_num] = state_.baseBrightness;
+    renderer_.hdr_base_brightness[state_.hdr_image_num] = state_.baseBrightness;
+    return persistence_coordinator_->saveBaseBrightness(state_, error_message);
 }
 
-bool SceneRuntimeController::saveSceneTransforms(const std::vector<SceneModelTransformSave>& transforms, std::string* error_message) const
+bool SceneRuntimeController::saveSceneTransforms(const std::vector<SceneModelTransformSave>& transforms, std::string* error_message)
 {
-    if (!persistence_controller_ || scene_id_ < 0)
+    if (!persistence_coordinator_ || scene_id_ < 0)
     {
         if (error_message) *error_message = "SceneRuntimeController is not initialized.";
         return false;
     }
 
-    return persistence_controller_->saveSceneTransforms(scene_id_, transforms, error_message);
+    replaceSceneTransforms(transforms);
+    return persistence_coordinator_->saveSceneTransforms(scene_id_, state_, error_message);
 }
 
-bool SceneRuntimeController::nearlyEqual(float lhs, float rhs, float epsilon)
+bool SceneRuntimeController::findSceneTransform(const std::string& instance_name, SceneModelTransformSave& out_transform) const
 {
-    return std::fabs(lhs - rhs) <= epsilon;
+    for (const auto& transform : state_.scene_transforms)
+    {
+        if (transform.instance_name == instance_name)
+        {
+            out_transform = transform;
+            return true;
+        }
+    }
+    return false;
+}
+
+vsg::dmat4 SceneRuntimeController::sceneTransformOrIdentity(const std::string& instance_name) const
+{
+    SceneModelTransformSave transform;
+    if (findSceneTransform(instance_name, transform))
+    {
+        return transform.transform;
+    }
+    for (size_t i = 0; i < CADMesh::scene_instance_names.size(); ++i)
+    {
+        if (CADMesh::scene_instance_names[i] == instance_name && i < CADMesh::scene_original_transforms.size())
+        {
+            return CADMesh::scene_original_transforms[i];
+        }
+    }
+    return vsg::dmat4();
 }
 
 bool SceneRuntimeController::sameVec3(const vsg::vec3& lhs, const vsg::vec3& rhs)
 {
-    return nearlyEqual(lhs.r, rhs.r) &&
-           nearlyEqual(lhs.g, rhs.g) &&
-           nearlyEqual(lhs.b, rhs.b);
+    return lhs.r == rhs.r &&
+           lhs.g == rhs.g &&
+           lhs.b == rhs.b;
 }
 
 bool SceneRuntimeController::canApplyUiChange(RuntimeParam param) const

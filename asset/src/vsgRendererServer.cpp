@@ -1,5 +1,8 @@
 ﻿#include "vsgRendererServer.h"
 #include <filesystem>
+#include <algorithm>
+
+#include "LightInfoStateSerializer.h"
 
 std::string getDirectoryPath(const std::string& path) {
     if (path.empty()) return path;
@@ -23,6 +26,34 @@ std::string getDirectoryPath(const std::string& path) {
     }
 
     return dirPath;
+}
+
+void vsgRendererServer::loadHDRConfig()
+{
+    const std::string lightinfo_json_path = vsg::findFile("json/LightInfo.json", options->paths).string();
+    auto json_manager = std::make_shared<JsonConfigManager>("", "", lightinfo_json_path);
+    auto lightinfo_serializer = std::make_shared<LightInfoStateSerializer>(json_manager);
+
+    SceneRuntimeState bootstrap_state;
+    bootstrap_state.hdr_image_num = hdr_image_num;
+    bootstrap_state.hdr_image_max_num = hdr_image_max_num;
+    bootstrap_state.baseBrightness = pc_data ? pc_data->value().baseBrightness : bootstrap_state.baseBrightness;
+
+    std::string error_message;
+    if (!lightinfo_serializer->load(bootstrap_state, &error_message))
+    {
+        std::cerr << "Failed to load HDR config from LightInfo.json: " << error_message << std::endl;
+        return;
+    }
+
+    hdr_image_max_num = std::max(bootstrap_state.hdr_image_max_num, 1);
+    hdr_image_num = std::clamp(bootstrap_state.hdr_image_num, 1, hdr_image_max_num);
+    hdr_base_brightness = bootstrap_state.hdr_base_brightness;
+    if (pc_data)
+    {
+        pc_data->value().baseBrightness = bootstrap_state.baseBrightness;
+        pc_data->dirty();
+    }
 }
 
 void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform)

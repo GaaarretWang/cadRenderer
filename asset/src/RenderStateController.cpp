@@ -3,17 +3,8 @@
 #include <unordered_set>
 
 #include "CADMesh.h"
-#include "RenderStateSerializer.h"
-#include "SceneRuntimeController.h"
-#include "vsgRendererServer.h"
 
 using json = nlohmann::json;
-
-namespace vsgserver
-{
-    extern vsgRendererServer* renderer;
-    extern SceneRuntimeController* runtime_controller;
-}
 
 namespace
 {
@@ -58,36 +49,6 @@ RenderStateController::RenderStateController(std::shared_ptr<JsonConfigManager> 
     : json_manager_(std::move(json_manager)),
       scene_serializer_(std::move(scene_serializer))
 {
-}
-
-bool RenderStateController::loadRenderState(int scene_id, RenderStateHub& out_state, SceneLinePointStyle& out_style, std::string* error_message) const
-{
-    if (!scene_serializer_)
-    {
-        if (error_message) *error_message = "SceneConfigSerializer is not initialized.";
-        return false;
-    }
-
-    SceneRenderParams params;
-    if (!scene_serializer_->loadSceneRenderParamsAndStyle(scene_id, params, out_style, error_message))
-    {
-        return false;
-    }
-
-    out_state = RenderStateHub{};
-    RenderStateSerializer::applySceneRenderParams(params, out_state);
-    return true;
-}
-
-bool RenderStateController::saveRenderState(int scene_id, const RenderStateHub& state, const SceneLinePointStyle& style, std::string* error_message) const
-{
-    if (!scene_serializer_)
-    {
-        if (error_message) *error_message = "SceneConfigSerializer is not initialized.";
-        return false;
-    }
-
-    return scene_serializer_->saveSceneRenderParamsAndStyle(scene_id, RenderStateSerializer::toSceneRenderParams(state), style, error_message);
 }
 
 bool RenderStateController::loadMaterialParams(std::string* error_message) const
@@ -169,82 +130,3 @@ bool RenderStateController::saveMaterialParams(std::string* error_message) const
     return json_manager_->saveMaterialsJson(mat_json, error_message);
 }
 
-bool RenderStateController::saveBaseBrightnessToLightInfo(int hdr_num, float base_brightness, std::string* error_message) const
-{
-    if (!json_manager_)
-    {
-        if (error_message) *error_message = "JsonConfigManager is not initialized.";
-        return false;
-    }
-
-    json json_data;
-    if (!json_manager_->loadLightInfoJson(json_data, error_message))
-    {
-        return false;
-    }
-
-    const std::string hdr_key = std::to_string(hdr_num);
-    if (json_data.contains(hdr_key))
-    {
-        json_data[hdr_key]["baseBrightness"] = base_brightness;
-    }
-
-    return json_manager_->saveLightInfoJson(json_data, error_message);
-}
-
-bool RenderStateController::saveSceneTransforms(int scene_id, const std::vector<SceneModelTransformSave>& transforms, std::string* error_message) const
-{
-    if (!scene_serializer_)
-    {
-        if (error_message) *error_message = "SceneConfigSerializer is not initialized.";
-        return false;
-    }
-
-    return scene_serializer_->saveSceneTransforms(scene_id, transforms, error_message);
-}
-
-void RenderStateController::applyHdrSelection(const RenderStateHub& state, float& inout_base_brightness) const
-{
-    if (!vsgserver::renderer) return;
-
-    vsgserver::renderer->hdr_image_num = state.pipeline.hdr_image_num;
-    vsgserver::renderer->updateEnvLighting();
-    if (vsgserver::runtime_controller)
-    {
-        vsgserver::runtime_controller->markServerDirty(RuntimeParam::Hdr);
-    }
-
-    const auto it = vsgserver::renderer->hdr_base_brightness.find(state.pipeline.hdr_image_num);
-    if (it != vsgserver::renderer->hdr_base_brightness.end())
-    {
-        inout_base_brightness = it->second;
-        if (vsgserver::runtime_controller)
-        {
-            vsgserver::runtime_controller->markServerDirty(RuntimeParam::BaseBrightness);
-        }
-    }
-}
-
-void RenderStateController::applyDepthOcclusionState(const RenderStateHub& state) const
-{
-    if (!vsgserver::renderer) return;
-
-    vsgserver::renderer->setRealDepthOcclusion(state.pipeline.enable_real_depth_occlusion);
-    vsgserver::renderer->syncConstantData();
-    if (vsgserver::runtime_controller)
-    {
-        vsgserver::runtime_controller->markServerDirty(RuntimeParam::DepthOcclusion);
-    }
-}
-
-void RenderStateController::applyShadowModeState(const RenderStateHub& state) const
-{
-    if (!vsgserver::renderer) return;
-
-    vsgserver::renderer->setShadowMode(state.pipeline.shadow_mode);
-    vsgserver::renderer->syncConstantData();
-    if (vsgserver::runtime_controller)
-    {
-        vsgserver::runtime_controller->markServerDirty(RuntimeParam::ShadowMode);
-    }
-}

@@ -225,7 +225,7 @@ bool SceneConfigSerializer::loadSceneConfig(const std::string& scene_name_or_id,
     return true;
 }
 
-bool SceneConfigSerializer::loadSceneRenderParamsAndStyle(int scene_id, SceneRenderParams& out_params, SceneLinePointStyle& out_style, std::string* error_message) const
+bool SceneConfigSerializer::loadSceneRuntimeState(int scene_id, SceneRuntimeState& out_state, std::string* error_message) const
 {
     json scenes_root;
     if (!json_manager_->loadScenesJson(scenes_root, error_message))
@@ -240,29 +240,28 @@ bool SceneConfigSerializer::loadSceneRenderParamsAndStyle(int scene_id, SceneRen
         return false;
     }
 
-    out_params = SceneRenderParams{};
-    out_style = SceneLinePointStyle{};
+    out_state = SceneRuntimeState{};
 
     if (target_scene->contains("render_params") && (*target_scene)["render_params"].is_object())
     {
         auto& rp = (*target_scene)["render_params"];
-        out_params.hdr_image_num = rp.value("hdr_image_num", out_params.hdr_image_num);
-        out_params.enable_real_depth_occlusion = rp.value("enable_real_depth_occlusion", out_params.enable_real_depth_occlusion);
-        out_params.shadow_mode = rp.value("shadow_mode", out_params.shadow_mode);
-        out_params.ssao_radius = rp.value("ssao_radius", out_params.ssao_radius);
-        out_params.ssao_kernel_size = rp.value("ssao_kernel_size", out_params.ssao_kernel_size);
-        out_params.exposure = rp.value("exposure", out_params.exposure);
-        out_params.denoise_size = rp.value("denoise_size", out_params.denoise_size);
-        out_params.shadow_bias = rp.value("shadow_bias", out_params.shadow_bias);
-        out_params.blocker_sample_num = rp.value("blocker_sample_num", out_params.blocker_sample_num);
-        out_params.pcf_sample_num = rp.value("pcf_sample_num", out_params.pcf_sample_num);
-        out_params.shadow_type = rp.value("shadow_type", out_params.shadow_type);
-        out_params.pcf_softness = rp.value("pcf_softness", out_params.pcf_softness);
-        out_params.pcss_softness = rp.value("pcss_softness", out_params.pcss_softness);
-        out_params.pcss_softness_falloff = rp.value("pcss_softness_falloff", out_params.pcss_softness_falloff);
+        out_state.hdr_image_num = rp.value("hdr_image_num", out_state.hdr_image_num);
+        out_state.enable_real_depth_occlusion = rp.value("enable_real_depth_occlusion", out_state.enable_real_depth_occlusion);
+        out_state.shadow_mode = rp.value("shadow_mode", out_state.shadow_mode);
+        out_state.ssao_radius = rp.value("ssao_radius", out_state.ssao_radius);
+        out_state.ssao_kernel_size = rp.value("ssao_kernel_size", out_state.ssao_kernel_size);
+        out_state.exposure = rp.value("exposure", out_state.exposure);
+        out_state.denoise_size = rp.value("denoise_size", out_state.denoise_size);
+        out_state.shadow_bias = rp.value("shadow_bias", out_state.shadow_bias);
+        out_state.blocker_sample_num = rp.value("blocker_sample_num", out_state.blocker_sample_num);
+        out_state.pcf_sample_num = rp.value("pcf_sample_num", out_state.pcf_sample_num);
+        out_state.shadow_type = rp.value("shadow_type", out_state.shadow_type);
+        out_state.pcf_softness = rp.value("pcf_softness", out_state.pcf_softness);
+        out_state.pcss_softness = rp.value("pcss_softness", out_state.pcss_softness);
+        out_state.pcss_softness_falloff = rp.value("pcss_softness_falloff", out_state.pcss_softness_falloff);
     }
 
-    if (out_params.enable_real_depth_occlusion < 0 || out_params.shadow_mode < 0)
+    if (out_state.enable_real_depth_occlusion < 0 || out_state.shadow_mode < 0)
     {
         bool has_depth_media = false;
         if (target_scene->contains("scene_media") && (*target_scene)["scene_media"].is_object())
@@ -275,40 +274,69 @@ bool SceneConfigSerializer::loadSceneRenderParamsAndStyle(int scene_id, SceneRen
 
         if (has_depth_media)
         {
-            if (out_params.enable_real_depth_occlusion < 0)
-                out_params.enable_real_depth_occlusion = 1;
-            if (out_params.shadow_mode < 0)
-                out_params.shadow_mode = CAMERA_DEPTH;
+            if (out_state.enable_real_depth_occlusion < 0)
+                out_state.enable_real_depth_occlusion = 1;
+            if (out_state.shadow_mode < 0)
+                out_state.shadow_mode = CAMERA_DEPTH;
         }
         else
         {
-            if (out_params.enable_real_depth_occlusion < 0)
-                out_params.enable_real_depth_occlusion = 0;
-            if (out_params.shadow_mode < 0)
-                out_params.shadow_mode = FULL_MODEL;
+            if (out_state.enable_real_depth_occlusion < 0)
+                out_state.enable_real_depth_occlusion = 0;
+            if (out_state.shadow_mode < 0)
+                out_state.shadow_mode = FULL_MODEL;
         }
     }
 
-    out_params.enable_real_depth_occlusion = normalizeDepthOcclusionFlag(out_params.enable_real_depth_occlusion);
-    out_params.shadow_mode = normalizeShadowModeValue(out_params.shadow_mode);
+    out_state.enable_real_depth_occlusion = normalizeDepthOcclusionFlag(out_state.enable_real_depth_occlusion);
+    out_state.shadow_mode = normalizeShadowModeValue(out_state.shadow_mode);
 
     if (target_scene->contains("line_point_style") && (*target_scene)["line_point_style"].is_object())
     {
         auto& style = (*target_scene)["line_point_style"];
         if (style.contains("line_color") && style["line_color"].is_array() && style["line_color"].size() >= 3)
         {
-            out_style.line_color = vsg::vec3(style["line_color"][0], style["line_color"][1], style["line_color"][2]);
+            out_state.line_color = vsg::vec3(style["line_color"][0], style["line_color"][1], style["line_color"][2]);
         }
         if (style.contains("point_color") && style["point_color"].is_array() && style["point_color"].size() >= 3)
         {
-            out_style.point_color = vsg::vec3(style["point_color"][0], style["point_color"][1], style["point_color"][2]);
+            out_state.point_color = vsg::vec3(style["point_color"][0], style["point_color"][1], style["point_color"][2]);
         }
+    }
+
+    out_state.scene_transforms.clear();
+    if (target_scene->contains("models") && (*target_scene)["models"].is_array())
+    {
+        for (const auto& model : (*target_scene)["models"])
+        {
+            SceneModelTransformSave transform_item;
+            transform_item.instance_name = model.value("instance_name", "");
+            transform_item.path = model.value("path", "");
+            if (model.contains("transform_sequence") &&
+                model["transform_sequence"].is_array() &&
+                !model["transform_sequence"].empty())
+            {
+                transform_item.transform = parseMatrixFromJson(model["transform_sequence"][0]);
+            }
+            out_state.scene_transforms.push_back(std::move(transform_item));
+        }
+    }
+
+    if (target_scene->contains("shadow_receiver_transform") &&
+        (*target_scene)["shadow_receiver_transform"].is_array() &&
+        !(*target_scene)["shadow_receiver_transform"].empty())
+    {
+        SceneModelTransformSave shadow_receiver;
+        shadow_receiver.instance_name = "shadow_receiver";
+        shadow_receiver.is_shadow_receiver = true;
+        shadow_receiver.transform = parseMatrixFromJson((*target_scene)["shadow_receiver_transform"][0]);
+        out_state.scene_transforms.push_back(std::move(shadow_receiver));
     }
 
     return true;
 }
 
-bool SceneConfigSerializer::saveSceneRenderParamsAndStyle(int scene_id, const SceneRenderParams& params, const SceneLinePointStyle& style, std::string* error_message) const
+bool SceneConfigSerializer::saveSceneRenderState(int scene_id, const SceneRuntimeState& state, std::string* error_message) const
 {
     json scenes_root;
     if (!json_manager_->loadScenesJson(scenes_root, error_message))
@@ -318,36 +346,36 @@ bool SceneConfigSerializer::saveSceneRenderParamsAndStyle(int scene_id, const Sc
 
     json& target_scene = ensureSceneForSave(scenes_root, scene_id);
 
-    SceneRenderParams normalized_params = params;
-    normalized_params.enable_real_depth_occlusion = normalizeDepthOcclusionFlag(normalized_params.enable_real_depth_occlusion);
-    normalized_params.shadow_mode = normalizeShadowModeValue(normalized_params.shadow_mode);
+    SceneRuntimeState normalized_state = state;
+    normalized_state.enable_real_depth_occlusion = normalizeDepthOcclusionFlag(normalized_state.enable_real_depth_occlusion);
+    normalized_state.shadow_mode = normalizeShadowModeValue(normalized_state.shadow_mode);
 
     target_scene["render_params"] = {
-        {"hdr_image_num", normalized_params.hdr_image_num},
-        {"enable_real_depth_occlusion", normalized_params.enable_real_depth_occlusion},
-        {"shadow_mode", normalized_params.shadow_mode},
-        {"ssao_radius", normalized_params.ssao_radius},
-        {"ssao_kernel_size", normalized_params.ssao_kernel_size},
-        {"exposure", normalized_params.exposure},
-        {"denoise_size", normalized_params.denoise_size},
-        {"shadow_bias", normalized_params.shadow_bias},
-        {"blocker_sample_num", normalized_params.blocker_sample_num},
-        {"pcf_sample_num", normalized_params.pcf_sample_num},
-        {"shadow_type", normalized_params.shadow_type},
-        {"pcf_softness", normalized_params.pcf_softness},
-        {"pcss_softness", normalized_params.pcss_softness},
-        {"pcss_softness_falloff", normalized_params.pcss_softness_falloff}
+        {"hdr_image_num", normalized_state.hdr_image_num},
+        {"enable_real_depth_occlusion", normalized_state.enable_real_depth_occlusion},
+        {"shadow_mode", normalized_state.shadow_mode},
+        {"ssao_radius", normalized_state.ssao_radius},
+        {"ssao_kernel_size", normalized_state.ssao_kernel_size},
+        {"exposure", normalized_state.exposure},
+        {"denoise_size", normalized_state.denoise_size},
+        {"shadow_bias", normalized_state.shadow_bias},
+        {"blocker_sample_num", normalized_state.blocker_sample_num},
+        {"pcf_sample_num", normalized_state.pcf_sample_num},
+        {"shadow_type", normalized_state.shadow_type},
+        {"pcf_softness", normalized_state.pcf_softness},
+        {"pcss_softness", normalized_state.pcss_softness},
+        {"pcss_softness_falloff", normalized_state.pcss_softness_falloff}
     };
 
     target_scene["line_point_style"] = {
-        {"line_color", {style.line_color.r, style.line_color.g, style.line_color.b}},
-        {"point_color", {style.point_color.r, style.point_color.g, style.point_color.b}}
+        {"line_color", {normalized_state.line_color.r, normalized_state.line_color.g, normalized_state.line_color.b}},
+        {"point_color", {normalized_state.point_color.r, normalized_state.point_color.g, normalized_state.point_color.b}}
     };
 
     return json_manager_->saveScenesJson(scenes_root, error_message);
 }
 
-bool SceneConfigSerializer::saveSceneTransforms(int scene_id, const std::vector<SceneModelTransformSave>& transforms, std::string* error_message) const
+bool SceneConfigSerializer::saveSceneTransforms(int scene_id, const SceneRuntimeState& state, std::string* error_message) const
 {
     json scenes_root;
     if (!json_manager_->loadScenesJson(scenes_root, error_message))
@@ -359,7 +387,7 @@ bool SceneConfigSerializer::saveSceneTransforms(int scene_id, const std::vector<
 
     target_scene["models"] = json::array();
     auto& models = target_scene["models"];
-    for (const auto& t : transforms)
+    for (const auto& t : state.scene_transforms)
     {
         if (t.is_shadow_receiver)
         {
