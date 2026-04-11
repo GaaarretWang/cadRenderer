@@ -14,10 +14,22 @@
 
 struct SceneRuntimeState
 {
+    struct DepthCompletionParams
+    {
+        int enable_real_depth_occlusion = 0;
+        int shadow_mode = SHADOW_RECEIVER_PLANE;
+        int valid_depth_min_mm = 100;
+        int kernel_radius = 35;
+        int top_k = 50;
+        float spatial_weight = 0.5f;
+        float color_sigma = 0.15f;
+        float edge_threshold = 0.25f;
+        int max_fill_passes = 15;
+    };
+
     int hdr_image_num = 4;
     int hdr_image_max_num = 7;
-    int enable_real_depth_occlusion = 0;
-    int shadow_mode = SHADOW_RECEIVER_PLANE;
+    DepthCompletionParams depth_completion_params;
     int shadow_type = 1;
     float baseBrightness = 2.0f;
     float ssao_radius = 0.1f;

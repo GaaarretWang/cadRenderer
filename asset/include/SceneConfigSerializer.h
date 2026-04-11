@@ -29,4 +29,5 @@ private:
     json& ensureSceneForSave(json& scenes_root, int scene_id) const;
     static int normalizeDepthOcclusionFlag(int value);
     static int normalizeShadowModeValue(int value);
+    static void normalizeDepthCompletionParams(SceneRuntimeState::DepthCompletionParams& params);
 };

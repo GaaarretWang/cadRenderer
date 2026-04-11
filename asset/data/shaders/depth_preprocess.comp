@@ -6,15 +6,117 @@ layout(push_constant) uniform PushConstants {
     uint width;
     uint height;
     float validDepthThreshold;
-    uint padding;
+    int kernelRadius;
+    int topK;
+    float spatialWeight;
+    float colorSigma;
+    float edgeThreshold;
+    int activePassCount;
+    int passIndex;
+    int padding0;
+    int padding1;
 } pc;
 
-layout(set = 0, binding = 0) uniform sampler2D inputDepthImage;
-layout(set = 0, binding = 1, r32f) uniform image2D outputDepthImage;
+layout(set = 0, binding = 0) uniform sampler2D colorImage;
+layout(set = 0, binding = 1) uniform sampler2D inputDepthImage;
+layout(set = 0, binding = 2, r32f) uniform image2D outputDepthImage;
+
+const int kDirectionCount = 16;
+const int kRingCount = 4;
+const int kMaxCandidates = kDirectionCount * kRingCount;
+const vec2 kDirections[kDirectionCount] = vec2[](
+    vec2(1.0, 0.0),
+    vec2(0.9238795, 0.3826834),
+    vec2(0.7071068, 0.7071068),
+    vec2(0.3826834, 0.9238795),
+    vec2(0.0, 1.0),
+    vec2(-0.3826834, 0.9238795),
+    vec2(-0.7071068, 0.7071068),
+    vec2(-0.9238795, 0.3826834),
+    vec2(-1.0, 0.0),
+    vec2(-0.9238795, -0.3826834),
+    vec2(-0.7071068, -0.7071068),
+    vec2(-0.3826834, -0.9238795),
+    vec2(0.0, -1.0),
+    vec2(0.3826834, -0.9238795),
+    vec2(0.7071068, -0.7071068),
+    vec2(0.9238795, -0.3826834)
+);
 
 bool isValidDepth(float depthValue)
 {
     return depthValue > pc.validDepthThreshold;
+}
+
+float normalizedColorDistance(vec3 lhs, vec3 rhs)
+{
+    return clamp(length(lhs - rhs) / 1.7320508, 0.0, 1.0);
+}
+
+float colorPenalty(float colorDistance)
+{
+    float sigma = max(pc.colorSigma, 1e-4);
+    return 1.0 - exp(-(colorDistance * colorDistance) / (2.0 * sigma * sigma));
+}
+
+int gatherCandidates(ivec2 pixel,
+                     vec3 centerColor,
+                     bool enforceEdgeThreshold,
+                     out float candidateDepths[kMaxCandidates],
+                     out float candidateCosts[kMaxCandidates])
+{
+    int candidateCount = 0;
+    int previousRadius = -1;
+    float radiusScale = max(float(pc.kernelRadius), 1.0);
+
+    for (int ring = 0; ring < kRingCount; ++ring)
+    {
+        int radius = max(1, int(round(radiusScale * float(ring + 1) / float(kRingCount))));
+        if (radius == previousRadius)
+        {
+            continue;
+        }
+        previousRadius = radius;
+
+        for (int dirIndex = 0; dirIndex < kDirectionCount; ++dirIndex)
+        {
+            ivec2 offset = ivec2(round(kDirections[dirIndex] * float(radius)));
+            ivec2 neighbor = pixel + offset;
+            if (neighbor.x < 0 || neighbor.y < 0 || neighbor.x >= int(pc.width) || neighbor.y >= int(pc.height))
+            {
+                continue;
+            }
+
+            float neighborDepth = texelFetch(inputDepthImage, neighbor, 0).r;
+            if (!isValidDepth(neighborDepth))
+            {
+                continue;
+            }
+
+            vec3 neighborColor = texelFetch(colorImage, neighbor, 0).rgb;
+            float colorDistance = normalizedColorDistance(centerColor, neighborColor);
+            if (enforceEdgeThreshold && colorDistance > pc.edgeThreshold)
+            {
+                continue;
+            }
+
+            float spatialDistance = clamp(length(vec2(offset)) / radiusScale, 0.0, 1.0);
+            float combinedCost =
+                pc.spatialWeight * spatialDistance +
+                (1.0 - pc.spatialWeight) * colorPenalty(colorDistance);
+
+            candidateDepths[candidateCount] = neighborDepth;
+            candidateCosts[candidateCount] = combinedCost;
+            candidateCount++;
+
+            if (candidateCount >= kMaxCandidates)
+            {
+                return candidateCount;
+            }
+        }
+    }
+
+    return candidateCount;
 }
 
 void main()
@@ -26,33 +128,59 @@ void main()
     }
 
     float currentDepth = texelFetch(inputDepthImage, pixel, 0).r;
+    if (pc.passIndex >= pc.activePassCount)
+    {
+        imageStore(outputDepthImage, pixel, vec4(currentDepth, 0.0, 0.0, 1.0));
+        return;
+    }
+
     if (isValidDepth(currentDepth))
     {
         imageStore(outputDepthImage, pixel, vec4(currentDepth, 0.0, 0.0, 1.0));
         return;
     }
 
-    float totalDepth = 0.0;
-    uint validCount = 0;
-    for (int offsetY = -1; offsetY <= 1; ++offsetY)
+    vec3 centerColor = texelFetch(colorImage, pixel, 0).rgb;
+    float candidateDepths[kMaxCandidates];
+    float candidateCosts[kMaxCandidates];
+    int candidateCount = gatherCandidates(pixel, centerColor, true, candidateDepths, candidateCosts);
+    if (candidateCount == 0)
     {
-        for (int offsetX = -1; offsetX <= 1; ++offsetX)
-        {
-            ivec2 neighbor = pixel + ivec2(offsetX, offsetY);
-            if (neighbor.x < 0 || neighbor.y < 0 || neighbor.x >= int(pc.width) || neighbor.y >= int(pc.height))
-            {
-                continue;
-            }
-
-            float neighborDepth = texelFetch(inputDepthImage, neighbor, 0).r;
-            if (isValidDepth(neighborDepth))
-            {
-                totalDepth += neighborDepth;
-                validCount += 1;
-            }
-        }
+        candidateCount = gatherCandidates(pixel, centerColor, false, candidateDepths, candidateCosts);
     }
 
-    float filledDepth = (validCount > 0) ? (totalDepth / float(validCount)) : currentDepth;
+    if (candidateCount == 0)
+    {
+        imageStore(outputDepthImage, pixel, vec4(currentDepth, 0.0, 0.0, 1.0));
+        return;
+    }
+
+    int selectionCount = min(pc.topK, candidateCount);
+    float totalDepth = 0.0;
+    int selectedCount = 0;
+    for (int pick = 0; pick < selectionCount; ++pick)
+    {
+        int bestIndex = -1;
+        float bestCost = 1e30;
+        for (int candidateIndex = 0; candidateIndex < candidateCount; ++candidateIndex)
+        {
+            if (candidateCosts[candidateIndex] < bestCost)
+            {
+                bestCost = candidateCosts[candidateIndex];
+                bestIndex = candidateIndex;
+            }
+        }
+
+        if (bestIndex < 0)
+        {
+            break;
+        }
+
+        totalDepth += candidateDepths[bestIndex];
+        candidateCosts[bestIndex] = 1e30;
+        selectedCount++;
+    }
+
+    float filledDepth = (selectedCount > 0) ? (totalDepth / float(selectedCount)) : currentDepth;
     imageStore(outputDepthImage, pixel, vec4(filledDepth, 0.0, 0.0, 1.0));
 }

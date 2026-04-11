@@ -15,6 +15,13 @@ enum class RuntimeParam
     BaseBrightness,
     DepthOcclusion,
     ShadowMode,
+    DepthValidMinMm,
+    DepthKernelRadius,
+    DepthTopK,
+    DepthSpatialWeight,
+    DepthColorSigma,
+    DepthEdgeThreshold,
+    DepthMaxFillPasses,
     ShadowType,
     Exposure,
     SsaoRadius,
@@ -55,6 +62,20 @@ public:
     bool setDepthOcclusionEnabledFromUi(bool enabled);
     bool setShadowMode(int mode);
     bool setShadowModeFromUi(int mode);
+    bool setDepthValidMinMm(int value);
+    bool setDepthValidMinMmFromUi(int value);
+    bool setDepthKernelRadius(int value);
+    bool setDepthKernelRadiusFromUi(int value);
+    bool setDepthTopK(int value);
+    bool setDepthTopKFromUi(int value);
+    bool setDepthSpatialWeight(float value);
+    bool setDepthSpatialWeightFromUi(float value);
+    bool setDepthColorSigma(float value);
+    bool setDepthColorSigmaFromUi(float value);
+    bool setDepthEdgeThreshold(float value);
+    bool setDepthEdgeThresholdFromUi(float value);
+    bool setDepthMaxFillPasses(int value);
+    bool setDepthMaxFillPassesFromUi(int value);
     bool setShadowType(int type);
     bool setShadowTypeFromUi(int type);
     bool setExposure(float value);
@@ -91,6 +112,7 @@ public:
 
 private:
     static bool sameVec3(const vsg::vec3& lhs, const vsg::vec3& rhs);
+    void applyDepthCompletionParamsToRenderer();
     bool canApplyUiChange(RuntimeParam param) const;
     void applyHdrStateToRenderer(bool refresh_env_lighting);
     void applyRenderModesToRenderer();
@@ -108,6 +130,13 @@ private:
     bool base_brightness_server_dirty_ = false;
     bool depth_occlusion_server_dirty_ = false;
     bool shadow_mode_server_dirty_ = false;
+    bool depth_valid_min_mm_server_dirty_ = false;
+    bool depth_kernel_radius_server_dirty_ = false;
+    bool depth_top_k_server_dirty_ = false;
+    bool depth_spatial_weight_server_dirty_ = false;
+    bool depth_color_sigma_server_dirty_ = false;
+    bool depth_edge_threshold_server_dirty_ = false;
+    bool depth_max_fill_passes_server_dirty_ = false;
     bool shadow_type_server_dirty_ = false;
     bool exposure_server_dirty_ = false;
     bool ssao_radius_server_dirty_ = false;

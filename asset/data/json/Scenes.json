@@ -183,7 +183,6 @@
             "render_params": {
                 "blocker_sample_num": 8,
                 "denoise_size": 5,
-                "enable_real_depth_occlusion": 0,
                 "exposure": 11.708000183105469,
                 "hdr_image_num": 12,
                 "pcf_sample_num": 8,
@@ -191,7 +190,6 @@
                 "pcss_softness": 0.000554799975361675,
                 "pcss_softness_falloff": 0.00021300000662449747,
                 "shadow_bias": 1.3999999737279722e-06,
-                "shadow_mode": 0,
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
                 "ssao_radius": 0.656000018119812
@@ -230,7 +228,18 @@
                         1.0
                     ]
                 ]
-            ]
+            ],
+            "depth_completion_params": {
+                "enable_real_depth_occlusion": 0,
+                "shadow_mode": 0,
+                "valid_depth_min_mm": 100,
+                "kernel_radius": 35,
+                "top_k": 50,
+                "spatial_weight": 0.5,
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "max_fill_passes": 15
+            }
         },
         {
             "description": "仪表盘场景",
@@ -331,7 +340,18 @@
                         1.0
                     ]
                 ]
-            ]
+            ],
+            "depth_completion_params": {
+                "enable_real_depth_occlusion": 0,
+                "shadow_mode": 0,
+                "valid_depth_min_mm": 100,
+                "kernel_radius": 35,
+                "top_k": 50,
+                "spatial_weight": 0.5,
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "max_fill_passes": 15
+            }
         },
         {
             "description": "球体场景（当前注释）",
@@ -419,7 +439,6 @@
             "render_params": {
                 "blocker_sample_num": 8,
                 "denoise_size": 5,
-                "enable_real_depth_occlusion": 0,
                 "exposure": 16.44700050354004,
                 "hdr_image_num": 12,
                 "pcf_sample_num": 8,
@@ -427,7 +446,6 @@
                 "pcss_softness": 0.0,
                 "pcss_softness_falloff": 1.0000000116860974e-07,
                 "shadow_bias": 0.0,
-                "shadow_mode": 0,
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
                 "ssao_radius": 0.656000018119812
@@ -466,7 +484,18 @@
                         1.0
                     ]
                 ]
-            ]
+            ],
+            "depth_completion_params": {
+                "enable_real_depth_occlusion": 0,
+                "shadow_mode": 0,
+                "valid_depth_min_mm": 100,
+                "kernel_radius": 35,
+                "top_k": 50,
+                "spatial_weight": 0.5,
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "max_fill_passes": 15
+            }
         },
         {
             "description": "完整引擎场景（当前注释）",
@@ -522,7 +551,6 @@
             "render_params": {
                 "blocker_sample_num": 16,
                 "denoise_size": 5,
-                "enable_real_depth_occlusion": 0,
                 "exposure": 11.708000183105469,
                 "hdr_image_num": 12,
                 "pcf_sample_num": 16,
@@ -530,7 +558,6 @@
                 "pcss_softness": 0.00042230001417919993,
                 "pcss_softness_falloff": 0.00013109999417793006,
                 "shadow_bias": 0.001130299991928041,
-                "shadow_mode": 0,
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
                 "ssao_radius": 0.656000018119812
@@ -569,7 +596,18 @@
                         1.0
                     ]
                 ]
-            ]
+            ],
+            "depth_completion_params": {
+                "enable_real_depth_occlusion": 0,
+                "shadow_mode": 0,
+                "valid_depth_min_mm": 100,
+                "kernel_radius": 35,
+                "top_k": 50,
+                "spatial_weight": 0.5,
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "max_fill_passes": 15
+            }
         },
         {
             "description": "直升机引擎场景",
@@ -625,7 +663,6 @@
             "render_params": {
                 "blocker_sample_num": 8,
                 "denoise_size": 3,
-                "enable_real_depth_occlusion": 0,
                 "exposure": 16.73699951171875,
                 "hdr_image_num": 12,
                 "pcf_sample_num": 8,
@@ -633,7 +670,6 @@
                 "pcss_softness": 0.0005592000088654459,
                 "pcss_softness_falloff": 4.709999848273583e-05,
                 "shadow_bias": 4.999999987376214e-07,
-                "shadow_mode": 0,
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
                 "ssao_radius": 0.8370000123977661
@@ -672,7 +708,18 @@
                         1.0
                     ]
                 ]
-            ]
+            ],
+            "depth_completion_params": {
+                "enable_real_depth_occlusion": 0,
+                "shadow_mode": 0,
+                "valid_depth_min_mm": 100,
+                "kernel_radius": 35,
+                "top_k": 50,
+                "spatial_weight": 0.5,
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "max_fill_passes": 15
+            }
         },
         {
             "description": "驾驶舱场景",
@@ -773,7 +820,18 @@
                         1.0
                     ]
                 ]
-            ]
+            ],
+            "depth_completion_params": {
+                "enable_real_depth_occlusion": 0,
+                "shadow_mode": 0,
+                "valid_depth_min_mm": 100,
+                "kernel_radius": 35,
+                "top_k": 50,
+                "spatial_weight": 0.5,
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "max_fill_passes": 15
+            }
         },
         {
             "description": "GlassModels仪表盘场景 - 批量材质去重",
@@ -1341,7 +1399,6 @@
             "render_params": {
                 "blocker_sample_num": 8,
                 "denoise_size": 3,
-                "enable_real_depth_occlusion": 0,
                 "exposure": 4.73799991607666,
                 "hdr_image_num": 12,
                 "pcf_sample_num": 8,
@@ -1349,7 +1406,6 @@
                 "pcss_softness": 2.4499999199179e-05,
                 "pcss_softness_falloff": 0.0001252999936696142,
                 "shadow_bias": 0.0,
-                "shadow_mode": 0,
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
                 "ssao_radius": 0.07500000298023224
@@ -1388,7 +1444,18 @@
                         1.0
                     ]
                 ]
-            ]
+            ],
+            "depth_completion_params": {
+                "enable_real_depth_occlusion": 0,
+                "shadow_mode": 0,
+                "valid_depth_min_mm": 100,
+                "kernel_radius": 35,
+                "top_k": 50,
+                "spatial_weight": 0.5,
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "max_fill_passes": 15
+            }
         },
         {
             "description": "舱壁场景",
@@ -1444,7 +1511,6 @@
             "render_params": {
                 "blocker_sample_num": 16,
                 "denoise_size": 5,
-                "enable_real_depth_occlusion": 0,
                 "exposure": 4.501999855041504,
                 "hdr_image_num": 12,
                 "pcf_sample_num": 16,
@@ -1452,7 +1518,6 @@
                 "pcss_softness": 0.001056100009009242,
                 "pcss_softness_falloff": 3.999999989900971e-06,
                 "shadow_bias": 1.3199999557400588e-05,
-                "shadow_mode": 0,
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
                 "ssao_radius": 0.656000018119812
@@ -1491,7 +1556,18 @@
                         1.0
                     ]
                 ]
-            ]
+            ],
+            "depth_completion_params": {
+                "enable_real_depth_occlusion": 0,
+                "shadow_mode": 0,
+                "valid_depth_min_mm": 100,
+                "kernel_radius": 35,
+                "top_k": 50,
+                "spatial_weight": 0.5,
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "max_fill_passes": 15
+            }
         },
         {
             "description": "airplane parts variant - cull off pcf",
@@ -1675,7 +1751,6 @@
             "render_params": {
                 "blocker_sample_num": 6,
                 "denoise_size": 5,
-                "enable_real_depth_occlusion": 0,
                 "exposure": 11.2,
                 "hdr_image_num": 12,
                 "pcf_sample_num": 12,
@@ -1683,7 +1758,6 @@
                 "pcss_softness": 0.0006,
                 "pcss_softness_falloff": 0.0002,
                 "shadow_bias": 2e-06,
-                "shadow_mode": 0,
                 "shadow_type": 0,
                 "ssao_kernel_size": 64,
                 "ssao_radius": 0.5
@@ -1722,7 +1796,18 @@
                         1.0
                     ]
                 ]
-            ]
+            ],
+            "depth_completion_params": {
+                "enable_real_depth_occlusion": 0,
+                "shadow_mode": 0,
+                "valid_depth_min_mm": 100,
+                "kernel_radius": 35,
+                "top_k": 50,
+                "spatial_weight": 0.5,
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "max_fill_passes": 15
+            }
         },
         {
             "cull_mode_none_model_paths": [
@@ -1910,7 +1995,6 @@
             "render_params": {
                 "blocker_sample_num": 12,
                 "denoise_size": 3,
-                "enable_real_depth_occlusion": 0,
                 "exposure": 9.5,
                 "hdr_image_num": 8,
                 "pcf_sample_num": 8,
@@ -1918,7 +2002,6 @@
                 "pcss_softness": 0.002,
                 "pcss_softness_falloff": 0.0003,
                 "shadow_bias": 1e-05,
-                "shadow_mode": 1,
                 "shadow_type": 1,
                 "ssao_kernel_size": 128,
                 "ssao_radius": 0.85
@@ -1957,7 +2040,18 @@
                         1.0
                     ]
                 ]
-            ]
+            ],
+            "depth_completion_params": {
+                "enable_real_depth_occlusion": 0,
+                "shadow_mode": 1,
+                "valid_depth_min_mm": 100,
+                "kernel_radius": 35,
+                "top_k": 50,
+                "spatial_weight": 0.5,
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "max_fill_passes": 15
+            }
         },
         {
             "description": "spheres variant - depth plane pcss",
@@ -2045,7 +2139,6 @@
             "render_params": {
                 "blocker_sample_num": 16,
                 "denoise_size": 1,
-                "enable_real_depth_occlusion": 1,
                 "exposure": 14.0,
                 "hdr_image_num": 13,
                 "pcf_sample_num": 16,
@@ -2053,7 +2146,6 @@
                 "pcss_softness": 0.001,
                 "pcss_softness_falloff": 5e-05,
                 "shadow_bias": 0.0001,
-                "shadow_mode": 0,
                 "shadow_type": 1,
                 "ssao_kernel_size": 32,
                 "ssao_radius": 0.25
@@ -2092,7 +2184,18 @@
                         1.0
                     ]
                 ]
-            ]
+            ],
+            "depth_completion_params": {
+                "enable_real_depth_occlusion": 1,
+                "shadow_mode": 0,
+                "valid_depth_min_mm": 100,
+                "kernel_radius": 35,
+                "top_k": 50,
+                "spatial_weight": 0.5,
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "max_fill_passes": 15
+            }
         },
         {
             "cull_mode_none_model_paths": [
@@ -2183,7 +2286,6 @@
             "render_params": {
                 "blocker_sample_num": 8,
                 "denoise_size": 7,
-                "enable_real_depth_occlusion": 1,
                 "exposure": 17.5,
                 "hdr_image_num": 6,
                 "pcf_sample_num": 24,
@@ -2191,7 +2293,6 @@
                 "pcss_softness": 0.01,
                 "pcss_softness_falloff": 0.0008,
                 "shadow_bias": 2e-05,
-                "shadow_mode": 1,
                 "shadow_type": 0,
                 "ssao_kernel_size": 96,
                 "ssao_radius": 1.0
@@ -2230,7 +2331,18 @@
                         1.0
                     ]
                 ]
-            ]
+            ],
+            "depth_completion_params": {
+                "enable_real_depth_occlusion": 1,
+                "shadow_mode": 1,
+                "valid_depth_min_mm": 100,
+                "kernel_radius": 35,
+                "top_k": 50,
+                "spatial_weight": 0.5,
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "max_fill_passes": 15
+            }
         }
     ]
 }

@@ -147,6 +147,13 @@ public:
         shadow_mode = (mode == SHADOW_REAL_DEPTH) ? SHADOW_REAL_DEPTH : SHADOW_RECEIVER_PLANE;
     }
 
+    void setDepthCompletionParams(const SceneRuntimeState::DepthCompletionParams& params)
+    {
+        setRealDepthOcclusion(params.enable_real_depth_occlusion);
+        setShadowMode(params.shadow_mode);
+        depth_preprocess_stage.setParams(params);
+    }
+
     void syncConstantData()
     {
         constant_data->value().width = render_width;

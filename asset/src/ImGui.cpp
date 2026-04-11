@@ -328,152 +328,232 @@ namespace gui
         }
 
         const SceneRuntimeState& state = m_runtime_controller->state();
-        ImGui::Text("hdr num:");
-        for (int i = 1; i <= state.hdr_image_max_num; ++i) {
-            std::string num_str = std::to_string(i);
-            if (i > 1) {
-                ImGui::SameLine(0.0f, 5.0f);
+        const auto& depth_params = state.depth_completion_params;
+        const bool depth_completion_active =
+            depth_params.enable_real_depth_occlusion != 0 ||
+            depth_params.shadow_mode == SHADOW_REAL_DEPTH;
+
+        if (ImGui::BeginTable("RenderParamsTable", 2, ImGuiTableFlags_SizingStretchProp))
+        {
+            ImGui::TableNextColumn();
+            ImGui::Text("Global Render Params");
+            ImGui::Text("hdr num:");
+            for (int i = 1; i <= state.hdr_image_max_num; ++i) {
+                std::string num_str = std::to_string(i);
+                if (i > 1) {
+                    ImGui::SameLine(0.0f, 5.0f);
+                }
+                if (ImGui::Button(num_str.c_str())) {
+                    applyUiIntChange(
+                        i,
+                        [this](int hdr) { return m_runtime_controller->setHdrFromUi(hdr); },
+                        [](int) {});
+                }
             }
-            if (ImGui::Button(num_str.c_str())) {
+
+            float base_brightness = state.baseBrightness;
+            if (ImGui::SliderFloat("baseBrightness", &base_brightness, 0.0f, 100.0f))
+            {
+                applyUiFloatChange(
+                    base_brightness,
+                    [this](float value) { return m_runtime_controller->setBaseBrightnessFromUi(value); },
+                    [](float) {});
+            }
+            if (ImGui::Button("Save baseBrightness"))
+                saveBaseBrightnessToLightInfo();
+
+            if (ImGui::RadioButton("PCF", state.shadow_type == 0)){
                 applyUiIntChange(
-                    i,
-                    [this](int hdr) { return m_runtime_controller->setHdrFromUi(hdr); },
+                    0,
+                    [this](int type) { return m_runtime_controller->setShadowTypeFromUi(type); },
                     [](int) {});
             }
-        }
-
-        ImGui::Separator();
-        ImGui::Text("Global Render Params:");
-        bool depth_occlusion_enabled = state.enable_real_depth_occlusion != 0;
-        if (ImGui::Checkbox("Depth Occlusion", &depth_occlusion_enabled))
-        {
-            m_runtime_controller->setDepthOcclusionEnabledFromUi(depth_occlusion_enabled);
-        }
-
-        int shadow_mode = (state.shadow_mode == SHADOW_REAL_DEPTH) ? SHADOW_REAL_DEPTH : SHADOW_RECEIVER_PLANE;
-        const char* shadow_mode_items[] = {"Receiver Plane", "Real Depth"};
-        if (ImGui::Combo("Shadow Mode", &shadow_mode, shadow_mode_items, IM_ARRAYSIZE(shadow_mode_items)))
-        {
-            m_runtime_controller->setShadowModeFromUi(shadow_mode);
-        }
-
-        if (ImGui::RadioButton("PCF", state.shadow_type == 0)){
-            applyUiIntChange(
-                0,
-                [this](int type) { return m_runtime_controller->setShadowTypeFromUi(type); },
-                [](int) {});
-        }
-        ImGui::SameLine();
-        if (ImGui::RadioButton("PCSS", state.shadow_type == 1))
-        {
-            applyUiIntChange(
-                1,
-                [this](int type) { return m_runtime_controller->setShadowTypeFromUi(type); },
-                [](int) {});
-        }
-
-        float base_brightness = state.baseBrightness;
-        if (ImGui::SliderFloat("baseBrightness", &base_brightness, 0.0f, 100.0f))
-        {
-            applyUiFloatChange(
-                base_brightness,
-                [this](float value) { return m_runtime_controller->setBaseBrightnessFromUi(value); },
-                [](float) {});
-        }
-        if (ImGui::Button("Save baseBrightness"))
-            saveBaseBrightnessToLightInfo();
-        if (state.shadow_type == 0)
-        {
-            float softness = state.pcf_softness;
-            if (ImGui::SliderFloat("pcf_softness", &softness, 0.0f, 100.0f))
+            ImGui::SameLine();
+            if (ImGui::RadioButton("PCSS", state.shadow_type == 1))
             {
-                applyUiFloatChange(
-                    softness,
-                    [this](float value) { return m_runtime_controller->setPcfSoftnessFromUi(value); },
-                    [](float) {});
-            }
-        }
-        else if(state.shadow_type == 1)
-        {
-            float softness = state.pcss_softness;
-            if (ImGui::SliderFloat("pcss_softness", &softness, 0.0f, 0.1f, "%.7f", ImGuiSliderFlags_Logarithmic))
-            {
-                applyUiFloatChange(
-                    softness,
-                    [this](float value) { return m_runtime_controller->setPcssSoftnessFromUi(value); },
-                    [](float) {});
+                applyUiIntChange(
+                    1,
+                    [this](int type) { return m_runtime_controller->setShadowTypeFromUi(type); },
+                    [](int) {});
             }
 
-            float softness_falloff = state.pcss_softness_falloff;
-            if (ImGui::SliderFloat("pcss_softness_falloff", &softness_falloff, 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic))
+            if (state.shadow_type == 0)
+            {
+                float softness = state.pcf_softness;
+                if (ImGui::SliderFloat("pcf_softness", &softness, 0.0f, 100.0f))
+                {
+                    applyUiFloatChange(
+                        softness,
+                        [this](float value) { return m_runtime_controller->setPcfSoftnessFromUi(value); },
+                        [](float) {});
+                }
+            }
+            else if (state.shadow_type == 1)
+            {
+                float softness = state.pcss_softness;
+                if (ImGui::SliderFloat("pcss_softness", &softness, 0.0f, 0.1f, "%.7f", ImGuiSliderFlags_Logarithmic))
+                {
+                    applyUiFloatChange(
+                        softness,
+                        [this](float value) { return m_runtime_controller->setPcssSoftnessFromUi(value); },
+                        [](float) {});
+                }
+
+                float softness_falloff = state.pcss_softness_falloff;
+                if (ImGui::SliderFloat("pcss_softness_falloff", &softness_falloff, 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic))
+                {
+                    applyUiFloatChange(
+                        softness_falloff,
+                        [this](float value) { return m_runtime_controller->setPcssSoftnessFalloffFromUi(value); },
+                        [](float) {});
+                }
+            }
+
+            int blocker_sample_num = state.blocker_sample_num;
+            if (ImGui::SliderInt("blocker_sample_num", &blocker_sample_num, 1, 64))
+            {
+                applyUiIntChange(
+                    blocker_sample_num,
+                    [this](int value) { return m_runtime_controller->setBlockerSampleNumFromUi(value); },
+                    [](int) {});
+            }
+
+            int pcf_sample_num = state.pcf_sample_num;
+            if (ImGui::SliderInt("pcf_sample_num", &pcf_sample_num, 1, 64))
+            {
+                applyUiIntChange(
+                    pcf_sample_num,
+                    [this](int value) { return m_runtime_controller->setPcfSampleNumFromUi(value); },
+                    [](int) {});
+            }
+
+            float shadow_bias = state.shadow_bias;
+            if (ImGui::SliderFloat("shadow bias", &shadow_bias, 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic))
             {
                 applyUiFloatChange(
-                    softness_falloff,
-                    [this](float value) { return m_runtime_controller->setPcssSoftnessFalloffFromUi(value); },
+                    shadow_bias,
+                    [this](float value) { return m_runtime_controller->setShadowBiasFromUi(value); },
                     [](float) {});
             }
-        }
-        int blocker_sample_num = state.blocker_sample_num;
-        if (ImGui::SliderInt("blocker_sample_num", &blocker_sample_num, 1, 64))
-        {
-            applyUiIntChange(
-                blocker_sample_num,
-                [this](int value) { return m_runtime_controller->setBlockerSampleNumFromUi(value); },
-                [](int) {});
-        }
 
-        int pcf_sample_num = state.pcf_sample_num;
-        if (ImGui::SliderInt("pcf_sample_num", &pcf_sample_num, 1, 64))
-        {
-            applyUiIntChange(
-                pcf_sample_num,
-                [this](int value) { return m_runtime_controller->setPcfSampleNumFromUi(value); },
-                [](int) {});
-        }
+            float ssao_radius = state.ssao_radius;
+            if (ImGui::SliderFloat("ssao_radius", &ssao_radius, 0.0f, 2.0f))
+            {
+                applyUiFloatChange(
+                    ssao_radius,
+                    [this](float value) { return m_runtime_controller->setSsaoRadiusFromUi(value); },
+                    [](float) {});
+            }
 
-        float shadow_bias = state.shadow_bias;
-        if (ImGui::SliderFloat("shadow bias", &shadow_bias, 0.0f, 0.005f, "%.7f", ImGuiSliderFlags_Logarithmic))
-        {
-            applyUiFloatChange(
-                shadow_bias,
-                [this](float value) { return m_runtime_controller->setShadowBiasFromUi(value); },
-                [](float) {});
-        }
+            int ssao_kernel_size = state.ssao_kernel_size;
+            if (ImGui::SliderInt("ssao_kernel_size", &ssao_kernel_size, 16, 128))
+            {
+                applyUiIntChange(
+                    ssao_kernel_size,
+                    [this](int value) { return m_runtime_controller->setSsaoKernelSizeFromUi(value); },
+                    [](int) {});
+            }
 
-        float ssao_radius = state.ssao_radius;
-        if (ImGui::SliderFloat("ssao_radius", &ssao_radius, 0.0f, 2.0f))
-        {
-            applyUiFloatChange(
-                ssao_radius,
-                [this](float value) { return m_runtime_controller->setSsaoRadiusFromUi(value); },
-                [](float) {});
-        }
+            int denoise_size = state.denoise_size;
+            if (ImGui::SliderInt("denoise_size", &denoise_size, 1, 9))
+            {
+                applyUiIntChange(
+                    denoise_size,
+                    [this](int value) { return m_runtime_controller->setDenoiseSizeFromUi(value); },
+                    [](int) {});
+            }
 
-        int ssao_kernel_size = state.ssao_kernel_size;
-        if (ImGui::SliderInt("ssao_kernel_size", &ssao_kernel_size, 16, 128))
-        {
-            applyUiIntChange(
-                ssao_kernel_size,
-                [this](int value) { return m_runtime_controller->setSsaoKernelSizeFromUi(value); },
-                [](int) {});
-        }
+            float exposure = state.exposure;
+            if (ImGui::SliderFloat("exposure", &exposure, 0.0f, 50.f))
+            {
+                applyUiFloatChange(
+                    exposure,
+                    [this](float value) { return m_runtime_controller->setExposureFromUi(value); },
+                    [](float) {});
+            }
 
-        int denoise_size = state.denoise_size;
-        if (ImGui::SliderInt("denoise_size", &denoise_size, 1, 9))
-        {
-            applyUiIntChange(
-                denoise_size,
-                [this](int value) { return m_runtime_controller->setDenoiseSizeFromUi(value); },
-                [](int) {});
-        }
+            ImGui::TableNextColumn();
+            ImGui::Text("Depth Completion");
+            bool depth_occlusion_enabled = depth_params.enable_real_depth_occlusion != 0;
+            if (ImGui::Checkbox("Depth Occlusion", &depth_occlusion_enabled))
+            {
+                m_runtime_controller->setDepthOcclusionEnabledFromUi(depth_occlusion_enabled);
+            }
 
-        float exposure = state.exposure;
-        if (ImGui::SliderFloat("exposure", &exposure, 0.0f, 50.f))
-        {
-            applyUiFloatChange(
-                exposure,
-                [this](float value) { return m_runtime_controller->setExposureFromUi(value); },
-                [](float) {});
+            int shadow_mode = (depth_params.shadow_mode == SHADOW_REAL_DEPTH) ? SHADOW_REAL_DEPTH : SHADOW_RECEIVER_PLANE;
+            const char* shadow_mode_items[] = {"Receiver Plane", "Real Depth"};
+            if (ImGui::Combo("Depth Shadow Mode", &shadow_mode, shadow_mode_items, IM_ARRAYSIZE(shadow_mode_items)))
+            {
+                m_runtime_controller->setShadowModeFromUi(shadow_mode);
+            }
+
+            if (depth_completion_active)
+            {
+                int valid_depth_min_mm = depth_params.valid_depth_min_mm;
+                if (ImGui::SliderInt("valid_depth_min_mm", &valid_depth_min_mm, 1, 1000))
+                {
+                    applyUiIntChange(
+                        valid_depth_min_mm,
+                        [this](int value) { return m_runtime_controller->setDepthValidMinMmFromUi(value); },
+                        [](int) {});
+                }
+
+                int kernel_radius = depth_params.kernel_radius;
+                if (ImGui::SliderInt("kernel_radius", &kernel_radius, 1, 64))
+                {
+                    applyUiIntChange(
+                        kernel_radius,
+                        [this](int value) { return m_runtime_controller->setDepthKernelRadiusFromUi(value); },
+                        [](int) {});
+                }
+
+                int top_k = depth_params.top_k;
+                if (ImGui::SliderInt("top_k", &top_k, 1, 64))
+                {
+                    applyUiIntChange(
+                        top_k,
+                        [this](int value) { return m_runtime_controller->setDepthTopKFromUi(value); },
+                        [](int) {});
+                }
+
+                float spatial_weight = depth_params.spatial_weight;
+                if (ImGui::SliderFloat("spatial_weight", &spatial_weight, 0.0f, 1.0f))
+                {
+                    applyUiFloatChange(
+                        spatial_weight,
+                        [this](float value) { return m_runtime_controller->setDepthSpatialWeightFromUi(value); },
+                        [](float) {});
+                }
+
+                float color_sigma = depth_params.color_sigma;
+                if (ImGui::SliderFloat("color_sigma", &color_sigma, 0.001f, 1.0f, "%.4f", ImGuiSliderFlags_Logarithmic))
+                {
+                    applyUiFloatChange(
+                        color_sigma,
+                        [this](float value) { return m_runtime_controller->setDepthColorSigmaFromUi(value); },
+                        [](float) {});
+                }
+
+                float edge_threshold = depth_params.edge_threshold;
+                if (ImGui::SliderFloat("edge_threshold", &edge_threshold, 0.0f, 1.0f))
+                {
+                    applyUiFloatChange(
+                        edge_threshold,
+                        [this](float value) { return m_runtime_controller->setDepthEdgeThresholdFromUi(value); },
+                        [](float) {});
+                }
+
+                int max_fill_passes = depth_params.max_fill_passes;
+                if (ImGui::SliderInt("max_fill_passes", &max_fill_passes, 1, 15))
+                {
+                    applyUiIntChange(
+                        max_fill_passes,
+                        [this](int value) { return m_runtime_controller->setDepthMaxFillPassesFromUi(value); },
+                        [](int) {});
+                }
+            }
+
+            ImGui::EndTable();
         }
     }
 

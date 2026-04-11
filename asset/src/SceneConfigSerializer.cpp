@@ -154,6 +154,19 @@ int SceneConfigSerializer::normalizeShadowModeValue(int value)
     return value == CAMERA_DEPTH ? CAMERA_DEPTH : FULL_MODEL;
 }
 
+void SceneConfigSerializer::normalizeDepthCompletionParams(SceneRuntimeState::DepthCompletionParams& params)
+{
+    params.enable_real_depth_occlusion = normalizeDepthOcclusionFlag(params.enable_real_depth_occlusion);
+    params.shadow_mode = normalizeShadowModeValue(params.shadow_mode);
+    params.valid_depth_min_mm = std::clamp(params.valid_depth_min_mm, 1, 1000);
+    params.kernel_radius = std::clamp(params.kernel_radius, 1, 64);
+    params.top_k = std::clamp(params.top_k, 1, 64);
+    params.spatial_weight = std::clamp(params.spatial_weight, 0.0f, 1.0f);
+    params.color_sigma = std::clamp(params.color_sigma, 0.001f, 1.0f);
+    params.edge_threshold = std::clamp(params.edge_threshold, 0.0f, 1.0f);
+    params.max_fill_passes = std::clamp(params.max_fill_passes, 1, 15);
+}
+
 bool SceneConfigSerializer::loadSceneConfig(const std::string& scene_name_or_id, SceneConfig& out_scene, std::string* error_message) const
 {
     json scenes_root;
@@ -257,8 +270,6 @@ bool SceneConfigSerializer::loadSceneRuntimeState(int scene_id, SceneRuntimeStat
     {
         auto& rp = (*target_scene)["render_params"];
         out_state.hdr_image_num = rp.value("hdr_image_num", out_state.hdr_image_num);
-        out_state.enable_real_depth_occlusion = rp.value("enable_real_depth_occlusion", out_state.enable_real_depth_occlusion);
-        out_state.shadow_mode = rp.value("shadow_mode", out_state.shadow_mode);
         out_state.ssao_radius = rp.value("ssao_radius", out_state.ssao_radius);
         out_state.ssao_kernel_size = rp.value("ssao_kernel_size", out_state.ssao_kernel_size);
         out_state.exposure = rp.value("exposure", out_state.exposure);
@@ -272,35 +283,30 @@ bool SceneConfigSerializer::loadSceneRuntimeState(int scene_id, SceneRuntimeStat
         out_state.pcss_softness_falloff = rp.value("pcss_softness_falloff", out_state.pcss_softness_falloff);
     }
 
-    if (out_state.enable_real_depth_occlusion < 0 || out_state.shadow_mode < 0)
+    if (target_scene->contains("depth_completion_params") && (*target_scene)["depth_completion_params"].is_object())
     {
-        bool has_depth_media = false;
-        if (target_scene->contains("scene_media") && (*target_scene)["scene_media"].is_object())
-        {
-            auto& media = (*target_scene)["scene_media"];
-            has_depth_media =
-                (media.contains("depth_dir") && !media["depth_dir"].get<std::string>().empty()) ||
-                (media.contains("depth_path") && !media["depth_path"].get<std::string>().empty());
-        }
-
-        if (has_depth_media)
-        {
-            if (out_state.enable_real_depth_occlusion < 0)
-                out_state.enable_real_depth_occlusion = 1;
-            if (out_state.shadow_mode < 0)
-                out_state.shadow_mode = CAMERA_DEPTH;
-        }
-        else
-        {
-            if (out_state.enable_real_depth_occlusion < 0)
-                out_state.enable_real_depth_occlusion = 0;
-            if (out_state.shadow_mode < 0)
-                out_state.shadow_mode = FULL_MODEL;
-        }
+        auto& dcp = (*target_scene)["depth_completion_params"];
+        out_state.depth_completion_params.enable_real_depth_occlusion =
+            dcp.value("enable_real_depth_occlusion", out_state.depth_completion_params.enable_real_depth_occlusion);
+        out_state.depth_completion_params.shadow_mode =
+            dcp.value("shadow_mode", out_state.depth_completion_params.shadow_mode);
+        out_state.depth_completion_params.valid_depth_min_mm =
+            dcp.value("valid_depth_min_mm", out_state.depth_completion_params.valid_depth_min_mm);
+        out_state.depth_completion_params.kernel_radius =
+            dcp.value("kernel_radius", out_state.depth_completion_params.kernel_radius);
+        out_state.depth_completion_params.top_k =
+            dcp.value("top_k", out_state.depth_completion_params.top_k);
+        out_state.depth_completion_params.spatial_weight =
+            dcp.value("spatial_weight", out_state.depth_completion_params.spatial_weight);
+        out_state.depth_completion_params.color_sigma =
+            dcp.value("color_sigma", out_state.depth_completion_params.color_sigma);
+        out_state.depth_completion_params.edge_threshold =
+            dcp.value("edge_threshold", out_state.depth_completion_params.edge_threshold);
+        out_state.depth_completion_params.max_fill_passes =
+            dcp.value("max_fill_passes", out_state.depth_completion_params.max_fill_passes);
     }
 
-    out_state.enable_real_depth_occlusion = normalizeDepthOcclusionFlag(out_state.enable_real_depth_occlusion);
-    out_state.shadow_mode = normalizeShadowModeValue(out_state.shadow_mode);
+    normalizeDepthCompletionParams(out_state.depth_completion_params);
 
     if (target_scene->contains("line_point_style") && (*target_scene)["line_point_style"].is_object())
     {
@@ -358,13 +364,10 @@ bool SceneConfigSerializer::saveSceneRenderState(int scene_id, const SceneRuntim
     json& target_scene = ensureSceneForSave(scenes_root, scene_id);
 
     SceneRuntimeState normalized_state = state;
-    normalized_state.enable_real_depth_occlusion = normalizeDepthOcclusionFlag(normalized_state.enable_real_depth_occlusion);
-    normalized_state.shadow_mode = normalizeShadowModeValue(normalized_state.shadow_mode);
+    normalizeDepthCompletionParams(normalized_state.depth_completion_params);
 
     target_scene["render_params"] = {
         {"hdr_image_num", normalized_state.hdr_image_num},
-        {"enable_real_depth_occlusion", normalized_state.enable_real_depth_occlusion},
-        {"shadow_mode", normalized_state.shadow_mode},
         {"ssao_radius", normalized_state.ssao_radius},
         {"ssao_kernel_size", normalized_state.ssao_kernel_size},
         {"exposure", normalized_state.exposure},
@@ -376,6 +379,18 @@ bool SceneConfigSerializer::saveSceneRenderState(int scene_id, const SceneRuntim
         {"pcf_softness", normalized_state.pcf_softness},
         {"pcss_softness", normalized_state.pcss_softness},
         {"pcss_softness_falloff", normalized_state.pcss_softness_falloff}
+    };
+
+    target_scene["depth_completion_params"] = {
+        {"enable_real_depth_occlusion", normalized_state.depth_completion_params.enable_real_depth_occlusion},
+        {"shadow_mode", normalized_state.depth_completion_params.shadow_mode},
+        {"valid_depth_min_mm", normalized_state.depth_completion_params.valid_depth_min_mm},
+        {"kernel_radius", normalized_state.depth_completion_params.kernel_radius},
+        {"top_k", normalized_state.depth_completion_params.top_k},
+        {"spatial_weight", normalized_state.depth_completion_params.spatial_weight},
+        {"color_sigma", normalized_state.depth_completion_params.color_sigma},
+        {"edge_threshold", normalized_state.depth_completion_params.edge_threshold},
+        {"max_fill_passes", normalized_state.depth_completion_params.max_fill_passes}
     };
 
     target_scene["line_point_style"] = {

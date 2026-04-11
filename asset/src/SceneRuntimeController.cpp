@@ -18,6 +18,20 @@ int clampHdrImageNum(int value, int hdr_image_max_num)
 {
     return std::clamp(value, kDefaultHdrMin, normalizeHdrImageMaxNum(hdr_image_max_num));
 }
+
+SceneRuntimeState::DepthCompletionParams normalizeDepthCompletionParams(SceneRuntimeState::DepthCompletionParams params)
+{
+    params.enable_real_depth_occlusion = params.enable_real_depth_occlusion != 0 ? 1 : 0;
+    params.shadow_mode = (params.shadow_mode == SHADOW_REAL_DEPTH) ? SHADOW_REAL_DEPTH : SHADOW_RECEIVER_PLANE;
+    params.valid_depth_min_mm = std::clamp(params.valid_depth_min_mm, 1, 1000);
+    params.kernel_radius = std::clamp(params.kernel_radius, 1, 64);
+    params.top_k = std::clamp(params.top_k, 1, 64);
+    params.spatial_weight = std::clamp(params.spatial_weight, 0.0f, 1.0f);
+    params.color_sigma = std::clamp(params.color_sigma, 0.001f, 1.0f);
+    params.edge_threshold = std::clamp(params.edge_threshold, 0.0f, 1.0f);
+    params.max_fill_passes = std::clamp(params.max_fill_passes, 1, 15);
+    return params;
+}
 }
 
 SceneRuntimeController::SceneRuntimeController(vsgRendererServer& renderer,
@@ -77,10 +91,15 @@ void SceneRuntimeController::applyHdrStateToRenderer(bool refresh_env_lighting)
     }
 }
 
+void SceneRuntimeController::applyDepthCompletionParamsToRenderer()
+{
+    state_.depth_completion_params = normalizeDepthCompletionParams(state_.depth_completion_params);
+    renderer_.setDepthCompletionParams(state_.depth_completion_params);
+}
+
 void SceneRuntimeController::applyRenderModesToRenderer()
 {
-    renderer_.setRealDepthOcclusion(state_.enable_real_depth_occlusion);
-    renderer_.setShadowMode(state_.shadow_mode);
+    applyDepthCompletionParamsToRenderer();
     renderer_.syncConstantData();
 }
 
@@ -144,6 +163,13 @@ void SceneRuntimeController::clearServerDirtyFlags()
     base_brightness_server_dirty_ = false;
     depth_occlusion_server_dirty_ = false;
     shadow_mode_server_dirty_ = false;
+    depth_valid_min_mm_server_dirty_ = false;
+    depth_kernel_radius_server_dirty_ = false;
+    depth_top_k_server_dirty_ = false;
+    depth_spatial_weight_server_dirty_ = false;
+    depth_color_sigma_server_dirty_ = false;
+    depth_edge_threshold_server_dirty_ = false;
+    depth_max_fill_passes_server_dirty_ = false;
     shadow_type_server_dirty_ = false;
     exposure_server_dirty_ = false;
     ssao_radius_server_dirty_ = false;
@@ -167,6 +193,13 @@ void SceneRuntimeController::markServerDirty(RuntimeParam param)
     case RuntimeParam::BaseBrightness: base_brightness_server_dirty_ = true; break;
     case RuntimeParam::DepthOcclusion: depth_occlusion_server_dirty_ = true; break;
     case RuntimeParam::ShadowMode: shadow_mode_server_dirty_ = true; break;
+    case RuntimeParam::DepthValidMinMm: depth_valid_min_mm_server_dirty_ = true; break;
+    case RuntimeParam::DepthKernelRadius: depth_kernel_radius_server_dirty_ = true; break;
+    case RuntimeParam::DepthTopK: depth_top_k_server_dirty_ = true; break;
+    case RuntimeParam::DepthSpatialWeight: depth_spatial_weight_server_dirty_ = true; break;
+    case RuntimeParam::DepthColorSigma: depth_color_sigma_server_dirty_ = true; break;
+    case RuntimeParam::DepthEdgeThreshold: depth_edge_threshold_server_dirty_ = true; break;
+    case RuntimeParam::DepthMaxFillPasses: depth_max_fill_passes_server_dirty_ = true; break;
     case RuntimeParam::ShadowType: shadow_type_server_dirty_ = true; break;
     case RuntimeParam::Exposure: exposure_server_dirty_ = true; break;
     case RuntimeParam::SsaoRadius: ssao_radius_server_dirty_ = true; break;
@@ -191,6 +224,13 @@ bool SceneRuntimeController::isServerDirty(RuntimeParam param) const
     case RuntimeParam::BaseBrightness: return base_brightness_server_dirty_;
     case RuntimeParam::DepthOcclusion: return depth_occlusion_server_dirty_;
     case RuntimeParam::ShadowMode: return shadow_mode_server_dirty_;
+    case RuntimeParam::DepthValidMinMm: return depth_valid_min_mm_server_dirty_;
+    case RuntimeParam::DepthKernelRadius: return depth_kernel_radius_server_dirty_;
+    case RuntimeParam::DepthTopK: return depth_top_k_server_dirty_;
+    case RuntimeParam::DepthSpatialWeight: return depth_spatial_weight_server_dirty_;
+    case RuntimeParam::DepthColorSigma: return depth_color_sigma_server_dirty_;
+    case RuntimeParam::DepthEdgeThreshold: return depth_edge_threshold_server_dirty_;
+    case RuntimeParam::DepthMaxFillPasses: return depth_max_fill_passes_server_dirty_;
     case RuntimeParam::ShadowType: return shadow_type_server_dirty_;
     case RuntimeParam::Exposure: return exposure_server_dirty_;
     case RuntimeParam::SsaoRadius: return ssao_radius_server_dirty_;
@@ -251,12 +291,12 @@ bool SceneRuntimeController::setBaseBrightnessFromUi(float value)
 bool SceneRuntimeController::setDepthOcclusionEnabled(bool enabled)
 {
     const int normalized = enabled ? 1 : 0;
-    if (state_.enable_real_depth_occlusion == normalized)
+    if (state_.depth_completion_params.enable_real_depth_occlusion == normalized)
     {
         return false;
     }
 
-    state_.enable_real_depth_occlusion = normalized;
+    state_.depth_completion_params.enable_real_depth_occlusion = normalized;
     applyRenderModesToRenderer();
     return true;
 }
@@ -269,12 +309,12 @@ bool SceneRuntimeController::setDepthOcclusionEnabledFromUi(bool enabled)
 bool SceneRuntimeController::setShadowMode(int mode)
 {
     const int normalized = (mode == SHADOW_REAL_DEPTH) ? SHADOW_REAL_DEPTH : SHADOW_RECEIVER_PLANE;
-    if (state_.shadow_mode == normalized)
+    if (state_.depth_completion_params.shadow_mode == normalized)
     {
         return false;
     }
 
-    state_.shadow_mode = normalized;
+    state_.depth_completion_params.shadow_mode = normalized;
     applyRenderModesToRenderer();
     return true;
 }
@@ -282,6 +322,133 @@ bool SceneRuntimeController::setShadowMode(int mode)
 bool SceneRuntimeController::setShadowModeFromUi(int mode)
 {
     return canApplyUiChange(RuntimeParam::ShadowMode) ? setShadowMode(mode) : false;
+}
+
+bool SceneRuntimeController::setDepthValidMinMm(int value)
+{
+    const int normalized = normalizeDepthCompletionParams(state_.depth_completion_params).valid_depth_min_mm;
+    const int clamped = std::clamp(value, 1, 1000);
+    if (normalized == clamped)
+    {
+        return false;
+    }
+
+    state_.depth_completion_params.valid_depth_min_mm = clamped;
+    applyDepthCompletionParamsToRenderer();
+    return true;
+}
+
+bool SceneRuntimeController::setDepthValidMinMmFromUi(int value)
+{
+    return canApplyUiChange(RuntimeParam::DepthValidMinMm) ? setDepthValidMinMm(value) : false;
+}
+
+bool SceneRuntimeController::setDepthKernelRadius(int value)
+{
+    const int clamped = std::clamp(value, 1, 64);
+    if (state_.depth_completion_params.kernel_radius == clamped)
+    {
+        return false;
+    }
+
+    state_.depth_completion_params.kernel_radius = clamped;
+    applyDepthCompletionParamsToRenderer();
+    return true;
+}
+
+bool SceneRuntimeController::setDepthKernelRadiusFromUi(int value)
+{
+    return canApplyUiChange(RuntimeParam::DepthKernelRadius) ? setDepthKernelRadius(value) : false;
+}
+
+bool SceneRuntimeController::setDepthTopK(int value)
+{
+    const int clamped = std::clamp(value, 1, 64);
+    if (state_.depth_completion_params.top_k == clamped)
+    {
+        return false;
+    }
+
+    state_.depth_completion_params.top_k = clamped;
+    applyDepthCompletionParamsToRenderer();
+    return true;
+}
+
+bool SceneRuntimeController::setDepthTopKFromUi(int value)
+{
+    return canApplyUiChange(RuntimeParam::DepthTopK) ? setDepthTopK(value) : false;
+}
+
+bool SceneRuntimeController::setDepthSpatialWeight(float value)
+{
+    const float clamped = std::clamp(value, 0.0f, 1.0f);
+    if (state_.depth_completion_params.spatial_weight == clamped)
+    {
+        return false;
+    }
+
+    state_.depth_completion_params.spatial_weight = clamped;
+    applyDepthCompletionParamsToRenderer();
+    return true;
+}
+
+bool SceneRuntimeController::setDepthSpatialWeightFromUi(float value)
+{
+    return canApplyUiChange(RuntimeParam::DepthSpatialWeight) ? setDepthSpatialWeight(value) : false;
+}
+
+bool SceneRuntimeController::setDepthColorSigma(float value)
+{
+    const float clamped = std::clamp(value, 0.001f, 1.0f);
+    if (state_.depth_completion_params.color_sigma == clamped)
+    {
+        return false;
+    }
+
+    state_.depth_completion_params.color_sigma = clamped;
+    applyDepthCompletionParamsToRenderer();
+    return true;
+}
+
+bool SceneRuntimeController::setDepthColorSigmaFromUi(float value)
+{
+    return canApplyUiChange(RuntimeParam::DepthColorSigma) ? setDepthColorSigma(value) : false;
+}
+
+bool SceneRuntimeController::setDepthEdgeThreshold(float value)
+{
+    const float clamped = std::clamp(value, 0.0f, 1.0f);
+    if (state_.depth_completion_params.edge_threshold == clamped)
+    {
+        return false;
+    }
+
+    state_.depth_completion_params.edge_threshold = clamped;
+    applyDepthCompletionParamsToRenderer();
+    return true;
+}
+
+bool SceneRuntimeController::setDepthEdgeThresholdFromUi(float value)
+{
+    return canApplyUiChange(RuntimeParam::DepthEdgeThreshold) ? setDepthEdgeThreshold(value) : false;
+}
+
+bool SceneRuntimeController::setDepthMaxFillPasses(int value)
+{
+    const int clamped = std::clamp(value, 1, 15);
+    if (state_.depth_completion_params.max_fill_passes == clamped)
+    {
+        return false;
+    }
+
+    state_.depth_completion_params.max_fill_passes = clamped;
+    applyDepthCompletionParamsToRenderer();
+    return true;
+}
+
+bool SceneRuntimeController::setDepthMaxFillPassesFromUi(int value)
+{
+    return canApplyUiChange(RuntimeParam::DepthMaxFillPasses) ? setDepthMaxFillPasses(value) : false;
 }
 
 bool SceneRuntimeController::setShadowType(int type)
