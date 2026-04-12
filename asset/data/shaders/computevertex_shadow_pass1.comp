@@ -1,0 +1,93 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_EXT_scalar_block_layout : enable
+
+layout(set = 0, binding = 0) buffer OutIndirect {
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
+} outIndirect;
+
+layout(set = 0, binding = 1) buffer InIndirect {
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
+} inIndirect;
+
+struct MatrixData {
+    mat4 protoMatrix;
+};
+
+struct InstanceData {
+    mat4 modelMatrix;
+    mat4 lastModelMatrix;
+    vec4 highlight[10];
+};
+
+layout(set = 0, binding = 2) buffer InIndirectMatrix {
+    MatrixData instanceModelMatrix[];
+} inIndirectMatrix;
+
+layout(set = 0, binding = 3) buffer InHighlightData {
+    uvec4 data[];
+} inHighlightData;
+
+layout(set = 0, binding = 4) buffer OutIndirectMatrix {
+    InstanceData instanceModelMatrix[];
+} outIndirectMatrix;
+
+layout(set = 0, binding = 5) buffer GlobalModelMatrices {
+    mat4 matrices[];
+} globalModelMatrices;
+
+layout(set = 0, binding = 6) buffer LastGlobalModelMatrices {
+    mat4 matrices[];
+} lastGlobalModelMatrices;
+
+layout(set = 0, binding = 7) buffer LastInIndirectMatrix {
+    MatrixData instanceModelMatrix[];
+} lastInIndirectMatrix;
+
+layout(set = 0, binding = 8) buffer ShadowVisibility {
+    uint flags[];
+} shadowVisibility;
+
+layout(push_constant) uniform PushConstants {
+    int shadowMapIndex;
+    int padding0;
+    int padding1;
+    int padding2;
+} pc;
+
+layout(local_size_x = 256) in;
+
+void main() {
+    uint instanceIndex = gl_GlobalInvocationID.x;
+    if (instanceIndex >= inIndirect.instanceCount) {
+        return;
+    }
+
+    if (gl_LocalInvocationID.x == 0 && gl_WorkGroupID.x == 0) {
+        outIndirect.instanceCount = 0;
+    }
+    barrier();
+    memoryBarrierBuffer();
+
+    uint visibilityIndex = instanceIndex * 8u + uint(pc.shadowMapIndex);
+    if (shadowVisibility.flags[visibilityIndex] == 0u) {
+        return;
+    }
+
+    uint prevCount = atomicAdd(outIndirect.instanceCount, 1);
+    MatrixData curData = inIndirectMatrix.instanceModelMatrix[instanceIndex];
+    uint modelIndex = inHighlightData.data[instanceIndex].w;
+    InstanceData outData;
+    outData.modelMatrix = globalModelMatrices.matrices[modelIndex] * curData.protoMatrix;
+    outData.lastModelMatrix = lastGlobalModelMatrices.matrices[modelIndex] * lastInIndirectMatrix.instanceModelMatrix[instanceIndex].protoMatrix;
+    outData.highlight[0].x = inHighlightData.data[instanceIndex].x;
+    outIndirectMatrix.instanceModelMatrix[prevCount] = outData;
+}

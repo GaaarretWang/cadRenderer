@@ -97,6 +97,8 @@ struct ProtoData
     vsg::ref_ptr<vsg::BufferInfo> last_instance_buffer_info; // BufferInfo for the previous-frame proto matrices.
     vsg::ref_ptr<vsg::uintArray> highlight_buffer;
     vsg::ref_ptr<vsg::BufferInfo> input_highlight_buffer_info;
+    vsg::ref_ptr<vsg::uintArray> shadow_visibility_buffer;
+    vsg::ref_ptr<vsg::BufferInfo> shadow_visibility_buffer_info;
     vsg::ref_ptr<vsg::BufferInfo> output_instance_buffer_info;
     std::vector<std::string> instance_id;
     std::vector<vsg::dmat4> instance_matrix;

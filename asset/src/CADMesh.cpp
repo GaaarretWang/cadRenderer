@@ -715,6 +715,14 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         }
         proto_data->input_highlight_buffer_info = vsg::BufferInfo::create(proto_data->highlight_buffer);
 
+        proto_data->shadow_visibility_buffer = vsg::uintArray::create(proto_data->instance_matrix.size() * 8);
+        proto_data->shadow_visibility_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
+        for (int i = 0; i < proto_data->shadow_visibility_buffer->size(); ++i)
+        {
+            proto_data->shadow_visibility_buffer->set(i, 0u);
+        }
+        proto_data->shadow_visibility_buffer_info = vsg::BufferInfo::create(proto_data->shadow_visibility_buffer);
+
         // Two mat4 values, one int, and three padding ints: 36 scalars total.
         auto instance_data_buffer = vsg::floatArray::create(proto_data->instance_matrix.size() * 512);
         proto_data->output_instance_buffer_info = vsg::BufferInfo::create(instance_data_buffer);

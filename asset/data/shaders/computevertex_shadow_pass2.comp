@@ -1,0 +1,288 @@
+#version 450
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_EXT_scalar_block_layout : enable
+precision highp float;
+
+layout(set = 0, binding = 0) buffer OutIndirect {
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
+} outIndirect;
+
+layout(set = 0, binding = 1) buffer InIndirect {
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int vertexOffset;
+    uint firstInstance;
+} inIndirect;
+
+struct MatrixData {
+    mat4 protoMatrix;
+};
+
+struct InstanceData {
+    mat4 modelMatrix;
+    mat4 lastModelMatrix;
+    vec4 highlight[10];
+};
+
+layout(set = 0, binding = 2) buffer InIndirectMatrix {
+    MatrixData instanceModelMatrix[];
+} inIndirectMatrix;
+
+layout(set = 0, binding = 3) buffer InHighlightData {
+    uvec4 data[];
+} inHighlightData;
+
+layout(set = 0, binding = 4) buffer OutIndirectMatrix {
+    InstanceData instanceModelMatrix[];
+} outIndirectMatrix;
+
+layout(set = 0, binding = 5) buffer CameraPlaneInfo {
+    vec4 planes[6];
+} camera_plane;
+
+layout(std430, set = 0, binding = 6) buffer BBox {
+    vec4 min;
+    vec4 max;
+    vec4 draw_state;
+} bbox;
+
+layout(set = 0, binding = 7) buffer ViewMatrix {
+    mat4 view;
+    mat4 vp;
+} viewMatrix;
+
+layout(set = 0, binding = 8) uniform sampler2D mipPyramid;
+
+layout(set = 0, binding = 9) buffer GlobalModelMatrices {
+    mat4 matrices[];
+} globalModelMatrices;
+
+layout(set = 0, binding = 10) buffer LastGlobalModelMatrices {
+    mat4 matrices[];
+} lastGlobalModelMatrices;
+
+layout(set = 0, binding = 11) buffer LastInIndirectMatrix {
+    MatrixData instanceModelMatrix[];
+} lastInIndirectMatrix;
+
+layout(set = 0, binding = 12) buffer ShadowVisibility {
+    uint flags[];
+} shadowVisibility;
+
+layout(push_constant) uniform PushConstants {
+    ivec2 size;
+    int shadowMapIndex;
+    int padding;
+} pc;
+
+layout(local_size_x = 32) in;
+
+bool isFullyCulled(vec4 points[8], vec4 plane) {
+    for (int i = 0; i < 8; i++) {
+        if (dot(points[i].xyz, plane.xyz) + plane.w >= 0.0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+#define compare_image_size 4
+#define compare_image_size_square (compare_image_size * compare_image_size)
+#define compare_image_size_square_1 ((compare_image_size + 1) * (compare_image_size + 1))
+
+void rasterize(vec3 p0, vec3 p1, vec3 p2, inout float out_surface[compare_image_size_square_1]) {
+    if (p0.z < 0.0f || p1.z < 0.0f || p2.z < 0.0f) return;
+
+    vec3 p10 = p1 - p0;
+    vec3 p20 = p2 - p0;
+    float det = p20.x * p10.y - p20.y * p10.x;
+    if (abs(det) < 1e-6f) return;
+
+    if (det > 0.0f) {
+        vec3 tmp = p2;
+        p2 = p0;
+        p0 = tmp;
+        p10 = p1 - p0;
+        p20 = p2 - p0;
+        det = p20.x * p10.y - p20.y * p10.x;
+    }
+
+    vec2 min_p = vec2(0);
+    vec2 max_p = vec2(compare_image_size) + vec2(0.01);
+    vec2 texcoord_dx = vec2(-p20.y, p10.y) / det;
+    vec2 texcoord_dy = vec2(p20.x, -p10.x) / det;
+    vec2 texcoord_x = texcoord_dx * (min_p.x - p0.x);
+    vec2 texcoord_y = texcoord_dy * (min_p.y - p0.y);
+
+    for (float y = min_p.y; y <= max_p.y; y += 1.0) {
+        vec2 texcoord = texcoord_x + texcoord_y;
+        for (float x = min_p.x; x <= max_p.x; x += 1.0) {
+            if (texcoord.x >= 0.0f && texcoord.y >= 0.0f && texcoord.x + texcoord.y <= 1.0f) {
+                float z = p10.z * texcoord.x + p20.z * texcoord.y + p0.z;
+                uint index = uint(y) * (compare_image_size + 1) + uint(x);
+                out_surface[index] = max(out_surface[index], z);
+            }
+            texcoord += texcoord_dx;
+        }
+        texcoord_y += texcoord_dy;
+    }
+}
+
+void main() {
+    uint instanceIndex = gl_GlobalInvocationID.x;
+    if (instanceIndex >= inIndirect.instanceCount) {
+        return;
+    }
+
+    if (gl_LocalInvocationID.x == 0 && gl_WorkGroupID.x == 0) {
+        outIndirect.instanceCount = 0;
+    }
+    barrier();
+    memoryBarrierBuffer();
+
+    vec4 points[8];
+    points[0] = vec4(bbox.min.x, bbox.min.y, bbox.min.z, 1.0);
+    points[1] = vec4(bbox.min.x, bbox.min.y, bbox.max.z, 1.0);
+    points[2] = vec4(bbox.min.x, bbox.max.y, bbox.min.z, 1.0);
+    points[3] = vec4(bbox.min.x, bbox.max.y, bbox.max.z, 1.0);
+    points[4] = vec4(bbox.max.x, bbox.min.y, bbox.min.z, 1.0);
+    points[5] = vec4(bbox.max.x, bbox.min.y, bbox.max.z, 1.0);
+    points[6] = vec4(bbox.max.x, bbox.max.y, bbox.min.z, 1.0);
+    points[7] = vec4(bbox.max.x, bbox.max.y, bbox.max.z, 1.0);
+
+    mat4 mv = viewMatrix.view *
+                    globalModelMatrices.matrices[inHighlightData.data[instanceIndex].w] *
+                    inIndirectMatrix.instanceModelMatrix[instanceIndex].protoMatrix;
+    mat4 mvp = viewMatrix.vp *
+                    globalModelMatrices.matrices[inHighlightData.data[instanceIndex].w] *
+                    inIndirectMatrix.instanceModelMatrix[instanceIndex].protoMatrix;
+    vec4 viewPoints[8];
+    vec4 clipPoints[8];
+
+    for (int i = 0; i < 8; i++) {
+        viewPoints[i] = mv * points[i];
+        clipPoints[i] = mvp * points[i];
+    }
+
+    uint visibilityIndex = instanceIndex * 8u + uint(pc.shadowMapIndex);
+    uint previousVisible = shadowVisibility.flags[visibilityIndex];
+    bool currentVisible = false;
+
+    bool culled = false;
+    for (int p = 0; p < 6; p++) {
+        if (isFullyCulled(viewPoints, camera_plane.planes[p])) {
+            culled = true;
+            break;
+        }
+    }
+
+    if (!culled) {
+        bool clipsNearPlane = false;
+        for (int i = 0; i < 8; ++i) {
+            if (viewPoints[i].z > 0.0f) {
+                clipsNearPlane = true;
+                break;
+            }
+        }
+
+        ivec2 imageSize = pc.size;
+        vec3 uv_min = vec3(100.0);
+        vec3 uv_max = vec3(-100.0);
+        vec3 ndcs[8];
+        for (int i = 0; i < 8; i++) {
+            ndcs[i] = clipPoints[i].xyz / clipPoints[i].w;
+            ndcs[i].xy = clamp(ndcs[i].xy, -1.0, 1.0) * 0.5 + 0.5;
+            ndcs[i].z = clamp(ndcs[i].z, 0.0, 1.0);
+            uv_min = min(uv_min, ndcs[i]);
+            uv_max = max(uv_max, ndcs[i]);
+        }
+
+        float uvWidth = (uv_max.x - uv_min.x) * imageSize.x;
+        float uvHeight = (uv_max.y - uv_min.y) * imageSize.y;
+        float maxCoverage = max(uvWidth, uvHeight);
+        int mipLevel = int(ceil(log2(maxCoverage / float(compare_image_size))));
+        mipLevel = clamp(mipLevel, 0, 9);
+        float mip_scale = pow(2.0, -mipLevel);
+        ivec2 begin_pixel = ivec2(floor(uv_min.xy * mip_scale * imageSize));
+
+        vec2 pixel_scale = imageSize * mip_scale;
+        float render_depths[compare_image_size_square];
+        for (int i = 0; i < compare_image_size; i++) {
+            for (int j = 0; j < compare_image_size; j++) {
+                vec2 mipUV = vec2(begin_pixel.x + 0.5f + j, begin_pixel.y + 0.5f + i) / pixel_scale;
+                render_depths[i * compare_image_size + j] = textureLod(mipPyramid, mipUV, mipLevel).x;
+            }
+        }
+
+        vec3 screenPoints[8];
+        for (int i = 0; i < 8; i++) {
+            screenPoints[i].xy = ndcs[i].xy * mip_scale * imageSize - begin_pixel;
+            screenPoints[i].z = ndcs[i].z;
+        }
+
+        float out_surface[compare_image_size_square_1];
+        for (int i = 0; i < compare_image_size_square_1; i++) {
+            out_surface[i] = 0.0f;
+        }
+        rasterize(screenPoints[0], screenPoints[2], screenPoints[6], out_surface);
+        rasterize(screenPoints[0], screenPoints[6], screenPoints[4], out_surface);
+        rasterize(screenPoints[1], screenPoints[5], screenPoints[7], out_surface);
+        rasterize(screenPoints[1], screenPoints[7], screenPoints[3], out_surface);
+        rasterize(screenPoints[0], screenPoints[1], screenPoints[3], out_surface);
+        rasterize(screenPoints[0], screenPoints[3], screenPoints[2], out_surface);
+        rasterize(screenPoints[4], screenPoints[6], screenPoints[7], out_surface);
+        rasterize(screenPoints[4], screenPoints[7], screenPoints[5], out_surface);
+        rasterize(screenPoints[0], screenPoints[4], screenPoints[5], out_surface);
+        rasterize(screenPoints[0], screenPoints[5], screenPoints[1], out_surface);
+        rasterize(screenPoints[2], screenPoints[3], screenPoints[7], out_surface);
+        rasterize(screenPoints[2], screenPoints[7], screenPoints[6], out_surface);
+
+        float final_depth[compare_image_size_square];
+        for (int i = 0; i < compare_image_size; i++) {
+            for (int j = 0; j < compare_image_size; j++) {
+                float d0 = out_surface[i * (compare_image_size + 1) + j];
+                float d1 = out_surface[i * (compare_image_size + 1) + (j + 1)];
+                float d2 = out_surface[(i + 1) * (compare_image_size + 1) + j];
+                float d3 = out_surface[(i + 1) * (compare_image_size + 1) + (j + 1)];
+                final_depth[i * compare_image_size + j] = max(d0, max(d1, max(d2, d3)));
+            }
+        }
+
+        for (int i = 0; i < 8; ++i) {
+            ivec2 delta = ivec2(floor(ndcs[i].xy * mip_scale * imageSize) - begin_pixel);
+            int index = delta.y * compare_image_size + delta.x;
+            if (index >= 0 && index < compare_image_size_square) {
+                final_depth[index] = max(final_depth[index], ndcs[i].z);
+            }
+        }
+
+        bool depth_culled = true;
+        for (int i = 0; i < compare_image_size_square; ++i) {
+            if (final_depth[i] + 0.01 > render_depths[i]) {
+                depth_culled = false;
+            }
+        }
+
+        currentVisible = (!depth_culled || clipsNearPlane);
+    }
+
+    shadowVisibility.flags[visibilityIndex] = currentVisible ? 1u : 0u;
+    if (!currentVisible || previousVisible != 0u) {
+        return;
+    }
+
+    uint prevCount = atomicAdd(outIndirect.instanceCount, 1);
+    MatrixData curData = inIndirectMatrix.instanceModelMatrix[instanceIndex];
+    uint modelIndex = inHighlightData.data[instanceIndex].w;
+    InstanceData outData;
+    outData.modelMatrix = globalModelMatrices.matrices[modelIndex] * curData.protoMatrix;
+    outData.lastModelMatrix = lastGlobalModelMatrices.matrices[modelIndex] * lastInIndirectMatrix.instanceModelMatrix[instanceIndex].protoMatrix;
+    outData.highlight[0].x = inHighlightData.data[instanceIndex].x;
+    outIndirectMatrix.instanceModelMatrix[prevCount] = outData;
+    memoryBarrierBuffer();
+}
