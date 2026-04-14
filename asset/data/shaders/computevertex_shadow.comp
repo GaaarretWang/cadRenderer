@@ -1,7 +1,27 @@
+// ==========================================================================
+// computevertex_shadow.comp — Shadow Pass: Frustum Culling（阴影 Pass 视锥剔除）
+// ==========================================================================
+// 阴影贴图（shadow map）渲染前的剔除 Pass。与主 Pass 的 computevertex.comp 类似，
+// 但逻辑更简单：只做视锥体裁剪（frustum culling），不做深度遮挡剔除。
+// 因为阴影 Pass 没有已有的深度缓冲可以比较（阴影贴图本身就是要生成的）。
+//
+// 每个线程处理一个实例：
+//   1. 将包围盒变换到光源的视图空间
+//   2. 对 6 个光源视锥裁剪平面做 frustum culling
+//   3. 通过测试的实例写入输出间接绘制缓冲
+//
+// Work group size: local_size_x = 32
+// Dispatch pattern: 按实例总数 dispatch，每个线程处理 1 个实例
+// ==========================================================================
+
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 precision highp float;
 #extension GL_EXT_scalar_block_layout : enable
+// ---- Storage Buffer 绑定说明 ----
+
+// binding=0: 输出间接绘制参数（Write）
+// 通过剔除的实例数写入 instanceCount，供阴影绘制调用使用
 layout(set = 0, binding = 0) buffer OutIndirect {
   	uint indexCount;
   	uint instanceCount;
@@ -10,6 +30,7 @@ layout(set = 0, binding = 0) buffer OutIndirect {
   	uint firstInstance;
 }outIndirect;
 
+// binding=1: 输入间接绘制参数（Read）— instanceCount 为待剔除的实例总数
 layout(set = 0, binding = 1) buffer InIndirect {
   	uint indexCount;
   	uint instanceCount;
@@ -18,56 +39,75 @@ layout(set = 0, binding = 1) buffer InIndirect {
   	uint firstInstance;
 }inIndirect;
 
+// MatrixData: 原型矩阵（protoMatrix），将原型几何体变换到实例局部空间
 struct MatrixData {
     mat4 protoMatrix;
 };
 
+// InstanceData: 输出给阴影顶点着色器的实例数据
+// 阴影 Pass 通常不需要 highlight 和 lastModelMatrix，但保持数据结构一致
 struct InstanceData {
     mat4 modelMatrix;
     mat4 lastModelMatrix;
     vec4 highlight[10];
 };
 
+// binding=2: 每个实例的原型矩阵（Read）
 layout(set = 0, binding = 2) buffer InIndirectMatrix {
     MatrixData instanceModelMatrix[];
 }inIndirectMatrix;
 
+// binding=3: 高亮标记数据（Read/Write）
+// data[].x = 高亮颜色索引, data[].y = 最终可见标记, data[].z = 本Pass可见标记, data[].w = 全局模型矩阵索引
 layout(set = 0, binding = 3) buffer InHighlightData {
     uvec4 data[];
 }inHighlightData;
 
+// binding=4: 输出实例数据（Write）
 layout(set = 0, binding = 4) buffer OutIndirectMatrix {
     InstanceData instanceModelMatrix[];
 }outIndirectMatrix;
 
+// binding=5: 全局模型矩阵数组（Read）
 layout(set = 0, binding = 5) buffer GlobalModelMatrices {
     mat4 matrices[];
 } globalModelMatrices;
 
+// binding=6: 上一帧全局模型矩阵（Read）— 用于运动向量计算
 layout(set = 0, binding = 6) buffer LastGlobalModelMatrices {
     mat4 matrices[];
 } lastGlobalModelMatrices;
 
+// binding=7: 上一帧实例原型矩阵（Read）
 layout(set = 0, binding = 7) buffer LastInIndirectMatrix {
     MatrixData instanceModelMatrix[];
 } lastInIndirectMatrix;
 
-layout (local_size_x = 32) in;
+layout (local_size_x = 32) in; // 每个 work group 32 个线程
 
+// ---- 主函数：阴影 Pass 实例数据打包 ----
+// 注意：本 shader 不做视锥剔除，而是将所有实例打包到输出缓冲
+// 仅第一个线程（instanceIndex == 0）执行循环处理所有实例
 void main() {
 	uint instanceIndex = gl_GlobalInvocationID.x;
 
+    // 仅第一个线程工作（"单线程循环"模式，适合阴影 Pass 实例不多的情况）
     if (instanceIndex >= 1) {
         return;
     }
 
+    // 直接复制实例数量（不做剔除，所有实例都投射阴影）
     outIndirect.instanceCount = inIndirect.instanceCount;
+    // 遍历所有实例，构建完整的 InstanceData 写入输出缓冲
     for(int i = 0; i < outIndirect.instanceCount; i ++){
         MatrixData cur_data = inIndirectMatrix.instanceModelMatrix[i];
         uint modelIndex = inHighlightData.data[i].w;
         InstanceData out_data;
+        // 当前帧最终模型矩阵 = 全局模型矩阵 * 原型矩阵
         out_data.modelMatrix = globalModelMatrices.matrices[modelIndex] * cur_data.protoMatrix;
+        // 上一帧最终模型矩阵（保持数据结构一致）
         out_data.lastModelMatrix = lastGlobalModelMatrices.matrices[modelIndex] * lastInIndirectMatrix.instanceModelMatrix[i].protoMatrix;
+        // 复制高亮颜色索引
         out_data.highlight[0].x = inHighlightData.data[i].x;
         outIndirectMatrix.instanceModelMatrix[i] = out_data;
     }

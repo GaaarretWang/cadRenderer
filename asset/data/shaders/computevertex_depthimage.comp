@@ -1,18 +1,44 @@
+// ==========================================================================
+// computevertex_depthimage.comp — Depth Pyramid Level 0: Copy（深度金字塔第 0 级：原始深度复制）
+// ==========================================================================
+// 这是深度金字塔构建的第一步。将原始深度缓冲（depth buffer）直接复制到
+// 深度金字塔的第 0 级（最精细层级）。
+// 深度金字塔用于 GPU-driven occlusion culling（遮挡剔除）：
+//   - 第 0 级 = 原始深度图的拷贝
+//   - 第 1~9 级 = 逐级 2x2 min-downsample（由 computevertex_depthpyramid.comp 完成）
+// 之后 computevertex1/1_seat.comp 通过采样深度金字塔来判断物体是否被遮挡
+//
+// Work group size: local_size_x = 32, local_size_y = 32（2D 线程组，覆盖屏幕像素）
+// Dispatch pattern: 按屏幕分辨率 dispatch，每个线程处理 1 个像素
+// ==========================================================================
+
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
+
+// push_constant: 深度金字塔第 0 级的分辨率（通常 = 屏幕分辨率）
 layout(push_constant) uniform PushConstants {
     ivec2 size;
 } pc;
 
-layout(r32f, set = 0, binding = 0) uniform writeonly image2D depth_pyramid; // 金字塔输出
-layout(r32f, set = 0, binding = 1) uniform readonly image2D src_depth;     // 原始深度图
+// binding=0: 深度金字塔输出图像（Write-only）
+// r32f 格式：每个像素存储一个 32 位浮点深度值
+layout(r32f, set = 0, binding = 0) uniform writeonly image2D depth_pyramid;
 
-layout(local_size_x = 32, local_size_y = 32) in;
+// binding=1: 原始深度图（Read-only）
+// 来自前序渲染 Pass 的深度缓冲
+layout(r32f, set = 0, binding = 1) uniform readonly image2D src_depth;
+
+layout(local_size_x = 32, local_size_y = 32) in; // 32x32 = 1024 线程/work group
 
 void main() {
+    // 每个线程对应一个屏幕像素
     ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
     ivec2 src_size = imageSize(src_depth);
+
+    // 边界检查：防止 dispatch 的线程数超过实际分辨率
     if (coord.x >= pc.size.x || coord.y >= pc.size.y) return;
 
+    // 直接复制：将原始深度值写入金字塔第 0 级
+    // xyzw 中只用 x 分量存储深度值，其余为 0
     imageStore(depth_pyramid, coord, vec4(imageLoad(src_depth, coord).x, 0, 0, 0));
 }

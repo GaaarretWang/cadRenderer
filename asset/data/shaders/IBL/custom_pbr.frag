@@ -1,148 +1,207 @@
+// ============================================================
+// PBR Fragment Shader - 基于物理的渲染(PBR)片段着色器
+// 功能: 支持 IBL (Image-Based Lighting / 基于图像的光照)、
+//       PCF/PCSS 软阴影、多材质纹理采样、时域阴影滤波
+// 输出: 多渲染目标(MRT) - 颜色、法线、世界坐标、阴影
+// ============================================================
+
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 #pragma import_defines (VSG_DIFFUSE_MAP, VSG_GREYSCALE_DIFFUSE_MAP, VSG_EMISSIVE_MAP, VSG_LIGHTMAP_MAP, VSG_NORMAL_MAP, VSG_METALLROUGHNESS_MAP, VSG_SPECULAR_MAP, VSG_TWO_SIDED_LIGHTING, VSG_WORKFLOW_SPECGLOSS, SHADOWMAP_DEBUG)
 
+// ---- 描述符集编号定义 ----
+// set=0: IBL 纹理 (BRDF LUT, 漫反射辐照度, 预滤波环境贴图)
+// set=1: 视图相关状态 (灯光数据, 阴影贴图数组)
+// set=2: 材质纹理 (漫反射贴图, 法线贴图, 金属度-粗糙度贴图等)
+// 注意: 实际 set 编号可能在 C++ 端重新映射
 #define IBL_DESCRIPTOR_SET 0
 #define VIEW_DESCRIPTOR_SET 1
 #define MATERIAL_DESCRIPTOR_SET 2
 
+// ---- 数学常量 ----
 const float PI = 3.14159265359;
-const float RECIPROCAL_PI = 0.31830988618;
-const float RECIPROCAL_PI2 = 0.15915494;
-const float EPSILON = 1e-6;
-const float c_MinRoughness = 0.04;
+const float RECIPROCAL_PI = 0.31830988618;   // 1/PI
+const float RECIPROCAL_PI2 = 0.15915494;     // 1/(2*PI)
+const float EPSILON = 1e-6;                  // 极小值, 防止除零
+const float c_MinRoughness = 0.04;           // 最小粗糙度(非金属的 F0 基准值)
 
 #define NUM_RINGS 10
 
-#define EPS 1e-2  //ģӰжЧкܴӰ
+#define EPS 1e-2  // 模型自阴影判断阈值, 过小会对效果有很大影响
 #define PI 3.141592653589793
 #define PI2 6.283185307179586
 
+// ============================================================
+// 材质纹理采样器 (set = MATERIAL_DESCRIPTOR_SET)
+// 每个 binding 对应一种材质贴图类型, 由编译宏控制是否启用
+// ============================================================
+
 #ifdef VSG_DIFFUSE_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2D diffuseMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2D diffuseMap;      // 漫反射(反照率)贴图
 #endif
 
 #ifdef VSG_METALLROUGHNESS_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D mrMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D mrMap;           // 金属度-粗糙度贴图 (R=金属度, G=粗糙度)
 #endif
 
 #ifdef VSG_NORMAL_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D normalMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D normalMap;       // 法线贴图 (切线空间)
 #endif
 
 #ifdef VSG_LIGHTMAP_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D aoMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D aoMap;           // 环境光遮蔽(AO)贴图 (烘焙光照贴图)
 #endif
 
 #ifdef VSG_EMISSIVE_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D emissiveMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D emissiveMap;     // 自发光贴图
 #endif
 
 #ifdef VSG_SPECULAR_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap;     // 高光-光泽度工作流贴图
 #endif
 
+// ---- PBR 材质参数结构体 ----
+// 存储每个实例的材质属性因子, 与贴图采样值相乘得到最终材质参数
 struct PbrMaterial {
-    vec4 baseColorFactor;
-    vec4 emissiveFactor;
-    vec4 diffuseFactor;
-    vec4 specularFactor;
-    float metallicFactor;
-    float roughnessFactor;
-    float alphaMask;
-    float alphaMaskCutoff;
+    vec4 baseColorFactor;       // 基础颜色因子 (RGBA)
+    vec4 emissiveFactor;        // 自发光颜色因子
+    vec4 diffuseFactor;         // 漫反射因子 (Specular-Glossiness 工作流)
+    vec4 specularFactor;        // 高光因子 (Specular-Glossiness 工作流)
+    float metallicFactor;       // 金属度因子 (Metallic-Roughness 工作流)
+    float roughnessFactor;      // 粗糙度因子 (Metallic-Roughness 工作流)
+    float alphaMask;            // 是否启用 Alpha 测试 (1.0=启用)
+    float alphaMaskCutoff;      // Alpha 测试阈值, 低于此值的片段被丢弃
 };
 
+// ---- 材质数组 (SSBO) ----
+// 按实例索引存储的材质参数数组, 通过 materialIndex 索引访问
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 14) buffer MaterialArray {
     PbrMaterial materials[];
 } materialArray;
 
+// ---- 全局常量缓冲 (SSBO) ----
+// 从 C++ 端传入的渲染全局参数
 layout(std430, set = MATERIAL_DESCRIPTOR_SET, binding = 12) buffer ConstantBuffer {
-    float z_far;
-    int shader_type;
-    int width;
-    int height;
+    float z_far;            // 远平面距离
+    int shader_type;        // 着色器类型选择
+    int width;              // 视口宽度 (像素)
+    int height;             // 视口高度 (像素)
 }constantBuffer;
 
+// ---- 阴影输入附件 (多重采样) ----
+// 用于时域阴影滤波: 读取上一帧的阴影值进行时间累积
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 13) uniform sampler2DMS shadowInputAttachment;
 
-// ViewDependentState
+// ============================================================
+// 视图相关状态 (set = VIEW_DESCRIPTOR_SET)
+// 包含灯光数据和阴影贴图, 随相机视角变化
+// ============================================================
+
+// ---- 灯光数据 (Uniform Buffer) ----
+// 打包存储所有灯光信息, 通过 values 数组线性索引访问
+// 数据布局: [0].xyzw = 灯光数量信息, 之后按灯光类型依次排列
 layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
 {
     vec4 values[2048];
 } lightData;
 
+// ---- 阴影贴图数组 ----
+// shadowMaps: 带深度比较的阴影采样 (用于 PCF/PCSS 软阴影)
+// shadowMapsSampler: 纯深度值采样 (用于 blocker search 阶段)
 layout(set = VIEW_DESCRIPTOR_SET, binding = 2) uniform sampler2DArrayShadow shadowMaps;
 layout(set = VIEW_DESCRIPTOR_SET, binding = 3) uniform sampler2DArray shadowMapsSampler;
 
-layout(set = IBL_DESCRIPTOR_SET, binding = 0) uniform sampler2D samplerBRDFLUT;
-layout(set = IBL_DESCRIPTOR_SET, binding = 1) uniform samplerCube samplerIrradiance;
-layout(set = IBL_DESCRIPTOR_SET, binding = 2) uniform samplerCube samplerPrefilteredEnv;
-layout(set = IBL_DESCRIPTOR_SET, binding = 3) uniform EnvmapParams{
-    vec4 param;
+// ============================================================
+// IBL 纹理 (set = IBL_DESCRIPTOR_SET)
+// 基于图像的光照: 预计算的环境光照数据
+// ============================================================
+
+layout(set = IBL_DESCRIPTOR_SET, binding = 0) uniform sampler2D samplerBRDFLUT;          // BRDF 积分查找表 (NdotV, roughness) -> (scale, bias)
+layout(set = IBL_DESCRIPTOR_SET, binding = 1) uniform samplerCube samplerIrradiance;      // 漫反射辐照度立方体贴图 (低频环境光)
+layout(set = IBL_DESCRIPTOR_SET, binding = 2) uniform samplerCube samplerPrefilteredEnv;  // 预滤波镜面反射环境贴图 (多级mipmap, 按粗糙度分级)
+layout(set = IBL_DESCRIPTOR_SET, binding = 3) uniform EnvmapParams{                       // 环境贴图参数
+    vec4 param;    // param.a = IBL 强度缩放因子
 }envmapData;
 // layout(set = IBL_DESCRIPTOR_SET, binding = 3) uniform EnvmapData
 // {
 //     vec4 params;
 // } envmapData;
 
-layout(location = 0) in vec3 eyePos;
-layout(location = 1) in vec3 normalDir;
-layout(location = 2) in vec4 vertexColor;
-layout(location = 3) in vec2 texCoord0;
-layout(location = 4) in float highlight;
-layout(location = 5) in float InstanceID;
-layout(location = 6) in vec3 worldNormal;
-layout(location = 7) in vec3 worldViewDir;
-layout(location = 8) in vec3 lastWorldPos;
-layout(location = 9) in flat uint materialIndex;
+// ============================================================
+// 顶点着色器传入的插值变量 (Varying)
+// ============================================================
+layout(location = 0) in vec3 eyePos;          // 视图空间中的位置
+layout(location = 1) in vec3 normalDir;       // 视图空间中的法线方向
+layout(location = 2) in vec4 vertexColor;     // 顶点颜色
+layout(location = 3) in vec2 texCoord0;       // 第一组 UV 坐标
+layout(location = 4) in float highlight;      // 高亮标记 (>0 表示该片段需要高亮显示)
+layout(location = 5) in float InstanceID;     // 实例 ID (用于阴影时域滤波的实例匹配)
+layout(location = 6) in vec3 worldNormal;     // 世界空间法线
+layout(location = 7) in vec3 worldViewDir;    // 世界空间片段位置 (注意: 实际上是片段世界坐标, 不是视线方向)
+layout(location = 8) in vec3 lastWorldPos;    // 上一帧的世界空间位置 (用于时域重投影)
+layout(location = 9) in flat uint materialIndex;  // 材质索引 (flat = 不插值)
 
-layout(location = 0) out vec4 outColor;
-layout(location = 1) out vec4 outNormal;
-layout(location = 2) out vec4 outWorldPos;
-layout(location = 3) out vec4 outShadow;
+// ============================================================
+// 多渲染目标输出 (MRT - Multiple Render Targets)
+// ============================================================
+layout(location = 0) out vec4 outColor;       // 附件0: 最终颜色 (RGB) + 透明度 (A)
+layout(location = 1) out vec4 outNormal;      // 附件1: 世界空间法线 (RGB), A=1 表示不透明
+layout(location = 2) out vec4 outWorldPos;    // 附件2: 世界空间位置 (RGB), A 标记透明度
+layout(location = 3) out vec4 outShadow;      // 附件3: 阴影亮度 + InstanceID + 深度
 
+// ============================================================
+// Push Constants (推送常量)
+// 通过 push constant 机制从 CPU 端直接传入, 避免使用 UBO
+// 每帧绘制前更新, 包含相机矩阵和阴影/后处理参数
+// ============================================================
 layout(push_constant) uniform PushConstants {
-    mat4 projection;
-    mat4 view;
-    mat4 last_view;
-    vec3 camera_pos;
-    float softness;
-    float baseBrightness;
-    float ssao_radius;
-    float exposure;
-    float softness_falloff;
-    float shadow_bias;
-    int ssao_kernel_size;
-    int denoise_size;
-    int blocker_sample_num;
-    int pcf_sample_num;
-    int shadow_type;
-    uint frame_num;
+    mat4 projection;            // 投影矩阵
+    mat4 view;                  // 当前帧视图矩阵
+    mat4 last_view;             // 上一帧视图矩阵 (用于时域重投影)
+    vec3 camera_pos;            // 相机世界空间位置
+    float softness;             // 阴影柔和度 (控制 PCF/PCSS 采样范围)
+    float baseBrightness;       // 基础亮度 (无阴影区域的参考亮度)
+    float ssao_radius;          // SSAO 采样半径
+    float exposure;             // 曝光度 (色调映射用)
+    float softness_falloff;     // 阴影柔和度衰减系数
+    float shadow_bias;          // 阴影深度偏移 (消除阴影痤疮)
+    int ssao_kernel_size;       // SSAO 采样核大小
+    int denoise_size;           // 降噪核大小
+    int blocker_sample_num;     // PCSS blocker search 采样数
+    int pcf_sample_num;         // PCF/PCSS 滤波采样数
+    int shadow_type;            // 阴影类型: 0=PCF, 1=PCSS
+    uint frame_num;             // 当前帧号 (用于时域噪声抖动)
 } pc;
 
-highp float rand_1to1(highp float x ) {                              //
-  // float͵һάxһ[-1,1]Χfloat 
-  // -1 -1
+// ============================================================
+// 工具函数: 伪随机数生成 & 深度解包
+// ============================================================
+
+// 一维哈希随机数: 将标量 x 映射到 [-1, 1] 范围的伪随机值
+highp float rand_1to1(highp float x ) {
   return fract(sin(x)*10000.0);
 }
 
-highp float rand_2to1(vec2 uv ) {                              //
-  // һάuvһΧ[0,1]float
-  // 0 - 1
+// 二维哈希随机数: 将二维向量 uv 映射到 [0, 1] 范围的伪随机值
+highp float rand_2to1(vec2 uv ) {
 	const highp float a = 12.9898, b = 78.233, c = 43758.5453;
 	highp float dt = dot( uv.xy, vec2( a,b ) ), sn = mod( dt, PI );
 	return fract(sin(sn) * c);
 }
 
-float unpack(vec4 rgbaDepth) {                             //
-    //
-    //unpack()ԿshadowFragment.glslеpack()ķת
-    // RGBAֵת[0,1]ĸ
+// 深度值解包: 将 RGBA 编码的深度值还原为 [0,1] 标量
+// 与 shadowFragment.glsl 中的 pack() 函数互逆
+float unpack(vec4 rgbaDepth) {
     const vec4 bitShift = vec4(1.0, 1.0/256.0, 1.0/(256.0*256.0), 1.0/(256.0*256.0*256.0));
     return dot(rgbaDepth, bitShift);
 }
 
+// ============================================================
+// 阴影采样核: Poisson 圆盘采样点 & Fibonacci 螺旋方向
+// ============================================================
+
+// PoissonDisk: 64 个预计算的泊松圆盘采样点, 用于 PCF/PCSS 软阴影
+// 这些点在单位圆内均匀分布, 避免规则网格带来的带状伪影
 vec2 poissonDisk[64] = {
 	vec2(0.0617981, 0.07294159),
 	vec2(0.6470215, 0.7474022),
@@ -210,6 +269,8 @@ vec2 poissonDisk[64] = {
 	vec2(-0.4230408, -0.7129914),
 };
 
+// Fibonacci 螺旋方向向量: 64 个单位向量, 用于面积光 PCSS 的圆盘采样
+// 螺旋分布提供比泊松盘更均匀的采样覆盖, 特别适合大面积半影区域
 vec2 fibonacciSpiralDirection[64] =
 {
     vec2 (1, 0),
@@ -314,11 +375,22 @@ vec2 fibonacciSpiralDirection[64] =
 //     }
 // }
 
+// ============================================================
+// 阴影采样函数
+// ============================================================
+
+// 二维旋转变换: 用于对采样点施加随机旋转, 打破采样模式的固定方向
 vec2 Rotate(vec2 pos, vec2 rotationTrig)
 {
 	return vec2(pos.x * rotationTrig.x - pos.y * rotationTrig.y, pos.y * rotationTrig.x + pos.x * rotationTrig.y);
 }
 
+// PCF (Percentage-Closer Filtering / 百分比近邻滤波)
+// 原理: 在阴影贴图上以泊松盘分布采样多个点, 取平均可见度, 实现软阴影效果
+// coords: 阴影贴图空间坐标 (xy=UV, z=当前深度)
+// shadowMapIndex: 阴影贴图数组索引
+// area: 面积光面积参数, 影响采样范围
+// random: 随机旋转角度, 用于消除采样模式的固定伪影
 float PCF(vec4 coords,int shadowMapIndex, float area, float random) {
     float rotationAngle = random * 3.1415926;
 	vec2 rotationTrig = vec2(cos(rotationAngle), sin(rotationAngle));
@@ -342,6 +414,9 @@ float PCF(vec4 coords,int shadowMapIndex, float area, float random) {
     return visibility / float(pc.pcf_sample_num);
 }
 
+// PCSS 第一步: Blocker Search (遮挡物搜索)
+// 在搜索区域内查找所有比当前片段更深的遮挡物, 返回平均遮挡深度和数量
+// 返回值: vec2(平均遮挡深度, 遮挡物数量)
 vec2 findBlocker(vec4 coords, int shadowMapIndex, float search_size, vec2 rotationTrig) {
     float blockerNum = 0;
     float block_depth = 0.;
@@ -357,6 +432,9 @@ vec2 findBlocker(vec4 coords, int shadowMapIndex, float search_size, vec2 rotati
     return vec2(1 - block_depth / blockerNum, blockerNum);
 }
 
+// PCSS (Percentage-Closer Soft Shadows / 百分比近邻软阴影)
+// 三阶段算法: 1) 搜索遮挡物 2) 估算半影大小 3) 按半影半径进行 PCF 滤波
+// 距离遮挡物越远, 半影越大, 阴影越柔和
 float PCSS(vec4 coords,int shadowMapIndex, float area, float random){
     float d_Receiver = 1 - coords.z;
 	float rotationAngle = random * 3.1415926;
@@ -391,6 +469,8 @@ float PCSS(vec4 coords,int shadowMapIndex, float area, float random){
     return visibility / float(pc.pcf_sample_num);
 }
 
+// Fibonacci 螺旋圆盘采样 - 聚拢模式 (用于 blocker search)
+// 采样点偏向圆盘中心, 中心区域采样密度更高, 适合精确搜索遮挡物
 vec2 ComputeFibonacciSpiralDiskSampleClumped(const in int sampleIndex, const in float sampleCountInverse, out float sampleDistNorm)
 {
     // Samples not biased away from the center - sample 0 at (0, 0) is important for blocker search near shadow contact points.
@@ -402,7 +482,8 @@ vec2 ComputeFibonacciSpiralDiskSampleClumped(const in int sampleIndex, const in 
     return fibonacciSpiralDirection[sampleIndex] * sampleDistNorm;
 }
 
-// Samples uniformly spread across the disk kernel
+// Fibonacci 螺旋圆盘采样 - 均匀模式 (用于 PCSS 滤波阶段)
+// 采样点均匀分布在整个圆盘上, 避免中心聚集导致边缘采样不足
 vec2 ComputeFibonacciSpiralDiskSampleUniform(const in int sampleIndex, const in float sampleCountInverse, const in float sampleBias, out float sampleDistNorm)
 {
     // Samples biased away from the center, so that sample 0 doesn't fall at (0, 0), or it will not be affected by sample jitter and create a visible edge.
@@ -414,6 +495,8 @@ vec2 ComputeFibonacciSpiralDiskSampleUniform(const in int sampleIndex, const in 
     return fibonacciSpiralDirection[sampleIndex] * sampleDistNorm;
 }
 
+// 计算面积光阴影的采样缩放偏移量
+// 根据 z 距离将圆锥形采样区域映射到阴影贴图的 UV 空间
 void FilterScaleOffset(vec3 coord, float maxSampleZDistance, out vec2 filterScalePos, out vec2 filterScaleNeg, out vec2 filterOffset)
 {
     float d = maxSampleZDistance / coord.z;
@@ -424,6 +507,9 @@ void FilterScaleOffset(vec3 coord, float maxSampleZDistance, out vec2 filterScal
     filterOffset = (target - coord.xy) * d;
 }
 
+// 面积光 Blocker Search (遮挡物搜索)
+// 使用 Fibonacci 螺旋聚拢采样, 在锥形区域内搜索最近的遮挡物
+// 返回 true 表示找到了遮挡物, closestBlocker 返回最近遮挡深度
 bool BlockerSearch_Area(inout float closestBlocker, float maxSampleZDistance, vec3 posTCShadowmap, vec2 minCoord, vec2 maxCoord, vec2 sampleJitter, int sampleCount, int shadowMapIndex)
 {
     #define NEARPLANE 1
@@ -459,6 +545,8 @@ bool BlockerSearch_Area(inout float closestBlocker, float maxSampleZDistance, ve
     return NEARPLANE > closestBlocker;
 }
 
+// 面积光 PCSS 滤波阶段
+// 使用 Fibonacci 螺旋均匀采样, 在锥形滤波区域内计算平均可见度
 float PCSS_Area(vec3 posTCShadowmap, float maxSampleZDistance, vec2 minCoord, vec2 maxCoord, vec2 sampleJitter, int sampleCount, int shadowMapIndex)
 {
     float biasFactor = 1;
@@ -488,8 +576,9 @@ float PCSS_Area(vec3 posTCShadowmap, float maxSampleZDistance, vec2 minCoord, ve
     return sum / sampleCount;
 }
 
-//From  Next Generation Post Processing in Call of Duty: Advanced Warfare [Jimenez 2014]
-// http://advances.realtimerendering.com/s2014/index.html
+// 交错梯度噪声 (Interleaved Gradient Noise)
+// 来自 [Jimenez 2014] "Next Generation Post Processing in Call of Duty: Advanced Warfare"
+// 用于每帧产生不同的随机旋转角度, 实现时域采样点抖动, 消除空间上的固定噪声模式
 float InterleavedGradientNoise(vec2 pixCoord, uint frameCount)
 {
     const vec3 magic = vec3(0.06711056f, 0.00583715f, 52.9829189f);
@@ -498,17 +587,25 @@ float InterleavedGradientNoise(vec2 pixCoord, uint frameCount)
     return fract(magic.z * fract(dot(pixCoord, magic.xy)));
 }
 
+// 点光源半影大小估算: 半影宽度 = |接收者深度 - 遮挡物深度| / 遮挡物深度
 float PenumbraSizePunctual(float Reciever, float Blocker)
 {
     return abs((Reciever - Blocker) / Blocker);
 }
 
+// 方向光半影大小估算: 半影宽度 = |接收者深度 - 遮挡物深度| * 范围缩放因子
 float PenumbraSizeDirectional(float Reciever, float Blocker, float rangeScale)
 {
     return abs(Reciever - Blocker) * rangeScale;
 }
 
-// TODO: This PCSS variant works for other types of lights as well, but is not well tested there, so we're introducing it only for area lights for now.
+// 面积光 PCSS 阴影采样入口 (改良版 PCSS)
+// 改良要点: 在 blocker search 和 filter 阶段, 采样点沿锥形(z方向)偏移而非平面圆盘
+// 锥体顶点在着色点, 底面在光源近平面, 只有锥体内的遮挡物才贡献阴影
+// posTCShadowmap: 阴影贴图空间坐标
+// posSS: 屏幕空间像素坐标 (用于噪声生成)
+// shadowSoftness: 阴影柔和度控制
+// minFilterRadius: 最小滤波半径
 float SampleShadow_PCSS_Area(vec3 posTCShadowmap, vec2 posSS, float shadowSoftness, float minFilterRadius, int blockerSampleCount, int filterSampleCount, float depthBias, int shadowMapIndex)
 {
     posTCShadowmap.z += depthBias;
@@ -551,6 +648,8 @@ float SampleShadow_PCSS_Area(vec3 posTCShadowmap, vec2 posSS, float shadowSoftne
     return blockerFound && withinShadowmap ? PCSS_Area(posTCShadowmap, maxSampleZDistance, minCoord, maxCoord, sampleJitter, filterSampleCount, shadowMapIndex) : 1.0f;
 }
 
+// 值噪声生成器: 基于片段位置和帧号生成伪随机数
+// 用于为每帧的阴影采样提供不同的随机旋转角度, 实现时域去噪
 float ValueNoise(vec3 pos)
 {
 	vec3 Noise_skew = pos + 0.2127 + pos.x * pos.y * pos.z * 0.3713;
@@ -559,9 +658,13 @@ float ValueNoise(vec3 pos)
 }
 
 
-// Encapsulate the various inputs used by the various functions in the shading equation
-// We store values in this struct to simplify the integration of alternative implementations
-// of the shading terms, outlined in the Readme.MD Appendix.
+// ============================================================
+// PBR 着色所需的核心数据结构
+// ============================================================
+
+// PBRInfo: PBR 光照计算输入参数的集合体
+// 封装了所有 BRDF 计算所需的中间量 (各种点积、粗糙度、反射率等)
+// 方便在不同的漫反射模型 (Lambert / Oren-Nayar / Burley / Disney) 之间切换
 struct PBRInfo
 {
     float NdotL;                  // cos angle between normal and light direction
@@ -580,13 +683,19 @@ struct PBRInfo
 };
 
 
+// ============================================================
+// 颜色空间转换 & 数学工具函数
+// ============================================================
 
+// sRGB -> 线性空间转换 (gamma 2.2 解码)
+// PBR 计算需要在线性颜色空间中进行
 vec4 SRGBtoLINEAR(vec4 srgbIn)
 {
     vec3 linOut = pow(srgbIn.xyz, vec3(2.2));
     return vec4(linOut,srgbIn.w);
 }
 
+// 线性 -> sRGB 空间转换 (gamma 2.2 编码)
 vec4 LINEARtoSRGB(vec4 srgbIn)
 {
     vec3 linOut = pow(srgbIn.xyz, vec3(1.0 / 2.2));
@@ -603,6 +712,14 @@ float pow5(const in float value)
     return value * value * value * value * value;
 }
 
+// ============================================================
+// 法线处理
+// ============================================================
+
+// 获取世界空间法线:
+// 如果有法线贴图, 则从切线空间法线贴图采样并转换到世界空间
+// 使用屏幕空间导数 (dFdx/dFdy) 实时计算 TBN 矩阵, 无需预计算切线
+// 同时处理双面渲染 (gl_FrontFacing 为 false 时翻转法线)
 vec3 getWorldNormal()
 {
     vec3 result;
@@ -627,20 +744,25 @@ vec3 getWorldNormal()
         result = -result;
     return result;
 }
-// Basic Lambertian diffuse
-// Implementation from Lambert's Photometria https://archive.org/details/lambertsphotome00lambgoog
-// See also [1], Equation 1
+// ============================================================
+// 漫反射 BRDF 模型 (共5种, 可按需切换)
+// ============================================================
+
+// Lambert 漫反射: 最简单的均匀漫反射模型
+// 公式: diffuseColor / PI
 vec3 BRDF_Diffuse_Lambert(PBRInfo pbrInputs)
 {
     return pbrInputs.diffuseColor * RECIPROCAL_PI;
 }
 
+// 自定义 Lambert 漫反射: 在标准 Lambert 基础上加入 NdotV 和粗糙度的能量补偿
 vec3 BRDF_Diffuse_Custom_Lambert(PBRInfo pbrInputs)
 {
     return pbrInputs.diffuseColor * RECIPROCAL_PI * pow(pbrInputs.NdotV, 0.5 + 0.3 * pbrInputs.perceptualRoughness);
 }
 
-// [Gotanda 2012, "Beyond a Simple Physically Based Blinn-Phong Model in float-Time"]
+// Oren-Nayar 漫反射模型 [Gotanda 2012]
+// 考虑粗糙表面对光线的多次散射, 比 Lambert 更真实地表现粗糙材质
 vec3 BRDF_Diffuse_OrenNayar(PBRInfo pbrInputs)
 {
     float a = pbrInputs.alphaRoughness;
@@ -653,7 +775,8 @@ vec3 BRDF_Diffuse_OrenNayar(PBRInfo pbrInputs)
     return pbrInputs.diffuseColor / PI * ( C1 + C2 ) * ( 1 + pbrInputs.perceptualRoughness * 0.5 );
 }
 
-// [Gotanda 2014, "Designing Reflectance Models for New Consoles"]
+// Gotanda 漫反射模型 [Gotanda 2014]
+// 针对游戏主机优化的物理漫反射, 综合考虑菲涅耳和几何遮蔽对漫反射的影响
 vec3 BRDF_Diffuse_Gotanda(PBRInfo pbrInputs)
 {
     float a = pbrInputs.alphaRoughness;
@@ -671,6 +794,8 @@ vec3 BRDF_Diffuse_Gotanda(PBRInfo pbrInputs)
     return pbrInputs.diffuseColor * RECIPROCAL_PI * Lr;
 }
 
+// Burley (Disney) 漫反射模型
+// 能量守恒的漫反射, 根据粗糙度调整光线散射/视角衰减
 vec3 BRDF_Diffuse_Burley(PBRInfo pbrInputs)
 {
     float energyBias = mix(pbrInputs.perceptualRoughness, 0.0, 0.5);
@@ -683,6 +808,8 @@ vec3 BRDF_Diffuse_Burley(PBRInfo pbrInputs)
     return pbrInputs.diffuseColor * lightScatter * viewScatter * energyFactor;
 }
 
+// Disney 漫反射模型
+// 基于 [Burley 2012] 的漫反射近似, 当前 BRDF() 函数中实际使用此模型
 vec3 BRDF_Diffuse_Disney(PBRInfo pbrInputs)
 {
 	float Fd90 = 0.5 + 2.0 * pbrInputs.perceptualRoughness * pbrInputs.VdotH * pbrInputs.VdotH;
@@ -693,18 +820,23 @@ vec3 BRDF_Diffuse_Disney(PBRInfo pbrInputs)
 	return pbrInputs.diffuseColor * result;
 }
 
-// The following equation models the Fresnel reflectance term of the spec equation (aka F())
-// Implementation of fresnel from [4], Equation 15
+// ============================================================
+// 镜面反射 BRDF 组件: F (菲涅耳) + G (几何遮蔽) + D (微面元分布)
+// Cook-Torrance 镜面反射模型的三个核心项
+// ============================================================
+
+// F: 菲涅耳反射项 (Fresnel Reflectance)
+// 描述光线在不同入射角下的反射比例: 掠射角反射强, 垂直入射反射弱
+// 使用 Schlick 近似的优化版本 (exp2 代替 pow, 性能更好)
 vec3 specularReflection(PBRInfo pbrInputs)
 {
     //return pbrInputs.reflectance0 + (pbrInputs.reflectance90 - pbrInputs.reflectance0) * pow(clamp(1.0 - pbrInputs.VdotH, 0.0, 1.0), 5.0);
     return pbrInputs.reflectance0 + (pbrInputs.reflectance90 - pbrInputs.reflectance90*pbrInputs.reflectance0) * exp2((-5.55473 * pbrInputs.VdotH - 6.98316) * pbrInputs.VdotH);
 }
 
-// This calculates the specular geometric attenuation (aka G()),
-// where rougher material will reflect less light back to the viewer.
-// This implementation is based on [1] Equation 4, and we adopt their modifications to
-// alphaRoughness as input as originally proposed in [2].
+// G: 几何遮蔽项 (Geometric Occlusion)
+// 描述微面元之间的自遮挡: 粗糙表面的微面元互相遮挡更多, 反射回观察者的光更少
+// 使用 Smith-Schlick-GGX 模型
 float geometricOcclusion(PBRInfo pbrInputs)
 {
     float NdotL = pbrInputs.NdotL;
@@ -716,9 +848,8 @@ float geometricOcclusion(PBRInfo pbrInputs)
     return attenuationL * attenuationV;
 }
 
-// The following equation(s) model the distribution of microfacet normals across the area being drawn (aka D())
-// Implementation from "Average Irregularity Representation of a Roughened Surface for Ray Reflection" by T. S. Trowbridge, and K. P. Reitz
-// Follows the distribution function recommended in the SIGGRAPH 2013 course notes from EPIC Games [1], Equation 3.
+// D: 微面元法线分布项 (Microfacet Distribution / GGX/Trowbridge-Reitz)
+// 描述表面微面元朝向的统计分布: 粗糙表面的微面元朝向分散, 光泽表面朝向集中
 float microfacetDistribution(PBRInfo pbrInputs)
 {
     float roughnessSq = pbrInputs.alphaRoughness * pbrInputs.alphaRoughness;
@@ -726,6 +857,14 @@ float microfacetDistribution(PBRInfo pbrInputs)
     return roughnessSq / (PI * f * f);
 }
 
+// ============================================================
+// 完整 BRDF 计算: 组合漫反射 + 镜面反射 + 自发光
+// ============================================================
+
+// BRDF: 双向反射分布函数主入口
+// 计算单个光源对表面的光照贡献: Disney漫反射 + Cook-Torrance镜面反射
+// u_LightColor: 光源颜色 (已考虑衰减)
+// v: 视线方向, n: 法线方向, l: 光线方向, h: 半程向量
 vec3 BRDF(vec3 u_LightColor, vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, float alphaRoughness, vec3 diffuseColor, vec3 specularColor, float ao)
 {
     float unclmapped_NdotL = dot(n, l);
@@ -777,6 +916,8 @@ vec3 BRDF(vec3 u_LightColor, vec3 v, vec3 n, vec3 l, vec3 h, float perceptualRou
     return color;
 }
 
+// Specular-Glossiness 工作流 -> Metallic-Roughness 工作流的转换
+// 根据漫反射和高光值反推金属度
 float convertMetallic(vec3 diffuse, vec3 specular, float maxSpecular)
 {
     float perceivedDiffuse = sqrt(0.299 * diffuse.r * diffuse.r + 0.587 * diffuse.g * diffuse.g + 0.114 * diffuse.b * diffuse.b);
@@ -794,17 +935,22 @@ float convertMetallic(vec3 diffuse, vec3 specular, float maxSpecular)
     return clamp((-b + sqrt(D)) / (2.0 * a), 0.0, 1.0);
 }
 
+// 镜面菲涅耳近似 (Schlick 优化版): 根据视角计算 F0 到 F90 的过渡
 vec3 specularFresnel(vec3 f0, vec3 f90, float NdotV)
 {
     //return pbrInputs.reflectance0 + (pbrInputs.reflectance90 - pbrInputs.reflectance0) * pow(clamp(1.0 - pbrInputs.VdotH, 0.0, 1.0), 5.0);
     return f0 + (f90 - f90 * f0) * exp2((-5.55473 * NdotV - 6.98316) * NdotV);
 }
 
+// 带粗糙度的 Schlick 菲涅耳近似: 用于 IBL 环境光照
+// 粗糙度会降低掠射角的菲涅耳反射强度
 vec3 fresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 {
     return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
+// 预滤波环境反射采样: 根据粗糙度选择不同的 mipmap 层级
+// 越粗糙的表面采样越低分辨率的 mipmap (更模糊的反射)
 vec3 prefilteredReflection(vec3 R, float roughness)
 {
 	const float MAX_REFLECTION_LOD = 9.0; // todo: param/const
@@ -816,7 +962,8 @@ vec3 prefilteredReflection(vec3 R, float roughness)
 	// return mix(a, b, lod - lodf);
 }
 
-// From http://filmicgames.com/archives/75
+// Uncharted 2 色调映射 (Tone Mapping)
+// 来自 [Hable 2010] Filmic Tonemapping, 将 HDR 颜色压缩到 LDR 显示范围
 vec3 Uncharted2Tonemap(vec3 x)
 {
 	float A = 0.15;
@@ -829,6 +976,14 @@ vec3 Uncharted2Tonemap(vec3 x)
 }
 
 
+// ============================================================
+// IBL (Image-Based Lighting / 基于图像的光照)
+// ============================================================
+
+// IBL: 使用预计算的环境贴图进行全局光照
+// 漫反射: 从辐照度立方体贴图采样低频环境光 (samplerIrradiance)
+// 镜面反射: 从预滤波环境贴图采样, 粗糙度决定 mipmap 层级 (samplerPrefilteredEnv)
+// 菲涅耳项: 通过 BRDF LUT 查表获取能量补偿系数 (samplerBRDFLUT)
 vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specularEnvironmentR0, vec3 specularEnvironmentR90, vec3 diffuseColor){
     vec3 R = normalize(reflect(-v, n));
 
@@ -848,6 +1003,8 @@ vec3 IBL(vec3 v, vec3 n, float perceptualRoughness, float metallic, vec3 specula
     return color;
 }
 
+// F0 基础值转换: 将 IOR (折射率) 转换为垂直入射的菲涅耳反射率 F0
+// 用于 Specular-Glossiness 工作流中折射率到反射率的映射
 float computeF0Base_Merged(float f0) {
     float sqrtF0 = sqrt(f0);
     float numerator = 1.0 - 5.0 * sqrtF0;
@@ -855,8 +1012,13 @@ float computeF0Base_Merged(float f0) {
     return (numerator * numerator) / (denominator * denominator);
 }
 
+// ============================================================
+// 主函数 (Fragment Shader Entry Point)
+// 流程: 材质采样 -> 光照计算(IBL + 直接光) -> 阴影计算 -> 时域滤波 -> MRT 输出
+// ============================================================
 void main()
 {
+    // ---- 高亮标记: 直接输出白色, 跳过后续 PBR 计算 ----
     if(highlight > 0){
         outColor = vec4(1, 1, 1, 1);
         return;
@@ -864,6 +1026,10 @@ void main()
 
     float brightnessCutoff = 0.001;
 
+    // ============================================================
+    // 第一阶段: 材质参数采样
+    // 从贴图和材质因子中获取 baseColor, roughness, metallic 等参数
+    // ============================================================
     float perceptualRoughness = 0.0;
     float metallic;
     vec3 diffuseColor;
@@ -871,7 +1037,7 @@ void main()
 
     float ambientOcclusion = 1.0;
 
-    vec3 f0 = vec3(0.04);
+    vec3 f0 = vec3(0.04);  // 非金属材质的基准反射率 (4%)
 
 #ifdef VSG_DIFFUSE_MAP
     #ifdef VSG_GREYSCALE_DIFFUSE_MAP
@@ -884,12 +1050,15 @@ void main()
     baseColor = vertexColor * materialArray.materials[materialIndex].baseColorFactor;
 #endif
 
+    // ---- Alpha 测试: 透明度低于阈值的片段直接丢弃 (镂空效果) ----
     if (materialArray.materials[materialIndex].alphaMask == 1.0f)
     {
         if (baseColor.a < materialArray.materials[materialIndex].alphaMaskCutoff)
             discard;
     }
 
+    // ---- Specular-Glossiness 工作流 (可选) ----
+    // 使用漫反射贴图 + 高光贴图, 需要转换为 Metallic-Roughness 参数
 #ifdef VSG_WORKFLOW_SPECGLOSS
     #ifdef VSG_DIFFUSE_MAP
         vec4 diffuse = SRGBtoLINEAR(texture(diffuseMap, texCoord0));
@@ -916,6 +1085,8 @@ void main()
         vec3 baseColorSpecularPart = specular - (vec3(c_MinRoughness) * (1 - metallic) * (1 / max(metallic, epsilon))) * materialArray.materials[materialIndex].specularFactor.rgb;
         baseColor = vec4(mix(baseColorDiffusePart, baseColorSpecularPart, metallic * metallic), diffuse.a);
 #else
+    // ---- Metallic-Roughness 工作流 (默认) ----
+    // 直接使用金属度和粗糙度因子, 配合金属度-粗糙度贴图
         perceptualRoughness = materialArray.materials[materialIndex].roughnessFactor;
         metallic = materialArray.materials[materialIndex].metallicFactor;
 
@@ -926,17 +1097,21 @@ void main()
     #endif
 #endif
 
+    // ---- AO 贴图采样 ----
 #ifdef VSG_LIGHTMAP_MAP
     ambientOcclusion = texture(aoMap, texCoord0).r;
 #endif
 
+    // ---- 从 baseColor 和 metallic 推导漫反射/镜面反射颜色 ----
+    // 金属材质的漫反射为零, 全部贡献为镜面反射; 非金属则相反
     diffuseColor = baseColor.rgb * (vec3(1.0) - f0);
     diffuseColor *= 1.0 - metallic;
 
-    float alphaRoughness = perceptualRoughness * perceptualRoughness;
+    float alphaRoughness = perceptualRoughness * perceptualRoughness;  // 感知粗糙度 -> 物理粗糙度 (平方映射)
 
-    vec3 specularColor = mix(f0, baseColor.rgb, metallic);
+    vec3 specularColor = mix(f0, baseColor.rgb, metallic);  // 金属: 使用 baseColor 作为反射色; 非金属: 使用 f0
 
+    // ---- 菲涅耳反射率参数计算 ----
     // Compute reflectance.
     float reflectance = max(max(specularColor.r, specularColor.g), specularColor.b);
 
@@ -946,19 +1121,26 @@ void main()
     vec3 specularEnvironmentR0 = specularColor;
     vec3 specularEnvironmentR90 = vec3(1.0, 1.0, 1.0) * reflectance90;
 
-    vec3 worldN = getWorldNormal();
+    // ============================================================
+    // 第二阶段: 光照计算
+    // IBL 环境光照 + 直接光源光照 + 阴影
+    // ============================================================
+
+    vec3 worldN = getWorldNormal();                                  // 世界空间法线
     vec3 worldCamPos = pc.camera_pos;
-    vec3 worldV = normalize(worldCamPos - worldViewDir);    
+    vec3 worldV = normalize(worldCamPos - worldViewDir);             // 视线方向 (从片段指向相机)
 
     vec3 color = vec3(0.0, 0.0, 0.0);
     vec4 lightNums = lightData.values[0];
-    int numDirectionalLights = int(lightNums[1]);
+    int numDirectionalLights = int(lightNums[1]);                    // 方向光数量
     int index = 1;
 
-
+    // ---- IBL 环境光照 ----
     vec3 iblColor = IBL(worldV, worldN, perceptualRoughness, metallic, specularEnvironmentR0, specularEnvironmentR90, diffuseColor);
     color += iblColor * envmapData.param.a;
 
+    // ---- 直接光源循环 + 阴影计算 ----
+    // 遍历所有方向光, 计算每盏光的阴影可见度, 加权得到整体场景亮度
     float scene_brightness = 1.0f;
     if (numDirectionalLights>0){
         int shadowMapIndex = 0;
@@ -985,11 +1167,13 @@ void main()
                 if (sm_tc.x >= 0.0 && sm_tc.x <= 1.0 && sm_tc.y >= 0.0 && sm_tc.y <= 1.0 && sm_tc.z >= 0.0)
                 {
                     matched = true;
-                    // poissonDiskSamples(sm_tc.xy); 
+                    // poissonDiskSamples(sm_tc.xy);
                     float random = ValueNoise(sm_tc.xyz);
                     if(pc.shadow_type == 0){
+                        // shadow_type=0: PCF 软阴影 (快速, 质量一般)
                         visibility = PCF(sm_tc,shadowMapIndex,area, random);
                     }else if(pc.shadow_type == 1){
+                        // shadow_type=1: 面积光 PCSS 软阴影 (更真实, 半影随距离变化)
                         // visibility = 1 - PCSS(sm_tc,shadowMapIndex, area, random);
                         visibility = SampleShadow_PCSS_Area(sm_tc.xyz, vec2(gl_FragCoord.xy), pc.softness, pc.softness_falloff, pc.blocker_sample_num, pc.pcf_sample_num, pc.shadow_bias, shadowMapIndex);
                     }
@@ -1012,6 +1196,12 @@ void main()
         }
         scene_brightness = totalfloatBrightness / totalBrigtness;
     }
+    // ============================================================
+    // 第三阶段: 时域阴影滤波 (Temporal Filtering)
+    // 将当前帧的阴影值与上一帧的历史值混合, 减少阴影闪烁
+    // ============================================================
+
+    // 将上一帧的世界坐标投影到屏幕空间, 查找历史阴影值
     vec4 last_ndc = pc.projection * pc.last_view * vec4(lastWorldPos, 1);
     ivec2 last_coord = ivec2(((last_ndc.x / last_ndc.w) / 2 + 0.5) * constantBuffer.width, ((last_ndc.y / last_ndc.w) / 2 + 0.5) * constantBuffer.height);
     float old_shadow = 1;
@@ -1025,7 +1215,10 @@ void main()
         old_shadow = scene_brightness;
     }
 
-    float current_shadow_value = scene_brightness; // 暂时保存当前帧的阴影值
+    // ---- 时域混合 (Temporal Blend) ----
+    // 仅在实例ID匹配 且 阴影值差异不大时进行混合, 避免鬼影
+    // 使用自适应反馈: 差异越大, 越信任当前帧 (feedback 越小)
+    float current_shadow_value = scene_brightness;
     if (abs(oldInstanceID - InstanceID) < 0.1 && abs(old_shadow - scene_brightness) < 0.1)
     {
         float historyLuma = old_shadow;
@@ -1047,7 +1240,15 @@ void main()
         scene_brightness = clamp(scene_brightness, 0.0, 1.0);
     }
 
-    outColor = vec4(color * scene_brightness, baseColor.w);
+    // ============================================================
+    // 第四阶段: MRT 输出
+    // 写入四个渲染目标附件, 供后续 Pass (后处理、合成) 使用
+    // ============================================================
+
+    outColor = vec4(color * scene_brightness, baseColor.w);     // 最终颜色 = PBR颜色 * 阴影亮度
+
+    // 透明度 > 0.8 视为不透明物体, 写入完整的法线和位置
+    // 透明度 <= 0.8 视为半透明, alpha 通道设为标记值, 供合成阶段区分
     if(baseColor.w > 0.8){
         outNormal = vec4(worldN, 1);
         outWorldPos = vec4(worldViewDir, 1);
@@ -1057,5 +1258,6 @@ void main()
         outWorldPos = vec4(worldViewDir, 0);
     }
 
+    // outShadow: R=阴影亮度, G=实例ID(时域滤波用), B=线性深度(1-gl_FragCoord.z), A=1
     outShadow = vec4(scene_brightness, InstanceID, (1 - gl_FragCoord.z), 1);
 }

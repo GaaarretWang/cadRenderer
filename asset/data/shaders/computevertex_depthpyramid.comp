@@ -1,28 +1,59 @@
+// ==========================================================================
+// computevertex_depthpyramid.comp — Depth Pyramid Level 1-9: Min-Downsample（深度金字塔逐级降采样）
+// ==========================================================================
+// 构建深度金字塔的第 1~9 级。每一级将上一级的分辨率减半（2x2 → 1）：
+//   - 从上一级采样 2x2 = 4 个像素的深度值
+//   - 取这 4 个深度值的最小值（min）写入当前级
+//
+// 为什么用 min 而不是 max？
+//   深度值越小 = 越靠近相机 = 更"近"。取 min 保留最近的深度，
+//   这是一种保守策略：只要 2x2 区域内有一个像素是近的，
+//   就认为该区域可能被遮挡，避免漏剔除（false negative）。
+//
+// 本 shader 会被多次 dispatch（每次构建一级）：
+//   Pass 1: Level 0 → Level 1（输入 = computevertex_depthimage 的输出）
+//   Pass 2: Level 1 → Level 2
+//   ...
+//   Pass 9: Level 8 → Level 9（最粗糙层级）
+//
+// Work group size: local_size_x = 32, local_size_y = 32
+// Dispatch pattern: 按当前级的分辨率 dispatch，每个线程处理 1 个像素
+// ==========================================================================
+
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+// push_constant: 当前构建层级的分辨率（width, height）
 layout(push_constant) uniform PushConstants {
     ivec2 size;
 } pc;
 
-layout(r32f, set = 0, binding = 0) uniform writeonly image2D depth_pyramid; // 金字塔输出
-layout(r32f, set = 0, binding = 1) uniform readonly image2D prev_level;    // 上一层级输入
+// binding=0: 深度金字塔当前级输出（Write-only）
+layout(r32f, set = 0, binding = 0) uniform writeonly image2D depth_pyramid;
 
-layout(local_size_x = 32, local_size_y = 32) in;
+// binding=1: 深度金字塔上一级输入（Read-only）
+// 即上一次 dispatch 的输出（或 Level 0 的原始深度图拷贝）
+layout(r32f, set = 0, binding = 1) uniform readonly image2D prev_level;
+
+layout(local_size_x = 32, local_size_y = 32) in; // 32x32 = 1024 线程/work group
 
 void main() {
     ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+
+    // 边界检查：防止 dispatch 线程数超过当前级的分辨率
     if (coord.x >= pc.size.x || coord.y >= pc.size.y) return;
 
-    // 从上一层级取4个像素
+    // 从上一级采样 2x2 邻域的深度值
+    // src_coord = 当前像素坐标 * 2 → 对应上一级的左上角像素
     ivec2 src_coord = coord * 2;
-    float d00 = imageLoad(prev_level, src_coord).x;
-    float d01 = imageLoad(prev_level, src_coord + ivec2(0, 1)).x;
-    float d10 = imageLoad(prev_level, src_coord + ivec2(1, 0)).x;
-    float d11 = imageLoad(prev_level, src_coord + ivec2(1, 1)).x;
+    float d00 = imageLoad(prev_level, src_coord).x;                        // 左上
+    float d01 = imageLoad(prev_level, src_coord + ivec2(0, 1)).x;         // 左下
+    float d10 = imageLoad(prev_level, src_coord + ivec2(1, 0)).x;         // 右上
+    float d11 = imageLoad(prev_level, src_coord + ivec2(1, 1)).x;         // 右下
 
-    // 取最大值（或平均值）
+    // 取 2x2 邻域的最小深度值（min-downsample）
+    // min 操作保留最近的深度，确保遮挡剔除不会漏掉近处的物体
     float min_depth = min(min(d00, d01), min(d10, d11));
-    imageStore(depth_pyramid, coord, vec4(min_depth, 0, 0, 0)); // 存储到下一层
+    imageStore(depth_pyramid, coord, vec4(min_depth, 0, 0, 0)); // 写入当前层级
 }
 

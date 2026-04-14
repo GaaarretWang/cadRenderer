@@ -1,6 +1,16 @@
 ﻿#include "encoder.h"
 #include <array>
 
+/**
+ * 获取Vulkan物理设备的UUID
+ *
+ * 为什么需要UUID：Vulkan和CUDA是两套独立的API，各自维护设备列表。
+ * 在多GPU系统中，Vulkan的device 0不一定对应CUDA的device 0。
+ * UUID是GPU的唯一标识符，是跨API匹配设备的唯一可靠方式。
+ *
+ * 使用的Vulkan扩展：VK_KHR_get_physical_device_properties2
+ * 返回的UUID格式与CUDA的CUuuid完全一致（16字节）
+ */
 void NvEncoderWrapper::getDeviceUUID(
     vsg::Instance* instance, vsg::ref_ptr<vsg::Device> mDevice,
     std::array<uint8_t, VK_UUID_SIZE>& deviceUUID
@@ -24,6 +34,19 @@ void NvEncoderWrapper::getDeviceUUID(
     std::memcpy(deviceUUID.data(), deviceIDProps.deviceUUID, VK_UUID_SIZE);
 }
 
+/**
+ * CUDA上下文构造函数 —— 通过UUID匹配找到与Vulkan相同的GPU
+ *
+ * 流程：
+ *   1. cuInit(0) 初始化CUDA驱动API
+ *   2. cuDeviceGetCount 获取系统中CUDA设备数量
+ *   3. 遍历所有CUDA设备，用cuDeviceGetUuid获取每个设备的UUID
+ *   4. 与传入的Vulkan设备UUID逐字节比较，找到匹配的设备
+ *   5. 在匹配的设备上创建CUDA context
+ *
+ * 注意：这里用的是CUDA驱动API（cu前缀），不是运行时API（cuda前缀）
+ *      驱动API更底层，支持直接操作CUcontext，与NVENC配合使用
+ */
 Cudactx::Cudactx(std::array<uint8_t, VK_UUID_SIZE>& deviceUUID)
 {
    CUdevice dev;
@@ -72,11 +95,16 @@ Cudactx::Cudactx(std::array<uint8_t, VK_UUID_SIZE>& deviceUUID)
    }
 }
 
+// 一维设备到主机拷贝：将CUdeviceptr指向的GPU显存数据拷贝到CPU内存
+// p: CPU侧目标缓冲区, dptr: GPU侧源地址, size: 拷贝字节数
 CUresult Cudactx::memcpyDtoH(void* p, CUdeviceptr dptr, size_t size)
 {
    return cuMemcpyDtoH(p, dptr, size);
 }
 
+// 二维设备到主机拷贝：从CUarray（CUDA数组）拷贝到CPU内存
+// 与memcpyDtoH的区别：支持2D拷贝和pitch对齐，常用于图像数据传输
+// p: CPU侧目标缓冲区, array: CUDA数组源, width: 每行字节数, height: 行数
 CUresult Cudactx::memcpy2D(
    void* p, CUarray array, uint32_t width, uint32_t height
 )
@@ -93,6 +121,18 @@ CUresult Cudactx::memcpy2D(
    return cuMemcpy2D(&copy);
 }
 
+/**
+ * Vulkan图像内存屏障构造函数
+ *
+ * 什么是Image Memory Barrier：它是Vulkan同步机制的一种，用于：
+ *   1. 改变Image的layout（例如从COLOR_ATTACHMENT_OPTIMAL变为TRANSFER_SRC_OPTIMAL）
+ *   2. 确保之前的写入对后续的读取可见（memory dependency）
+ *
+ * 这里只设置基本参数（image句柄、子资源范围），具体的行为控制（src/dstAccessMask、
+ * old/newLayout）在外部使用时再配置。
+ *
+ * VK_QUEUE_FAMILY_IGNORED：表示不进行队列族所有权转移（单队列使用场景）
+ */
 Vkimgmembarrier::Vkimgmembarrier(vsg::ref_ptr<vsg::Image> image, uint32_t deviceID)
 {
     m_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
@@ -107,6 +147,20 @@ Vkimgmembarrier::Vkimgmembarrier(vsg::ref_ptr<vsg::Image> image, uint32_t device
     m_barrier.subresourceRange.layerCount = 1;
 }
 
+/**
+ * 从Vulkan Image的显存导出跨API共享句柄
+ *
+ * 这是Vulkan-CUDA互操作的第一步：获取显存的"外部句柄"
+ *   - Windows：返回HANDLE（Win32内核句柄）
+ *   - Linux：返回fd（文件描述符）
+ *
+ * 前提条件：Vulkan Image必须使用VkExternalMemoryImageCreateInfo创建，
+ *          并分配了VkExportMemoryAllocateInfo标记的显存。
+ *
+ * 原理：Vulkan显存本质上是GPU驱动管理的一块内存区域。
+ *      通过导出句柄，CUDA驱动可以通过这个"指针"访问同一块显存，
+ *      从而实现两个API之间的零拷贝数据共享。
+ */
 void* getExportHandle(vsg::ref_ptr<vsg::Image> image, vsg::ref_ptr<vsg::Device> m_device)
 {
 #ifdef _WIN32
@@ -150,6 +204,11 @@ void* getExportHandle(vsg::ref_ptr<vsg::Image> image, vsg::ref_ptr<vsg::Device> 
 
 }
 
+/**
+ * 从Vulkan Buffer的显存导出跨API共享句柄（Buffer版本）
+ * 与Image版本原理相同，只是操作对象是VkBuffer而非VkImage
+ * 当前代码中未被使用（被注释掉的readBackVulkanBuffer方法会用到）
+ */
 void* getExportHandle(vsg::ref_ptr<vsg::Buffer> buffer, vsg::ref_ptr<vsg::Device> m_device)
 {
 
@@ -192,6 +251,21 @@ void* getExportHandle(vsg::ref_ptr<vsg::Buffer> buffer, vsg::ref_ptr<vsg::Device
 #endif
 }
 
+/**
+ * Cudaimage构造函数 —— 将Vulkan Image的显存导入CUDA，实现零拷贝访问
+ *
+ * 详细流程：
+ *   1. getExportHandle(): 获取Vulkan显存的Win32 HANDLE或Linux fd
+ *   2. cuImportExternalMemory(): 通过句柄将Vulkan显存导入CUDA，得到CUexternalMemory
+ *      - CUDA驱动通过这个句柄直接映射Vulkan的显存地址空间
+ *   3. cuExternalMemoryGetMappedBuffer(): 将外部显存映射为CUdeviceptr
+ *      - 得到的CUdeviceptr可以直接用于cudaMemcpy、CUDA kernel、或NVENC输入
+ *
+ * 关键理解：
+ *   - 没有数据拷贝发生，CUDA和Vulkan共享同一块物理显存
+ *   - CUdeviceptr本质上是一个GPU虚拟地址指针
+ *   - 必须配合Cudasema（信号量）使用，确保读写时序正确
+ */
 Cudaimage::Cudaimage(vsg::ref_ptr<vsg::Image> image, vsg::ref_ptr<vsg::Device> m_device, VkDeviceSize deviceSize, VkExtent2D extent)
 {
     void* p = nullptr;
@@ -269,6 +343,8 @@ Cudaimage::Cudaimage(vsg::ref_ptr<vsg::Image> image, vsg::ref_ptr<vsg::Device> m
 
 }
 
+// 析构：释放CUDA侧导入的外部显存
+// 注意：这不会释放Vulkan侧的Image，Vulkan有自己的生命周期管理
 Cudaimage::~Cudaimage()
 {
     // cuMipmappedArrayDestroy(m_mipmapArray);
@@ -438,6 +514,17 @@ Cudaimage::~Cudaimage()
 //
 //
 
+/**
+ * 从Vulkan Semaphore导出跨API共享句柄
+ *
+ * 与getExportHandle(Image)原理类似，但导出的是信号量而非显存。
+ *   - Windows：返回HANDLE，被转为CUexternalSemaphore
+ *   - Linux：返回fd，被转为CUexternalSemaphore
+ *
+ * 信号量的作用：Vulkan和CUDA各自有自己的命令队列，信号量是两个队列之间的"交通灯"：
+ *   - Vulkan画完一帧后对信号量做signal -> CUDA的wait返回，开始处理
+ *   - CUDA处理完后对信号量做signal -> Vulkan的wait返回，继续渲染下一帧
+ */
 CUexternalSemaphore getExportHandle(vsg::ref_ptr<vsg::Semaphore> semaphore, vsg::ref_ptr<vsg::Device> m_device)
 {
 #ifdef _WIN32
@@ -479,6 +566,16 @@ CUexternalSemaphore getExportHandle(vsg::ref_ptr<vsg::Semaphore> semaphore, vsg:
 #endif
 }
 
+/**
+ * Cudasema构造函数 —— 将Vulkan信号量导入CUDA
+ *
+ * 流程：
+ *   1. getExportHandle(): 获取Vulkan Semaphore的Win32 HANDLE或Linux fd
+ *   2. cuImportExternalSemaphore(): 将句柄导入为CUexternalSemaphore
+ *
+ * 导入后，CUDA可以通过cuWaitExternalSemaphoresAsync/cuSignalExternalSemaphoresAsync
+ * 与Vulkan进行异步同步（不阻塞CPU，只阻塞GPU命令流）。
+ */
 Cudasema::Cudasema(vsg::ref_ptr<vsg::Semaphore> semaphore, vsg::ref_ptr<vsg::Device> m_device)
 {
 #ifdef _WIN32
@@ -512,11 +609,15 @@ Cudasema::Cudasema(vsg::ref_ptr<vsg::Semaphore> semaphore, vsg::ref_ptr<vsg::Dev
     }
 }
 
+// 析构：销毁CUDA侧导入的外部信号量
 Cudasema::~Cudasema()
 {
     cuDestroyExternalSemaphore(m_extSema);
 }
 
+// CUDA侧等待Vulkan信号量（异步操作，不阻塞CPU）
+// 阻塞CUDA命令流直到Vulkan侧对该信号量执行signal
+// 典型场景：CUDA等待Vulkan渲染完成后再读取Image数据
 CUresult Cudasema::wait(void)
 {
     CUDA_EXTERNAL_SEMAPHORE_WAIT_PARAMS waitParams = {};
@@ -524,6 +625,9 @@ CUresult Cudasema::wait(void)
     return cuWaitExternalSemaphoresAsync(&m_extSema, &waitParams, 1, nullptr);
 }
 
+// CUDA侧通知Vulkan信号量（异步操作，不阻塞CPU）
+// 告诉Vulkan侧CUDA处理已完成，Vulkan可以安全地使用该Image
+// 典型场景：CUDA完成深度修正后，通知Vulkan可以进行后续渲染
 CUresult Cudasema::signal(void)
 {
     CUDA_EXTERNAL_SEMAPHORE_SIGNAL_PARAMS signalParams = {};

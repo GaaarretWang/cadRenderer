@@ -1,7 +1,29 @@
+// ==========================================================================
+// computevertex1.comp — Pass1: Frustum Culling + Depth Occlusion Culling（视锥剔除 + 深度遮挡剔除）
+// ==========================================================================
+// 渲染管线中的核心剔除 Pass。每个线程处理一个实例（instance）：
+//   1. 将包围盒（AABB）8个顶点变换到相机空间（view space），做视锥体裁剪（frustum culling）
+//      — 若包围盒完全在 6 个裁剪平面的外侧，则直接剔除
+//   2. 通过视锥测试后，做深度遮挡剔除（occlusion culling）：
+//      — 将包围盒投影到屏幕空间，根据覆盖面积选择深度金字塔的 mip level
+//      — 软件光栅化（software rasterize）包围盒的 12 个面到 4x4 的小深度缓冲
+//      — 与深度金字塔（depth pyramid）比较，若被已有几何体完全遮挡则剔除
+//   3. 通过剔除的实例通过 atomicAdd 写入输出间接绘制缓冲
+//
+// Work group size: local_size_x = 32（每个 work group 32 个线程，适配 GPU warp/wavefront）
+// Dispatch pattern: 按实例总数 dispatch，每个线程处理 1 个实例
+// ==========================================================================
+
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 precision highp float;
 #extension GL_EXT_scalar_block_layout : enable
+
+// ---- Storage Buffer 绑定说明 ----
+
+// binding=0: 输出间接绘制参数（Write）
+// 经过剔除后存活的实例数量写入 instanceCount 字段
+// Vulkan 的 vkCmdDrawIndirect 会读取这个缓冲来发起绘制
 layout(set = 0, binding = 0) buffer OutIndirect {
   	uint indexCount;
   	uint instanceCount;
@@ -10,6 +32,8 @@ layout(set = 0, binding = 0) buffer OutIndirect {
   	uint firstInstance;
 }outIndirect;
 
+// binding=1: 输入间接绘制参数（Read）
+// instanceCount 字段表示当前待剔除的实例总数
 layout(set = 0, binding = 1) buffer InIndirect {
   	uint indexCount;
   	uint instanceCount;
@@ -18,64 +42,87 @@ layout(set = 0, binding = 1) buffer InIndirect {
   	uint firstInstance;
 }inIndirect;
 
+// MatrixData: 原型矩阵（protoMatrix），将原型几何体变换到实例的局部空间
 struct MatrixData {
     mat4 protoMatrix;
 };
 
+// InstanceData: 输出给顶点着色器的完整实例数据
+//   - modelMatrix: 最终模型矩阵 = 全局模型矩阵 * 原型矩阵
+//   - lastModelMatrix: 上一帧模型矩阵（用于运动模糊 / TAA 运动向量）
+//   - highlight[10]: 高亮颜色数组（支持最多 10 种高亮色）
 struct InstanceData {
     mat4 modelMatrix;
     mat4 lastModelMatrix;
     vec4 highlight[10];
 };
 
+// binding=2: 每个实例的原型矩阵（Read）
 layout(set = 0, binding = 2) buffer InIndirectMatrix {
     MatrixData instanceModelMatrix[];
 }inIndirectMatrix;
 
+// binding=3: 高亮标记数据（Read/Write）
+// data[].x = 高亮颜色索引, data[].y = 最终可见标记, data[].z = 本Pass可见标记（本shader写入）, data[].w = 全局模型矩阵索引
 layout(set = 0, binding = 3) buffer InHighlightData {
     uvec4 data[];
 }inHighlightData;
 
+// binding=4: 输出实例数据（Write）— 通过剔除的实例的完整数据
 layout(set = 0, binding = 4) buffer OutIndirectMatrix {
     InstanceData instanceModelMatrix[];
 }outIndirectMatrix;
 
+// binding=5: 相机视锥体 6 个裁剪平面（Read）
+// 每个平面 vec4(nx, ny, nz, d) 法线朝内，用于 frustum culling 测试
 layout(set = 0, binding = 5) buffer CameraPlaneInfo{
 	vec4 planes[6];
 }camera_plane;
 
+// binding=6: 轴对齐包围盒 AABB（Read）
+// min/max: 包围盒的最小/最大角点（模型空间）
 layout(std430, set = 0, binding = 6) buffer BBox{
     vec4 min;
     vec4 max;
     vec4 draw_state;
 }bbox;
 
+// binding=7: 相机视图矩阵和 VP 矩阵（Read）
+// view: 世界空间→相机空间, vp: 世界空间→裁剪空间（投影*视图）
 layout(set = 0, binding = 7) buffer ViewMatrix{
 	mat4 view;
 	mat4 vp;
 }viewMatrix;
 
+// binding=8: 深度金字塔纹理（Read）— 多级深度图，用于遮挡剔除深度比较
 layout(set=0, binding = 8) uniform sampler2D mipPyramid;
 
+// binding=9: 全局模型矩阵数组（Read）— 按 data[].w（模型索引）查表
 layout(set = 0, binding = 9) buffer GlobalModelMatrices {
     mat4 matrices[];
 } globalModelMatrices;
 
+// binding=10: 上一帧全局模型矩阵（Read）— 用于运动向量计算
 layout(set = 0, binding = 10) buffer LastGlobalModelMatrices {
     mat4 matrices[];
 } lastGlobalModelMatrices;
 
+// binding=11: 上一帧实例原型矩阵（Read）— 与 binding=10 配合生成 lastModelMatrix
 layout(set = 0, binding = 11) buffer LastInIndirectMatrix {
     MatrixData instanceModelMatrix[];
 } lastInIndirectMatrix;
 
+// push_constant: 屏幕分辨率（width, height），用于将 UV 坐标转换为像素坐标
 layout(push_constant) uniform PushConstants {
     ivec2 size;
 } pc;
 
-layout (local_size_x = 32) in;
+layout (local_size_x = 32) in; // 每个 work group 32 个线程（1 个 GPU warp/wavefront）
 
-// 判断包围盒是否完全在视锥外（被某个平面完全遮挡）
+// ---- 视锥剔除函数 ----
+// 测试包围盒 8 个顶点是否完全在给定裁剪平面的外侧
+// plane: 裁剪平面方程 ax+by+cz+d=0，法线 (a,b,c) 朝内
+// 若所有顶点都满足 dot(point, plane.xyz) + plane.w < 0，则被该平面完全遮挡
 bool isFullyCulled(vec4[8] points, vec4 plane) {
     for (int i = 0; i < 8; i++) {
         if (dot(points[i].xyz, plane.xyz) + plane.w >= 0.0) {
@@ -85,10 +132,17 @@ bool isFullyCulled(vec4[8] points, vec4 plane) {
     return true; // 所有点都在平面外侧，完全被遮挡
 }
 
+// ---- 深度比较用的小分辨率光栅化参数 ----
+// compare_image_size: 光栅化网格大小（4x4 像素）
+// 将包围盒投影到 4x4 的低分辨率网格上做深度比较，大幅降低计算量
 #define compare_image_size 4
-#define compare_image_size_square (compare_image_size) * (compare_image_size)
-#define compare_image_size_square_1 (compare_image_size + 1) * (compare_image_size + 1)
+#define compare_image_size_square (compare_image_size) * (compare_image_size)         // 4*4=16 个像素
+#define compare_image_size_square_1 (compare_image_size + 1) * (compare_image_size + 1) // 5*5=25 个顶点（比像素多一行一列，用于插值）
 
+// ---- 软件光栅化函数：将三角形光栅化到 4x4 深度缓冲 ----
+// p0, p1, p2: 三角形三个顶点（屏幕空间坐标，z 为深度值）
+// out_surface: 5x5 顶点深度数组（每个格子取 4 邻域最大值可得到 4x4 像素深度）
+// 使用重心坐标（barycentric coordinates）逐像素插值深度
 void rasterize(vec3 p0, vec3 p1, vec3 p2, inout float out_surface[compare_image_size_square_1]) {
     // 剔除任一顶点深度<0的三角形（超出近平面）
     if (p0.z < 0.0f || p1.z < 0.0f || p2.z < 0.0f) return;
@@ -147,21 +201,25 @@ void rasterize(vec3 p0, vec3 p1, vec3 p2, inout float out_surface[compare_image_
 
 void main() {
 	uint instanceIndex = gl_GlobalInvocationID.x;
-    
-    // 确保不超出实例数量范围
+
+    // 边界检查：确保线程索引不超出实例总数
     if (instanceIndex >= inIndirect.instanceCount) {
         return;
     }
 
-	// 初始化输出
+	// 第一个线程初始化输出实例计数为 0（清空上一帧结果）
     if (gl_LocalInvocationID.x == 0 && gl_WorkGroupID.x == 0) {
         outIndirect.instanceCount = 0; // 默认不可见
     }
-    barrier(); // 确保初始化完成
-    memoryBarrierBuffer();	
+    barrier();         // 线程组同步：确保初始化完成
+    memoryBarrierBuffer();	// 缓冲内存屏障：确保所有 work group 看到初始化
+
+    // 重置本实例的 Pass1 可见标记（z = 0），下面根据剔除结果重新设置
     inHighlightData.data[instanceIndex].z = 0;
 
-    // 计算包围盒的8个顶点（世界空间）
+    // =====================================================
+    // 第一步：构建包围盒顶点（模型空间 AABB → 8 个角点）
+    // =====================================================
     vec4 points[8];
     points[0] = vec4(bbox.min.x, bbox.min.y, bbox.min.z, 1.0);
     points[1] = vec4(bbox.min.x, bbox.min.y, bbox.max.z, 1.0);
@@ -172,6 +230,11 @@ void main() {
     points[6] = vec4(bbox.max.x, bbox.max.y, bbox.min.z, 1.0);
     points[7] = vec4(bbox.max.x, bbox.max.y, bbox.max.z, 1.0);
 
+    // =====================================================
+    // 第三步：计算 MV 和 MVP 矩阵，将包围盒变换到相机/裁剪空间
+    // MV = view * globalModel * protoMatrix（用于视锥测试）
+    // MVP = vp * globalModel * protoMatrix（用于投影到屏幕空间做深度比较）
+    // =====================================================
 	mat4 mv = viewMatrix.view *
 					globalModelMatrices.matrices[inHighlightData.data[instanceIndex].w] *
 					inIndirectMatrix.instanceModelMatrix[instanceIndex].protoMatrix;
@@ -188,6 +251,11 @@ void main() {
 	}
 
 
+    // =====================================================
+    // 第四步：视锥体裁剪（Frustum Culling）
+    // 检查包围盒是否完全在 6 个裁剪平面的外侧
+    // 若被任一平面完全遮挡 → culled = true → 直接跳过该实例
+    // =====================================================
     // 检查是否被任一平面完全遮挡
     bool culled = false;
     for (int p = 0; p < 6; p++) {
@@ -197,6 +265,14 @@ void main() {
         }
     }
 
+    // =====================================================
+    // 第五步：深度遮挡剔除（Depth Occlusion Culling）
+    // 通过视锥测试的实例还需与深度金字塔比较：
+    //   a) 检查是否有顶点在近平面之前（clipsNearPlane）
+    //   b) 将包围盒投影到屏幕空间，选择合适的 mip level
+    //   c) 软件光栅化包围盒，得到 4x4 深度值
+    //   d) 与深度金字塔采样值比较，若完全被遮挡则剔除
+    // =====================================================
     // 如果没有被完全遮挡，则设置实例可见
     if (!culled) {		
         bool clipsNearPlane = false;
@@ -209,6 +285,9 @@ void main() {
 
         ivec2 imageSize = pc.size;
 
+        // 5a. 将裁剪空间坐标转换为 NDC（归一化设备坐标）和 UV 空间
+        // 透视除法: clip.xyz / clip.w → NDC [-1,1]
+        // NDC → UV: * 0.5 + 0.5 → [0,1]
         vec3 uv_min = vec3(100.0);
         vec3 uv_max = vec3(-100.0);
         vec3 ndcs[8];
@@ -228,6 +307,8 @@ void main() {
         float uvWidth  = x_bound * imageSize.x;   // 物体在纹理空间覆盖的宽度（像素）
         float uvHeight = y_bound * imageSize.y;  // 物体在纹理空间覆盖的高度（像素）
 
+        // 5b. 根据包围盒在屏幕上的覆盖面积选择深度金字塔的 mip level
+        // 覆盖面积越大 → 采样更粗糙的层级（更高层的 mip），保持 4x4 采样效率
         // 计算Mip Level（取最大边长的对数）
         float maxCoverage = max(uvWidth, uvHeight);
         int mipLevel = int(ceil(log2(maxCoverage / compare_image_size)));
@@ -253,6 +334,9 @@ void main() {
         // a = ivec2(floor(uv_min.xy * scale * imageSize));  // 起始像素坐标（向下取整后转整数）
         // b = ivec2(ceil(uv_max.xy * scale * imageSize));  // 结束像素坐标（向下取整+1，转整数）
 
+        // 5c. 从深度金字塔采样 4x4 个像素的已有深度值
+        // textureLod + mipLevel 确保采样到正确层级的深度
+        // render_depths[] 存储屏幕该区域已有的最远深度（用于后续比较）
         vec2 pixel_scale = imageSize * mip_scale;
         float render_depths[compare_image_size_square];
         for (int i = 0; i < compare_image_size; i++) {
@@ -262,16 +346,22 @@ void main() {
             }
         }
 
+        // 5d. 将包围盒 8 个顶点变换到光栅化用的局部屏幕空间（减去起始像素偏移）
         vec3 screenPoints[8];
         for (int i = 0; i < 8; i++) {
             screenPoints[i].xy = ndcs[i].xy * mip_scale * imageSize - begin_pixel;
             screenPoints[i].z = ndcs[i].z;
         }
 
+        // 5e. 软件光栅化：将包围盒的 12 个面（每个面 2 个三角形 = 24 个三角形）光栅化到 5x5 顶点深度缓冲
+        // out_surface[] 初始为 0（最近深度），每个三角形通过 rasterize() 更新最大深度
         float out_surface[compare_image_size_square_1];
         for (int i = 0; i < compare_image_size_square_1; i++) {
             out_surface[i] = 0.0f;
         }
+        // 包围盒 6 个面 × 每面 2 个三角形 = 12 次 rasterize 调用
+        // 顶点编号: 0=(min,min,min), 1=(min,min,max), 2=(min,max,min), 3=(min,max,max)
+        //           4=(max,min,min), 5=(max,min,max), 6=(max,max,min), 7=(max,max,max)
         rasterize(screenPoints[0], screenPoints[2], screenPoints[6], out_surface); // 三角形 0-2-6（逆时针）
         rasterize(screenPoints[0], screenPoints[6], screenPoints[4], out_surface); // 三角形 0-6-4（逆时针）
         rasterize(screenPoints[1], screenPoints[5], screenPoints[7], out_surface); // 三角形 1-5-7（逆时针）
@@ -285,6 +375,9 @@ void main() {
         rasterize(screenPoints[2], screenPoints[3], screenPoints[7], out_surface); // 三角形 2-3-7（逆时针）
         rasterize(screenPoints[2], screenPoints[7], screenPoints[6], out_surface); // 三角形 2-7-6（逆时针）
 
+        // 5f. 从 5x5 顶点深度转换为 4x4 像素深度
+        // 每个像素取其 4 个角点（左上、右上、左下、右下）的最大深度
+        // 这是一种保守策略：只要有一个角点比已有深度更远，就认为该像素可能可见
         float final_depth[compare_image_size_square];
         for (int i = 0; i < compare_image_size; i++) {
             for (int j = 0; j < compare_image_size; j++) {
@@ -292,11 +385,13 @@ void main() {
                 float depth_1 = out_surface[i * (compare_image_size + 1) + (j + 1)];
                 float depth_2 = out_surface[(i + 1) * (compare_image_size + 1) + j];
                 float depth_3 = out_surface[(i + 1) * (compare_image_size + 1) + (j + 1)];
-                
+
                 final_depth[i * compare_image_size + j] = max(depth_0, max(depth_1, max(depth_2, depth_3)));
             }
         }
 
+        // 5g. 将包围盒 8 个顶点的深度也合并到 final_depth 中
+        // 防止光栅化遗漏角点的情况（三角形边界外的顶点可能贡献更大深度）
         for(int i = 0; i < 8; ++i){
             ivec2 delta = ivec2(floor(ndcs[i].xy * mip_scale * imageSize) - begin_pixel);
             int index = delta.y * compare_image_size + delta.x;
@@ -304,6 +399,9 @@ void main() {
                 final_depth[index] = max(final_depth[index], ndcs[i].z);
         }
 
+        // 5h. 深度比较：若包围盒在任何像素的深度 >= 已有深度，则可能可见
+        // final_depth[i] + 0.01 > render_depths[i]: 包围盒深度比已有深度更远（加上小偏移避免 z-fighting）
+        // 若所有像素的包围盒深度都被已有几何体遮挡 → depth_culled = true
         bool depth_culled = true;
         for(int i = 0; i < compare_image_size_square; ++i){
             if(final_depth[i] + 0.01 > render_depths[i])
@@ -311,6 +409,9 @@ void main() {
         }
         
 
+        // 5i. 最终可见性判定
+        // 实例可见的条件：未被深度遮挡（depth_culled==false）或有顶点在近平面之前（clipsNearPlane==true）
+        // clipsNearPlane 时必须可见，因为近平面之前的物体没有可靠的深度参考
         if(!depth_culled || clipsNearPlane){
             inHighlightData.data[instanceIndex].z = 1;
             if(inHighlightData.data[instanceIndex].y == 0){

@@ -1,3 +1,20 @@
+/**
+ * vsgRendererServer.h - 渲染引擎核心渲染器类
+ *
+ * 职责：管理整个渲染管线（pipeline），包括：
+ * - 双 CommandGraph 架构（主渲染 + IBL预计算）
+ * - IBL (Image-Based Lighting) 环境光照资源
+ * - CUDA-Vulkan 互操作（interop）用于深度图处理
+ * - 相机管理、模型加载、渲染状态编排
+ *
+ * VSG（VulkanSceneGraph）核心概念速查：
+ * - ref_ptr<T>：VSG 的智能指针（类似 std::shared_ptr），管理 Vulkan 资源生命周期
+ * - Viewer：VSG 的主循环控制器，负责事件处理、帧更新、命令录制与提交
+ * - View：代表一个渲染视图（绑定相机 + 场景图根节点）
+ * - CommandGraph：命令图，描述一帧中需要执行的 Vulkan 命令序列
+ * - StateGroup：状态组，管理渲染状态（shader、纹理、uniform等）的场景图节点
+ * - Device：Vulkan 逻辑设备，GPU 资源的抽象接口
+ */
 #ifndef VSGRENDERERSERVER_H
 #define VSGRENDERERSERVER_H
 #pragma  once
@@ -22,53 +39,68 @@
 class vsgRendererServer
 {
     public:
-    vsg::ref_ptr<vsg::Device> device;
-    vsg::ref_ptr<vsg::Viewer> viewer = vsg::Viewer::create();
-    vsg::ref_ptr<vsg::Viewer> viewer_IBL = vsg::Viewer::create();
-    vsg::ref_ptr<vsg::View> view;
+    // ---- VSG 核心对象 ----
+    vsg::ref_ptr<vsg::Device> device;           // Vulkan 逻辑设备，所有 GPU 资源的创建入口
+    vsg::ref_ptr<vsg::Viewer> viewer = vsg::Viewer::create();     // 主渲染循环：驱动帧更新、事件处理、命令录制提交
+    vsg::ref_ptr<vsg::Viewer> viewer_IBL = vsg::Viewer::create(); // 专用 IBL 预计算循环（独立于主渲染）
+    vsg::ref_ptr<vsg::View> view;               // 渲染视图：绑定相机 + 场景图根节点
 
-    std::unordered_map<std::string, CADMesh*> transfered_meshes; //path, mesh*
+    // 已加载的 CAD 网格数据，key 为模型文件路径
+    std::unordered_map<std::string, CADMesh*> transfered_meshes;
 
-    vsg::ref_ptr<vsg::ShaderSet> shadow_shader;
-    vsg::ref_ptr<vsg::ShaderSet> line_shader;
-    vsg::ref_ptr<vsg::ShaderSet> point_shader;
+    // ShaderSet：VSG 中一组 shader 程序的集合（vert+frag），封装了顶点输入布局和 uniform 描述
+    vsg::ref_ptr<vsg::ShaderSet> shadow_shader;   // 阴影渲染 shader
+    vsg::ref_ptr<vsg::ShaderSet> line_shader;      // 线框渲染 shader
+    vsg::ref_ptr<vsg::ShaderSet> point_shader;     // 点云渲染 shader
 
-    vsg::ref_ptr<ScreenshotHandler> final_screenshotHandler;
+    vsg::ref_ptr<ScreenshotHandler> final_screenshotHandler; // 截图/编码处理器
 
-    vsg::ref_ptr<vsg::Window> window;
-    vsg::ref_ptr<vsg::Camera> camera;
+    vsg::ref_ptr<vsg::Window> window;   // Vulkan 窗口/swapchain 的 VSG 封装
+    vsg::ref_ptr<vsg::Camera> camera;   // VSG 相机（包含 projection + view 矩阵）
 
-    // Offscreen render target for MRT attachments
+    // 离屏渲染目标，用于 MRT（Multiple Render Target）多附件输出
     vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget;
 
-    //IBL
+    // ---- IBL (Image-Based Lighting) 环境光照资源 ----
+    // vsgContext：IBL 模块的 VSG 上下文，持有 IBL 预计算所需的 Vulkan 资源
     IBL::VsgContext vsgContext = {};
-    vsg::ref_ptr<vsg::StateGroup> drawSkyboxNode = vsg::StateGroup::create();
-    vsg::ref_ptr<vsg::StateGroup> drawCameraImageNode = vsg::StateGroup::create();
-    vsg::ref_ptr<vsg::StateGroup> drawIBLSceneNode = vsg::StateGroup::create();
-    vsg::ref_ptr<vsg::StateGroup> drawIBLBackgroundNode = vsg::StateGroup::create();
-    vsg::ref_ptr<vsg::StateGroup> drawShadowBackgroundNode = vsg::StateGroup::create();
-    std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;
-    vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
+    // StateGroup：VSG 场景图中管理渲染状态的节点。挂载在它下面的子节点会继承其 shader/纹理/uniform 等状态
+    vsg::ref_ptr<vsg::StateGroup> drawSkyboxNode = vsg::StateGroup::create();          // 天空盒渲染节点
+    vsg::ref_ptr<vsg::StateGroup> drawCameraImageNode = vsg::StateGroup::create();     // 相机图像叠加节点（用于 AR 融合）
+    vsg::ref_ptr<vsg::StateGroup> drawIBLSceneNode = vsg::StateGroup::create();        // IBL 场景主渲染节点
+    vsg::ref_ptr<vsg::StateGroup> drawIBLBackgroundNode = vsg::StateGroup::create();   // IBL 背景渲染节点
+    vsg::ref_ptr<vsg::StateGroup> drawShadowBackgroundNode = vsg::StateGroup::create(); // 阴影背景渲染节点
+    // Group：VSG 场景图中的普通分组节点，只管理子节点列表，不携带渲染状态
+    std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;        // HDR索引 → 该 HDR 对应的光源组
+    vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();         // 当前激活的光源组
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> hdr_to_light_group_map;
-    std::unordered_map<int, float> hdr_base_brightness; // 每个HDR的baseBrightness
-    int hdr_image_num = 4;
-    int hdr_image_max_num = 7;
+    std::unordered_map<int, float> hdr_base_brightness;    // 每个 HDR 的基础亮度系数
+    int hdr_image_num = 4;       // 当前使用的 HDR 环境贴图索引
+    int hdr_image_max_num = 7;   // HDR 环境贴图总数
 
-    std::string shadow_receiver_path;
-    vsg::dmat4 shadow_receiver_transform;
-    std::unordered_set<std::string> cull_mode_none_model_paths;
-    vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data = vsg::Value<GlobalPCData>::create();
-    vsg::ref_ptr<vsg::Value<GlobalConstantData>> constant_data = vsg::Value<GlobalConstantData>::create();
-    vsg::BufferInfoList constant_data_buffer_info_list;
-    float fx = 386.52199190267083;//焦距(x轴上)
-    float fy = 387.32300428823663;//焦距(y轴上)
-    float cx = 326.5103569741365;//图像中心点(x轴)
-    float cy = 237.40293732598795;//图像中心点(y轴)
+    // 阴影接收体信息
+    std::string shadow_receiver_path;           // 阴影接收面的模型路径
+    vsg::dmat4 shadow_receiver_transform;       // 阴影接收面的世界变换矩阵
+    std::unordered_set<std::string> cull_mode_none_model_paths; // 不做背面剔除的模型路径集合
 
+    // Push Constant：Vulkan 中每帧/每次 draw call 传入 shader 的轻量级 uniform 数据
+    // vsg::Value<T>：VSG 的 typed 数据容器，支持 GPU buffer 绑定和 dirty() 标记
+    vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data = vsg::Value<GlobalPCData>::create();       // 每帧全局 push constant
+    vsg::ref_ptr<vsg::Value<GlobalConstantData>> constant_data = vsg::Value<GlobalConstantData>::create(); // 全局常量 buffer
+    vsg::BufferInfoList constant_data_buffer_info_list; // constant_data 的 GPU buffer 绑定信息
+
+    // ---- 相机内参（Camera Intrinsics）----
+    // 来自真实相机标定参数，用于虚实融合（virtual-reality fusion）的投影对齐
+    float fx = 386.52199190267083;   // 焦距 x（像素单位）
+    float fy = 387.32300428823663;   // 焦距 y（像素单位）
+    float cx = 326.5103569741365;    // 主点 x（图像中心偏移）
+    float cy = 237.40293732598795;   // 主点 y（图像中心偏移）
+
+    // 投影矩阵远近平面
     float near_plane = 0.1f;
     float far_plane = 65.535f;
 
+    // 分辨率体系：width/height 为逻辑分辨率，render_* 为实际渲染分辨率，encode_* 为编码输出分辨率
     int width;
     int height;
     int render_width;
@@ -76,31 +108,42 @@ class vsgRendererServer
     int encode_width;
     int encode_height;
 
-    vsg::ref_ptr<vsg::Data> vsg_color_image;
-    vsg::ref_ptr<vsg::Data> vsg_depth_image;
-    vsg::ImageInfoList camera_info;
-    vsg::ImageInfoList depth_info;
+    // VSG Data 对象：封装像素数据的容器，可直接绑定到 vsg::ImageInfo 用于 shader 采样
+    vsg::ref_ptr<vsg::Data> vsg_color_image;  // 颜色附件数据
+    vsg::ref_ptr<vsg::Data> vsg_depth_image;  // 深度附件数据
+    vsg::ImageInfoList camera_info;  // 相机图像的 ImageInfo（sampler + image），供 shader 采样
+    vsg::ImageInfoList depth_info;   // 深度图的 ImageInfo
 
-    // CUDA-Vulkan interop深度图像
+    // ---- CUDA-Vulkan 互操作（Interop）----
+    // 用于在 CUDA 和 Vulkan 之间共享深度图，避免 CPU 端拷贝
+    // depth_interop_image：Vulkan Image，通过 external memory 扩展导出给 CUDA 使用
     vsg::ref_ptr<vsg::Image> depth_interop_image;
-    Cudaimage* depth_cuimage = nullptr; // interop的CUDA映射
+    Cudaimage* depth_cuimage = nullptr;  // CUDA 侧的映射句柄，CUDA kernel 直接读写该内存
 
-    // GPU copy 基础设施（interop → depth_info image）
-    vsg::ref_ptr<vsg::CommandPool> depth_copy_commandPool;
-    vsg::ref_ptr<vsg::Fence> depth_copy_fence;
-    vsg::ref_ptr<vsg::Queue> depth_copy_queue;
+    // GPU 端拷贝管线：将 interop image 的内容拷贝到 depth_info 对应的 image
+    vsg::ref_ptr<vsg::CommandPool> depth_copy_commandPool; // 命令池，用于分配 copy 命令
+    vsg::ref_ptr<vsg::Fence> depth_copy_fence;             // 围栏，用于 CPU 同步等待拷贝完成
+    vsg::ref_ptr<vsg::Queue> depth_copy_queue;             // 执行拷贝的 GPU 队列
 
-    //every frame's real color and depth
-    unsigned char * color_pixels = nullptr;
-    unsigned short * depth_pixels = nullptr;
-    mergeShaderType shader_type;
+    // 每帧从 GPU 读回的像素数据（CPU 端缓冲区）
+    unsigned char * color_pixels = nullptr;   // 颜色像素（RGBA）
+    unsigned short * depth_pixels = nullptr;  // 深度像素（16-bit）
+    mergeShaderType shader_type;              // 合成 shader 类型（决定渲染管线路径）
 
-    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_4_BIT;//多重采样的倍数
+    VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_4_BIT; // 多重采样倍数（4x MSAA）
 
-    uint32_t frame_num = 0;
-    vsg::dmat4 pending_camera_matrix;
-    bool camera_dirty = false;
+    uint32_t frame_num = 0;                   // 帧计数器
+    vsg::dmat4 pending_camera_matrix;         // 待应用的相机矩阵（dirty 标记模式，延迟到 render() 统一更新）
+    bool camera_dirty = false;                // 相机是否需要更新
 
+    /**
+     * 创建 WindowTraits（VSG 窗口配置对象）
+     * WindowTraits 封装了 Vulkan 窗口的创建参数，包括：
+     * - swapchain 配置（图像用途、格式）
+     * - 深度缓冲格式和用途
+     * - 多重采样（MSAA）设置
+     * - 所需的 Vulkan 设备扩展（external memory/semaphore 用于 CUDA 互操作）
+     */
     vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(std::string windowTitle, int num,  vsg::ref_ptr<vsg::Options> options)
     {
         auto windowTraits = vsg::WindowTraits::create();
@@ -142,6 +185,7 @@ class vsgRendererServer
     }
 
 public:
+    // 设置渲染分辨率体系，render_scale 控制渲染倍率，encode_scale 控制编码输出倍率
     void setWidthAndHeight(int width, int height, double render_scale, double encode_scale){
         this->render_width = width * render_scale;
         this->render_height = height * render_scale;
@@ -152,6 +196,7 @@ public:
 
     }
 
+    // 设置相机内参（来自真实相机标定），用于虚实投影对齐
     void setKParameters(float fx, float fy, float cx, float cy){
         this->fx = fx;
         this->fy = fy;
@@ -159,6 +204,7 @@ public:
         this->cy = cy;
     }
 
+    // 初始化三套 shader 程序（shadow / line / point），从 shaders/ 目录加载 .vert/.frag 文件
     void setUpShader(){
         //-----------------------------------------设置shader------------------------------------//
         ConfigShader config_shader;
@@ -167,6 +213,15 @@ public:
         point_shader = config_shader.buildLineShader(vsg::findFile("shaders/point.vert", options->paths), vsg::findFile("shaders/point.frag", options->paths));
     }
 
+    /**
+     * 预处理所有 HDR 环境贴图，生成 IBL 所需的 cubemap 资源
+     * 每个 HDR 贴图需要生成三种 cubemap：
+     * - Envmap：原始环境贴图 cubemap
+     * - IrradianceCube：漫反射辐照度 cubemap（低频，用于间接光照）
+     * - PrefilteredEnvmapCube：预滤波镜面反射 cubemap（多级 mip 对应不同粗糙度）
+     *
+     * 使用 viewer_IBL（专用 Viewer）驱动预计算渲染循环
+     */
     void preprocessEnvMap(){
         std::string envmapFilepath = vsg::findFile("textures/" + std::to_string(hdr_image_num) + ".hdr", options->paths);
         IBL::generateEnvmap(vsgContext, envmapFilepath, -1);
@@ -211,6 +266,7 @@ public:
                                shader_type == CAMERA_DEPTH ? vsg::ref_ptr<vsg::Data>(pc_data) : vsg::ref_ptr<vsg::Data>{});
     }
 
+    // 运行时切换 HDR 环境贴图：更新 HDR 纹理并重建天空盒节点
     void updateEnvMap(){
         auto command = vsg::Commands::create();
         IBL::updateHDRTextures(command, hdr_image_num);
@@ -231,11 +287,13 @@ public:
                                shader_type == CAMERA_DEPTH ? vsg::ref_ptr<vsg::Data>(pc_data) : vsg::ref_ptr<vsg::Data>{});
     }
 
+    // 切换当前激活的光源组为当前 HDR 对应的光源配置
     void update_directional_lights(){
         curLightGroup->children.clear();
         curLightGroup->addChild(lightGroups[hdr_image_num]);
     }
 
+    // 从 LightInfo.json 读取 HDR 最大数量配置
     void loadHDRConfig(){
         std::string json_path = vsg::findFile("json/LightInfo.json", options->paths);
         std::ifstream json_file(json_path);
@@ -253,6 +311,7 @@ public:
         }
     }
 
+    // 从 LightInfo.json 解析所有 HDR 的方向光源配置（方向、强度、面积），初始化 lightGroups
     void init_directional_lights(){
         std::string json_path = vsg::findFile("json/LightInfo.json", options->paths);
         std::ifstream json_file(json_path);
@@ -292,6 +351,7 @@ public:
         }
     }
 
+    // 工具方法：将 vsg::Data 包装为 ImageInfoList，供 shader 采样使用
     vsg::ImageInfoList createImageInfo(vsg::ref_ptr<vsg::Data> in_data){
         auto sampler = vsg::Sampler::create();
         sampler->magFilter = VK_FILTER_NEAREST;
@@ -301,26 +361,32 @@ public:
         vsg::ImageInfoList imageInfosListIBL = {imageInfosIBL};
         return imageInfosListIBL;
     }
+    // VSG 资源查找选项，控制模型/纹理/shader 的搜索路径
     vsg::ref_ptr<vsg::Options> options = vsg::Options::create();
 
+    // 初始化渲染器：加载模型、构建场景图 CommandGraph、编译 Vulkan 管线（最重的初始化步骤）
     void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform);
     
+    // 设置真实世界图像数据指针（来自 AR 相机），用于虚实融合渲染
     void setRealColorAndImage(unsigned char * real_color, unsigned short * real_depth){
         color_pixels = real_color;
         depth_pixels = real_depth;
     }
 
+    // 通过 eye/centre/up 三元组更新相机（lookAt 方式），标记 dirty 延迟到 render() 统一更新
     void updateCamera(vsg::dvec3 centre, vsg::dvec3 eye, vsg::dvec3 up){
         auto lookat = vsg::LookAt::create(eye, centre, up);
         pending_camera_matrix = lookat->transform();
         camera_dirty = true;
     }
 
+    // 通过 4x4 view 矩阵直接更新相机
     void updateCamera(vsg::dmat4 view_matrix){
         pending_camera_matrix = view_matrix;
         camera_dirty = true;
     }
     
+    // 更新指定实例的世界变换矩阵（支持 model 级别和 instance 级别），并触发阴影重绘
     void updateObjectPose(std::string instance_name, vsg::dmat4 model_matrix){
         auto& matrix_index = CADMesh::id_to_matrix_index_map[instance_name];
 
@@ -343,6 +409,10 @@ public:
         cvds_pose->draw_shadow_pose = true;
     }
 
+    /**
+     * 运行时更新环境光照：重新生成天空盒、切换光源、标记 IBL 纹理 dirty
+     * viewer->compile() 会重新编译受影响的 CommandGraph，确保新纹理绑定生效
+     */
     void updateEnvLighting(){
         updateEnvMap();
         update_directional_lights();
@@ -352,8 +422,10 @@ public:
         cvds_light->draw_shadow_light = true;
     }
 
+    // 执行一帧渲染：处理相机更新、录制 CommandGraph、提交到 GPU、读回像素
     bool render();
 
+    // 动态更新线框数据（顶点+索引），用 -10000.f 填充未使用区域使其不可见
     void addLineData(float* vertices_pointer, size_t vertices_size, uint32_t* indices_pointer, size_t indices_size){
         auto output_vertices = static_cast<float*>(CADMesh::dynamic_lines.vertices->dataPointer(0));
         std::fill_n(output_vertices, CADMesh::dynamic_lines.vertices->size() * 3, -10000.f);
@@ -366,6 +438,7 @@ public:
         CADMesh::dynamic_lines.indices->dirty();
     }
 
+    // 动态更新点云数据（顶点+索引），与 addLineData 逻辑相同
     void addPointData(float* vertices_pointer, size_t vertices_size, uint32_t* indices_pointer, size_t indices_size){
         auto output_vertices = static_cast<float*>(CADMesh::dynamic_points.vertices->dataPointer(0));
         std::fill_n(output_vertices, CADMesh::dynamic_points.vertices->size() * 3, -10000.f);
@@ -378,6 +451,7 @@ public:
         CADMesh::dynamic_points.indices->dirty();
     }
 
+    // 动态更新文本标注数据（文字内容 + 布局属性如位置、颜色、billboard 等）
     void addTextData(std::vector<std::string>& texts, std::vector<vsg::ref_ptr<vsg::StandardLayout>>& dynamic_text_layouts){
         for(int i = 0; i < std::min(CADMesh::dynamic_texts.text.size(), texts.size()); i ++){
             CADMesh::dynamic_texts.dynamic_text_labels[i]->value() = texts[i];
@@ -390,6 +464,7 @@ public:
             CADMesh::dynamic_texts.text[i]->setup(0, options);
         }
     }
+    // 设置指定实例的高亮/选中状态（通过 highlight_buffer 传入 shader）
     void repaint(std::string instance_name, uint32_t state){
         auto& matrix_index = CADMesh::id_to_matrix_index_map[instance_name];
 
@@ -401,15 +476,17 @@ public:
         }
     }
 
+    // 从 GPU 读回当前帧的颜色图像到 CPU 缓冲区
     void getWindowImage(uint8_t* color){
         final_screenshotHandler->screenshot_cpuimage(window, color);
     }
 
+    // 将当前帧编码为压缩格式（如 JPEG/H.264），用于网络传输
     void getEncodeImage(std::vector<std::vector<uint8_t>>& vPacket){
         final_screenshotHandler->encodeImage(window, vPacket);
     }
 
-    // GPU端拷贝: interop image → depth_info image (vkCmdCopyImage)
+    // GPU 端拷贝：将 CUDA interop 写入的深度图拷贝到 depth_info 对应的 Vulkan image（vkCmdCopyImage）
     void copyInteropToDepthImage();
 };
 

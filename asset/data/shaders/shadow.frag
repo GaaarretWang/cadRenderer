@@ -1,9 +1,15 @@
+// ============================================================
+// shadow.frag — 阴影贴图(Shadow Map) 片段着色器
+// 渲染管线中的作用：作为阴影 pass 的片段着色器，将深度写入颜色附件。
+// 本文件中的 PBR 材质贴图声明在此 pass 中不被使用（由引擎统一布局绑定）。
+// ============================================================
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 #pragma import_defines (VSG_DIFFUSE_MAP, VSG_GREYSCALE_DIFFUSE_MAP, VSG_EMISSIVE_MAP, VSG_LIGHTMAP_MAP, VSG_NORMAL_MAP, VSG_METALLROUGHNESS_MAP, VSG_SPECULAR_MAP, VSG_TWO_SIDED_LIGHTING, VSG_WORKFLOW_SPECGLOSS, SHADOWMAP_DEBUG)
 
-#define VIEW_DESCRIPTOR_SET 1
-#define MATERIAL_DESCRIPTOR_SET 2
+// 描述符集编号定义
+#define VIEW_DESCRIPTOR_SET 1        // 视图相关数据（灯光、阴影贴图等）
+#define MATERIAL_DESCRIPTOR_SET 2    // 材质相关数据（纹理、PBR 参数等）
 
 const float PI = 3.14159265359;
 const float RECIPROCAL_PI = 0.31830988618;
@@ -11,85 +17,95 @@ const float RECIPROCAL_PI2 = 0.15915494;
 const float EPSILON = 1e-6;
 const float c_MinRoughness = 0.04;
 
+// --- 材质贴图声明（binding 0~5，set = MATERIAL_DESCRIPTOR_SET）---
+// 以下贴图在此 shadow pass 中不会被实际采样，声明是为了保持描述符集布局一致
+
 #ifdef VSG_DIFFUSE_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2D diffuseMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2D diffuseMap;       // 漫反射贴图
 #endif
 
 #ifdef VSG_METALLROUGHNESS_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D mrMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D mrMap;            // 金属粗糙度贴图
 #endif
 
 #ifdef VSG_NORMAL_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D normalMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D normalMap;        // 法线贴图
 #endif
 
 #ifdef VSG_LIGHTMAP_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D aoMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D aoMap;            // 环境光遮蔽贴图
 #endif
 
 #ifdef VSG_EMISSIVE_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D emissiveMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D emissiveMap;      // 自发光贴图
 #endif
 
 #ifdef VSG_SPECULAR_MAP
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap;      // 高光贴图
 #endif
 
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform sampler2D cameraImage;
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
+// 虚实融合相关纹理
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform sampler2D cameraImage;  // 实际相机画面纹理
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;   // 相机深度图
 
+// 常量缓冲区（SSBO）：运行时可变的渲染参数
 layout(std430, set = MATERIAL_DESCRIPTOR_SET, binding = 12) buffer ConstantBuffer {
-    float z_far;
-    int shader_type;
-    int width;
-    int height;
+    float z_far;        // 相机远裁面距离
+    int shader_type;    // 着色器类型（0=纯虚拟, 非0=虚实融合）
+    int width;          // 视口宽度（像素）
+    int height;         // 视口高度（像素）
 }constantBuffer;
 
+// 阴影输入附件（MSAA 多重采样版本）：读取上一帧的阴影值用于时域累积
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 13) uniform sampler2DMS shadowInputAttachment;
 
-// ViewDependentState
+// ViewDependentState — 视图相关状态
+// 灯光数据 uniform buffer：values[0] = (环境光数, 平行光数, 点光源数, 聚光灯数)
 layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
 {
     vec4 values[2048];
 } lightData;
 
+// 阴影贴图：sampler2DArrayShadow 支持 PCF 硬件比较采样，sampler2DArray 用于原始深度采样
 layout(set = VIEW_DESCRIPTOR_SET, binding = 2) uniform sampler2DArrayShadow shadowMaps;
 layout(set = VIEW_DESCRIPTOR_SET, binding = 3) uniform sampler2DArray shadowMapsSampler;
 
-layout(location = 0) in vec3 eyePos;
-layout(location = 1) in vec3 normalDir;
-layout(location = 2) in vec4 vertexColor;
-layout(location = 3) in vec2 texCoord0;
-layout(location = 4) in vec3 worldViewDir;
-layout(location = 5) in vec3 viewDir;
-layout(location = 6) in float InstanceID;
-layout(location = 8) in vec3 lastWorldPos;
+// 从顶点着色器接收的插值变量
+layout(location = 0) in vec3 eyePos;        // 眼空间位置
+layout(location = 1) in vec3 normalDir;      // 眼空间法线
+layout(location = 2) in vec4 vertexColor;    // 顶点颜色
+layout(location = 3) in vec2 texCoord0;      // 纹理坐标
+layout(location = 4) in vec3 worldViewDir;   // 世界空间位置（用于 shadow map 变换）
+layout(location = 5) in vec3 viewDir;        // 视线方向
+layout(location = 6) in float InstanceID;    // 实例 ID（时域匹配用）
+layout(location = 8) in vec3 lastWorldPos;   // 上一帧世界空间位置（时域重投影用）
 
-layout(location = 0) out vec4 outColor;
-layout(location = 3) out vec4 outShadow;
+// 输出
+layout(location = 0) out vec4 outColor;      // 最终颜色输出（乘以阴影后的相机图像）
+layout(location = 3) out vec4 outShadow;     // 阴影输出（r=阴影值, g=实例ID, b=深度）
 
+// Push Constants（推送常量）：与顶点着色器共享的高频参数
 layout(push_constant) uniform PushConstants {
-    mat4 projection;
-    mat4 view;
-    mat4 last_view;
-    vec3 camera_pos;
-    float softness;
-    float baseBrightness;
-    float ssao_radius;
-    float exposure;
-    float softness_falloff;
-    float shadow_bias;
-    int ssao_kernel_size;
-    int denoise_size;
-    int blocker_sample_num;
-    int pcf_sample_num;
-    int shadow_type;
-    uint frame_num;
+    mat4 projection;        // 投影矩阵
+    mat4 view;              // 当前帧视图矩阵
+    mat4 last_view;         // 上一帧视图矩阵
+    vec3 camera_pos;        // 相机世界坐标
+    float softness;         // 阴影柔和度
+    float baseBrightness;   // 基础亮度
+    float ssao_radius;      // SSAO 采样半径
+    float exposure;         // 曝光度
+    float softness_falloff; // 阴影柔和度衰减
+    float shadow_bias;      // 阴影偏移（消除 Shadow Acne）
+    int ssao_kernel_size;   // SSAO 核大小
+    int denoise_size;       // 降噪大小
+    int blocker_sample_num; // PCSS 遮挡搜索采样数
+    int pcf_sample_num;     // PCF 采样数
+    int shadow_type;        // 阴影算法（0=PCF, 1=PCSS Area）
+    uint frame_num;         // 帧编号（时域抖动用）
 } pc;
 
-// Encapsulate the various inputs used by the various functions in the shading equation
-// We store values in this struct to simplify the integration of alternative implementations
-// of the shading terms, outlined in the Readme.MD Appendix.
+// PBR 光照参数结构体（Physically Based Rendering）
+// 封装了着色方程所需的中间变量，基于 Disney BRDF 模型
 struct PBRInfo
 {
     float NdotL;                  // cos angle between normal and light direction
@@ -108,27 +124,34 @@ struct PBRInfo
 };
 
 
+/// --- 常量和随机数工具 ---
 #define NUM_RINGS 10
 
-#define EPS 1e-2 
+#define EPS 1e-2
 #define PI 3.141592653589793
 #define PI2 6.283185307179586
 
-highp float rand_1to1(highp float x ) {         
+// 一维哈希随机数：将一个 float 映射到 [0,1) 的伪随机值
+highp float rand_1to1(highp float x ) {
   return fract(sin(x)*10000.0);
 }
 
-highp float rand_2to1(vec2 uv ) {       
+// 二维哈希随机数：将 vec2 映射到 [0,1) 的伪随机值
+highp float rand_2to1(vec2 uv ) {
 	const highp float a = 12.9898, b = 78.233, c = 43758.5453;
 	highp float dt = dot( uv.xy, vec2( a,b ) ), sn = mod( dt, PI );
 	return fract(sin(sn) * c);
 }
 
-float unpack(vec4 rgbaDepth) {       
+// RGBA 深度解包：将 4 字节 RGBA 值还原为单个深度浮点数
+// 使用位移编码：R=最高位, A=最低位
+float unpack(vec4 rgbaDepth) {
     const vec4 bitShift = vec4(1.0, 1.0/256.0, 1.0/(256.0*256.0), 1.0/(256.0*256.0*256.0));
     return dot(rgbaDepth, bitShift);
 }
 
+// Poisson Disk 采样点（64个预计算的单位圆盘内的均匀分布点）
+// 用于 PCF/PCSS 的随机采样，避免规则采样导致的条纹伪影
 vec2 poissonDisk[64] = {
 	vec2(0.0617981, 0.07294159),
 	vec2(0.6470215, 0.7474022),
@@ -230,11 +253,16 @@ vec2 poissonDisk[64] = {
 //     }
 // }
 
+// 2D 旋转变换：使用预计算的 cos/sin 值（rotationTrig = vec2(cos, sin)）
+// 每帧使用不同随机旋转角度，进一步消除采样伪影
 vec2 Rotate(vec2 pos, vec2 rotationTrig)
 {
 	return vec2(pos.x * rotationTrig.x - pos.y * rotationTrig.y, pos.y * rotationTrig.x + pos.x * rotationTrig.y);
 }
 
+// PCF（Percentage Closer Filtering，百分比渐近过滤）
+// 原理：在阴影贴图上多次采样并取平均值，使阴影边缘产生柔和过渡
+// area 参数控制光源面积，影响采样范围大小
 float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float area, float random) {
     float rotationAngle = random * 3.1415926;
 	vec2 rotationTrig = vec2(cos(rotationAngle), sin(rotationAngle));
@@ -258,6 +286,9 @@ float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float 
     return visibility / float(pc.pcf_sample_num);
 }
 
+// PCSS 第一步：遮挡物搜索（Blocker Search）
+// 在阴影贴图中搜索遮挡物的平均深度，返回 (平均深度, 遮挡物数量)
+// 没有遮挡物时返回 vec2(1, 0)，后续可以直接跳过阴影计算
 vec2 findBlocker(sampler2DArrayShadow shadowMap,  vec4 coords, int shadowMapIndex, float search_size, vec2 rotationTrig) {
     float blockerNum = 0;
     float block_depth = 0.;
@@ -273,6 +304,9 @@ vec2 findBlocker(sampler2DArrayShadow shadowMap,  vec4 coords, int shadowMapInde
     return vec2(1 - block_depth / blockerNum, blockerNum);
 }
 
+// PCSS（Percentage Closer Soft Shadows，百分比渐近柔和阴影）
+// 三步法：1) Blocker Search -> 2) Penumbra Estimation -> 3) PCF Filtering
+// 根据遮挡物和接收物之间的距离动态调整阴影柔和度
 float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float area, float random){
     float d_Receiver = 1 - coords.z;
 	float rotationAngle = random * 3.1415926;
@@ -308,6 +342,8 @@ float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float
 
     return visibility / float(pc.pcf_sample_num);
 }
+// Fibonacci 螺旋采样方向数组（64 个单位方向向量）
+// 用于面积光源阴影的高级 PCSS 实现，提供比 Poisson Disk 更均匀的采样分布
 vec2 fibonacciSpiralDirection[64] =
 {
     vec2 (1, 0),
@@ -375,6 +411,8 @@ vec2 fibonacciSpiralDirection[64] =
     vec2 (-0.4149890815356195, -0.9098263912451776),
     vec2 (0.9205789302157817, 0.3905565685566777)
 };
+// 聚集型 Fibonacci 螺旋采样：中心密集，边缘稀疏
+// 用于 Blocker Search，靠近阴影接触点的区域需要更密集的采样
 vec2 ComputeFibonacciSpiralDiskSampleClumped(const in int sampleIndex, const in float sampleCountInverse, out float sampleDistNorm)
 {
     // Samples not biased away from the center - sample 0 at (0, 0) is important for blocker search near shadow contact points.
@@ -386,7 +424,8 @@ vec2 ComputeFibonacciSpiralDiskSampleClumped(const in int sampleIndex, const in 
     return fibonacciSpiralDirection[sampleIndex] * sampleDistNorm;
 }
 
-// Samples uniformly spread across the disk kernel
+// 均匀型 Fibonacci 螺旋采样：在整个圆盘上均匀分布
+// 用于 PCSS 最终的滤波阶段（Filter Phase）
 vec2 ComputeFibonacciSpiralDiskSampleUniform(const in int sampleIndex, const in float sampleCountInverse, const in float sampleBias, out float sampleDistNorm)
 {
     // Samples biased away from the center, so that sample 0 doesn't fall at (0, 0), or it will not be affected by sample jitter and create a visible edge.
@@ -398,6 +437,8 @@ vec2 ComputeFibonacciSpiralDiskSampleUniform(const in int sampleIndex, const in 
     return fibonacciSpiralDirection[sampleIndex] * sampleDistNorm;
 }
 
+// 计算面积光源采样核的缩放和偏移参数
+// 将锥形采样范围投影到阴影贴图的 2D 空间
 void FilterScaleOffset(vec3 coord, float maxSampleZDistance, out vec2 filterScalePos, out vec2 filterScaleNeg, out vec2 filterOffset)
 {
     float d = maxSampleZDistance / coord.z;
@@ -408,6 +449,8 @@ void FilterScaleOffset(vec3 coord, float maxSampleZDistance, out vec2 filterScal
     filterOffset = (target - coord.xy) * d;
 }
 
+// 面积光源的遮挡物搜索：使用 Fibonacci 螺旋采样查找最近的遮挡物
+// 采样点沿锥形向光源方向偏移（z offset），只考虑锥体内的遮挡物
 bool BlockerSearch_Area(inout float closestBlocker, float maxSampleZDistance, vec3 posTCShadowmap, vec2 minCoord, vec2 maxCoord, vec2 sampleJitter, int sampleCount, int shadowMapIndex)
 {
     #define NEARPLANE 1
@@ -443,6 +486,7 @@ bool BlockerSearch_Area(inout float closestBlocker, float maxSampleZDistance, ve
     return NEARPLANE > closestBlocker;
 }
 
+// 面积光源的 PCSS 滤波阶段：使用均匀 Fibonacci 螺旋采样计算最终可见度
 float PCSS_Area(vec3 posTCShadowmap, float maxSampleZDistance, vec2 minCoord, vec2 maxCoord, vec2 sampleJitter, int sampleCount, int shadowMapIndex)
 {
     float biasFactor = 1;
@@ -472,7 +516,9 @@ float PCSS_Area(vec3 posTCShadowmap, float maxSampleZDistance, vec2 minCoord, ve
     return sum / sampleCount;
 }
 
-//From  Next Generation Post Processing in Call of Duty: Advanced Warfare [Jimenez 2014]
+// 交错梯度噪声（Interleaved Gradient Noise）
+// 来自 Call of Duty: Advanced Warfare 的后处理技术 [Jimenez 2014]
+// 为每帧生成不同的随机旋转角度，实现时域抗锯齿（TAA）效果
 // http://advances.realtimerendering.com/s2014/index.html
 float InterleavedGradientNoise(vec2 pixCoord, uint frameCount)
 {
@@ -482,17 +528,22 @@ float InterleavedGradientNoise(vec2 pixCoord, uint frameCount)
     return fract(magic.z * fract(dot(pixCoord, magic.xy)));
 }
 
+// 半影大小计算（点光源版本）：遮挡物越近，半影越小
 float PenumbraSizePunctual(float Reciever, float Blocker)
 {
     return abs((Reciever - Blocker) / Blocker);
 }
 
+// 半影大小计算（平行光版本）：使用固定缩放因子
 float PenumbraSizeDirectional(float Reciever, float Blocker, float rangeScale)
 {
     return abs(Reciever - Blocker) * rangeScale;
 }
 
 // TODO: This PCSS variant works for other types of lights as well, but is not well tested there, so we're introducing it only for area lights for now.
+// 面积光源 PCSS 主入口函数
+// 三步流程：1) Blocker Search -> 2) Penumbra Estimation -> 3) PCSS Filter
+// 使用金字塔形采样锥（而非平面圆盘），只有锥体内的遮挡物才影响阴影
 float SampleShadow_PCSS_Area(vec3 posTCShadowmap, vec2 posSS, float shadowSoftness, float minFilterRadius, int blockerSampleCount, int filterSampleCount, float depthBias, int shadowMapIndex, float area)
 {
     posTCShadowmap.z += depthBias;
@@ -534,6 +585,8 @@ float SampleShadow_PCSS_Area(vec3 posTCShadowmap, vec2 posSS, float shadowSoftne
     bool withinShadowmap = posTCShadowmap.x > 0 && posTCShadowmap.y > 0 && posTCShadowmap.x < 1 && posTCShadowmap.y < 1;
     return blockerFound && withinShadowmap ? PCSS_Area(posTCShadowmap, maxSampleZDistance, minCoord, maxCoord, sampleJitter, filterSampleCount, shadowMapIndex) : 1.0f;
 }
+// 值噪声函数：基于帧号生成每帧不同的随机值
+// 用于驱动 PCF/PCSS 的采样旋转角度，实现时域抖动消除固定图案
 float ValueNoise(vec3 pos)
 {
 	vec3 Noise_skew = pos + 0.2127 + pos.x * pos.y * pos.z * 0.3713;
@@ -543,7 +596,10 @@ float ValueNoise(vec3 pos)
 
 void main()
 {
+    // 计算当前片段的屏幕 UV 坐标（归一化 [0,1]）
     vec2 screen_uv = vec2(gl_FragCoord.x / constantBuffer.width, gl_FragCoord.y / constantBuffer.height);
+
+    // 虚实融合深度检测：如果相机画面中有真实物体在虚拟物体前方，直接显示相机画面
     if(constantBuffer.shader_type != 0){
         float cadDepth = -eyePos.z / constantBuffer.z_far;
         float cameraDepth = texture(depthImage, screen_uv).r;
@@ -553,22 +609,26 @@ void main()
         }
     }
 
+    // --- 光照和阴影计算 ---
     float brightnessCutoff = 0.001;
 
+    // 从 lightData 的第一个 vec4 解析各类灯光数量
     vec4 lightNums = lightData.values[0];
-    int numAmbientLights = int(lightNums[0]);
-    int numDirectionalLights = int(lightNums[1]);
-    int numPointLights = int(lightNums[2]);
-    int numSpotLights = int(lightNums[3]);
-    int index = 1;
+    int numAmbientLights = int(lightNums[0]);       // 环境光数量
+    int numDirectionalLights = int(lightNums[1]);   // 平行光数量
+    int numPointLights = int(lightNums[2]);         // 点光源数量
+    int numSpotLights = int(lightNums[3]);          // 聚光灯数量
+    int index = 1;  // 灯光数据读取索引（跳过第一个 vec4）
 
-    float scene_brightness = 1.0f;
-    int shadowMapIndex = 0;
+    float scene_brightness = 1.0f;      // 场景亮度（1.0 = 完全照亮）
+    int shadowMapIndex = 0;             // 阴影贴图数组层索引
+
+    // 处理平行光及其阴影
     if (numDirectionalLights>0)
     {
-        float totalBrigtness = pc.baseBrightness;
-        float totalRealBrightness = pc.baseBrightness;
-        // directional lights
+        float totalBrigtness = pc.baseBrightness;       // 所有灯光总亮度
+        float totalRealBrightness = pc.baseBrightness;  // 考虑阴影后的实际亮度
+        // 遍历所有平行光
         for(int i = 0; i<numDirectionalLights; ++i)
         {
             vec4 lightColor = lightData.values[index++];
@@ -591,16 +651,21 @@ void main()
 
                 vec4 sm_tc = (sm_matrix) * vec4(worldViewDir, 1.0);
 
+                // 判断当前片段是否在该阴影贴图的覆盖范围内（UV 在 [0,1] 内）
                 if (sm_tc.x >= 0.0 && sm_tc.x <= 1.0 && sm_tc.y >= 0.0 && sm_tc.y <= 1.0 && sm_tc.z >= 0.0 /* && sm_tc.z <= 1.0*/)
                 {
                     //visibility = 1 - texture(shadowMaps, vec4(sm_tc.st, shadowMapIndex, sm_tc.z)).r; //����ǰƬ�ε�������������Ӱ��ͼ�е����ֵ���бȽ� ����Ӱ0 ������Ӱ1
 
                     matched = true;
                     // poissonDiskSamples(sm_tc.xy); 
+                    // 生成随机值用于采样旋转
                     float random = ValueNoise(sm_tc.xyz);
+                    // 根据 shadow_type 选择阴影算法
                     if(pc.shadow_type == 0){
+                        // PCF：固定采样范围的柔和阴影
                         visibility = PCF(shadowMaps,sm_tc,shadowMapIndex,area, random);
                     }else if(pc.shadow_type == 1){
+                        // PCSS Area：根据遮挡物距离动态调整阴影柔和度
                         // visibility = 1 - PCSS(sm_tc,shadowMapIndex, area, random);
                         visibility = SampleShadow_PCSS_Area(sm_tc.xyz, vec2(gl_FragCoord.xy), pc.softness, pc.softness_falloff, pc.blocker_sample_num, pc.pcf_sample_num, pc.shadow_bias, shadowMapIndex, area);
                     }
@@ -624,39 +689,52 @@ void main()
         }
         scene_brightness = totalRealBrightness / totalBrigtness;
     }
+    // --- 时域阴影累积（Temporal Shadow Accumulation）---
+    // 将上一帧的阴影值重投影到当前帧，混合新旧阴影值以减少闪烁
+
+    // 将上一帧世界空间位置变换到 NDC（归一化设备坐标）
     vec4 last_ndc = pc.projection * pc.last_view * vec4(lastWorldPos, 1);
+    // NDC -> 屏幕像素坐标
     ivec2 last_coord = ivec2(((last_ndc.x / last_ndc.w) / 2 + 0.5) * constantBuffer.width, ((last_ndc.y / last_ndc.w) / 2 + 0.5) * constantBuffer.height);
-    float old_shadow = 1;
-    float oldInstanceID = -1;
+    float old_shadow = 1;            // 上一帧的阴影值
+    float oldInstanceID = -1;        // 上一帧的实例 ID
     if(last_coord.x >= 0 && last_coord.y >= 0 && last_coord.x < constantBuffer.width && last_coord.y < constantBuffer.height){
+        // 从上一帧的阴影附件中读取历史数据
         vec2 shadowdataold_shadow = texelFetch(shadowInputAttachment, last_coord, gl_SampleID).rg;
-        oldInstanceID = shadowdataold_shadow.y;
-        old_shadow = shadowdataold_shadow.x;
+        oldInstanceID = shadowdataold_shadow.y;   // g 通道存的是实例 ID
+        old_shadow = shadowdataold_shadow.x;       // r 通道存的是阴影值
     }
 
     float current_shadow_value = scene_brightness; // 暂时保存当前帧的阴影值
+
+    // 只在同一实例且阴影值相近时才进行时域混合（避免鬼影）
     if (abs(oldInstanceID - InstanceID) < 0.1 && abs(old_shadow - scene_brightness) < 0.1)
     {
         float historyLuma = old_shadow;
         float currentLuma = current_shadow_value;
 
-        float diff = abs(currentLuma - historyLuma) / max(max(currentLuma, historyLuma), 0.2); // 计算相对差异
+        // 计算新旧帧的相对差异
+        float diff = abs(currentLuma - historyLuma) / max(max(currentLuma, historyLuma), 0.2);
 
+        // 差异越小，历史帧权重越大（平滑效果越强）
         float weight_sq = (1.0 - diff);
         weight_sq = weight_sq * weight_sq;
-        
-        const float feedbackMin = 0.96; // 最小反馈 (当前帧差异大时)
-        const float feedbackMax = 0.91; // 最大反馈 (当前帧差异小时)
+
+        const float feedbackMin = 0.96; // 差异大时：最小历史权重（更多依赖当前帧）
+        const float feedbackMax = 0.91; // 差异小时：最大历史权重（更多平滑）
 
         float feedback = (1.0 - weight_sq) * feedbackMin + weight_sq * feedbackMax;
 
+        // 混合当前帧和历史帧的阴影值
         scene_brightness = mix(current_shadow_value, old_shadow, feedback);
 
-        // 钳制最终结果
+        // 钳制最终结果到 [0, 1]
         scene_brightness = clamp(scene_brightness, 0.0, 1.0);
     }
 
+    // 最终输出：相机画面颜色 × 阴影亮度因子
     outColor.rgb = texture(cameraImage, screen_uv).rgb * scene_brightness;
     outColor.a = 1;
+    // 阴影输出：供下一帧时域累积使用（r=阴影值, g=实例ID, b=深度）
     outShadow = vec4(scene_brightness, InstanceID, gl_FragCoord.z, 1);
 }

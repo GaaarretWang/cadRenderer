@@ -1,7 +1,26 @@
+// ==========================================================================
+// computevertex.comp — Pass2: Visible Instance Data Packing（可见实例数据打包）
+// ==========================================================================
+// 这是剔除流程的第二阶段。在 computevertex1_seat.comp 完成深度遮挡剔除后，
+// 本 shader 负责将 Pass1 标记为可见的实例（data[].z == 1）打包到输出缓冲中。
+// 每个线程检查一个实例：若该实例在 Pass1 中通过了深度遮挡测试，
+// 则计算其最终模型矩阵 = 全局模型矩阵 * 原型矩阵，
+// 并将完整的 InstanceData（含当前帧和上一帧变换矩阵、高亮信息）写入输出数组。
+//
+// Work group size: local_size_x = 1024（每个 work group 1024 个线程）
+// Dispatch pattern: 按实例总数 dispatch，每个线程处理 1 个实例
+// ==========================================================================
+
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 precision highp float;
 #extension GL_EXT_scalar_block_layout : enable
+
+// ---- Storage Buffer 绑定说明 ----
+
+// binding=0: 输出间接绘制参数（Write）
+// 经过剔除后存活的实例数量写入 instanceCount 字段
+// Vulkan 的 vkCmdDrawIndirect 会读取这个缓冲来发起绘制
 layout(set = 0, binding = 0) buffer OutIndirect {
   	uint indexCount;
   	uint instanceCount;
@@ -10,6 +29,8 @@ layout(set = 0, binding = 0) buffer OutIndirect {
   	uint firstInstance;
 }outIndirect;
 
+// binding=1: 输入间接绘制参数（Read）
+// instanceCount 字段表示当前待剔除的实例总数
 layout(set = 0, binding = 1) buffer InIndirect {
   	uint indexCount;
   	uint instanceCount;
@@ -18,59 +39,81 @@ layout(set = 0, binding = 1) buffer InIndirect {
   	uint firstInstance;
 }inIndirect;
 
+// MatrixData: 原型矩阵（protoMatrix），即每个实例的局部变换矩阵
 struct MatrixData {
     mat4 protoMatrix;
 };
 
+// InstanceData: 输出给顶点着色器（vertex shader）的完整实例数据
+//   - modelMatrix: 最终模型矩阵 = 全局模型矩阵 * 原型矩阵
+//   - lastModelMatrix: 上一帧的模型矩阵（用于运动模糊 / TAA）
+//   - highlight[10]: 高亮颜色数组（支持最多 10 种高亮色）
 struct InstanceData {
     mat4 modelMatrix;
     mat4 lastModelMatrix;
     vec4 highlight[10];
 };
 
+// binding=2: 每个实例的原型矩阵（Read）
+// protoMatrix 将原型几何体变换到实例的局部空间
 layout(set = 0, binding = 2) buffer InIndirectMatrix {
     MatrixData instanceModelMatrix[];
 }inIndirectMatrix;
 
+// binding=3: 高亮标记数据（Read/Write）
+// data[].x = 高亮颜色索引, data[].y = 是否在最终可见列表中（本 shader 写入）, data[].z = Pass1可见标记, data[].w = 全局模型矩阵索引
 layout(set = 0, binding = 3) buffer InHighlightData {
     uvec4 data[];
 }inHighlightData;
 
+// binding=4: 输出实例数据（Write）
+// 存储通过剔除的实例的完整 InstanceData，供 vertex shader 读取
 layout(set = 0, binding = 4) buffer OutIndirectMatrix {
     InstanceData instanceModelMatrix[];
 }outIndirectMatrix;
 
+// binding=5: 相机视锥体 6 个裁剪平面（本 shader 未使用，仅保留绑定）
 layout(set = 0, binding = 5) buffer CameraPlaneInfo{
 	vec4 planes[6];
 }camera_plane;
 
+// binding=6: 轴对齐包围盒 AABB（本 shader 未使用，仅保留绑定）
 layout(std430, set = 0, binding = 6) buffer BBox{
     vec4 min;
     vec4 max;
     vec4 draw_state[];
 }bbox;
 
+// binding=7: 相机视图矩阵和 VP 矩阵（本 shader 未使用，仅保留绑定）
 layout(set = 0, binding = 7) buffer ViewMatrix{
 	mat4 view;
 	mat4 vp;
 }viewMatrix;
 
+// binding=8: 深度金字塔纹理（本 shader 未使用，仅保留绑定）
 layout(set=0, binding=8) uniform sampler2D mipPyramid;
 
+// binding=9: 全局模型矩阵数组（Read）
+// 每个模型对应一个世界变换矩阵，按 data[].w（模型索引）查表
 layout(set = 0, binding = 9) buffer GlobalModelMatrices {
     mat4 matrices[];
 } globalModelMatrices;
 
+// binding=10: 上一帧全局模型矩阵数组（Read）
+// 用于计算 lastModelMatrix，支持运动模糊 / TAA
 layout(set = 0, binding = 10) buffer LastGlobalModelMatrices {
     mat4 matrices[];
 } lastGlobalModelMatrices;
 
+// binding=11: 上一帧实例原型矩阵数组（Read）
+// 与 lastGlobalModelMatrices 配合生成 lastModelMatrix
 layout(set = 0, binding = 11) buffer LastInIndirectMatrix {
     MatrixData instanceModelMatrix[];
 } lastInIndirectMatrix;
 
-layout (local_size_x = 1024) in;
+layout (local_size_x = 1024) in; // 每个 work group 1024 个线程（适合大批量实例）
 
+// [未使用] 视锥剔除函数 — 仅保留绑定兼容性，实际剔除在 computevertex1 / computevertex1_seat 中完成
 // 判断包围盒是否完全在视锥外（被某个平面完全遮挡）
 bool isFullyCulled(vec4[8] points, vec4 plane) {
     for (int i = 0; i < 8; i++) {
@@ -83,34 +126,50 @@ bool isFullyCulled(vec4[8] points, vec4 plane) {
 
 void main() {
 	uint instanceIndex = gl_GlobalInvocationID.x;
-    
-    // 确保不超出实例数量范围
+
+    // 边界检查：确保线程索引不超出实例总数
     if (instanceIndex >= inIndirect.instanceCount) {
         return;
     }
 
-	// 初始化输出
+	// 第一个线程初始化输出实例计数为 0（清空上一帧的可见实例列表）
     if (gl_LocalInvocationID.x == 0 && gl_WorkGroupID.x == 0) {
         outIndirect.instanceCount = 0; // 默认不可见
     }
-    barrier(); // 确保初始化完成
-    memoryBarrierBuffer();	
+    barrier();         // 线程组同步：确保初始化完成
+    memoryBarrierBuffer();	// 缓冲内存屏障：确保其他 work group 也能看到初始化结果
+
+    // 重置本实例的"最终可见"标记为 0（将在下面根据 Pass1 结果重新设置）
     inHighlightData.data[instanceIndex].y = 0;
 
+    // 特殊绘制标记：若 indexCount 为特定值（135102），跳过所有实例（可能是调试/特殊模式）
     if(outIndirect.indexCount == 135102)
         return;
 
+    // ---- 核心逻辑：检查 Pass1 剔除结果，打包可见实例 ----
+    // data[].z == 1 表示该实例在 Pass1（computevertex1_seat）中通过了深度遮挡测试
     if(inHighlightData.data[instanceIndex].z == 1){
+        // 原子递增输出实例计数，获取本实例在输出数组中的写入位置
         uint prevCount = atomicAdd(outIndirect.instanceCount, 1);
+
+        // 读取原型矩阵
         MatrixData cur_data = inIndirectMatrix.instanceModelMatrix[instanceIndex];
         uint modelIndex = inHighlightData.data[instanceIndex].w;
+
+        // 构建完整的 InstanceData
         InstanceData out_data;
+        // 当前帧最终模型矩阵 = 全局模型矩阵 * 原型矩阵（两级变换）
         out_data.modelMatrix = globalModelMatrices.matrices[modelIndex] * cur_data.protoMatrix;
+        // 上一帧最终模型矩阵（用于运动模糊 / TAA 计算运动向量）
         out_data.lastModelMatrix = lastGlobalModelMatrices.matrices[modelIndex] * lastInIndirectMatrix.instanceModelMatrix[instanceIndex].protoMatrix;
+        // 复制高亮颜色索引
         out_data.highlight[0].x = inHighlightData.data[instanceIndex].x;
+
+        // 写入输出数组（紧凑存储，无空洞）
         outIndirectMatrix.instanceModelMatrix[prevCount] = out_data;
 
+        // 标记本实例为"最终可见"（y = 1），供其他系统（如 UI 高亮）读取
         inHighlightData.data[instanceIndex].y = 1;
     }
-    memoryBarrierBuffer();	
+    memoryBarrierBuffer();	// 最终内存屏障：确保所有写入对后续渲染 Pass 可见
 }

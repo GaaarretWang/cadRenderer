@@ -1,55 +1,68 @@
+// ============================================================
+// point.vert — 点渲染顶点着色器
+// 渲染管线中的作用：将点图元变换到裁剪空间，并设置 gl_PointSize 控制点的屏幕大小。
+// 支持置换贴图（Displacement Map）和 Billboard 模式。
+// 与 line.vert 结构类似，但增加了 gl_PointSize 输出。
+// ============================================================
+
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
 #pragma import_defines (VSG_INSTANCE_POSITIONS, VSG_BILLBOARD, VSG_DISPLACEMENT_MAP)
 
+// Push Constants（推送常量）
 layout(push_constant) uniform PushConstants {
-    mat4 projection;
-    mat4 view;
-    mat4 last_view;
-    vec3 camera_pos;
-    float softness;
-    float baseBrightness;
-    float ssao_radius;
-    float exposure;
-    float softness_falloff;
-    float shadow_bias;
-    int ssao_kernel_size;
-    int denoise_size;
-    int blocker_sample_num;
-    int pcf_sample_num;
-    int shadow_type;
-    uint frame_num;
+    mat4 projection;        // 投影矩阵
+    mat4 view;              // 当前帧视图矩阵
+    mat4 last_view;         // 上一帧视图矩阵
+    vec3 camera_pos;        // 相机世界坐标
+    float softness;         // 阴影柔和度
+    float baseBrightness;   // 基础亮度
+    float ssao_radius;      // SSAO 采样半径
+    float exposure;         // 曝光度
+    float softness_falloff; // 阴影柔和度衰减
+    float shadow_bias;      // 阴影偏移
+    int ssao_kernel_size;   // SSAO 核大小
+    int denoise_size;       // 降噪大小
+    int blocker_sample_num; // PCSS 遮挡搜索采样数
+    int pcf_sample_num;     // PCF 采样数
+    int shadow_type;        // 阴影算法类型
+    uint frame_num;         // 帧编号
 } pc;
 
+// 置换贴图：根据高度图偏移顶点位置
 #ifdef VSG_DISPLACEMENT_MAP
 layout(binding = 6) uniform sampler2D displacementMap;
 #endif
 
-layout(location = 0) in vec3 vsg_Vertex;
-layout(location = 1) in vec3 vsg_Normal;
-layout(location = 2) in vec2 vsg_TexCoord0;
-layout(location = 3) in vec4 vsg_Color;
+// 顶点属性输入
+layout(location = 0) in vec3 vsg_Vertex;       // 顶点位置（模型空间）
+layout(location = 1) in vec3 vsg_Normal;        // 顶点法线
+layout(location = 2) in vec2 vsg_TexCoord0;     // 纹理坐标
+layout(location = 3) in vec4 vsg_Color;         // 顶点颜色
 
-
+// 位置偏移输入（Billboard 或实例化模式，二选一）
 #ifdef VSG_BILLBOARD
-layout(location = 4) in vec4 vsg_position_scaleDistance;
+layout(location = 4) in vec4 vsg_position_scaleDistance;  // Billboard: xyz=中心, w=缩放距离
 #elif defined(VSG_INSTANCE_POSITIONS)
-layout(location = 4) in vec3 vsg_position;
+layout(location = 4) in vec3 vsg_position;                // 实例化: xyz=偏移位置
 #endif
 
-layout(location = 0) out vec3 eyePos;
-layout(location = 1) out vec3 normalDir;
-layout(location = 2) out vec4 vertexColor;
-layout(location = 3) out vec2 texCoord0;
+// 输出到片段着色器
+layout(location = 0) out vec3 eyePos;        // 眼空间位置
+layout(location = 1) out vec3 normalDir;      // 眼空间法线
+layout(location = 2) out vec4 vertexColor;    // 顶点颜色
+layout(location = 3) out vec2 texCoord0;      // 纹理坐标
 
-layout(location = 5) out vec3 viewDir;
+layout(location = 5) out vec3 viewDir;        // 视线方向
 
+// 点图元的内置输出：gl_PointSize 控制渲染点的像素大小
 out gl_PerVertex {
     vec4 gl_Position;
-    float gl_PointSize;
+    float gl_PointSize;   // 点的屏幕像素大小
 };
 
+// Billboard 矩阵计算：使点始终面向相机
 #ifdef VSG_BILLBOARD
 mat4 computeBillboadMatrix(vec4 center_eye, float autoScaleDistance)
 {
@@ -72,8 +85,10 @@ mat4 computeBillboadMatrix(vec4 center_eye, float autoScaleDistance)
 void main()
 {
     vec4 vertex = vec4(vsg_Vertex, 1.0);
-    vec4 normal = vec4(vsg_Normal, 0.0);
+    vec4 normal = vec4(vsg_Normal, 0.0);  // w=0 表示方向向量
 
+// --- 置换贴图处理 ---
+// 通过有限差分重新计算法线方向
 #ifdef VSG_DISPLACEMENT_MAP
     // TODO need to pass as as uniform or per instance attributes
     vec3 scale = vec3(1.0, 1.0, 1.0);
@@ -104,23 +119,27 @@ void main()
     normal.xyz = normalize(dx * vsg_Normal.x + dy * vsg_Normal.y + dz * vsg_Normal.z);
 #endif
 
+// 实例化模式：偏移到实例位置
 #ifdef VSG_INSTANCE_POSITIONS
     vertex.xyz = vertex.xyz + vsg_position;
 #endif
 
+// 选择视图矩阵
 #ifdef VSG_BILLBOARD
     mat4 mv = computeBillboadMatrix(pc.view * vec4(vsg_position_scaleDistance.xyz, 1.0), vsg_position_scaleDistance.w);
 #else
     mat4 mv = pc.view;
 #endif
 
+    // 最终裁剪空间变换
     gl_Position = (pc.projection * mv) * vertex;
-    eyePos = (mv * vertex).xyz;
-    viewDir = - (mv * vertex).xyz;
-    normalDir = (mv * normal).xyz;
+    eyePos = (mv * vertex).xyz;         // 眼空间坐标
+    viewDir = - (mv * vertex).xyz;      // 视线方向
+    normalDir = (mv * normal).xyz;      // 眼空间法线
 
     vertexColor = vsg_Color;
     texCoord0 = vsg_TexCoord0;
 
+    // 设置点的屏幕像素大小（固定为 5 像素）
     gl_PointSize = 5.0;
 }

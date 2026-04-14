@@ -1,7 +1,25 @@
+// ==========================================================================
+// computevertex1_seat.comp — Pass1 小实例变体: Frustum + Depth Occlusion Culling
+// ==========================================================================
+// 与 computevertex1.comp 功能完全相同（视锥剔除 + 深度遮挡剔除），
+// 唯一区别是 work group size = 700（而非 32）。
+// 适用于实例数量较少（"seat" = 小批次）的绘制组：
+//   - 较大的 work group 减少了 dispatch 调用次数
+//   - 当总实例数 < 700 时，一次 dispatch 即可覆盖所有实例
+// 其余逻辑与 computevertex1.comp 完全一致，详见该文件的详细注释
+//
+// Work group size: local_size_x = 700
+// Dispatch pattern: 按实例总数 dispatch，每个线程处理 1 个实例
+// ==========================================================================
+
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 precision highp float;
 #extension GL_EXT_scalar_block_layout : enable
+// ---- Storage Buffer 绑定说明 ----
+// 绑定布局与 computevertex1.comp 完全相同，详见该文件注释
+
+// binding=0: 输出间接绘制参数（Write）— 剔除后存活的实例数写入 instanceCount
 layout(set = 0, binding = 0) buffer OutIndirect {
   	uint indexCount;
   	uint instanceCount;
@@ -10,6 +28,7 @@ layout(set = 0, binding = 0) buffer OutIndirect {
   	uint firstInstance;
 }outIndirect;
 
+// binding=1: 输入间接绘制参数（Read）— instanceCount 为待剔除的实例总数
 layout(set = 0, binding = 1) buffer InIndirect {
   	uint indexCount;
   	uint instanceCount;
@@ -18,63 +37,78 @@ layout(set = 0, binding = 1) buffer InIndirect {
   	uint firstInstance;
 }inIndirect;
 
+// MatrixData: 原型矩阵（protoMatrix），将原型几何体变换到实例局部空间
 struct MatrixData {
     mat4 protoMatrix;
 };
 
+// InstanceData: 输出给顶点着色器的完整实例数据（当前帧+上一帧变换矩阵+高亮信息）
 struct InstanceData {
     mat4 modelMatrix;
     mat4 lastModelMatrix;
     vec4 highlight[10];
 };
 
+// binding=2: 每个实例的原型矩阵（Read）
 layout(set = 0, binding = 2) buffer InIndirectMatrix {
     MatrixData instanceModelMatrix[];
 }inIndirectMatrix;
 
+// binding=3: 高亮标记数据（Read/Write）
+// data[].x = 高亮颜色索引, data[].y = 最终可见标记, data[].z = 本Pass可见标记, data[].w = 全局模型矩阵索引
 layout(set = 0, binding = 3) buffer InHighlightData {
     uvec4 data[];
 }inHighlightData;
 
+// binding=4: 输出实例数据（Write）
 layout(set = 0, binding = 4) buffer OutIndirectMatrix {
     InstanceData instanceModelMatrix[];
 }outIndirectMatrix;
 
+// binding=5: 相机视锥体 6 个裁剪平面（Read）— 法线朝内，用于 frustum culling
 layout(set = 0, binding = 5) buffer CameraPlaneInfo{
 	vec4 planes[6];
 }camera_plane;
 
+// binding=6: 轴对齐包围盒 AABB（Read）— min/max 为模型空间角点
 layout(std430, set = 0, binding = 6) buffer BBox{
     vec4 min;
     vec4 max;
     vec4 draw_state;
 }bbox;
 
+// binding=7: 相机视图矩阵和 VP 矩阵（Read）
 layout(set = 0, binding = 7) buffer ViewMatrix{
 	mat4 view;
 	mat4 vp;
 }viewMatrix;
 
+// binding=8: 深度金字塔纹理（Read）— 用于遮挡剔除的深度比较
 layout(set=0, binding = 8) uniform sampler2D mipPyramid;
 
+// binding=9: 全局模型矩阵数组（Read）
 layout(set = 0, binding = 9) buffer GlobalModelMatrices {
     mat4 matrices[];
 } globalModelMatrices;
 
+// binding=10: 上一帧全局模型矩阵（Read）— 用于运动向量计算
 layout(set = 0, binding = 10) buffer LastGlobalModelMatrices {
     mat4 matrices[];
 } lastGlobalModelMatrices;
 
+// binding=11: 上一帧实例原型矩阵（Read）
 layout(set = 0, binding = 11) buffer LastInIndirectMatrix {
     MatrixData instanceModelMatrix[];
 } lastInIndirectMatrix;
 
+// push_constant: 屏幕分辨率（width, height），用于 UV→像素坐标转换
 layout(push_constant) uniform PushConstants {
     ivec2 size;
 } pc;
 
-layout (local_size_x = 700) in;
+layout (local_size_x = 700) in; // 与 computevertex1.comp 的主要区别：work group size = 700（适合小批次实例）
 
+// ---- 视锥剔除函数 ----
 // 判断包围盒是否完全在视锥外（被某个平面完全遮挡）
 bool isFullyCulled(vec4[8] points, vec4 plane) {
     for (int i = 0; i < 8; i++) {
@@ -85,10 +119,13 @@ bool isFullyCulled(vec4[8] points, vec4 plane) {
     return true; // 所有点都在平面外侧，完全被遮挡
 }
 
+// ---- 深度比较用的小分辨率光栅化参数 ----
 #define compare_image_size 4
-#define compare_image_size_square (compare_image_size) * (compare_image_size)
-#define compare_image_size_square_1 (compare_image_size + 1) * (compare_image_size + 1)
+#define compare_image_size_square (compare_image_size) * (compare_image_size)         // 4*4=16 像素
+#define compare_image_size_square_1 (compare_image_size + 1) * (compare_image_size + 1) // 5*5=25 顶点
 
+// ---- 软件光栅化函数：将三角形光栅化到 4x4 深度缓冲 ----
+// 使用重心坐标逐像素插值深度，详细算法说明见 computevertex1.comp
 void rasterize(vec3 p0, vec3 p1, vec3 p2, inout float out_surface[compare_image_size_square_1]) {
     // 剔除任一顶点深度<0的三角形（超出近平面）
     if (p0.z < 0.0f || p1.z < 0.0f || p2.z < 0.0f) return;
@@ -145,23 +182,27 @@ void rasterize(vec3 p0, vec3 p1, vec3 p2, inout float out_surface[compare_image_
     }
 }
 
+// ---- 主函数：与 computevertex1.comp 逻辑完全相同 ----
+// 详细算法步骤注释请参考 computevertex1.comp
 void main() {
 	uint instanceIndex = gl_GlobalInvocationID.x;
-    
-    // 确保不超出实例数量范围
+
+    // 边界检查：确保线程索引不超出实例总数
     if (instanceIndex >= inIndirect.instanceCount) {
         return;
     }
 
-	// 初始化输出
+	// 第一个线程初始化输出实例计数为 0
     if (gl_LocalInvocationID.x == 0 && gl_WorkGroupID.x == 0) {
-        outIndirect.instanceCount = 0; // 默认不可见
+        outIndirect.instanceCount = 0;
     }
-    barrier(); // 确保初始化完成
-    memoryBarrierBuffer();	
+    barrier();
+    memoryBarrierBuffer();
+
+    // 重置本实例的 Pass1 可见标记
     inHighlightData.data[instanceIndex].z = 0;
 
-    // 计算包围盒的8个顶点（世界空间）
+    // 第一步：构建包围盒 8 个顶点（模型空间 AABB）
     vec4 points[8];
     points[0] = vec4(bbox.min.x, bbox.min.y, bbox.min.z, 1.0);
     points[1] = vec4(bbox.min.x, bbox.min.y, bbox.max.z, 1.0);
@@ -172,6 +213,7 @@ void main() {
     points[6] = vec4(bbox.max.x, bbox.max.y, bbox.min.z, 1.0);
     points[7] = vec4(bbox.max.x, bbox.max.y, bbox.max.z, 1.0);
 
+    // 第二步：计算 MV / MVP 矩阵（模型空间 → 相机/裁剪空间）
 	mat4 mv = viewMatrix.view *
 					globalModelMatrices.matrices[inHighlightData.data[instanceIndex].w] *
 					inIndirectMatrix.instanceModelMatrix[instanceIndex].protoMatrix;
@@ -188,6 +230,7 @@ void main() {
 	}
 
 
+    // 第三步：视锥体裁剪（Frustum Culling）
     // 检查是否被任一平面完全遮挡
     bool culled = false;
     for (int p = 0; p < 6; p++) {
@@ -197,6 +240,8 @@ void main() {
         }
     }
 
+    // 第四步：深度遮挡剔除（Depth Occlusion Culling）
+    // 与深度金字塔比较，判断实例是否被已有几何体完全遮挡
     // 如果没有被完全遮挡，则设置实例可见
     if (!culled) {		
         bool clipsNearPlane = false;

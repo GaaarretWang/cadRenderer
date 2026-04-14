@@ -1,35 +1,61 @@
+// ============================================================================
+// SSAO Fragment Shader（屏幕空间环境光遮蔽片元着色器）
+// ============================================================================
+// 作用：实现屏幕空间环境光遮蔽（Screen-Space Ambient Occlusion, SSAO）。
+//       通过在每个像素的法线半球内随机采样，检测周围几何体的遮挡程度，
+//       模拟间接光照中的接触阴影效果。
+//
+// SSAO原理简述：
+//   1. 从G-Buffer获取当前像素的世界坐标和法线
+//   2. 以法线为上方向，构建切线空间（TBN矩阵）
+//   3. 在法线半球内均匀采样多个点（使用预计算的采样核）
+//   4. 将采样点投影到屏幕空间，比较深度
+//   5. 如果采样点被场景几何体遮挡，则增加遮蔽值
+//   6. 最终遮蔽 = 1 - (被遮挡的采样数 / 总采样数)
+//
+// 流水线角色：后处理Pass，使用G-Buffer的法线和世界位置贴图。
+//             输出遮蔽因子给ssao_denoise.frag进行去噪和最终合成。
+// ============================================================================
+
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 #pragma import_defines (VSG_DIFFUSE_MAP, VSG_GREYSCALE_DIFFUSE_MAP, VSG_EMISSIVE_MAP, VSG_LIGHTMAP_MAP, VSG_NORMAL_MAP, VSG_METALLROUGHNESS_MAP, VSG_SPECULAR_MAP, VSG_TWO_SIDED_LIGHTING, VSG_WORKFLOW_SPECGLOSS, SHADOWMAP_DEBUG)
 
 #define MATERIAL_DESCRIPTOR_SET 2
+
+// G-Buffer输入：法线贴图（Multisampled，用于MSAA抗锯齿）
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2DMS normalInputAttachment;
+// G-Buffer输入：世界位置贴图（Multisampled）
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2DMS worldPosInputAttachment;
+// 随机噪声纹理（用于给TBN矩阵添加随机旋转，减少采样规律性）
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D samplerNoise;
 
+// Push Constants（推送常量）：CPU端每帧更新的渲染参数
 layout(push_constant) uniform PushConstants {
-    mat4 projection;
-    mat4 view;
-    mat4 last_view;
-    vec3 camera_pos;
-    float softness;
-    float baseBrightness;
-    float ssao_radius;
-    float exposure;
-    float softness_falloff;
-    float shadow_bias;
-    int ssao_kernel_size;
-    int denoise_size;
-    int blocker_sample_num;
-    int pcf_sample_num;
-    int shadow_type;
-    uint frame_num;
+    mat4 projection;       // 投影矩阵（用于将采样点投影到屏幕空间）
+    mat4 view;             // 视图矩阵
+    mat4 last_view;        // 上一帧视图矩阵
+    vec3 camera_pos;       // 相机世界坐标（用于计算深度/距离）
+    float softness;        // 软阴影柔度
+    float baseBrightness;  // 基础亮度
+    float ssao_radius;     // SSAO采样半径（世界空间单位）
+    float exposure;        // 曝光度
+    float softness_falloff; // 软阴影衰减
+    float shadow_bias;     // 阴影偏移
+    int ssao_kernel_size;  // 实际使用的采样点数（从128中选取）
+    int denoise_size;      // 去噪核大小
+    int blocker_sample_num; // PCSS blocker采样数
+    int pcf_sample_num;    // PCF采样数
+    int shadow_type;       // 阴影类型
+    uint frame_num;        // 帧号
 } pc;
 
-layout(location = 0) in vec2 inUV;
+layout(location = 0) in vec2 inUV;     // 全屏四边形UV（[-1,1]范围）
+layout(location = 0) out vec4 outColor; // 输出遮蔽因子（RGB=遮蔽值，A=0）
 
-layout(location = 0) out vec4 outColor;
-
+// ===== SSAO预计算采样核（128个半球采样点）=====
+// 这些点在单位半球内随机分布，z分量（法线方向）大部分为正
+// 采样核大小通过pc.ssao_kernel_size控制实际使用多少个点
 #define SSAO_WHOLE_KERNEL_SIZE 128
 
 const vec4 ssaoKernel[SSAO_WHOLE_KERNEL_SIZE] = vec4[](
@@ -168,47 +194,71 @@ void main()
     vec3 worldCamPos = pc.camera_pos;
     ivec2 textureSize = textureSize(normalInputAttachment);
 
-
+    // 将UV从[-1,1]范围转换到[0,1]范围（用于G-Buffer纹理采样）
     vec2 uv = inUV * 0.5 + 0.5;
+
+    // 从G-Buffer读取当前像素的世界坐标和法线
+    // texelFetch直接按整数纹素坐标读取，不做插值
     vec3 worldPosition = texelFetch(worldPosInputAttachment, ivec2(uv*textureSize), 0).rgb;
     vec3 normal = texelFetch(normalInputAttachment, ivec2(uv*textureSize), 0).rgb;
-    
+
+    // 法线长度接近0说明该像素没有几何体（背景区域），直接输出白色（无遮蔽）
     if(length(normal) < 0.001){
         outColor = vec4(1, 1, 1, 1);
         return;
     }
 
-    float originDist = length(worldPosition - worldCamPos);
+    float originDist = length(worldPosition - worldCamPos); // 当前像素到相机的距离
+
+    // 从随机噪声纹理采样一个随机方向
+    // 用于给TBN矩阵添加随机旋转，打破SSAO的规律性条纹
     vec3 randDir = texture(samplerNoise, uv).rgb * 2.0f - 1.0f;
 
+    // 构建以法线为上方向的切线空间（TBN矩阵）
+    // Gram-Schmidt正交化：从随机方向中去除法线分量得到切线
     vec3 tangent = normalize(randDir - normal * dot(randDir, normal));
     vec3 bitangent = cross(normal, tangent);
-    mat3 TBN = mat3(tangent, bitangent, normal);
+    mat3 TBN = mat3(tangent, bitangent, normal); // 切线->世界空间变换矩阵
 
-    // Calculate occlusion value.
+    // ===== SSAO遮蔽计算 =====
+    // 遍历采样核中的每个采样点，检查是否被场景几何体遮挡
 	float occlusion = 0.0f;
     for(uint i = 0; i < pc.ssao_kernel_size; i++) {
+        // 从预计算采样核中选取采样点（均匀间隔选取，跳过部分点以支持不同核大小）
         vec3 samplePos = TBN * ssaoKernel[i * (SSAO_WHOLE_KERNEL_SIZE / pc.ssao_kernel_size)].xyz;
+
+        // 将采样点从切线空间变换到世界空间
+        // 缩放采样点到ssao_radius半径范围内，然后偏移到当前像素的世界位置
         samplePos = samplePos * pc.ssao_radius + worldPosition;
 
+        // 计算采样点到相机的距离（用于深度比较）
         float sampleDepth = length(samplePos - worldCamPos);
 
+        // 将采样点投影到屏幕空间（MVP变换 -> 透视除法 -> NDC）
         vec4 samplePosProj = pc.projection * pc.view * vec4(samplePos, 1.0f);
         samplePosProj /= samplePosProj.w;
 
+        // NDC坐标[-1,1] -> UV坐标[0,1]
         vec2 sampleUV = vec2(samplePosProj.x, samplePosProj.y) * 0.5f + 0.5f;
 
+        // 从G-Buffer读取该屏幕位置的实际世界坐标
         vec3 sceneWorldPos = texelFetch(worldPosInputAttachment, ivec2(sampleUV*textureSize), 0).rgb;
-        if(length(sceneWorldPos) < 0.001)
+        if(length(sceneWorldPos) < 0.001) // 跳过没有几何体的位置
             continue;
-        float sceneDepth = length(sceneWorldPos - worldCamPos);
+        float sceneDepth = length(sceneWorldPos - worldCamPos); // 场景实际深度
 
+        // 范围检查（Range Check）：只在ssao_radius范围内的遮挡才计入
+        // 防止远处的几何体产生不合理的遮蔽
         float rangeCheck = step(abs(sampleDepth - sceneDepth), pc.ssao_radius);
+
+        // 如果采样点比场景更远（被遮挡），则增加遮蔽值
+        // step(a, b) = (b >= a) ? 1.0 : 0.0
         occlusion += step(sceneDepth, sampleDepth) * rangeCheck;
     }
 
+    // 计算最终遮蔽因子：1 = 完全无遮蔽（白色），0 = 完全遮蔽（黑色）
     float factor = 1 - (occlusion / float(pc.ssao_kernel_size));
-    outColor = vec4(factor, factor, factor, 0);
-    
+    outColor = vec4(factor, factor, factor, 0); // A=0标记为需要去噪处理
+
     return;
 }

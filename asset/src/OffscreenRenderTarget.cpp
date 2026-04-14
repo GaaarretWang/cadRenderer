@@ -1,3 +1,20 @@
+/**
+ * OffscreenRenderTarget.cpp - 离屏渲染目标实现
+ *
+ * 职责：
+ * 1. init(): 创建所有 GPU 图像资源（GBuffer、SSAO、Shadow、Depth），并做 layout transition
+ * 2. buildRenderPass(): 构建 3-subpass 的 Vulkan RenderPass
+ *    - Subpass 0: 主渲染 / GBuffer MRT 输出
+ *    - Subpass 1: SSAO 计算（读取 GBuffer0 作为 input attachment）
+ *    - Subpass 2: Denoise + 合并（读取 SSAO + shadowWrite 作为 input，输出最终颜色 + shadowSample）
+ * 3. buildFramebuffer(): 将所有 ImageView 按 RenderPass 的 attachment 顺序绑定到 Framebuffer
+ *
+ * 关键概念：
+ * - VSG（VulkanSceneGraph）中，Image 需要 compile + allocateAndBindMemory 后才能使用
+ * - Subpass 间的 input attachment 允许在同一 RenderPass 内读取前一个 subpass 的输出
+ * - Multisampling 时，resolved（单样本）附件和 multisample 附件是分开的
+ * - 与 on-screen renderPass 的核心区别：attachment[0] 保持 COLOR_ATTACHMENT_OPTIMAL 而非 PRESENT_SRC_KHR
+ */
 #include "OffscreenRenderTarget.h"
 
 void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D extent, VkSampleCountFlagBits samples, VkFormat depthFormat, VkImageUsageFlags depthImageUsage)
@@ -7,6 +24,11 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
 
     bool multisampling = samples != VK_SAMPLE_COUNT_1_BIT;
 
+    // --- 创建 Multisample 颜色附件 ---
+    // 仅在开启 MSAA 时创建。Vulkan 的 multisample 渲染需要两个附件：
+    //   1. multisample image（多样本）：实际渲染目标
+    //   2. resolve image（单样本）：Vulkan 自动将多样本结果 resolve 到此附件
+    // 此处创建的是多样本附件，colorImage 作为 resolve 附件
     // Multisample color image (same as Window::buildSwapchain multisample path)
     if (multisampling)
     {
@@ -32,6 +54,11 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
         multisampleImageView->compile(device);
     }
 
+    // --- 创建离屏颜色附件（attachment[0]）---
+    // 此附件是最终合成的输出颜色，后续通过 blit/transfer 拷贝到窗口 swapchain
+    // 格式 B8G8R8A8_UNORM（Vulkan 标准 BGRA 顺序）
+    // samples = 1（始终单样本，即使开启 MSAA，multisample image 也会 resolve 到此）
+    // usage 含 TRANSFER_SRC_BIT，允许后续从 GPU 读取
     // Offscreen color attachment (attachment[0] in render pass)
     colorImage = vsg::Image::create();
     colorImage->imageType = VK_IMAGE_TYPE_2D;
@@ -54,6 +81,11 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     colorImageView = vsg::ImageView::create(colorImage, VK_IMAGE_ASPECT_COLOR_BIT);
     colorImageView->compile(device);
 
+    // --- GBuffer0: 颜色 GBuffer ---
+    // 格式 R32G32B32A32_SFLOAT（高精度浮点，适合存储颜色和位置等数据）
+    // samples = _samples（跟随 MSAA 设置，multisample 时为多样本）
+    // usage 含 INPUT_ATTACHMENT_BIT：Subpass 1 的 SSAO shader 通过 input attachment 读取
+    // usage 含 TRANSFER_DST_BIT：允许外部拷贝数据到此 attachment
     // GBuffer0 - same format and usage as Window::buildSwapchain
     gbufferImage0 = vsg::Image::create();
     gbufferImage0->imageType = VK_IMAGE_TYPE_2D;
@@ -76,6 +108,10 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     gbufferImageView0 = vsg::ImageView::create(gbufferImage0, VK_IMAGE_ASPECT_COLOR_BIT);
     gbufferImageView0->compile(device);
 
+    // --- GBuffer1: 法线 GBuffer ---
+    // usage 含 SAMPLED_BIT（而非 INPUT_ATTACHMENT_BIT）：Subpass 2 的 denoise shader 以 sampled 方式读取
+    // 为什么用 SAMPLED 而非 INPUT？因为 GBuffer1 在 Subpass 0 输出，Subpass 2 使用（跨了一个 subpass）
+    // VSG 的 input attachment 只能在同一 subpass 内读取；跨 subpass 采样需要用 sampler
     // GBuffer1
     gbufferImage1 = vsg::Image::create();
     gbufferImage1->imageType = VK_IMAGE_TYPE_2D;
@@ -98,6 +134,8 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     gbufferImageView1 = vsg::ImageView::create(gbufferImage1, VK_IMAGE_ASPECT_COLOR_BIT);
     gbufferImageView1->compile(device);
 
+    // --- GBuffer2: 世界坐标 GBuffer ---
+    // 同 GBuffer1，使用 SAMPLED_BIT 供后续 shader 采样
     // GBuffer2
     gbufferImage2 = vsg::Image::create();
     gbufferImage2->imageType = VK_IMAGE_TYPE_2D;
@@ -120,6 +158,9 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     gbufferImageView2 = vsg::ImageView::create(gbufferImage2, VK_IMAGE_ASPECT_COLOR_BIT);
     gbufferImageView2->compile(device);
 
+    // --- SSAO 结果附件 ---
+    // Subpass 1 输出的 SSAO 遮蔽值（ambient occlusion factor）
+    // usage 含 SAMPLED_BIT：后续光照 pass 采样此纹理来应用 SSAO 效果
     // SSAO Result
     ssaoResultImage = vsg::Image::create();
     ssaoResultImage->imageType = VK_IMAGE_TYPE_2D;
@@ -142,6 +183,10 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     ssaoResultImageView = vsg::ImageView::create(ssaoResultImage, VK_IMAGE_ASPECT_COLOR_BIT);
     ssaoResultImageView->compile(device);
 
+    // --- Shadow Write 附件 ---
+    // Subpass 0 写入的阴影原始数据（未去噪）
+    // usage 含 INPUT_ATTACHMENT_BIT：Subpass 2 的 denoise shader 通过 input attachment 读取
+    // usage 含 SAMPLED_BIT：也可被其他 pass 采样
     // Shadow Write
     shadowWriteImage = vsg::Image::create();
     shadowWriteImage->imageType = VK_IMAGE_TYPE_2D;
@@ -164,6 +209,10 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     shadowWriteImageView = vsg::ImageView::create(shadowWriteImage, VK_IMAGE_ASPECT_COLOR_BIT);
     shadowWriteImageView->compile(device);
 
+    // --- Shadow Sample 附件 ---
+    // Subpass 2 输出的去噪后阴影结果
+    // 后续光照 pass 通过 SAMPLED_BIT 采样此纹理来应用阴影效果
+    // 与 shadowWrite 的区别：shadowWrite 是原始数据，shadowSample 是去噪后的最终结果
     // Shadow Sample
     shadowSampleImage = vsg::Image::create();
     shadowSampleImage->imageType = VK_IMAGE_TYPE_2D;
@@ -186,6 +235,10 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     shadowSampleImageView = vsg::ImageView::create(shadowSampleImage, VK_IMAGE_ASPECT_COLOR_BIT);
     shadowSampleImageView->compile(device);
 
+    // --- 深度附件 ---
+    // 所有 subpass 共享同一深度附件（用于深度测试和 Early-Z 剔除）
+    // samples = _samples（跟随 MSAA 设置）
+    // depthImageUsage 由调用者指定，通常包含 DEPTH_STENCIL_ATTACHMENT_BIT
     // Depth buffer
     depthImage = vsg::Image::create();
     depthImage->imageType = VK_IMAGE_TYPE_2D;
@@ -207,6 +260,10 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     depthImageView = vsg::ImageView::create(depthImage);
     depthImageView->compile(device);
 
+    // --- Multisample 深度处理 ---
+    // 当同时开启 MSAA 和 requiresDepthRead 时，需要额外的 resolve 深度附件
+    // 原理：Vulkan 在 subpass 结束时自动将 multisample depth resolve 到单样本 depth
+    // requiresDepthRead 的判断：depthImageUsage 包含 TRANSFER_SRC_BIT 表示需要读取深度
     // Multisample depth (when multisampling + requiresDepthRead)
     bool requiresDepthRead = (depthImageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
     if (multisampling && requiresDepthRead)
@@ -236,6 +293,12 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
         depthImageView->compile(device);
     }
 
+    // --- 图像 Layout Transition（布局转换）---
+    // Vulkan 要求图像在使用前必须处于正确的 layout
+    // 这里通过 PipelineBarrier 将 depth / multisample 图像从 UNDEFINED 转换到：
+    //   - depth: DEPTH_STENCIL_ATTACHMENT_OPTIMAL（供 depth test 使用）
+    //   - multisample color: COLOR_ATTACHMENT_OPTIMAL（供 color write 使用）
+    // Pipeline stage 从 TOP_OF_PIPE 到 EARLY_FRAGMENT_TESTS / COLOR_ATTACHMENT_OUTPUT
     // Transition depth image layout
     {
         auto physicalDevice = device->getPhysicalDevice();
@@ -292,8 +355,21 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
 
     if (multisampling)
     {
+        // ===== Multisample 路径的 RenderPass =====
+        // attachment 布局（必须与 buildFramebuffer 中 ImageView 的添加顺序一致）：
+        // [0] multisample color（多样本颜色，Subpass 2 resolve 到 [1]）
+        // [1] resolve color（单样本颜色，最终输出）
+        // [2] depth（multisample 深度，如有 resolve 则 resolve 到 [9]）
+        // [3] gbuffer0（颜色）
+        // [4] gbuffer1（法线）
+        // [5] gbuffer2（世界坐标）
+        // [6] ssao（SSAO 结果）
+        // [7] shadowWrite（阴影写入）
+        // [8] shadowSample（阴影采样）
+        // [9] depth resolve（单样本深度，仅 requiresDepthRead 时存在）
+
         // Multisampled render pass - similar to createMRTMultisampledRenderPass
-        // Multisampled color attachment
+        // Multisample color attachment
         vsg::AttachmentDescription colorAttachment = {};
         colorAttachment.format = imageFormat;
         colorAttachment.samples = _samples;
@@ -375,6 +451,11 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         vsg::AttachmentReference colorAttachmentRefShadowWrite = {7, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
         vsg::AttachmentReference colorAttachmentRefShadowSample = {8, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
 
+        // ===== Subpass 0: 主渲染 / GBuffer MRT 输出 =====
+        // 使用 MRT（Multiple Render Target）同时写入 4 个 color attachment：
+        //   [3] gbuffer0 (color), [4] gbuffer1 (normal), [5] gbuffer2 (worldPos), [7] shadowWrite
+        // 深度附件 [2] 用于 depth test
+        // Multisample 模式下不在此处做 resolve（Vulkan 在 subpass 结束时自动 resolve）
         // Subpass 0: Main rendering (no color resolve - matches VSG createMRTMultisampledRenderPass pattern)
         vsg::SubpassDescription subpass;
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -386,12 +467,18 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
 
         if (requiresDepthRead)
         {
+            // 深度 resolve：Vulkan 在 Subpass 0 结束时将 multisample depth [2] resolve 到单样本 depth [9]
+            // VK_RESOLVE_MODE_AVERAGE_BIT：取多样本深度的平均值
             vsg::AttachmentReference depthResolveAttachmentRef = {9, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
             subpass.depthResolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
             subpass.stencilResolveMode = VK_RESOLVE_MODE_NONE;
             subpass.depthStencilResolveAttachments.emplace_back(depthResolveAttachmentRef);
         }
 
+        // ===== Subpass 1: SSAO 计算 =====
+        // 写入 [6] ssao（SSAO 遮蔽值）
+        // 读取 [1] gbuffer0 作为 input attachment（同一 subpass 内读取前一个 subpass 的输出）
+        // input attachment 是 Vulkan 的 subpass 内部读取机制，无需 sampler
         // Subpass 1: SSAO (no resolve)
         vsg::SubpassDescription subpass1;
         subpass1.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -400,6 +487,12 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         vsg::AttachmentReference colorRef_Read = {3, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
         subpass1.inputAttachments = {colorRef_Read};
 
+        // ===== Subpass 2: Denoise + 合并 =====
+        // 写入 [0] multisample color（resolve 到 [1]）和 [8] shadowSample
+        // 读取 input attachments：
+        //   - gbuffer0 [3]：通过 input attachment 读取颜色数据
+        //   - shadowWrite [7]：通过 input attachment 读取阴影原始数据
+        // resolveAttachments 将 [0] 的多样本颜色 resolve 到 [1] 的单样本颜色
         // Subpass 2: Denoise (resolve color [0] to [1], shadowSample [8] unresolved)
         vsg::SubpassDescription subpass2;
         subpass2.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -412,6 +505,12 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
 
         vsg::RenderPass::Subpasses subpasses{subpass, subpass1, subpass2};
 
+        // ===== Subpass 依赖关系（Dependency）=====
+        // Vulkan 的 subpass 依赖定义了 subpass 之间的执行顺序和内存可见性
+        // 没有正确的依赖关系，Vulkan 可能乱序执行 subpass，导致读取到未写入的数据
+
+        // 依赖 1: External -> Subpass 0（颜色输出）
+        // 确保外部操作完成后，Subpass 0 才开始写入 color attachment
         // Dependencies - same as createMRTMultisampledRenderPass
         vsg::SubpassDependency colorDependency = {};
         colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -422,6 +521,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         colorDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         colorDependency.dependencyFlags = 0;
 
+        // 依赖 2: External -> Subpass 0（深度）
+        // 确保外部 depth write 完成后，Subpass 0 才开始 depth test
         vsg::SubpassDependency depthDependency = {};
         depthDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
         depthDependency.dstSubpass = 0;
@@ -431,6 +532,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         depthDependency.dependencyFlags = 0;
 
+        // 依赖 3: Subpass 0 -> Subpass 1（颜色输出 -> SSAO shader 读取）
+        // Subpass 0 写入 gbuffer0 后，Subpass 1 的 fragment shader 才能通过 input attachment 读取
         vsg::SubpassDependency colorDependency_ssao = {};
         colorDependency_ssao.srcSubpass = 0;
         colorDependency_ssao.dstSubpass = 1;
@@ -440,6 +543,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         colorDependency_ssao.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         colorDependency_ssao.dependencyFlags = 0;
 
+        // 依赖 4: Subpass 0 -> Subpass 1（深度）
+        // 确保 Subpass 0 的 depth 操作完成后，Subpass 1 才能访问深度附件
         vsg::SubpassDependency depthDependency_ssao = {};
         depthDependency_ssao.srcSubpass = 0;
         depthDependency_ssao.dstSubpass = 1;
@@ -449,6 +554,9 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         depthDependency_ssao.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         depthDependency_ssao.dependencyFlags = 0;
 
+        // 依赖 5: Subpass 1 -> Subpass 2（SSAO 输出 -> Denoise 读取）
+        // Subpass 1 写入 ssaoResult 后，Subpass 2 才能读取
+        // VK_DEPENDENCY_BY_REGION_BIT：允许 tile-based GPU 按屏幕区域并行执行（性能优化）
         vsg::SubpassDependency ssaoToDenoiseDependency = {};
         ssaoToDenoiseDependency.srcSubpass = 1;
         ssaoToDenoiseDependency.dstSubpass = 2;
@@ -458,6 +566,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         ssaoToDenoiseDependency.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         ssaoToDenoiseDependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
+        // 依赖 6: Subpass 1 -> Subpass 2（深度）
+        // 确保 Subpass 1 的深度读取完成后再让 Subpass 2 读取
         vsg::SubpassDependency depthToDenoiseDependency = {};
         depthToDenoiseDependency.srcSubpass = 1;
         depthToDenoiseDependency.dstSubpass = 2;
@@ -476,8 +586,14 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
     }
     else
     {
+        // ===== Non-multisample 路径的 RenderPass =====
+        // 无 MSAA 时不需要 resolve 附件，attachment 布局更简单：
+        // [0] color, [1] gbuffer0, [2] gbuffer1, [3] gbuffer2,
+        // [4] ssao, [5] shadowWrite, [6] shadowSample, [7] depth
         // Non-multisampled render pass - based on createMRTRenderPass
         auto colorAttachment = vsg::defaultColorAttachment(imageFormat);
+        // 关键区别：finalLayout 是 COLOR_ATTACHMENT_OPTIMAL 而非 PRESENT_SRC_KHR
+        // 因为是离屏渲染，不需要 presentation，保持 COLOR_ATTACHMENT 以便后续 blit
         // Key change: finalLayout is COLOR_ATTACHMENT_OPTIMAL instead of PRESENT_SRC_KHR
         colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
@@ -507,6 +623,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         vsg::AttachmentReference colorAttachmentRefShadowSample = {6, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
         vsg::AttachmentReference depthAttachmentRef = {7, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
 
+        // ===== Subpass 0: 主渲染 / GBuffer MRT 输出 =====
+        // 与 multisample 版本逻辑相同，但 attachment 索引不同（无 resolve 附件）
         // Subpass 0: Main rendering
         vsg::SubpassDescription subpass;
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -516,6 +634,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         subpass.colorAttachments.emplace_back(colorAttachmentRefShadowWrite);
         subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
 
+        // ===== Subpass 1: SSAO 计算 =====
+        // 写入 [4] ssaoResult，读取 [1] gbuffer0 作为 input attachment
         // Subpass 1: SSAO
         vsg::SubpassDescription subpass1;
         subpass1.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -524,6 +644,10 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         vsg::AttachmentReference colorRef_Read = {1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
         subpass1.inputAttachments = {colorRef_Read};
 
+        // ===== Subpass 2: Denoise + 合并 =====
+        // 写入 [0] color（最终输出）和 [6] shadowSample
+        // 读取 input attachments：[1] gbuffer0 和 [5] shadowWrite
+        // 无 resolve（非 multisample 模式）
         // Subpass 2: Denoise
         vsg::SubpassDescription subpass2;
         subpass2.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -535,6 +659,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
 
         vsg::RenderPass::Subpasses subpasses{subpass, subpass1, subpass2};
 
+        // ===== Subpass 依赖关系（非 multisample 路径）=====
+        // 逻辑与 multisample 路径相同，但 attachment 索引不同
         // Dependencies - same as createMRTRenderPass
         vsg::SubpassDependency colorDependency = {};
         colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -545,6 +671,7 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         colorDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         colorDependency.dependencyFlags = 0;
 
+        // 依赖 2: External -> Subpass 0（深度）
         vsg::SubpassDependency depthDependency = {};
         depthDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
         depthDependency.dstSubpass = 0;
@@ -554,6 +681,7 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         depthDependency.dependencyFlags = 0;
 
+        // 依赖 3: Subpass 0 -> Subpass 1（颜色 -> SSAO）
         vsg::SubpassDependency colorDependency_ssao = {};
         colorDependency_ssao.srcSubpass = 0;
         colorDependency_ssao.dstSubpass = 1;
@@ -563,6 +691,7 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         colorDependency_ssao.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
         colorDependency_ssao.dependencyFlags = 0;
 
+        // 依赖 4: Subpass 0 -> Subpass 1（深度）
         vsg::SubpassDependency depthDependency_ssao = {};
         depthDependency_ssao.srcSubpass = 0;
         depthDependency_ssao.dstSubpass = 1;
@@ -572,6 +701,7 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         depthDependency_ssao.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         depthDependency_ssao.dependencyFlags = 0;
 
+        // 依赖 5: Subpass 1 -> Subpass 2（SSAO -> Denoise）
         vsg::SubpassDependency ssaoToDenoiseDependency = {};
         ssaoToDenoiseDependency.srcSubpass = 1;
         ssaoToDenoiseDependency.dstSubpass = 2;
@@ -581,6 +711,7 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         ssaoToDenoiseDependency.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
         ssaoToDenoiseDependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
+        // 依赖 6: Subpass 1 -> Subpass 2（深度）
         vsg::SubpassDependency depthToDenoiseDependency = {};
         depthToDenoiseDependency.srcSubpass = 1;
         depthToDenoiseDependency.dstSubpass = 2;
@@ -599,12 +730,20 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
     }
 }
 
+/**
+ * buildFramebuffer - 创建 Framebuffer，将所有 ImageView 按 RenderPass 的 attachment 顺序绑定
+ *
+ * 关键：ImageView 的添加顺序必须与 buildRenderPass 中 AttachmentDescription 的定义顺序严格一致！
+ * Vulkan 通过索引来匹配 attachment，顺序错误会导致渲染结果错乱或验证层报错。
+ */
 void OffscreenRenderTarget::buildFramebuffer(VkExtent2D extent)
 {
     vsg::ImageViews attachments;
 
     if (multisampleImageView)
     {
+        // ===== Multisample 路径的 Framebuffer 附件顺序 =====
+        // 必须与 buildRenderPass 中的 AttachmentDescription 顺序一致！
         // Multisampled path - must match render pass attachment order:
         // [0]multisample color, [1]resolve color, [2]depth (multisample),
         // [3]gbuffer0, [4]gbuffer1, [5]gbuffer2,
@@ -633,6 +772,8 @@ void OffscreenRenderTarget::buildFramebuffer(VkExtent2D extent)
     }
     else
     {
+        // ===== Non-multisample 路径的 Framebuffer 附件顺序 =====
+        // 必须与 buildRenderPass 中的 AttachmentDescription 顺序一致！
         // Non-multisampled path - must match render pass attachment order:
         // [0]color, [1]gbuffer0, [2]gbuffer1, [3]gbuffer2,
         // [4]ssao, [5]shadowWrite, [6]shadowSample, [7]depth

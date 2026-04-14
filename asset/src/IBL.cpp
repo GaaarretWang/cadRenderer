@@ -1,3 +1,26 @@
+// ============================================
+// IBL.cpp - Image-Based Lighting (基于图像的光照) 资源创建与 PBR 渲染系统
+//
+// 本文件实现 IBL 全套离线 GPU 生成管线, 核心流程:
+//   1. generateBRDFLUT:          生成 BRDF 积分查找表 (2D LUT)
+//   2. generateEnvmap:           将 equirectangular HDR 图转换为 cubemap
+//   3. generateIrradianceCube:   对 cubemap 做漫反射卷积, 生成辐照度贴图
+//   4. generatePrefilteredEnvmapCube: GGX 重要性采样, 生成多级粗糙度的镜面反射预滤波贴图
+//   5. drawSkyboxVSGNode:        创建天空盒渲染节点, 支持相机图像叠加和深度测试
+//   6. customPbrShaderSet:       构建 PBR ShaderSet, 绑定所有 descriptor
+//   7. updateHDRTextures:        运行时切换 HDR 环境贴图
+//
+// VSG (VulkanSceneGraph) 概念速查:
+//   - Image:       Vulkan 图像对象的封装, 存储像素数据
+//   - ImageView:   图像视图, 定义如何解释 Image (2D/cube/层数/mip 级)
+//   - Sampler:     采样器, 定义纹理过滤和寻址模式
+//   - ImageInfo:   将 Image + ImageView + Sampler 打包, 供 descriptor 绑定
+//   - RenderPass:  Vulkan 渲染通道, 描述附件和子通道
+//   - CommandGraph: 命令图, VSG 中组织 GPU 命令的根节点
+//   - StateGroup:  状态组, 管线绑定/描述符集等渲染状态的容器
+//   - ref_ptr<T>:  VSG 智能指针, 类似 shared_ptr, 基于引用计数管理 GPU 资源
+// ============================================
+
 #include "IBL.h"
 
 #define _USE_MATH_DEFINES
@@ -11,6 +34,15 @@ using namespace vsg;
 
 namespace vsg
 {
+    // ============================================
+    // MyCustomPushConstants: 自定义 push constant 封装
+    // VSG 内置的 PushConstants 不够灵活, 这里自定义一个 StateCommand
+    // 用于在渲染时通过 vkCmdPushConstants 向 shader 传递自定义数据
+    //
+    // VSG StateCommand 概念: 每个 StateCommand 对应一个 Vulkan 命令
+    // (如 vkCmdBindPipeline, vkCmdPushConstants 等), 在场景图遍历时自动执行
+    // slot=2 表示该命令在渲染状态栈中的优先级位置
+    // ============================================
     class VSG_DECLSPEC MyCustomPushConstants : public Inherit<StateCommand, MyCustomPushConstants>
     {
     public:
@@ -75,6 +107,12 @@ namespace vsg
         vkCmdPushConstants(commandBuffer, commandBuffer.getCurrentPipelineLayout(), stageFlags, offset, data_size, data);
     }
 
+    // ============================================
+    // MyViewMatrix: 基于 mat4 的简单视图矩阵封装
+    // 用于离线 cubemap 渲染 (IBL 贴图生成时不需要完整的 Camera 对象)
+    // VSG 中 ViewMatrix 是抽象基类, transform()/inverse() 提供视图矩阵变换
+    // 这里直接存储 mat4, 无需继承 VSG 的 LookAt 等复杂视图矩阵类
+    // ============================================
     class VSG_DECLSPEC MyViewMatrix : public Inherit<ViewMatrix, MyViewMatrix>
     {
     public:
@@ -95,38 +133,48 @@ namespace vsg
 namespace IBL
 {
 
-// static variables
-Textures textures;
-//VsgContext vsgContext;
-AppData appData = {};
+// ============================================
+// 静态变量: IBL 系统的全局 GPU 资源和状态
+// ============================================
 
-std::vector<ptr<ShaderSet>> shaderSets;
+Textures textures;  // 所有 IBL 纹理资源 (envmap/irradiance/prefilter/brdfLut)
 
-// static data for local .obj use only (no extern in header)
+AppData appData = {};  // 应用程序数据 (options, debugOutputPath 等)
+
+std::vector<ptr<ShaderSet>> shaderSets;  // 自定义 PBR ShaderSet 缓存 (用于测试场景)
+
+// gEnvmapRect: 加载的 equirectangular HDR 矩形图像 (中间结果, 用于转换到 cubemap)
 static struct _EnvmapRect
 {
-    ptr<Data> image;
-    ptr<ImageView> imageView;
-    ptr<Sampler> sampler;
-    ptr<ImageInfo> imageInfo;
+    ptr<Data> image;           // HDR 像素数据 (vec4Array2D, format=R32G32B32A32_SFLOAT)
+    ptr<ImageView> imageView;  // 图像视图
+    ptr<Sampler> sampler;      // 采样器 (CLAMP_TO_EDGE)
+    ptr<ImageInfo> imageInfo;  // 绑定信息 (供 shader 采样)
 
-    uint32_t width, height;
+    uint32_t width, height;    // HDR 图像分辨率
 } gEnvmapRect;
 
+// gSkyboxCube: 天空盒立方体的几何数据
+// 6 面 x 4 顶点 = 24 个顶点 + 36 个索引 (每面 2 个三角形)
 static struct skyboxCube
 {
-    ptr<vsg::vec3Array> vertices;
-    ptr<vsg::ushortArray> indices;
+    ptr<vsg::vec3Array> vertices;   // 顶点位置 (x,y,z)
+    ptr<vsg::ushortArray> indices;  // 索引 (ushort, 6面 * 6索引 = 36)
 
 } gSkyboxCube;
 
+// gVkEvents: GPU 同步事件 (VkEvent) 和内存屏障 (ImageMemoryBarrier)
+// 用于确保 envmap cubemap 生成完成后再执行后续的 irradiance/prefilter 生成
+// VSG Event 封装了 Vulkan VkEvent, 可在 GPU 命令流中设置/等待信号
 static struct IBLVkEvents {
-    ptr<Event> envmapCubeRenderedEvent;
-    ptr<Event> envmapCubeGeneratedEvent;
-    ptr<ImageMemoryBarrier> envmapCubeRenderedBarrier;
-    ptr<ImageMemoryBarrier> envmapCubeGeneratedBarrier;
+    ptr<Event> envmapCubeRenderedEvent;    // envmap cubemap 渲染完成事件 (未使用)
+    ptr<Event> envmapCubeGeneratedEvent;   // envmap cubemap 生成完成事件
+    ptr<ImageMemoryBarrier> envmapCubeRenderedBarrier;   // 渲染完成后的图像内存屏障 (未使用)
+    ptr<ImageMemoryBarrier> envmapCubeGeneratedBarrier;  // 生成完成后的图像内存屏障
 } gVkEvents;
 
+// createImage2D: 创建 2D 图像及其 ImageView (用于 BRDF LUT / 离线 framebuffer 等)
+// VSG 中 Image 和 ImageView 是分离的: Image 是 GPU 内存中的像素数据, ImageView 定义如何读取
 void createImage2D(vsg::Context& context, VkFormat format, VkImageUsageFlags usage, VkExtent2D extent, ptr<vsg::Image>& image, ptr<vsg::ImageView>& imageView)
 {
     // TODO: 内存分配延迟到RenderGraph的编译
@@ -153,7 +201,11 @@ void createImage2D(vsg::Context& context, VkFormat format, VkImageUsageFlags usa
     imageView->image = image;
 }
 
-void createImageCube(vsg::Context& context, 
+// createImageCube: 创建 cubemap 图像 (6 面, 用于 envmap/irradiance/prefilter)
+// 关键标志: VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT 告诉 Vulkan 这是一个 cubemap
+// arrayLayers=6 表示 6 个面, numMips 控制 mipmap 级数
+// 注意: VSG 的 createImageView 默认创建 2D 视图, 所以这里手动设置 viewType=VK_IMAGE_VIEW_TYPE_CUBE
+void createImageCube(vsg::Context& context,
     VkFormat format, 
     VkImageUsageFlags usage, 
     VkExtent2D extent, uint32_t numMips, 
@@ -206,6 +258,8 @@ void createImageCube(vsg::Context& context,
     imageView->compile(device);
 }
 
+// createSampler: 创建 2D 纹理采样器 (用于 BRDF LUT 等 2D 纹理)
+// 线性过滤 + CLAMP_TO_EDGE 寻址, maxLod = numMips (控制 mipmap 采样范围)
 void createSampler(uint32_t numMips, ptr<vsg::Sampler>& sampler)
 {
     sampler = vsg::Sampler::create();
@@ -221,6 +275,8 @@ void createSampler(uint32_t numMips, ptr<vsg::Sampler>& sampler)
     sampler->flags = 0; // new in vsg
 }
 
+// createSamplerCube: 创建 cubemap 采样器 (用于 envmap/irradiance/prefilter cubemap)
+// 与 createSampler 几乎相同, 区别在于供 cubemap ImageView 使用
 void createSamplerCube(uint32_t numMips, ptr<vsg::Sampler>& sampler)
 {
     sampler = vsg::Sampler::create();
@@ -235,6 +291,8 @@ void createSamplerCube(uint32_t numMips, ptr<vsg::Sampler>& sampler)
     sampler->borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE;
 }
 
+// createImageInfo: 创建 ImageInfo (将 ImageView + layout + Sampler 打包在一起)
+// ImageInfo 是 VSG 中 descriptor 绑定的最小单位, shader 通过它采样纹理
 void createImageInfo(const ptr<vsg::ImageView> imageView, VkImageLayout layout, const ptr<vsg::Sampler> sampler, ptr<vsg::ImageInfo> &imageInfo)
 {
     imageInfo = vsg::ImageInfo::create();
@@ -243,6 +301,10 @@ void createImageInfo(const ptr<vsg::ImageView> imageView, VkImageLayout layout, 
     imageInfo->sampler = sampler;
 }
 
+// createRTTRenderPass: 创建 Render-to-Texture (RTT) 渲染通道
+// 用于离线 GPU 渲染 (BRDF LUT / envmap / irradiance / prefilter 生成)
+// 只有颜色附件, 无深度附件; 通过 subpass dependency 控制 layout 转换
+// VSG RenderPass 概念: Vulkan RenderPass 封装, 描述渲染所需的附件和子通道
 void createRTTRenderPass(ptr<vsg::Context> context, VkFormat format, VkImageLayout finalLayout, ptr<vsg::RenderPass>& renderPass)
 {
     vsg::AttachmentDescription attDesc = {};
@@ -285,6 +347,11 @@ void createRTTRenderPass(ptr<vsg::Context> context, VkFormat format, VkImageLayo
     renderPass = vsg::RenderPass::create(context->device.get(), attachments, subpasses, dependencies);
 }
 
+// createImageMemoryBarrier: 创建图像布局转换的内存屏障 (Image Memory Barrier)
+// 在 Vulkan 中, 切换图像 layout (如 TRANSFER_DST -> SHADER_READ_ONLY) 需要插入 barrier
+// 以确保之前的写操作完成, 后续的读操作能看到正确的数据
+// srcAccessMask: 旧 layout 下需要完成的访问类型
+// dstAccessMask: 新 layout 下将要进行的访问类型
 ptr<vsg::ImageMemoryBarrier> createImageMemoryBarrier(//Layout转换图像缓冲区(关于图像的内存屏障)
     ptr<vsg::Image> image,
     VkImageSubresourceRange subresourceRange,
@@ -391,6 +458,8 @@ ptr<vsg::ImageMemoryBarrier> createImageMemoryBarrier(//Layout转换图像缓冲
     return ImageMemoryBarrier::create(srcAccessMask, dstAccessMask, oldImageLayout, newImageLayout, VK_QUEUE_FAMILY_IGNORED, VK_QUEUE_FAMILY_IGNORED, image, subresourceRange);
 }
 
+// createImageLayoutPipelineBarrier: 创建包含图像 layout 转换的管线屏障 (Pipeline Barrier)
+// PipelineBarrier 封装了 vkCmdPipelineBarrier, 用于 GPU 命令流中的同步
 ptr<vsg::PipelineBarrier> createImageLayoutPipelineBarrier(//Layout转换管线屏障
     ptr<vsg::Image> image,
     VkImageLayout oldImageLayout,
@@ -419,6 +488,20 @@ ptr<vsg::PipelineBarrier> createImageLayoutPipelineBarrier(
     return createImageLayoutPipelineBarrier(image, oldImageLayout, newImageLayout, subresourceRange, srcStageMask, dstStageMask);
 }
 
+// createResources: IBL 系统主初始化函数, 创建所有 GPU 纹理资源
+//
+// 创建的纹理资源:
+//   - envmapCube:      环境贴图 cubemap (equirectangular 转换后的结果)
+//   - testMap[]:       按 HDR 图片编号索引的环境贴图 cubemap 集合
+//   - irraMap[]:       按 HDR 图片编号索引的辐照度 cubemap 集合
+//   - prefMap[]:       按 HDR 图片编号索引的预滤波 cubemap 集合
+//   - brdfLut:         BRDF 积分查找表 (2D, 512x512, R16G16_SFLOAT)
+//   - irradianceCube:  辐照度 cubemap (64x64, 用于漫反射 IBL)
+//   - prefilterCube:   预滤波 cubemap (512x512, 用于镜面反射 IBL)
+//   - gSkyboxCube:     天空盒立方体几何数据 (24 顶点 + 36 索引)
+//   - params:          传递给 shader 的参数 buffer
+//
+// hdr_image_max_num: 支持的 HDR 图片最大数量 (从 1 开始编号)
 void createResources(VsgContext& vsgContext, int hdr_image_max_num)
 {
     auto& context = vsgContext.context;
@@ -545,6 +628,7 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
             textures.brdfLutInfo
         );
     }
+    // 创建辐照度 cubemap 资源 (64x64, 用于漫反射 IBL)
     // irradiance cubemap
     {
         createImageCube(*context, 
@@ -566,7 +650,8 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
             textures.irradianceCubeInfo
         );
     }
-    
+
+    // 创建预滤波 cubemap 资源 (512x512, 10 级 mipmap, 用于镜面反射 IBL)
     {
         createImageCube(*context,
             Constants::PrefilteredEnvmapCube::format,
@@ -585,6 +670,8 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
             textures.prefilterCubeInfo);
     }
 
+    // 创建天空盒立方体几何数据 (6 面, 每面 4 个顶点, 2 个三角形)
+    // 顶点顺序: Right, Left, Front, Back, Bottom, Top
     gSkyboxCube.vertices = vsg::vec3Array::create({
         // // Back
         // {-1.0f, -1.0f, -1.0f},
@@ -692,6 +779,8 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
     textures.paramsInfo = BufferInfo::create(textures.params.get());
 }
 
+// clearResources: 清理 IBL 系统的所有 GPU 资源
+// 重置全局状态 (textures, appData, events, skybox geometry, shaderSets)
 void clearResources()
 {
     //textures.envmapCube = nullptr;
@@ -736,6 +825,9 @@ void clearResources()
     shaderSets.clear();
 }
 
+// LoadHdrImageSTBI: 使用 stb_image 库加载 HDR (.hdr) 图像
+// VSG 没有内置的 HDR 图像加载支持, 所以用 stbi_loadf 读取 32 位浮点 HDR 数据
+// 通过 VSG Visitor 模式将数据填充到不同类型的 2D 数组 (floatArray2D / vec3Array2D / vec4Array2D)
 class LoadHdrImageSTBI : public vsg::Visitor
 {
 private:
@@ -824,6 +916,9 @@ public:
     }
 };
 
+// loadEnvmapRect: 加载 equirectangular HDR 图像到 gEnvmapRect
+// 使用 stb_image (stbi_loadf) 读取 .hdr 文件, 结果存入 gEnvmapRect.image (vec4Array2D)
+// equirectangular (等距矩形) 是一种将球面映射到矩形的投影方式, 常用于 HDR 环境贴图
 void loadEnvmapRect(VsgContext& context, const std::string& filePath)
 {
     //auto evnmapFilepath = vsg::findFile("textures/test_park.hdr", appData.options->paths);
@@ -844,6 +939,7 @@ void loadEnvmapRect(VsgContext& context, const std::string& filePath)
     gEnvmapRect.imageInfo = ImageInfo::create(gEnvmapRect.sampler, gEnvmapRect.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 }
 
+// loadHdrFile: 加载 HDR 文件, 返回浮点像素数据指针 (调用方负责释放)
 float *loadHdrFile(const std::string& filepath, int& width, int& height, int& channels)
 {
     float* data = stbi_loadf(filepath.c_str(), &width, &height, &channels, 4);
@@ -851,6 +947,16 @@ float *loadHdrFile(const std::string& filepath, int& width, int& height, int& ch
     return data;
 }
 
+// generateBRDFLUT: 生成 BRDF (Bidirectional Reflectance Distribution Function) 积分查找表
+//
+// BRDF LUT 是 Split-Sum 近似方法的一部分:
+//   - 纹理格式: R16G16_SFLOAT (512x512)
+//   - R 通道: scale (镜面反射的缩放因子)
+//   - G 通道: bias  (镜面反射的偏移因子)
+//   - 仅依赖 roughness (纵轴) 和 NdotV (横轴), 与环境无关, 一次生成永久复用
+//
+// 使用 fullscreen quad 渲染 (无顶点输入, 3 个顶点由 vertex shader 硬编码)
+// 无需 descriptor set, 无需 push constant, 最简单的离线渲染
 void generateBRDFLUT(VsgContext &vsgContext)
 {
     // TODO: actually create shaders
@@ -961,6 +1067,17 @@ void generateBRDFLUT(VsgContext &vsgContext)
     viewer->assignRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
+// generateEnvmap: 将 equirectangular HDR 图像转换为 cubemap
+//
+// 处理流程:
+//   1. 加载 equirectangular HDR 图像 (loadEnvmapRect, 使用 stb_image)
+//   2. 创建离线 framebuffer (512x512)
+//   3. 对 6 个面各渲染一次 fullscreen quad, 将 equirectangular 映射到每个面
+//   4. 将 framebuffer 拷贝到 cubemap 对应面, 然后 blit 生成 mipmap
+//   5. 设置 VkEvent 信号, 通知后续的 irradiance/prefilter 生成可以开始
+//
+// hdr 参数: -1 表示主 envmap, 其他值表示 HDR 图片编号 (存入 testMap)
+// shader: fullscreenquad.vert + equirect2cube.frag
 void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr)
 {
     auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreenquad.vert", appData.options->paths);
@@ -1209,7 +1326,20 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
     viewer->addRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
-void generateIrradianceCube(VsgContext& vsgContext, int hdr)//生成辐照度贴图
+// generateIrradianceCube: 生成漫反射辐照度 cubemap (Irradiance Convolution)
+//
+// 对环境贴图 cubemap 的每个 texel 方向, 在半球上采样并累加所有入射光
+// 输出: 64x64 cubemap (低分辨率即可, 因为漫反射光照变化非常平缓)
+//
+// 处理流程:
+//   1. 等待 envmap 生成完成 (WaitEvents on envmapCubeGeneratedEvent)
+//   2. 创建离线 framebuffer, 6 面 x numMips 次渲染
+//   3. 每次渲染一个天空盒, shader 中对 envmap 做半球积分
+//   4. 将 framebuffer 逐面逐 mip 拷贝到 irradianceCube
+//
+// shader: skyboxCubegen.vert + irradiancecubeMesh.frag
+// hdr 参数: -1 表示主 irradianceCube, 其他值存入 irraMap
+void generateIrradianceCube(VsgContext& vsgContext, int hdr)
 {
     //auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreenquad.vert", appData.options->paths);
     //auto fragShaderFilepath = vsg::findFile("shaders/IBL/irradianceCube.frag", appData.options->paths);
@@ -1443,6 +1573,21 @@ void generateIrradianceCube(VsgContext& vsgContext, int hdr)//生成辐照度贴
     viewer->addRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
+// generatePrefilteredEnvmapCube: 生成镜面反射预滤波环境贴图 (Specular Prefilter)
+//
+// 使用 GGX 重要性采样 (Importance Sampling) 对环境贴图进行预卷积:
+//   - 每个 mip level 对应一个 roughness 级别 (mip 0 = 最光滑, mip 9 = 最粗糙)
+//   - 较高的 mip 分辨率较低 (512 -> 256 -> 128 -> ... -> 1)
+//   - shader 中根据 roughness 和随机方向采样, 模拟微表面 BRDF 的镜面反射
+//
+// 处理流程:
+//   1. 等待 envmap 生成完成 (WaitEvents)
+//   2. 对 6 面 x 10 个 mip 各渲染一次天空盒
+//   3. 通过 push constant 传递 numMips, mipLevel, faceIdx 给 fragment shader
+//   4. 将 framebuffer 逐面逐 mip 拷贝到 prefilterCube
+//
+// shader: skyboxCubegen.vert + prefilterenvmapMesh.frag
+// hdr 参数: -1 表示主 prefilterCube, 其他值存入 prefMap
 void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
 {
     auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skyboxCubegen.vert", appData.options->paths);
@@ -1670,6 +1815,24 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
     viewer->addRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
+// drawSkyboxVSGNode: 创建天空盒渲染节点, 返回可挂载到场景图的 StateGroup
+//
+// 功能:
+//   - 渲染 HDR 环境贴图 cubemap 作为天空盒背景
+//   - 可选叠加相机图像 (camera_data): 真实相机画面作为前景, HDR 天空盒作为背景
+//   - 可选深度测试 (depth_data): 根据相机深度信息判断 skybox/相机图像的混合
+//   - 支持阴影参数 (shadow_pc_data): 在 skybox shader 中计算阴影
+//   - 支持 tone mapping (exposure + gamma)
+//
+// 参数:
+//   - root: 父 StateGroup, 渲染命令将添加到此节点
+//   - width/height: 视口尺寸 (用于 tone mapping 参数)
+//   - camera_data: 相机图像纹理 (空则不叠加)
+//   - depth_data:  相机深度纹理 (空则不启用深度测试)
+//   - shadow_pc_data: 阴影 push constant 数据 (空则不计算阴影)
+//
+// VSG StateGroup 概念: 场景图节点, 管理渲染状态 (管线/描述符/顶点缓冲等)
+// VSG Commands 概念: 封装 Vulkan 绑定和绘制命令 (BindVertexBuffers/DrawIndexed 等)
 ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGroup> root, int width, int height, vsg::ImageInfoList camera_data, vsg::ImageInfoList depth_data, vsg::ref_ptr<vsg::Data> shadow_pc_data)
 {
     auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skybox.vert", appData.options->paths);
@@ -1758,7 +1921,18 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGr
     return root;
 }
 
-struct IBLDescriptorSetBinding : vsg::Inherit<CustomDescriptorSetBinding, IBLDescriptorSetBinding> 
+// IBLDescriptorSetBinding: IBL 资源的 DescriptorSet 布局定义
+//
+// 封装 IBL 所需的 descriptor set (set 0), 包含 4 个 binding:
+//   binding 0: brdfLut      (combined image sampler) - BRDF 查找表
+//   binding 1: irradiance   (combined image sampler) - 辐照度 cubemap
+//   binding 2: prefilter    (combined image sampler) - 预滤波 cubemap
+//   binding 3: params       (uniform buffer)         - 渲染参数
+//
+// VSG CustomDescriptorSetBinding 概念:
+//   允许 ShaderSet 自动管理 descriptor set 的创建和绑定
+//   createDescriptorSetLayout() 返回布局, createStateCommand() 返回绑定命令
+struct IBLDescriptorSetBinding : vsg::Inherit<CustomDescriptorSetBinding, IBLDescriptorSetBinding>
 {
     uint32_t set;
     ptr<DescriptorSet> descriptorSet;
@@ -1840,6 +2014,23 @@ struct IBLDescriptorSetBinding : vsg::Inherit<CustomDescriptorSetBinding, IBLDes
 //};
 
 
+// customPbrShaderSet: 创建自定义 PBR (Physically Based Rendering) ShaderSet
+//
+// 包含 3 个 descriptor set:
+//   set 0 (CUSTOM_DESCRIPTOR_SET): IBL 资源
+//     - brdfLut, irradiance, prefilter, params
+//   set 1 (VIEW_DESCRIPTOR_SET): 视图相关 (灯光/阴影)
+//     - lightData, viewportData, shadowMaps, shadowMapsSampler
+//   set 2 (MATERIAL_DESCRIPTOR_SET): 材质贴图
+//     - diffuseMap, mrMap, normalMap, aoMap, emissiveMap, specularMap, displacementMap
+//     - instanceModelMatrix, ConstantBuffer, materialArray, shadowsampler
+//
+// 顶点属性:
+//   vsg_Vertex (pos 0), vsg_Normal (pos 1), vsg_TexCoord0 (pos 2), vsg_Color (pos 3), vsg_InstanceID (pos 4)
+//
+// Push constant: 256 字节 (vertex + fragment 共享)
+// 混合模式: Alpha blending (SRC_ALPHA, ONE_MINUS_SRC_ALPHA)
+// 支持 4 个 color attachment 输出 (MRT)
 vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options> options)
 {
     vsg::info("Local pbr_ShaderSet(", options, ")");
@@ -1926,6 +2117,9 @@ vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options>
     return shaderSet;
 }
 
+// createTestScene: 创建 PBR 测试场景 (11x11 球体网格, 覆盖 roughness x metallic 参数空间)
+// 每个球体使用独立的 customPbrShaderSet, roughness 从 0.0~1.0, metallic 从 0.0~1.0
+// 用于验证 PBR 渲染和 IBL 光照效果
 vsg::ref_ptr<vsg::Node> createTestScene(vsg::ref_ptr<vsg::Options> options, bool requiresBase = true)
 {
     auto builder = vsg::Builder::create();
@@ -1977,6 +2171,8 @@ vsg::ref_ptr<vsg::Node> createTestScene(vsg::ref_ptr<vsg::Options> options, bool
     return scene;
 }
 
+// iblDemoSceneGraph: 创建 IBL 演示场景图
+// 将 customPbrShaderSet 注册到 options->shaderSets["pbribl"], 然后调用 createTestScene
 ptr<Node> iblDemoSceneGraph(VsgContext& context)
 {
     auto options = vsg::Options::create(*appData.options);
@@ -2011,6 +2207,15 @@ ptr<Node> iblDemoSceneGraph(VsgContext& context)
     return scene;
 }
 
+// updateHDRTextures: 运行时切换 HDR 环境贴图
+//
+// 将预生成的 HDR 纹理 (testMap/irraMap/prefMap) 拷贝到当前激活的 IBL 纹理:
+//   1. 拷贝 testMap[hdr] -> envmapCube (含 mipmap blit)
+//   2. 拷贝 irraMap[hdr] -> irradianceCube (逐面逐 mip)
+//   3. 拷贝 prefMap[hdr] -> prefilterCube  (逐面逐 mip)
+//
+// 所有拷贝命令追加到传入的 command 对象中, 由调用者提交到 GPU
+// 这样可以在不重新运行离线生成管线的情况下, 实时切换不同的 HDR 环境
 void updateHDRTextures(vsg::ref_ptr<vsg::Commands>& command, int hdr)
 {
     
