@@ -190,11 +190,6 @@ public:
         }
     }
 
-    void syncConstantData()
-    {
-        syncGlobalBufferData();
-    }
-
     void setWidthAndHeight(int width, int height, double render_scale, double encode_scale){
         this->render_width = width * render_scale;
         this->render_height = height * render_scale;

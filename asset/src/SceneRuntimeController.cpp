@@ -100,7 +100,7 @@ void SceneRuntimeController::applyDepthCompletionParamsToRenderer()
 void SceneRuntimeController::applyRenderModesToRenderer()
 {
     applyDepthCompletionParamsToRenderer();
-    renderer_.syncConstantData();
+    renderer_.syncGlobalBufferData();
 }
 
 void SceneRuntimeController::syncHdrBrightnessFromState()

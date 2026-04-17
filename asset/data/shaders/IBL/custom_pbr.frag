@@ -328,16 +328,11 @@ float PCF(vec4 coords,int shadowMapIndex, float area, float random) {
     float baseStridePixels = 20.0; //鍩虹姝ラ暱
     const float softness = globalBuffer.softness; // 璋冭妭姝ゅ€兼潵鏀惧ぇ/缂╁皬鍩轰簬 area 鐨勫奖鍝?
     float Stride = baseStridePixels * linearFrac * softness + 0.001; // 鏈€灏忛潪闆堕伩鍏?0
-    float globalStride = baseStridePixels * linearFrac * globalBuffer.softness + 0.001;
     float shadowmapSize = 2048.;
     float visibility = 0.0;
-    float cur_depth = coords.z;
-    
-    float ctrl = 1.0;
-        
     for(int i =0 ; i < globalBuffer.pcf_sample_num; i++)
     {
-        float res  = texture(shadowMaps, vec4(coords.xy + Rotate(poissonDisk[i * 64 / globalBuffer.pcf_sample_num] * globalStride / shadowmapSize, rotationTrig), shadowMapIndex, coords.z)).r;
+        float res  = texture(shadowMaps, vec4(coords.xy + Rotate(poissonDisk[i * 64 / globalBuffer.pcf_sample_num] * Stride / shadowmapSize, rotationTrig), shadowMapIndex, coords.z)).r;
         visibility += res;
     }
 
@@ -377,13 +372,7 @@ float PCSS(vec4 coords,int shadowMapIndex, float area, float random){
     w_penumbra = 1.0 - pow(1.0 - w_penumbra, sqrt(area) * globalBuffer.softness_falloff);
     float filterRadiusUV = w_penumbra * globalBuffer.softness;
 
-    float Stride = 20.;
-    float shadowmapSize = 2048.;
     float visibility = 0.;
-    float cur_depth = coords.z;
-
-    //float ctrl = 1.0;
-    //float bias = getBias(ctrl);
 
     for(int i = 0; i < globalBuffer.pcf_sample_num; i++){
         float res  = texture(shadowMaps, vec4(coords.xy + Rotate(poissonDisk[i * 64 / globalBuffer.pcf_sample_num] * filterRadiusUV, rotationTrig), shadowMapIndex, coords.z)).r;

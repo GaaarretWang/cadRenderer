@@ -248,10 +248,6 @@ float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float 
     float Stride = baseStridePixels * linearFrac * softness + 0.001; // 鏈€灏忛潪闆堕伩鍏?0
     float shadowmapSize = 2048.;
     float visibility = 0.0;
-    float cur_depth = coords.z;
-    
-    float ctrl = 1.0;
-        
     for(int i =0 ; i < globalBuffer.pcf_sample_num; i++)
     {
         float res  = texture(shadowMap, vec4(coords.xy + Rotate(poissonDisk[i * 64 / globalBuffer.pcf_sample_num] * Stride / shadowmapSize, rotationTrig), shadowMapIndex, coords.z)).r;
@@ -281,7 +277,6 @@ float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float
 	float rotationAngle = random * 3.1415926;
 	vec2 rotationTrig = vec2(cos(rotationAngle), sin(rotationAngle));
 
-    //todo: pc.softness
     float searchSize = globalBuffer.softness * clamp(d_Receiver - 0.02, 0.0, 1.0) / d_Receiver;
     vec2 blockerInfo = findBlocker(shadowMap, coords,shadowMapIndex, searchSize, rotationTrig);
 	if (blockerInfo.y < 1)
@@ -292,17 +287,10 @@ float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float
     float d_Blocker = blockerInfo.x;
     float w_penumbra = d_Receiver - d_Blocker;
 
-    //todo: pc.softness_falloff
     w_penumbra = 1.0 - pow(1.0 - w_penumbra, sqrt(area) * globalBuffer.softness_falloff);
     float filterRadiusUV = w_penumbra * globalBuffer.softness;
 
-    float Stride = 20.;
-    float shadowmapSize = 2048.;
     float visibility = 0.;
-    float cur_depth = coords.z;
-
-    //float ctrl = 1.0;
-    //float bias = getBias(ctrl);
 
     for(int i = 0; i < globalBuffer.pcf_sample_num; i++){
         float res  = texture(shadowMap, vec4(coords.xy + Rotate(poissonDisk[i * 64 / globalBuffer.pcf_sample_num] * filterRadiusUV, rotationTrig), shadowMapIndex, coords.z)).r;
