@@ -68,10 +68,10 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     // Set up shaders after options->paths is initialized
     setUpShader();
-    constant_data->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
+    global_buffer_data->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
     camera_image_params->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
-    syncConstantData();
-    constant_data_buffer_info_list = {vsg::BufferInfo::create(constant_data)};
+    syncGlobalBufferData();
+    global_buffer_info_list = {vsg::BufferInfo::create(global_buffer_data)};
 
     vsg::info("SERVER: Init Vulkan Device");
 
@@ -256,7 +256,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     extent.width = render_width;
     extent.height = render_height;
 
-    syncConstantData();
+    syncGlobalBufferData();
 
     CADMesh::camera_info = frame_image_resources->cameraInfo();
     CADMesh::depth_info = frame_image_resources->depthInfo();
@@ -308,11 +308,11 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
                 VK_SHADER_STAGE_ALL, 128, pc_data);
 
-    CADMesh::buildDrawData(modelGroup, pc, constant_data_buffer_info_list, offscreenTarget->shadowSampleImageView); // Build draw data.
-    CADMesh::buildDynamicLinesData(line_shader, wireframeGroup, constant_data_buffer_info_list); // Build dynamic line data.
-    CADMesh::buildDynamicPointsData(point_shader, wireframeGroup, constant_data_buffer_info_list); // Build dynamic point data.
+    CADMesh::buildDrawData(modelGroup, pc, global_buffer_info_list, offscreenTarget->shadowSampleImageView); // Build draw data.
+    CADMesh::buildDynamicLinesData(line_shader, wireframeGroup, global_buffer_info_list); // Build dynamic line data.
+    CADMesh::buildDynamicPointsData(point_shader, wireframeGroup, global_buffer_info_list); // Build dynamic point data.
     CADMesh::buildDynamicTextsData(textGroup, options, vsg::findFile("fonts/times.vsgt", options->paths).string());
-    CADMesh::processPMI(transfered_meshes, line_shader, wireframeGroup, textGroup, options, constant_data_buffer_info_list, vsg::findFile("fonts/times.vsgt", options->paths).string());
+    CADMesh::processPMI(transfered_meshes, line_shader, wireframeGroup, textGroup, options, global_buffer_info_list, vsg::findFile("fonts/times.vsgt", options->paths).string());
     vsg::info("Model processing done");
 
     SSAOPass::buildSSAOData(options, SSAOGroup, offscreenTarget->gbufferImageView0, offscreenTarget->gbufferImageView1, offscreenTarget->gbufferImageView2, extent);
@@ -435,9 +435,9 @@ bool vsgRendererServer::render() {
         vsg::LookAt* lookAt = dynamic_cast<vsg::LookAt*>(camera->viewMatrix.get());
         pc_data->value().camera_pos = lookAt->eye;
     }
-    syncConstantData();
     pc_data->value().frame_num = ++frame_num;
     pc_data->value().last_view = vsg::mat4(camera->viewMatrix->transform());
+    syncGlobalBufferData();
     pc_data->dirty();
 
     // At the start of each frame, copy the current matrices into the previous-frame buffers.

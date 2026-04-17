@@ -1,5 +1,7 @@
 ﻿#pragma  once
 #include "renderGeo_generated.h"
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <unordered_set>
 #include <vsg/all.h>
@@ -206,13 +208,40 @@ namespace std
     };
 } // namespace std
 
-struct GlobalConstantData{
-    float z_far;
-    int width;
-    int height;
-    int enable_real_depth_occlusion;
-    int shadow_mode;
+struct alignas(16) GlobalConstantData
+{
+    vsg::mat4 last_view;
+    vsg::vec3 camera_pos;
+    float softness = 1.0f;
+    float baseBrightness = 2.0f;
+    float ssao_radius = 0.1f;
+    float exposure = 8.0f;
+    float softness_falloff = 1.0f;
+    float shadow_bias = 0.0001f;
+    float z_far = 65.535f;
+    int32_t width = 0;
+    int32_t height = 0;
+    int32_t ssao_kernel_size = 64;
+    int32_t denoise_size = 5;
+    int32_t blocker_sample_num = 16;
+    int32_t pcf_sample_num = 16;
+    int32_t shadow_type = 1;
+    uint32_t frame_num = 0;
+    int32_t enable_real_depth_occlusion = 0;
+    int32_t shadow_mode = 0;
 };
+
+static_assert(offsetof(GlobalConstantData, last_view) == 0, "GlobalConstantData.last_view must match std140 layout");
+static_assert(offsetof(GlobalConstantData, camera_pos) == 64, "GlobalConstantData.camera_pos must match std140 layout");
+static_assert(offsetof(GlobalConstantData, softness) == 76, "GlobalConstantData.softness must match std140 layout");
+static_assert(offsetof(GlobalConstantData, baseBrightness) == 80, "GlobalConstantData.baseBrightness must match std140 layout");
+static_assert(offsetof(GlobalConstantData, shadow_bias) == 96, "GlobalConstantData.shadow_bias must match std140 layout");
+static_assert(offsetof(GlobalConstantData, ssao_kernel_size) == 112, "GlobalConstantData.ssao_kernel_size must match std140 layout");
+static_assert(offsetof(GlobalConstantData, shadow_type) == 128, "GlobalConstantData.shadow_type must match std140 layout");
+static_assert(offsetof(GlobalConstantData, frame_num) == 132, "GlobalConstantData.frame_num must match std140 layout");
+static_assert(offsetof(GlobalConstantData, enable_real_depth_occlusion) == 136, "GlobalConstantData.enable_real_depth_occlusion must match std140 layout");
+static_assert(offsetof(GlobalConstantData, shadow_mode) == 140, "GlobalConstantData.shadow_mode must match std140 layout");
+static_assert(sizeof(GlobalConstantData) == 144, "GlobalConstantData size must stay aligned to the shader layout");
 
 class CADMesh
 {

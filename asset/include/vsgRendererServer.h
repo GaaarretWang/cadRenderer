@@ -61,8 +61,8 @@ class vsgRendererServer
     vsg::dmat4 shadow_receiver_transform;
     std::unordered_set<std::string> cull_mode_none_model_paths;
     vsg::ref_ptr<vsg::Value<GlobalPCData>> pc_data = vsg::Value<GlobalPCData>::create();
-    vsg::ref_ptr<vsg::Value<GlobalConstantData>> constant_data = vsg::Value<GlobalConstantData>::create();
-    vsg::BufferInfoList constant_data_buffer_info_list;
+    vsg::ref_ptr<vsg::Value<GlobalConstantData>> global_buffer_data = vsg::Value<GlobalConstantData>::create();
+    vsg::BufferInfoList global_buffer_info_list;
     float fx = 386.52199190267083; // Focal length on the x axis.
     float fy = 387.32300428823663; // Focal length on the y axis.
     float cx = 326.5103569741365; // Principal point on the x axis.
@@ -154,14 +154,29 @@ public:
         depth_preprocess_stage.setParams(params);
     }
 
-    void syncConstantData()
+    void syncGlobalBufferData()
     {
-        constant_data->value().width = render_width;
-        constant_data->value().height = render_height;
-        constant_data->value().z_far = 65.535f;
-        constant_data->value().enable_real_depth_occlusion = enable_real_depth_occlusion;
-        constant_data->value().shadow_mode = shadow_mode;
-        constant_data->dirty();
+        auto& global = global_buffer_data->value();
+        global.last_view = pc_data ? pc_data->value().last_view : vsg::mat4();
+        global.camera_pos = pc_data ? pc_data->value().camera_pos : vsg::vec3();
+        global.softness = pc_data ? pc_data->value().softness : 1.0f;
+        global.baseBrightness = pc_data ? pc_data->value().baseBrightness : 2.0f;
+        global.ssao_radius = pc_data ? pc_data->value().ssao_radius : 0.1f;
+        global.exposure = pc_data ? pc_data->value().exposure : 8.0f;
+        global.softness_falloff = pc_data ? pc_data->value().softness_falloff : 1.0f;
+        global.shadow_bias = pc_data ? pc_data->value().shadow_bias : 0.0001f;
+        global.z_far = far_plane;
+        global.width = render_width;
+        global.height = render_height;
+        global.ssao_kernel_size = pc_data ? pc_data->value().ssao_kernel_size : 64;
+        global.denoise_size = pc_data ? pc_data->value().denoise_size : 5;
+        global.blocker_sample_num = pc_data ? pc_data->value().blocker_sample_num : 16;
+        global.pcf_sample_num = pc_data ? pc_data->value().pcf_sample_num : 16;
+        global.shadow_type = pc_data ? pc_data->value().shadow_type : 1;
+        global.frame_num = pc_data ? pc_data->value().frame_num : 0;
+        global.enable_real_depth_occlusion = enable_real_depth_occlusion;
+        global.shadow_mode = shadow_mode;
+        global_buffer_data->dirty();
 
         if (camera_image_params)
         {
@@ -173,6 +188,11 @@ public:
             camera_image_params->value().shadowMode = static_cast<float>(shadow_mode);
             camera_image_params->dirty();
         }
+    }
+
+    void syncConstantData()
+    {
+        syncGlobalBufferData();
     }
 
     void setWidthAndHeight(int width, int height, double render_scale, double encode_scale){
