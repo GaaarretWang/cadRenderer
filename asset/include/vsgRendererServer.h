@@ -259,7 +259,8 @@ public:
         IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, frame_image_resources->cameraInfo(),
                                frame_image_resources->depthInfo(),
                                vsg::ref_ptr<vsg::Data>(pc_data),
-                               camera_image_params);
+                               camera_image_params,
+                               true);
     }
 
     void updateEnvMap(){
@@ -278,7 +279,7 @@ public:
 
         IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
         IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height,
-            frame_image_resources->cameraInfo(), frame_image_resources->depthInfo(), vsg::ref_ptr<vsg::Data>(pc_data), camera_image_params);
+            frame_image_resources->cameraInfo(), frame_image_resources->depthInfo(), vsg::ref_ptr<vsg::Data>(pc_data), camera_image_params, true);
     }
 
     void update_directional_lights(){

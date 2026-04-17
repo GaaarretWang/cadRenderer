@@ -1677,7 +1677,8 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
                                   vsg::ImageInfoList camera_data,
                                   vsg::ImageInfoList depth_data,
                                   vsg::ref_ptr<vsg::Data> shadow_pc_data,
-                                  vsg::ref_ptr<vsg::Data> tonemap_params_override)
+                                  vsg::ref_ptr<vsg::Data> tonemap_params_override,
+                                  bool depth_prepass_only)
 {
     auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skybox.vert", appData.options->paths);
     auto fragShaderFilepath = vsg::findFile("shaders/IBL/skybox.frag", appData.options->paths);
@@ -1713,12 +1714,22 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
         skyBoxShaderSet->addDescriptorBinding("shadowMapsSampler", "", VIEW_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
         skyBoxShaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(VIEW_DESCRIPTOR_SET));
 
-        // Support four attachment outputs (outColor plus locations 1, 2, and 3).
-        auto colorBlendState = vsg::ColorBlendState::create();
-        colorBlendState->attachments.resize(4, colorBlendState->attachments[0]);
-        skyBoxShaderSet->defaultGraphicsPipelineStates.push_back(colorBlendState);
     } else {
         skyBoxShaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
+    }
+
+    if (hasShadowInSkybox || depth_prepass_only)
+    {
+        auto colorBlendState = vsg::ColorBlendState::create();
+        colorBlendState->attachments.resize(hasShadowInSkybox ? 4 : 1, colorBlendState->attachments[0]);
+        if (depth_prepass_only)
+        {
+            for (auto& attachment : colorBlendState->attachments)
+            {
+                attachment.colorWriteMask = 0;
+            }
+        }
+        skyBoxShaderSet->defaultGraphicsPipelineStates.push_back(colorBlendState);
     }
 
     vsg::DataList pipelineInputs;
@@ -1743,6 +1754,10 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
     pplcfg->assignDescriptor("tonemapParams", tonemapParams);
     if(camera_data.size() > 0) pplcfg->assignTexture("cameraImage", camera_data);
     if(depth_data.size() > 0) pplcfg->assignTexture("depthImage", depth_data);
+    if (depth_prepass_only)
+    {
+        pplcfg->shaderHints->defines.insert("DEPTH_PREPASS_ONLY");
+    }
     pplcfg->init();
 
     auto drawCmds = Commands::create();

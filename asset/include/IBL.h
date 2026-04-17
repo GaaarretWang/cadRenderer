@@ -125,7 +125,8 @@ namespace IBL
                                            vsg::ImageInfoList camera_data = {},
                                            vsg::ImageInfoList depth_data = {},
                                            vsg::ref_ptr<vsg::Data> shadow_pc_data = {},
-                                           vsg::ref_ptr<vsg::Data> tonemap_params_override = {});
+                                           vsg::ref_ptr<vsg::Data> tonemap_params_override = {},
+                                           bool depth_prepass_only = false);
 
     vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options> options);
 

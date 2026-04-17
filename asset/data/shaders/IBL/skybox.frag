@@ -1,5 +1,5 @@
 #version 450
-#pragma import_defines (CAMERA_IMAGE, CAMERA_DEPTH)
+#pragma import_defines (CAMERA_IMAGE, CAMERA_DEPTH, DEPTH_PREPASS_ONLY)
 
 layout (location = 0) in vec3 inUVW;
 layout (set=0, binding = 0) uniform samplerCube samplerEnv;
@@ -429,7 +429,9 @@ void main()
 {
 #ifdef CAMERA_IMAGE
 	vec2 screen_uv = vec2(gl_FragCoord.x / tonemapParams.width, gl_FragCoord.y / tonemapParams.height);	
+#ifndef DEPTH_PREPASS_ONLY
 	float scene_brightness = 1.0;
+#endif
 	#ifdef CAMERA_DEPTH
 		outNormal = vec4(0.0, 0.0, 0.0, 0.0);
 		outWorldPos = vec4(0.0, 0.0, 0.0, 0.0);
@@ -453,15 +455,25 @@ void main()
 				vec4 clip_out = pc.proj * vec4(actual_view, 1.0);
 				gl_FragDepth = clip_out.z / clip_out.w;
 			}
+#ifndef DEPTH_PREPASS_ONLY
 			if (tonemapParams.shadowMode > 0.5 && tonemapParams.shadowMode < 1.5) {
 				mat4 inv_view = inverse(pc.view);
 				vec3 worldPos = (inv_view * vec4(actual_view, 1.0)).xyz;
 				scene_brightness = computeShadowBrightness(worldPos);
 			}
+#endif
 		}
+#ifdef DEPTH_PREPASS_ONLY
+		outShadow = vec4(0.0);
+#else
 		outShadow = vec4(scene_brightness, -10000000.0, gl_FragDepth, 1.0);
+#endif
 	#endif
+#ifdef DEPTH_PREPASS_ONLY
+	outColor = vec4(0.0);
+#else
 	outColor = texture(cameraImageSampler, screen_uv) * scene_brightness;
+#endif
 #else
     vec3 dir = inUVW;
 	vec3 color = textureLod(samplerEnv, dir, 0).rgb;
