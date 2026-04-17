@@ -19,5 +19,14 @@ namespace SSAOPass{
                                           vsg::ref_ptr<vsg::ImageView> colorView,
                                           vsg::ref_ptr<vsg::ImageView> ssaoView,
                                           vsg::BufferInfoList global_buffer_info_list);
+
+    vsg::ref_ptr<vsg::ShaderSet> customStandaloneRealSceneShaderSet(vsg::ref_ptr<const vsg::Options> options);
+    void buildStandaloneRealSceneData(vsg::ref_ptr<vsg::Options> options,
+                                      vsg::ref_ptr<vsg::Group> scene,
+                                      const vsg::ImageInfoList& cameraImageInfoList,
+                                      const vsg::ImageInfoList& realDepthInfoList,
+                                      vsg::ref_ptr<vsg::ImageView> sceneDepthView,
+                                      vsg::BufferInfoList global_buffer_info_list,
+                                      vsg::ref_ptr<vsg::Data> shadow_pc_data);
 }
 #endif

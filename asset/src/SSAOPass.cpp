@@ -2,6 +2,7 @@
 
 namespace
 {
+constexpr uint32_t kViewDescriptorSet = 1;
 constexpr uint32_t kMaterialDescriptorSet = 2;
 
 vsg::ref_ptr<vsg::DepthStencilState> createFullscreenDepthState()
@@ -173,4 +174,66 @@ void SSAOPass::buildStandaloneSSAOCompositeData(vsg::ref_ptr<vsg::Options> optio
     graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
 
     scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
+}
+
+vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customStandaloneRealSceneShaderSet(vsg::ref_ptr<const vsg::Options> options)
+{
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/real_scene_standalone.frag", options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+
+    if (!vertexShader || !fragmentShader)
+    {
+        vsg::error("customStandaloneRealSceneShaderSet(...) could not find shaders.");
+        return {};
+    }
+
+    auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
+    shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
+    shaderSet->addDescriptorBinding("cameraImageSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
+    shaderSet->addDescriptorBinding("realDepthSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ushortArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
+    shaderSet->addDescriptorBinding("sceneDepthSampler", "", kMaterialDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
+    shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
+    shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 256);
+
+    shaderSet->addDescriptorBinding("lightData", "", kViewDescriptorSet, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array::create(64));
+    shaderSet->addDescriptorBinding("viewportData", "", kViewDescriptorSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Value::create(0, 0, 1280, 1024));
+    shaderSet->addDescriptorBinding("shadowMaps", "", kViewDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
+    shaderSet->addDescriptorBinding("shadowMapsSampler", "", kViewDescriptorSet, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
+    shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(kViewDescriptorSet));
+
+    return shaderSet;
+}
+
+void SSAOPass::buildStandaloneRealSceneData(vsg::ref_ptr<vsg::Options> options,
+                                            vsg::ref_ptr<vsg::Group> scene,
+                                            const vsg::ImageInfoList& cameraImageInfoList,
+                                            const vsg::ImageInfoList& realDepthInfoList,
+                                            vsg::ref_ptr<vsg::ImageView> sceneDepthView,
+                                            vsg::BufferInfoList global_buffer_info_list,
+                                            vsg::ref_ptr<vsg::Data> shadow_pc_data)
+{
+    auto shaderSet = SSAOPass::customStandaloneRealSceneShaderSet(options);
+    auto rasterizationState = vsg::RasterizationState::create();
+    rasterizationState->cullMode = VK_CULL_MODE_NONE;
+    shaderSet->defaultGraphicsPipelineStates.push_back(rasterizationState);
+    shaderSet->defaultGraphicsPipelineStates.push_back(createFullscreenDepthState());
+
+    auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(shaderSet);
+    auto sceneDepthSampler = Utils::createNearestClampSampler();
+    vsg::ImageInfoList sceneDepthInfoList = {
+        vsg::ImageInfo::create(sceneDepthSampler, sceneDepthView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)};
+
+    graphicsPipelineConfig->assignTexture("cameraImageSampler", cameraImageInfoList);
+    graphicsPipelineConfig->assignTexture("realDepthSampler", realDepthInfoList);
+    graphicsPipelineConfig->assignTexture("sceneDepthSampler", sceneDepthInfoList);
+    graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
+
+    auto stateGroup = createFullscreenStateGroup(graphicsPipelineConfig);
+    stateGroup->stateCommands.push_back(vsg::PushConstants::create(
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        128,
+        shadow_pc_data));
+    scene->addChild(stateGroup);
 }

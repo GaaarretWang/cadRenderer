@@ -195,6 +195,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         std::max(1u, renderExtent.height / 2)};
     ssaoTarget = ColorRenderTarget::create();
     ssaoTarget->init(device, ssaoExtent, VK_FORMAT_R32G32B32A32_SFLOAT);
+    realSceneTarget = ColorRenderTarget::create();
+    realSceneTarget->init(device, renderExtent, window->surfaceFormat().format);
     compositeTarget = ColorRenderTarget::create();
     compositeTarget->init(device, renderExtent, window->surfaceFormat().format, 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
@@ -209,6 +211,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto wireframeGroup = vsg::Group::create();
     auto textGroup = vsg::Group::create();
     auto ssaoScene = vsg::Group::create();
+    auto realSceneScene = vsg::Group::create();
     auto compositeScene = vsg::Group::create();
 
     auto rootSwitch = vsg::Switch::create();
@@ -308,6 +311,14 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         compositeColorView,
         ssaoTarget->colorImageView,
         global_buffer_info_list);
+    SSAOPass::buildStandaloneRealSceneData(
+        options,
+        realSceneScene,
+        frame_image_resources->cameraInfo(),
+        frame_image_resources->depthInfo(),
+        offscreenTarget->depthImageView,
+        global_buffer_info_list,
+        vsg::ref_ptr<vsg::Data>(pc_data));
 
     // Sample HDR environment lighting.
     init_directional_lights();
@@ -355,8 +366,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     };
     auto createStandaloneRenderGraph = [&](vsg::ref_ptr<ColorRenderTarget> target,
                                            vsg::ref_ptr<vsg::Group> scene,
-                                           const std::array<float, 4>& clearColor) {
+                                           const std::array<float, 4>& clearColor,
+                                           vsg::ref_ptr<vsg::ViewDependentState> viewDependentState = {}) {
         auto passView = vsg::View::create(createPassCamera(target->getExtent()), scene);
+        if (viewDependentState)
+        {
+            passView->viewDependentState = viewDependentState;
+        }
         auto passRenderGraph = vsg::RenderGraph::create();
         passRenderGraph->renderArea.offset = {0, 0};
         passRenderGraph->renderArea.extent = target->getExtent();
@@ -367,6 +383,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         return passRenderGraph;
     };
     auto ssaoRenderGraph = createStandaloneRenderGraph(ssaoTarget, ssaoScene, {1.0f, 1.0f, 1.0f, 1.0f});
+    auto realSceneRenderGraph = createStandaloneRenderGraph(realSceneTarget, realSceneScene, {0.0f, 0.0f, 0.0f, 0.0f}, view->viewDependentState);
     auto compositeRenderGraph = createStandaloneRenderGraph(compositeTarget, compositeScene, {0.0f, 0.0f, 0.0f, 1.0f});
     std::this_thread::sleep_for(std::chrono::seconds(1));
     
@@ -536,6 +553,55 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             0,
             ssaoReady));
         commandGraph1->addChild(ssaoReadyCommandGraph);
+    }
+
+    {
+        auto realSceneDepthReadCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
+        auto depthToReadOnly = vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            offscreenTarget->depthImage,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1});
+        realSceneDepthReadCommandGraph->addChild(vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0,
+            depthToReadOnly));
+        commandGraph1->addChild(realSceneDepthReadCommandGraph);
+    }
+
+    commandGraph1->addChild(realSceneRenderGraph);
+
+    {
+        auto realSceneReadyCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
+        auto realSceneReadyBarrier = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0);
+        realSceneReadyBarrier->add(vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            realSceneTarget->colorImage,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
+        realSceneReadyBarrier->add(vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            offscreenTarget->depthImage,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}));
+        realSceneReadyCommandGraph->addChild(realSceneReadyBarrier);
+        commandGraph1->addChild(realSceneReadyCommandGraph);
     }
 
     commandGraph1->addChild(compositeRenderGraph);
