@@ -1,4 +1,5 @@
 #include "ConfigShader.h"
+#include "CADMesh.h"
 #include <iostream>
 
 
@@ -32,7 +33,7 @@ vsg::ref_ptr<vsg::ShaderSet> ConfigShader::buildShadowShader(std::string vert, s
     shaderSet->addDescriptorBinding("cameraImage", "", MATERIAL_DESCRIPTOR_SET, 7, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
     shaderSet->addDescriptorBinding("depthImage", "", MATERIAL_DESCRIPTOR_SET, 8, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
     shaderSet->addDescriptorBinding("instanceModelMatrix", "", MATERIAL_DESCRIPTOR_SET, 11, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT, vsg::floatArray::create());
-    shaderSet->addDescriptorBinding("ConstantBuffer", "", MATERIAL_DESCRIPTOR_SET, 12, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray::create());
+    shaderSet->addDescriptorBinding("GlobalBuffer", "", MATERIAL_DESCRIPTOR_SET, 12, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
     shaderSet->addDescriptorBinding("shadowsampler", "", MATERIAL_DESCRIPTOR_SET, 13, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec3Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
     shaderSet->addDescriptorBinding("materialArray", "", MATERIAL_DESCRIPTOR_SET, 14, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::PbrMaterialArray::create());
 

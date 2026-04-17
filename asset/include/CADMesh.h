@@ -325,8 +325,8 @@ public:
     void preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string instance_name, vsg::ref_ptr<vsg::Group> transparent_scene = {});
     static void buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::PushConstants> pc, vsg::BufferInfoList constant_data_buffer_info_list, vsg::ref_ptr<vsg::ImageView> ShadowSampleImageView);
 
-    static void buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList constant_data_buffer_info_list);
-    static void buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList constant_data_buffer_info_list);
+    static void buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList global_buffer_info_list);
+    static void buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList global_buffer_info_list);
     static void buildDynamicTextsData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Options> options, std::string font_path);
     static void processPMI(
         std::unordered_map<std::string, CADMesh*>& transfered_meshes,
@@ -334,6 +334,6 @@ public:
         vsg::ref_ptr<vsg::Group> wireframeGroup,
         vsg::ref_ptr<vsg::Group> textGroup,
         vsg::ref_ptr<vsg::Options> options,
-        vsg::BufferInfoList constant_data_buffer_info_list,
+        vsg::BufferInfoList global_buffer_info_list,
         std::string font_path);
 };

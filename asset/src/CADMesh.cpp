@@ -850,7 +850,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
     }
 }
 
-void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList constant_data_buffer_info_list)
+void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList global_buffer_info_list)
 {
     dynamic_lines.vertices = vsg::vec3Array::create(20000); 
     dynamic_lines.vertices->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
@@ -859,7 +859,7 @@ void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset
     auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(model_shaderset);
     graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
     graphicsPipelineConfig->assignTexture("depthImage", depth_info);
-    graphicsPipelineConfig->assignDescriptor("ConstantBuffer", constant_data_buffer_info_list);
+    graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
 
     dynamic_lines.colors = vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f});
     dynamic_lines.colors->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
@@ -908,7 +908,7 @@ void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset
     scene->addChild(stateGroup);
 }
 
-void CADMesh::buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList constant_data_buffer_info_list)
+void CADMesh::buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList global_buffer_info_list)
 {
     dynamic_points.vertices = vsg::vec3Array::create(20000); 
     dynamic_points.vertices->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
@@ -917,7 +917,7 @@ void CADMesh::buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderse
     auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(model_shaderset);
     graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
     graphicsPipelineConfig->assignTexture("depthImage", depth_info);
-    graphicsPipelineConfig->assignDescriptor("ConstantBuffer", constant_data_buffer_info_list);
+    graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
 
     dynamic_points.colors = vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f});
     dynamic_points.colors->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
@@ -1033,7 +1033,7 @@ void CADMesh::processPMI(
     vsg::ref_ptr<vsg::Group> wireframeGroup,
     vsg::ref_ptr<vsg::Group> textGroup,
     vsg::ref_ptr<vsg::Options> options,
-    vsg::BufferInfoList constant_data_buffer_info_list,
+    vsg::BufferInfoList global_buffer_info_list,
     std::string font_path)
 {
     vsg::info("=== processPMI START ===");
@@ -1177,7 +1177,7 @@ void CADMesh::processPMI(
             auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(line_shader);
             graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
             graphicsPipelineConfig->assignTexture("depthImage", depth_info);
-            graphicsPipelineConfig->assignDescriptor("ConstantBuffer", constant_data_buffer_info_list);
+            graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
 
             vsg::DataList vertexArrays;
             graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, pmi_verts);

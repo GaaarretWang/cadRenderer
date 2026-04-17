@@ -37,9 +37,8 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap
 
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform sampler2D cameraImage;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
-layout(push_constant) uniform PushConstants {
-    mat4 projection;
-    mat4 view;
+
+layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 12) uniform GlobalBuffer {
     mat4 last_view;
     vec3 camera_pos;
     float softness;
@@ -48,13 +47,18 @@ layout(push_constant) uniform PushConstants {
     float exposure;
     float softness_falloff;
     float shadow_bias;
+    float z_far;
+    int width;
+    int height;
     int ssao_kernel_size;
     int denoise_size;
     int blocker_sample_num;
     int pcf_sample_num;
     int shadow_type;
     uint frame_num;
-} pc;
+    int enable_real_depth_occlusion;
+    int shadow_mode;
+} globalBuffer;
 
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
 {
@@ -67,14 +71,6 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 10) uniform PbrData
     float alphaMask;
     float alphaMaskCutoff;
 } pbr;
-
-layout(std430, set = MATERIAL_DESCRIPTOR_SET, binding = 12) buffer ConstantBuffer {
-    float z_far;
-    int width;
-    int height;
-    int enable_real_depth_occlusion;
-    int shadow_mode;
-}constantBuffer;
 
 // ViewDependentState
 layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
