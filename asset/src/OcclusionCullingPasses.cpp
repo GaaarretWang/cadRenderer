@@ -92,7 +92,7 @@ namespace OcclusionCullingPasses{
         );
         for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
             ProtoData* proto_data = proto_data_itr.second;
-            // if (proto_data->is_transparent) continue;
+            if (proto_data->is_transparent) continue;
             auto indirectBarrier = vsg::BufferMemoryBarrier::create(
                 VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
                 VK_ACCESS_SHADER_WRITE_BIT,
@@ -119,7 +119,7 @@ namespace OcclusionCullingPasses{
 
         for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
             ProtoData* proto_data = proto_data_itr.second;
-            // if (proto_data->is_transparent) continue;
+            if (proto_data->is_transparent) continue;
             auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
                                                                                 proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info,
                                                                                 proto_data->output_instance_buffer_info, camera_plane_info_buffer_info,
@@ -331,6 +331,10 @@ namespace OcclusionCullingPasses{
         auto computeShader_seat = vsg::read_cast<vsg::ShaderStage>(shaderPath_seat, options);
         auto pipeline_seat = vsg::ComputePipeline::create(pipelineLayout, computeShader_seat);
         auto bindPipeline_seat = vsg::BindComputePipeline::create(pipeline_seat);
+        auto shaderPath_transparent = vsg::findFile("shaders/computevertex1_transparent.comp", options->paths);
+        auto computeShader_transparent = vsg::read_cast<vsg::ShaderStage>(shaderPath_transparent, options);
+        auto pipeline_transparent = vsg::ComputePipeline::create(pipelineLayout, computeShader_transparent);
+        auto bindPipeline_transparent = vsg::BindComputePipeline::create(pipeline_transparent);
         depth_pyramid_CommandGraph->addChild(bindPipeline);
         auto pcData1 = vsg::Value<ComputePushConstants>::create(ComputePushConstants{extent.width, extent.height});
         depth_pyramid_CommandGraph->addChild(vsg::PushConstants::create(
@@ -342,14 +346,20 @@ namespace OcclusionCullingPasses{
         auto pre_pipeline = bindPipeline;
         for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
             ProtoData* proto_data = proto_data_itr.second;
-            // if (proto_data->is_transparent) continue;
-            if(proto_data->instance_matrix.size() > 32 && pre_pipeline == bindPipeline){
-                depth_pyramid_CommandGraph->addChild(bindPipeline_seat);
-                pre_pipeline = bindPipeline_seat;
+            auto target_pipeline = bindPipeline;
+            if (proto_data->is_transparent)
+            {
+                target_pipeline = bindPipeline_transparent;
             }
-            else if(proto_data->instance_matrix.size() <= 32 && pre_pipeline == bindPipeline_seat){
-                depth_pyramid_CommandGraph->addChild(bindPipeline);
-                pre_pipeline = bindPipeline;
+            else
+            {
+                target_pipeline = (proto_data->instance_matrix.size() > 32) ? bindPipeline_seat : bindPipeline;
+            }
+
+            if (pre_pipeline != target_pipeline)
+            {
+                depth_pyramid_CommandGraph->addChild(target_pipeline);
+                pre_pipeline = target_pipeline;
             }
             auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
                                                                                 proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info,
@@ -362,7 +372,7 @@ namespace OcclusionCullingPasses{
             auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageBuffer, storageImage, globalModelBuffer, lastGlobalModelBuffer, lastProtoBuffer});
             auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
             depth_pyramid_CommandGraph->addChild(bindDescriptorSet);
-            if(proto_data->instance_matrix.size() > 32)
+            if(!proto_data->is_transparent && proto_data->instance_matrix.size() > 32)
                 depth_pyramid_CommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 700 + 1, 1, 1));
             else
                 depth_pyramid_CommandGraph->addChild(vsg::Dispatch::create(proto_data->instance_matrix.size() / 32 + 1, 1, 1));
