@@ -144,7 +144,8 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customStandaloneSSAOCompositeShaderSet(vs
     shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
     shaderSet->addDescriptorBinding("colorSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
     shaderSet->addDescriptorBinding("ssaoSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
-    shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 2, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
+    shaderSet->addDescriptorBinding("realSceneSampler", "", kMaterialDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+    shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
 
     return shaderSet;
 }
@@ -153,6 +154,7 @@ void SSAOPass::buildStandaloneSSAOCompositeData(vsg::ref_ptr<vsg::Options> optio
                                                 vsg::ref_ptr<vsg::Group> scene,
                                                 vsg::ref_ptr<vsg::ImageView> colorView,
                                                 vsg::ref_ptr<vsg::ImageView> ssaoView,
+                                                vsg::ref_ptr<vsg::ImageView> realSceneView,
                                                 vsg::BufferInfoList global_buffer_info_list)
 {
     auto shaderSet = SSAOPass::customStandaloneSSAOCompositeShaderSet(options);
@@ -168,9 +170,12 @@ void SSAOPass::buildStandaloneSSAOCompositeData(vsg::ref_ptr<vsg::Options> optio
         vsg::ImageInfo::create(colorSampler, colorView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
     vsg::ImageInfoList ssaoImageInfoList = {
         vsg::ImageInfo::create(ssaoSampler, ssaoView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
+    vsg::ImageInfoList realSceneImageInfoList = {
+        vsg::ImageInfo::create(colorSampler, realSceneView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
 
     graphicsPipelineConfig->assignTexture("colorSampler", colorImageInfoList);
     graphicsPipelineConfig->assignTexture("ssaoSampler", ssaoImageInfoList);
+    graphicsPipelineConfig->assignTexture("realSceneSampler", realSceneImageInfoList);
     graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
 
     scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));

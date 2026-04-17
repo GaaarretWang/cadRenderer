@@ -5,7 +5,8 @@
 
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2D colorSampler;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D ssaoSampler;
-layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform GlobalBuffer {
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D realSceneSampler;
+layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform GlobalBuffer {
     mat4 last_view;
     vec3 camera_pos;
     float softness;
@@ -55,6 +56,7 @@ void main()
     ivec2 colorSize = textureSize(colorSampler, 0);
     ivec2 colorCoord = clamp(ivec2(uv * vec2(colorSize)), ivec2(0), colorSize - 1);
     vec3 colorData = texelFetch(colorSampler, colorCoord, 0).xyz;
+    vec4 realSceneData = texture(realSceneSampler, uv);
 
     ivec2 ssaoSize = textureSize(ssaoSampler, 0);
     vec4 centerSSAO = texture(ssaoSampler, uv);
@@ -73,7 +75,7 @@ void main()
 
     if (centerSSAO.w > 0.5)
     {
-        outColor = vec4(colorData, 1.0);
+        outColor = realSceneData.a > 0.5 ? realSceneData : vec4(colorData, 1.0);
     }
     else
     {

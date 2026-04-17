@@ -310,6 +310,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         compositeScene,
         compositeColorView,
         ssaoTarget->colorImageView,
+        realSceneTarget->colorImageView,
         global_buffer_info_list);
     SSAOPass::buildStandaloneRealSceneData(
         options,

@@ -18,6 +18,7 @@ namespace SSAOPass{
                                           vsg::ref_ptr<vsg::Group> scene,
                                           vsg::ref_ptr<vsg::ImageView> colorView,
                                           vsg::ref_ptr<vsg::ImageView> ssaoView,
+                                          vsg::ref_ptr<vsg::ImageView> realSceneView,
                                           vsg::BufferInfoList global_buffer_info_list);
 
     vsg::ref_ptr<vsg::ShaderSet> customStandaloneRealSceneShaderSet(vsg::ref_ptr<const vsg::Options> options);
