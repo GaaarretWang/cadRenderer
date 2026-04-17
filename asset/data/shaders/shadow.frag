@@ -38,13 +38,27 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D specularMap
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 7) uniform sampler2D cameraImage;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 8) uniform sampler2D depthImage;
 
-layout(std430, set = MATERIAL_DESCRIPTOR_SET, binding = 12) buffer ConstantBuffer {
+layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 12) uniform GlobalBuffer {
+    mat4 last_view;
+    vec3 camera_pos;
+    float softness;
+    float baseBrightness;
+    float ssao_radius;
+    float exposure;
+    float softness_falloff;
+    float shadow_bias;
     float z_far;
     int width;
     int height;
+    int ssao_kernel_size;
+    int denoise_size;
+    int blocker_sample_num;
+    int pcf_sample_num;
+    int shadow_type;
+    uint frame_num;
     int enable_real_depth_occlusion;
     int shadow_mode;
-}constantBuffer;
+} globalBuffer;
 
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 13) uniform sampler2DMS shadowInputAttachment;
 
@@ -74,20 +88,6 @@ layout(location = 3) out vec4 outShadow;
 layout(push_constant) uniform PushConstants {
     mat4 projection;
     mat4 view;
-    mat4 last_view;
-    vec3 camera_pos;
-    float softness;
-    float baseBrightness;
-    float ssao_radius;
-    float exposure;
-    float softness_falloff;
-    float shadow_bias;
-    int ssao_kernel_size;
-    int denoise_size;
-    int blocker_sample_num;
-    int pcf_sample_num;
-    int shadow_type;
-    uint frame_num;
 } pc;
 
 // Encapsulate the various inputs used by the various functions in the shading equation
@@ -244,7 +244,7 @@ float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float 
 
     float linearFrac = sqrt(max(area, 0.0));//灏哸rea鏄犲皠涓虹嚎鎬у昂瀵?
     float baseStridePixels = 20.0; //鍩虹姝ラ暱
-    const float softness = pc.softness; // 璋冭妭姝ゅ€兼潵鏀惧ぇ/缂╁皬鍩轰簬 area 鐨勫奖鍝?
+    const float softness = globalBuffer.softness; // 璋冭妭姝ゅ€兼潵鏀惧ぇ/缂╁皬鍩轰簬 area 鐨勫奖鍝?
     float Stride = baseStridePixels * linearFrac * softness + 0.001; // 鏈€灏忛潪闆堕伩鍏?0
     float shadowmapSize = 2048.;
     float visibility = 0.0;
@@ -252,21 +252,21 @@ float PCF(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float 
     
     float ctrl = 1.0;
         
-    for(int i =0 ; i < pc.pcf_sample_num; i++)
+    for(int i =0 ; i < globalBuffer.pcf_sample_num; i++)
     {
-        float res  = texture(shadowMap, vec4(coords.xy + Rotate(poissonDisk[i * 64 / pc.pcf_sample_num] * Stride / shadowmapSize, rotationTrig), shadowMapIndex, coords.z)).r;
+        float res  = texture(shadowMap, vec4(coords.xy + Rotate(poissonDisk[i * 64 / globalBuffer.pcf_sample_num] * Stride / shadowmapSize, rotationTrig), shadowMapIndex, coords.z)).r;
         visibility += res;
     }
 
-    return visibility / float(pc.pcf_sample_num);
+    return visibility / float(globalBuffer.pcf_sample_num);
 }
 
 vec2 findBlocker(sampler2DArrayShadow shadowMap,  vec4 coords, int shadowMapIndex, float search_size, vec2 rotationTrig) {
     float blockerNum = 0;
     float block_depth = 0.;
 
-    for(int i = 0; i < pc.blocker_sample_num; i++){ //萍税姹?
-        vec2 xy=coords.xy + Rotate(poissonDisk[i * 64 / pc.blocker_sample_num] * search_size, rotationTrig);
+    for(int i = 0; i < globalBuffer.blocker_sample_num; i++){ //萍税姹?
+        vec2 xy=coords.xy + Rotate(poissonDisk[i * 64 / globalBuffer.blocker_sample_num] * search_size, rotationTrig);
         float depthInShadowmap = texture(shadowMapsSampler, vec3(xy, shadowMapIndex)).r;
         if(depthInShadowmap - 0.0001 > coords.z){
             block_depth += depthInShadowmap;
@@ -282,7 +282,7 @@ float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float
 	vec2 rotationTrig = vec2(cos(rotationAngle), sin(rotationAngle));
 
     //todo: pc.softness
-    float searchSize = pc.softness * clamp(d_Receiver - 0.02, 0.0, 1.0) / d_Receiver;
+    float searchSize = globalBuffer.softness * clamp(d_Receiver - 0.02, 0.0, 1.0) / d_Receiver;
     vec2 blockerInfo = findBlocker(shadowMap, coords,shadowMapIndex, searchSize, rotationTrig);
 	if (blockerInfo.y < 1)
 	{
@@ -293,8 +293,8 @@ float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float
     float w_penumbra = d_Receiver - d_Blocker;
 
     //todo: pc.softness_falloff
-    w_penumbra = 1.0 - pow(1.0 - w_penumbra, sqrt(area) * pc.softness_falloff);
-    float filterRadiusUV = w_penumbra * pc.softness;
+    w_penumbra = 1.0 - pow(1.0 - w_penumbra, sqrt(area) * globalBuffer.softness_falloff);
+    float filterRadiusUV = w_penumbra * globalBuffer.softness;
 
     float Stride = 20.;
     float shadowmapSize = 2048.;
@@ -304,12 +304,12 @@ float PCSS(sampler2DArrayShadow shadowMap, vec4 coords,int shadowMapIndex, float
     //float ctrl = 1.0;
     //float bias = getBias(ctrl);
 
-    for(int i = 0; i < pc.pcf_sample_num; i++){
-        float res  = texture(shadowMap, vec4(coords.xy + Rotate(poissonDisk[i * 64 / pc.pcf_sample_num] * filterRadiusUV, rotationTrig), shadowMapIndex, coords.z)).r;
+    for(int i = 0; i < globalBuffer.pcf_sample_num; i++){
+        float res  = texture(shadowMap, vec4(coords.xy + Rotate(poissonDisk[i * 64 / globalBuffer.pcf_sample_num] * filterRadiusUV, rotationTrig), shadowMapIndex, coords.z)).r;
         visibility += res;
     }
 
-    return visibility / float(pc.pcf_sample_num);
+    return visibility / float(globalBuffer.pcf_sample_num);
 }
 vec2 fibonacciSpiralDirection[64] =
 {
@@ -515,7 +515,7 @@ float SampleShadow_PCSS_Area(vec3 posTCShadowmap, vec2 posSS, float shadowSoftne
     // This way setting softness to slightly more than 1 will get the shadow close to the raytraced reference, but with a more stable default.
     float maxSampleZDistance = shadowSoftness * 65.0;
 
-    float sampleJitterAngle = InterleavedGradientNoise(posSS.xy, pc.frame_num) * 2.0 * PI;
+    float sampleJitterAngle = InterleavedGradientNoise(posSS.xy, globalBuffer.frame_num) * 2.0 * PI;
     vec2 sampleJitter = vec2(sin(sampleJitterAngle), cos(sampleJitterAngle));
 
     vec2 minCoord = vec2(0);
@@ -541,14 +541,14 @@ float ValueNoise(vec3 pos)
 {
 	vec3 Noise_skew = pos + 0.2127 + pos.x * pos.y * pos.z * 0.3713;
 	vec3 Noise_rnd = 4.789 * sin(489.123 * (Noise_skew));
-	return fract(Noise_rnd.x * Noise_rnd.y * Noise_rnd.z * (1.0 + Noise_skew.x) * pc.frame_num);
+	return fract(Noise_rnd.x * Noise_rnd.y * Noise_rnd.z * (1.0 + Noise_skew.x) * globalBuffer.frame_num);
 }
 
 void main()
 {
-    vec2 screen_uv = vec2(gl_FragCoord.x / constantBuffer.width, gl_FragCoord.y / constantBuffer.height);
-    if(constantBuffer.enable_real_depth_occlusion != 0){
-        float cadDepth = -eyePos.z / constantBuffer.z_far;
+    vec2 screen_uv = vec2(gl_FragCoord.x / globalBuffer.width, gl_FragCoord.y / globalBuffer.height);
+    if(globalBuffer.enable_real_depth_occlusion != 0){
+        float cadDepth = -eyePos.z / globalBuffer.z_far;
         float cameraDepth = texture(depthImage, screen_uv).r;
         if(cadDepth > cameraDepth){
             outColor = texture(cameraImage, screen_uv);
@@ -570,14 +570,14 @@ void main()
 
     float scene_brightness = 1.0f;
     int shadowMapIndex = 0;
-    if (constantBuffer.shadow_mode != 0)
+    if (globalBuffer.shadow_mode != 0)
     {
         scene_brightness = 1.0f;
     }
     else if (numDirectionalLights>0)
     {
-        float totalBrigtness = pc.baseBrightness;
-        float totalRealBrightness = pc.baseBrightness;
+        float totalBrigtness = globalBuffer.baseBrightness;
+        float totalRealBrightness = globalBuffer.baseBrightness;
         // directional lights
         for(int i = 0; i<numDirectionalLights; ++i)
         {
@@ -608,11 +608,11 @@ void main()
                     matched = true;
                     // poissonDiskSamples(sm_tc.xy); 
                     float random = ValueNoise(sm_tc.xyz);
-                    if(pc.shadow_type == 0){
+                    if(globalBuffer.shadow_type == 0){
                         visibility = PCF(shadowMaps,sm_tc,shadowMapIndex,area, random);
-                    }else if(pc.shadow_type == 1){
+                    }else if(globalBuffer.shadow_type == 1){
                         // visibility = 1 - PCSS(sm_tc,shadowMapIndex, area, random);
-                        visibility = SampleShadow_PCSS_Area(sm_tc.xyz, vec2(gl_FragCoord.xy), pc.softness, pc.softness_falloff, pc.blocker_sample_num, pc.pcf_sample_num, pc.shadow_bias, shadowMapIndex, area);
+                        visibility = SampleShadow_PCSS_Area(sm_tc.xyz, vec2(gl_FragCoord.xy), globalBuffer.softness, globalBuffer.softness_falloff, globalBuffer.blocker_sample_num, globalBuffer.pcf_sample_num, globalBuffer.shadow_bias, shadowMapIndex, area);
                     }
                 }else{
                     visibility = 1.0;
@@ -634,11 +634,11 @@ void main()
         }
         scene_brightness = totalRealBrightness / totalBrigtness;
     }
-    vec4 last_ndc = pc.projection * pc.last_view * vec4(lastWorldPos, 1);
-    ivec2 last_coord = ivec2(((last_ndc.x / last_ndc.w) / 2 + 0.5) * constantBuffer.width, ((last_ndc.y / last_ndc.w) / 2 + 0.5) * constantBuffer.height);
+    vec4 last_ndc = pc.projection * globalBuffer.last_view * vec4(lastWorldPos, 1);
+    ivec2 last_coord = ivec2(((last_ndc.x / last_ndc.w) / 2 + 0.5) * globalBuffer.width, ((last_ndc.y / last_ndc.w) / 2 + 0.5) * globalBuffer.height);
     float old_shadow = 1;
     float oldInstanceID = -1;
-    if(last_coord.x >= 0 && last_coord.y >= 0 && last_coord.x < constantBuffer.width && last_coord.y < constantBuffer.height){
+    if(last_coord.x >= 0 && last_coord.y >= 0 && last_coord.x < globalBuffer.width && last_coord.y < globalBuffer.height){
         vec2 shadowdataold_shadow = texelFetch(shadowInputAttachment, last_coord, gl_SampleID).rg;
         oldInstanceID = shadowdataold_shadow.y;
         old_shadow = shadowdataold_shadow.x;

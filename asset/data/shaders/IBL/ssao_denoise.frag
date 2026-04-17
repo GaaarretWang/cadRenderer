@@ -17,15 +17,7 @@ layout(
 ) uniform subpassInputMS shadowInputAttachment;  // color attachment 1（法线）
 
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2DMS samplerSSAO;
-
-layout(location = 0) in vec2 inUV;
-
-layout(location = 0) out vec4 outColor;
-layout(location = 1) out vec4 outShadow;
-
-layout(push_constant) uniform PushConstants {
-    mat4 projection;
-    mat4 view;
+layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform GlobalBuffer {
     mat4 last_view;
     vec3 camera_pos;
     float softness;
@@ -34,13 +26,23 @@ layout(push_constant) uniform PushConstants {
     float exposure;
     float softness_falloff;
     float shadow_bias;
+    float z_far;
+    int width;
+    int height;
     int ssao_kernel_size;
     int denoise_size;
     int blocker_sample_num;
     int pcf_sample_num;
     int shadow_type;
     uint frame_num;
-} pc;
+    int enable_real_depth_occlusion;
+    int shadow_mode;
+} globalBuffer;
+
+layout(location = 0) in vec2 inUV;
+
+layout(location = 0) out vec4 outColor;
+layout(location = 1) out vec4 outShadow;
 
 // From http://filmicgames.com/archives/75
 vec3 Uncharted2Tonemap(vec3 x)
@@ -69,7 +71,7 @@ void main()
     ivec2 textureSize = textureSize(samplerSSAO);
     vec2 texelSize = 1.0 / vec2(textureSize);
     float result = 0.0;
-    int denoise_size = pc.denoise_size / 2;
+    int denoise_size = globalBuffer.denoise_size / 2;
     for (int x = -denoise_size; x <= denoise_size; ++x) 
     {
         for (int y = -denoise_size; y <= denoise_size; ++y) 
@@ -81,7 +83,7 @@ void main()
     if(texelFetch(samplerSSAO, ivec2(uv*textureSize), 0).w > 0.5){
         outColor = vec4(colorData, 1);
     }else{
-        float exposure = pc.exposure;
+        float exposure = globalBuffer.exposure;
         vec3 color = Uncharted2Tonemap(colorData * result / (denoise_size * 2 + 1) / (denoise_size * 2 + 1) * exposure);
         // vec3 color = Uncharted2Tonemap(vec3(result / 25.0 * result / 25.0 * exposure));
         color = color * (vec3(1.0f) / Uncharted2Tonemap(vec3(11.2f)));

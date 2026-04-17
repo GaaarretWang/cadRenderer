@@ -671,7 +671,7 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
     }
 }
 
-void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::PushConstants> pc, vsg::BufferInfoList constant_data_buffer_info_list, vsg::ref_ptr<vsg::ImageView> ShadowSampleImageView){
+void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::PushConstants> pc, vsg::BufferInfoList global_buffer_info_list, vsg::ref_ptr<vsg::ImageView> ShadowSampleImageView){
     // Create material buffer from global array
     if (!global_material_buffer || global_material_buffer->size() != global_material_array.size()) {
         global_material_buffer = vsg::PbrMaterialArray::create(global_material_array.size());
@@ -732,7 +732,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
 
         vsg::BufferInfoList info_list = {proto_data->output_instance_buffer_info};
         graphicsPipelineConfig->assignDescriptor("instanceModelMatrix", info_list);
-        graphicsPipelineConfig->assignDescriptor("ConstantBuffer", constant_data_buffer_info_list);
+        graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
         
         auto noiseSampler = Utils::createNearestClampSampler();
         vsg::ImageInfoList ShadowSampleViewList = {vsg::ImageInfo::create(noiseSampler, ShadowSampleImageView, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL)};

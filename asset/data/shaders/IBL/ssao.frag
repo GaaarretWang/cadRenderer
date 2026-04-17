@@ -6,10 +6,7 @@
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2DMS normalInputAttachment;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2DMS worldPosInputAttachment;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D samplerNoise;
-
-layout(push_constant) uniform PushConstants {
-    mat4 projection;
-    mat4 view;
+layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform GlobalBuffer {
     mat4 last_view;
     vec3 camera_pos;
     float softness;
@@ -18,12 +15,22 @@ layout(push_constant) uniform PushConstants {
     float exposure;
     float softness_falloff;
     float shadow_bias;
+    float z_far;
+    int width;
+    int height;
     int ssao_kernel_size;
     int denoise_size;
     int blocker_sample_num;
     int pcf_sample_num;
     int shadow_type;
     uint frame_num;
+    int enable_real_depth_occlusion;
+    int shadow_mode;
+} globalBuffer;
+
+layout(push_constant) uniform PushConstants {
+    mat4 projection;
+    mat4 view;
 } pc;
 
 layout(location = 0) in vec2 inUV;
@@ -165,7 +172,7 @@ const vec4 ssaoKernel[SSAO_WHOLE_KERNEL_SIZE] = vec4[](
 
 void main()
 {
-    vec3 worldCamPos = pc.camera_pos;
+    vec3 worldCamPos = globalBuffer.camera_pos;
     ivec2 textureSize = textureSize(normalInputAttachment);
 
 
@@ -187,9 +194,9 @@ void main()
 
     // Calculate occlusion value.
 	float occlusion = 0.0f;
-    for(uint i = 0; i < pc.ssao_kernel_size; i++) {
-        vec3 samplePos = TBN * ssaoKernel[i * (SSAO_WHOLE_KERNEL_SIZE / pc.ssao_kernel_size)].xyz;
-        samplePos = samplePos * pc.ssao_radius + worldPosition;
+    for(uint i = 0; i < globalBuffer.ssao_kernel_size; i++) {
+        vec3 samplePos = TBN * ssaoKernel[i * (SSAO_WHOLE_KERNEL_SIZE / globalBuffer.ssao_kernel_size)].xyz;
+        samplePos = samplePos * globalBuffer.ssao_radius + worldPosition;
 
         float sampleDepth = length(samplePos - worldCamPos);
 
@@ -203,11 +210,11 @@ void main()
             continue;
         float sceneDepth = length(sceneWorldPos - worldCamPos);
 
-        float rangeCheck = step(abs(sampleDepth - sceneDepth), pc.ssao_radius);
+        float rangeCheck = step(abs(sampleDepth - sceneDepth), globalBuffer.ssao_radius);
         occlusion += step(sceneDepth, sampleDepth) * rangeCheck;
     }
 
-    float factor = 1 - (occlusion / float(pc.ssao_kernel_size));
+    float factor = 1 - (occlusion / float(globalBuffer.ssao_kernel_size));
     outColor = vec4(factor, factor, factor, 0);
     
     return;
