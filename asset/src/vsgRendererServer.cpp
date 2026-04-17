@@ -304,11 +304,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         CADMesh::scene_original_transforms.push_back(shadow_receiver_transform);
     }
 
-
-    vsg::ref_ptr<vsg::PushConstants> pc = vsg::PushConstants::create(
-                VK_SHADER_STAGE_ALL, 128, pc_data);
-
-    CADMesh::buildDrawData(modelGroup, pc, global_buffer_info_list, offscreenTarget->shadowSampleImageView); // Build draw data.
+    CADMesh::buildDrawData(modelGroup, global_buffer_info_list, offscreenTarget->shadowSampleImageView); // Build draw data.
     CADMesh::buildDynamicLinesData(line_shader, wireframeGroup, global_buffer_info_list); // Build dynamic line data.
     CADMesh::buildDynamicPointsData(point_shader, wireframeGroup, global_buffer_info_list); // Build dynamic point data.
     CADMesh::buildDynamicTextsData(textGroup, options, vsg::findFile("fonts/times.vsgt", options->paths).string());

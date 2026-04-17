@@ -323,7 +323,7 @@ public:
 
     void preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string instance_name, vsg::ref_ptr<vsg::Group> transparent_scene = {});
     void preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string instance_name, vsg::ref_ptr<vsg::Group> transparent_scene = {});
-    static void buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::PushConstants> pc, vsg::BufferInfoList global_buffer_info_list, vsg::ref_ptr<vsg::ImageView> ShadowSampleImageView);
+    static void buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList global_buffer_info_list, vsg::ref_ptr<vsg::ImageView> ShadowSampleImageView);
 
     static void buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList global_buffer_info_list);
     static void buildDynamicPointsData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList global_buffer_info_list);

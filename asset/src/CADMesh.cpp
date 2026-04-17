@@ -671,7 +671,7 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
     }
 }
 
-void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::PushConstants> pc, vsg::BufferInfoList global_buffer_info_list, vsg::ref_ptr<vsg::ImageView> ShadowSampleImageView){
+void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList global_buffer_info_list, vsg::ref_ptr<vsg::ImageView> ShadowSampleImageView){
     // Create material buffer from global array
     if (!global_material_buffer || global_material_buffer->size() != global_material_array.size()) {
         global_material_buffer = vsg::PbrMaterialArray::create(global_material_array.size());
@@ -819,9 +819,6 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
 
         auto stateGroup = vsg::StateGroup::create();
         graphicsPipelineConfig->copyTo(stateGroup);
-        static int i = 0;
-        if(++i == 1) 
-            stateGroup->add(pc);
         stateGroup->addChild(drawCommands);
         proto_data->scene->addChild(stateGroup);
     }
