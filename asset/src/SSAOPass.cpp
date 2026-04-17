@@ -1,6 +1,81 @@
 #include "SSAOPass.h"
 #include "CADMesh.h"
 
+namespace
+{
+constexpr uint32_t kMaterialDescriptorSet = 2;
+
+vsg::ref_ptr<vsg::DepthStencilState> createFullscreenDepthState()
+{
+    auto depthStencilState = vsg::DepthStencilState::create();
+    depthStencilState->depthTestEnable = VK_FALSE;
+    depthStencilState->depthWriteEnable = VK_FALSE;
+    depthStencilState->depthCompareOp = VK_COMPARE_OP_ALWAYS;
+    return depthStencilState;
+}
+
+vsg::ImageInfoList createNoiseImageInfo(VkExtent2D extent)
+{
+    unsigned int seed = 100;
+    std::mt19937 generator(seed);
+    std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
+
+    auto samplerNoiseData = vsg::ubvec4Array2D::create(extent.width, extent.height);
+    for (uint32_t x = 0; x < extent.width; ++x)
+    {
+        for (uint32_t y = 0; y < extent.height; ++y)
+        {
+            float randX = distribution(generator);
+            float randY = distribution(generator);
+            samplerNoiseData->set(
+                x,
+                y,
+                vsg::ubvec4(
+                    static_cast<uint8_t>(randX * 255.0f),
+                    static_cast<uint8_t>(randY * 255.0f),
+                    static_cast<uint8_t>(0),
+                    static_cast<uint8_t>(0)));
+        }
+    }
+    samplerNoiseData->properties.format = VK_FORMAT_R8G8B8A8_UNORM;
+    samplerNoiseData->properties.dataVariance = vsg::DYNAMIC_DATA;
+
+    return {vsg::ImageInfo::create(Utils::createNearestSampler(), samplerNoiseData)};
+}
+
+vsg::ref_ptr<vsg::StateGroup> createFullscreenStateGroup(vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> graphicsPipelineConfig)
+{
+    auto vertices = vsg::vec3Array::create({
+        vsg::vec3(-1.0f, -1.0f, 1.0f),
+        vsg::vec3(1.0f, -1.0f, 1.0f),
+        vsg::vec3(1.0f, 1.0f, 1.0f),
+        vsg::vec3(-1.0f, 1.0f, 1.0f)});
+
+    auto indices = vsg::ushortArray::create({0, 1, 2, 2, 3, 0});
+
+    vsg::DataList vertexArrays;
+    graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vertices);
+
+    auto drawCommands = vsg::Commands::create();
+    drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
+    drawCommands->addChild(vsg::BindIndexBuffer::create(indices));
+
+    auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
+    indirectBuffer->set(0, VkDrawIndexedIndirectCommand{6, 1, 0, 0, 0});
+    drawCommands->addChild(vsg::DrawIndexedIndirect::create(
+        indirectBuffer,
+        1,
+        sizeof(VkDrawIndexedIndirectCommand)));
+
+    graphicsPipelineConfig->init();
+
+    auto stateGroup = vsg::StateGroup::create();
+    graphicsPipelineConfig->copyTo(stateGroup);
+    stateGroup->addChild(drawCommands);
+    return stateGroup;
+}
+}
+
 vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAOShaderSet(vsg::ref_ptr<const vsg::Options> options)
 {
     vsg::info("Local pbr_ShaderSet(", options, ")");
@@ -16,8 +91,6 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAOShaderSet(vsg::ref_ptr<const vs
         return {};
     }
 
-#define MATERIAL_DESCRIPTOR_SET 2
-
     auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
 
     shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
@@ -25,7 +98,7 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAOShaderSet(vsg::ref_ptr<const vs
     shaderSet->addDescriptorBinding(
         "colorInputAttachment",          // Name; must match the GLSL declaration.
         "",                               // No preprocessor macro; subpass 1 always reads it.
-        MATERIAL_DESCRIPTOR_SET,  // Descriptor set dedicated to input attachments.
+        kMaterialDescriptorSet,  // Descriptor set dedicated to input attachments.
         0,             // Binding index matching GLSL input_attachment_index.
         VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,  // Must use an input-attachment descriptor.
         1,                                // Single descriptor.
@@ -35,7 +108,7 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAOShaderSet(vsg::ref_ptr<const vs
     shaderSet->addDescriptorBinding(
         "normalInputAttachment",          // Name; must match the GLSL declaration.
         "",                               // No preprocessor macro; subpass 1 always reads it.
-        MATERIAL_DESCRIPTOR_SET,  // Descriptor set dedicated to input attachments.
+        kMaterialDescriptorSet,  // Descriptor set dedicated to input attachments.
         1,             // Binding index matching GLSL input_attachment_index.
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,  // Combined image sampler for this attachment.
         1,                                // Single descriptor.
@@ -45,15 +118,15 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAOShaderSet(vsg::ref_ptr<const vs
     shaderSet->addDescriptorBinding(
         "worldPosInputAttachment",        // Name; must match the GLSL declaration.
         "",                               // No preprocessor macro.
-        MATERIAL_DESCRIPTOR_SET,  // Reuse the same input-attachment set.
+        kMaterialDescriptorSet,  // Reuse the same input-attachment set.
         2,           // Binding index.
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
         1,
         VK_SHADER_STAGE_FRAGMENT_BIT,
         vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM})
     );
-    shaderSet->addDescriptorBinding("samplerNoise", "", MATERIAL_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
-    shaderSet->addDescriptorBinding("GlobalBuffer", "", MATERIAL_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
+    shaderSet->addDescriptorBinding("samplerNoise", "", kMaterialDescriptorSet, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+    shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
     shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
 
     return shaderSet;
@@ -67,25 +140,9 @@ void SSAOPass::buildSSAOData(vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<vs
     auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(model_shaderset);
     graphicsPipelineConfig->subpass = 1;
 
-    unsigned int seed = 100;
-    std::mt19937 generator(seed); // Mersenne Twister with good speed and randomness for this use case.
-    std::uniform_real_distribution<float> distribution(0, 1.0f);
-
-    auto samplerNoiseData = vsg::ubvec4Array2D::create(extent.width, extent.height); // VSG 2D texture container in RGBA8 format.
-    for (uint32_t i = 0; i < extent.width; ++i){
-        for (uint32_t j = 0; j < extent.height; ++j){
-            float randX = distribution(generator); // Random x component.
-            float randY = distribution(generator); // Random y component.
-            samplerNoiseData->set(i, j, vsg::ubvec4(static_cast<uint8_t>(randX * 255.0f), 
-                    static_cast<uint8_t>(randY * 255.0f), static_cast<uint8_t>(0), static_cast<uint8_t>(0)));
-        }
-    }
-    samplerNoiseData->properties.format = VK_FORMAT_R8G8B8A8_UNORM;
-    samplerNoiseData->properties.dataVariance = vsg::DYNAMIC_DATA;
-
     auto noiseSampler = Utils::createNearestSampler();
-    
-    vsg::ImageInfoList noiseImageInfoList = {vsg::ImageInfo::create(noiseSampler, samplerNoiseData)};
+
+    vsg::ImageInfoList noiseImageInfoList = createNoiseImageInfo(extent);
     graphicsPipelineConfig->assignTexture("samplerNoise", noiseImageInfoList);
     graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
 
@@ -97,45 +154,7 @@ void SSAOPass::buildSSAOData(vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<vs
     graphicsPipelineConfig->assignTexture("normalInputAttachment", GBufferViewList1);
     graphicsPipelineConfig->assignTexture("worldPosInputAttachment", GBufferViewList2);
 
-    auto vertices = vsg::vec3Array::create({
-        vsg::vec3(-1, -1, 1.0f),
-        vsg::vec3(1, -1, 1.0f),
-        vsg::vec3(1, 1, 1.0f),
-        vsg::vec3(-1, 1, 1.0f)
-        });
-
-    auto indices = vsg::ushortArray::create(
-        {0, 1, 2,
-        2, 3, 0});
-    
-    vsg::DataList vertexArrays;
-    graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vertices);
-    auto drawCommands = vsg::Commands::create();
-    drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
-    drawCommands->addChild(vsg::BindIndexBuffer::create(indices));
-
-    VkDrawIndexedIndirectCommand cmd = {
-        6,      // indexCount
-        1,     // instanceCount
-        0,         // firstIndex
-        0,         // vertexOffset
-        0          // firstInstance
-    };
-
-    auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
-    indirectBuffer->set(0, cmd);
-    auto draw_indirect = vsg::DrawIndexedIndirect::create(
-        indirectBuffer,  // Indirect-command buffer.
-        1,              // Number of draw commands.
-        sizeof(VkDrawIndexedIndirectCommand) // Command stride.
-    );
-    drawCommands->addChild(draw_indirect);
-    graphicsPipelineConfig->init();
-
-    auto stateGroup = vsg::StateGroup::create();
-    graphicsPipelineConfig->copyTo(stateGroup);
-    stateGroup->addChild(drawCommands);
-    scene->addChild(stateGroup);
+    scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
 }
 
 vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAODenoiseShaderSet(vsg::ref_ptr<const vsg::Options> options)
@@ -153,8 +172,6 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAODenoiseShaderSet(vsg::ref_ptr<c
         return {};
     }
 
-#define MATERIAL_DESCRIPTOR_SET 2
-
     auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
 
     shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
@@ -162,7 +179,7 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAODenoiseShaderSet(vsg::ref_ptr<c
     shaderSet->addDescriptorBinding(
         "colorInputAttachment",          // Name; must match the GLSL declaration.
         "",                               // No preprocessor macro; subpass 1 always reads it.
-        MATERIAL_DESCRIPTOR_SET,  // Descriptor set dedicated to input attachments.
+        kMaterialDescriptorSet,  // Descriptor set dedicated to input attachments.
         0,             // Binding index matching GLSL input_attachment_index.
         VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,  // Must use an input-attachment descriptor.
         1,                                // Single descriptor.
@@ -173,15 +190,15 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAODenoiseShaderSet(vsg::ref_ptr<c
     shaderSet->addDescriptorBinding(
         "shadowInputAttachment",          // Name; must match the GLSL declaration.
         "",                               // No preprocessor macro; subpass 1 always reads it.
-        MATERIAL_DESCRIPTOR_SET,  // Descriptor set dedicated to input attachments.
+        kMaterialDescriptorSet,  // Descriptor set dedicated to input attachments.
         1,             // Binding index matching GLSL input_attachment_index.
         VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,  // Must use an input-attachment descriptor.
         1,                                // Single descriptor.
         VK_SHADER_STAGE_FRAGMENT_BIT,     // Read only in the fragment shader.
         vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM})
     );
-    shaderSet->addDescriptorBinding("samplerSSAO", "", MATERIAL_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
-    shaderSet->addDescriptorBinding("GlobalBuffer", "", MATERIAL_DESCRIPTOR_SET, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
+    shaderSet->addDescriptorBinding("samplerSSAO", "", kMaterialDescriptorSet, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+    shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
     
     
     auto colorBlendState = vsg::ColorBlendState::create();
@@ -219,45 +236,123 @@ void SSAOPass::buildSSAODenoiseData(vsg::ref_ptr<vsg::Options> options, vsg::ref
     graphicsPipelineConfig->assignTexture("samplerSSAO", GBufferViewList1);
     graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
 
-    auto vertices = vsg::vec3Array::create({
-        vsg::vec3(-1, -1, 1.0f),
-        vsg::vec3(1, -1, 1.0f),
-        vsg::vec3(1, 1, 1.0f),
-        vsg::vec3(-1, 1, 1.0f)
-        });
+    scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
+}
 
-    auto indices = vsg::ushortArray::create(
-        {0, 1, 2,
-        2, 3, 0});
+vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customStandaloneSSAOShaderSet(vsg::ref_ptr<const vsg::Options> options)
+{
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/ssao_standalone.frag", options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
 
-    vsg::DataList vertexArrays;
-    graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, vertices);
+    if (!vertexShader || !fragmentShader)
+    {
+        vsg::error("customStandaloneSSAOShaderSet(...) could not find shaders.");
+        return {};
+    }
 
-    auto drawCommands = vsg::Commands::create();
-    drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
-    drawCommands->addChild(vsg::BindIndexBuffer::create(indices));
+    auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
+    shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
+    shaderSet->addDescriptorBinding("normalSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+    shaderSet->addDescriptorBinding("worldPosSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+    shaderSet->addDescriptorBinding("samplerNoise", "", kMaterialDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+    shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
+    shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
+    return shaderSet;
+}
 
-    VkDrawIndexedIndirectCommand cmd = {
-        6,      // indexCount
-        1,     // instanceCount
-        0,         // firstIndex
-        0,         // vertexOffset
-        0          // firstInstance
-    };
+void SSAOPass::buildStandaloneSSAOData(vsg::ref_ptr<vsg::Options> options,
+                                       vsg::ref_ptr<vsg::Group> scene,
+                                       vsg::ref_ptr<vsg::ImageView> normalView,
+                                       vsg::ref_ptr<vsg::ImageView> worldPosView,
+                                       VkExtent2D outputExtent,
+                                       vsg::BufferInfoList global_buffer_info_list)
+{
+    auto shaderSet = SSAOPass::customStandaloneSSAOShaderSet(options);
+    auto rasterizationState = vsg::RasterizationState::create();
+    rasterizationState->cullMode = VK_CULL_MODE_NONE;
+    shaderSet->defaultGraphicsPipelineStates.push_back(rasterizationState);
+    shaderSet->defaultGraphicsPipelineStates.push_back(createFullscreenDepthState());
 
-    auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
-    indirectBuffer->set(0, cmd);
-    auto draw_indirect = vsg::DrawIndexedIndirect::create(
-        indirectBuffer,  // Indirect-command buffer.
-        1,              // Number of draw commands.
-        sizeof(VkDrawIndexedIndirectCommand) // Command stride.
-    );
+    auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(shaderSet);
+    auto sampledInputSampler = Utils::createNearestClampSampler();
+    vsg::ImageInfoList normalImageInfoList = {
+        vsg::ImageInfo::create(sampledInputSampler, normalView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
+    vsg::ImageInfoList worldPosImageInfoList = {
+        vsg::ImageInfo::create(sampledInputSampler, worldPosView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
 
-    drawCommands->addChild(draw_indirect);
-    graphicsPipelineConfig->init();
+    graphicsPipelineConfig->assignTexture("normalSampler", normalImageInfoList);
+    graphicsPipelineConfig->assignTexture("worldPosSampler", worldPosImageInfoList);
+    graphicsPipelineConfig->assignTexture("samplerNoise", createNoiseImageInfo(outputExtent));
+    graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
 
-    auto stateGroup = vsg::StateGroup::create();
-    graphicsPipelineConfig->copyTo(stateGroup);
-    stateGroup->addChild(drawCommands);
-    scene->addChild(stateGroup);
+    scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
+}
+
+vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customStandaloneSSAOCompositeShaderSet(vsg::ref_ptr<const vsg::Options> options)
+{
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/ssao_composite.frag", options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+
+    if (!vertexShader || !fragmentShader)
+    {
+        vsg::error("customStandaloneSSAOCompositeShaderSet(...) could not find shaders.");
+        return {};
+    }
+
+    auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
+    shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
+    shaderSet->addDescriptorBinding("colorSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+    shaderSet->addDescriptorBinding("shadowSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+    shaderSet->addDescriptorBinding("ssaoSampler", "", kMaterialDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+    shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
+
+    auto colorBlendState = vsg::ColorBlendState::create();
+    VkPipelineColorBlendAttachmentState disabledBlend = {
+        VK_FALSE,
+        VK_BLEND_FACTOR_ONE,
+        VK_BLEND_FACTOR_ZERO,
+        VK_BLEND_OP_ADD,
+        VK_BLEND_FACTOR_ONE,
+        VK_BLEND_FACTOR_ZERO,
+        VK_BLEND_OP_ADD,
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT};
+    colorBlendState->attachments[0] = disabledBlend;
+    colorBlendState->attachments.resize(2, disabledBlend);
+    shaderSet->defaultGraphicsPipelineStates.push_back(colorBlendState);
+
+    return shaderSet;
+}
+
+void SSAOPass::buildStandaloneSSAOCompositeData(vsg::ref_ptr<vsg::Options> options,
+                                                vsg::ref_ptr<vsg::Group> scene,
+                                                vsg::ref_ptr<vsg::ImageView> colorView,
+                                                vsg::ref_ptr<vsg::ImageView> shadowView,
+                                                vsg::ref_ptr<vsg::ImageView> ssaoView,
+                                                vsg::BufferInfoList global_buffer_info_list)
+{
+    auto shaderSet = SSAOPass::customStandaloneSSAOCompositeShaderSet(options);
+    auto rasterizationState = vsg::RasterizationState::create();
+    rasterizationState->cullMode = VK_CULL_MODE_NONE;
+    shaderSet->defaultGraphicsPipelineStates.push_back(rasterizationState);
+    shaderSet->defaultGraphicsPipelineStates.push_back(createFullscreenDepthState());
+
+    auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(shaderSet);
+    auto sampledInputSampler = Utils::createNearestClampSampler();
+    vsg::ImageInfoList colorImageInfoList = {
+        vsg::ImageInfo::create(sampledInputSampler, colorView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
+    vsg::ImageInfoList shadowImageInfoList = {
+        vsg::ImageInfo::create(sampledInputSampler, shadowView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
+    vsg::ImageInfoList ssaoImageInfoList = {
+        vsg::ImageInfo::create(sampledInputSampler, ssaoView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
+
+    graphicsPipelineConfig->assignTexture("colorSampler", colorImageInfoList);
+    graphicsPipelineConfig->assignTexture("shadowSampler", shadowImageInfoList);
+    graphicsPipelineConfig->assignTexture("ssaoSampler", ssaoImageInfoList);
+    graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
+
+    scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
 }
