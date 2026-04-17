@@ -1,6 +1,7 @@
 ﻿#include "vsgRendererServer.h"
 #include <filesystem>
 #include <algorithm>
+#include <array>
 
 #include "LightInfoStateSerializer.h"
 
@@ -186,6 +187,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     bool requiresDepthRead = (cadWindowTraits->depthImageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
     offscreenTarget->buildRenderPass(device, window->surfaceFormat().format, window->depthFormat(), requiresDepthRead);
     offscreenTarget->buildFramebuffer(window->extent2D());
+    VkExtent2D ssaoExtent = {
+        std::max(1u, window->extent2D().width / 2),
+        std::max(1u, window->extent2D().height / 2)};
+    ssaoTarget = ColorRenderTarget::create();
+    ssaoTarget->init(device, ssaoExtent, VK_FORMAT_R32G32B32A32_SFLOAT);
+    compositeTarget = ColorRenderTarget::create();
+    compositeTarget->init(device, window->extent2D(), window->surfaceFormat().format, 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     double nearFarRatio = 0.0001;       // Ratio between the near and far planes.
 
@@ -197,8 +205,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto envSceneGroup = vsg::Group::create();
     auto wireframeGroup = vsg::Group::create();
     auto textGroup = vsg::Group::create();
-    auto SSAOGroup = vsg::Group::create();
-    auto SSAODenoiseGroup = vsg::Group::create();
+    auto ssaoScene = vsg::Group::create();
+    auto compositeScene = vsg::Group::create();
 
     auto rootSwitch = vsg::Switch::create();
     rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraImageNode);
@@ -208,35 +216,9 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     rootSwitch->addChild(MASK_TRANSPARENT, transparentGroup);
     rootSwitch->addChild(MASK_TEXT, textGroup);
     rootSwitch->addChild(MASK_WIREFRAME, wireframeGroup);
-    auto rootSwitch1 = vsg::Switch::create();
-    rootSwitch1->addChild(MASK_SSAO, vsg::NextSubPass::create());
-    rootSwitch1->addChild(MASK_SSAO, SSAOGroup);
-    rootSwitch1->addChild(MASK_SSAO, vsg::NextSubPass::create());
-    auto SSAOPipelineBarrier = vsg::PipelineBarrier::create(
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,                                                            // dstStageMask
-        0
-    );
-    auto ssaoImageBarrier = vsg::ImageMemoryBarrier::create(
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,          // Previous step: color attachment writes
-        VK_ACCESS_SHADER_READ_BIT,           // Next step: fragment shader reads
-        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        VK_QUEUE_FAMILY_IGNORED,
-        VK_QUEUE_FAMILY_IGNORED,
-        offscreenTarget->ssaoResultImage,
-        VkImageSubresourceRange{
-            VK_IMAGE_ASPECT_COLOR_BIT,       // Important: this image uses a color format rather than a depth format.
-            0, 1, 0, 1                       // Synchronize the whole image
-        }
-    );
-    SSAOPipelineBarrier->add(ssaoImageBarrier);
-    rootSwitch1->addChild(MASK_SSAO, SSAOPipelineBarrier);
-    rootSwitch1->addChild(MASK_SSAO, SSAODenoiseGroup);
 
     vsg::ref_ptr<vsg::Group> scenegraph_safe = vsg::Group::create();
     scenegraph_safe->addChild(rootSwitch);
-    scenegraph_safe->addChild(rootSwitch1);
     
 
     // -----------------------Configure camera parameters------------------------//
@@ -311,8 +293,20 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     CADMesh::processPMI(transfered_meshes, line_shader, wireframeGroup, textGroup, options, global_buffer_info_list, vsg::findFile("fonts/times.vsgt", options->paths).string());
     vsg::info("Model processing done");
 
-    SSAOPass::buildSSAOData(options, SSAOGroup, offscreenTarget->gbufferImageView0, offscreenTarget->gbufferImageView1, offscreenTarget->gbufferImageView2, extent, global_buffer_info_list);
-    SSAOPass::buildSSAODenoiseData(options, SSAODenoiseGroup, offscreenTarget->gbufferImageView0, offscreenTarget->shadowWriteImageView, offscreenTarget->ssaoResultImageView, global_buffer_info_list);
+    SSAOPass::buildStandaloneSSAOData(
+        options,
+        ssaoScene,
+        offscreenTarget->gbufferImageView1,
+        offscreenTarget->gbufferImageView2,
+        ssaoExtent,
+        global_buffer_info_list);
+    auto compositeColorView = offscreenTarget->isMultisampled() ? offscreenTarget->colorImageView : offscreenTarget->gbufferImageView0;
+    SSAOPass::buildStandaloneSSAOCompositeData(
+        options,
+        compositeScene,
+        compositeColorView,
+        ssaoTarget->colorImageView,
+        global_buffer_info_list);
 
     // Sample HDR environment lighting.
     init_directional_lights();
@@ -338,7 +332,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
     auto view1 = vsg::View::create(camera, scenegraph_safe);
     // view->features = vsg::RECORD_LIGHTS;
-    view1->mask = MASK_PBR_FULL | MASK_TRANSPARENT | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER | MASK_SSAO;
+    view1->mask = MASK_PBR_FULL | MASK_TRANSPARENT | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER;
     view1->viewDependentState = CustomViewDependentState1::create(view1.get());
     view1->viewDependentState->pre_depth_pass = view->viewDependentState;
     auto renderGraph1 = vsg::RenderGraph::create(window, view1);
@@ -349,6 +343,22 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsgserver::renderer = this;
     auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(pc_data, vsg::findFile("json/Scenes.json", options->paths).string(), vsg::findFile("json/Materials.json", options->paths).string(), vsg::findFile("json/LightInfo.json", options->paths).string()));
     renderGraph1->addChild(renderImGui);
+
+    auto createStandaloneRenderGraph = [&](vsg::ref_ptr<ColorRenderTarget> target,
+                                           vsg::ref_ptr<vsg::Group> scene,
+                                           const std::array<float, 4>& clearColor) {
+        auto passView = vsg::View::create(camera, scene);
+        auto passRenderGraph = vsg::RenderGraph::create();
+        passRenderGraph->renderArea.offset = {0, 0};
+        passRenderGraph->renderArea.extent = target->getExtent();
+        passRenderGraph->clearValues.resize(1);
+        passRenderGraph->clearValues[0].color = {{clearColor[0], clearColor[1], clearColor[2], clearColor[3]}};
+        passRenderGraph->framebuffer = target->framebuffer;
+        passRenderGraph->addChild(passView);
+        return passRenderGraph;
+    };
+    auto ssaoRenderGraph = createStandaloneRenderGraph(ssaoTarget, ssaoScene, {1.0f, 1.0f, 1.0f, 1.0f});
+    auto compositeRenderGraph = createStandaloneRenderGraph(compositeTarget, compositeScene, {0.0f, 0.0f, 0.0f, 1.0f});
     std::this_thread::sleep_for(std::chrono::seconds(1));
     
     OcclusionCullingPasses::initOcclusionCullingPassesImageInfo(extent, offscreenTarget);
@@ -374,32 +384,175 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     commandGraph1->addChild(depth_pyramid_CommandGraph);
     commandGraph1->addChild(renderGraph1);
 
-    // Barrier: transition offscreen color from COLOR_ATTACHMENT_OPTIMAL to GENERAL
-    // (CopyImageViewToWindow expects GENERAL layout)
+    {
+        VkImageSubresourceRange colorRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
+
+        auto mainOutputsCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
+        auto mainOutputsBarrier = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0);
+
+        if (offscreenTarget->isMultisampled())
+        {
+            mainOutputsBarrier->add(vsg::ImageMemoryBarrier::create(
+                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_ACCESS_SHADER_READ_BIT,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                offscreenTarget->colorImage,
+                colorRange));
+        }
+        else
+        {
+            mainOutputsBarrier->add(vsg::ImageMemoryBarrier::create(
+                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_ACCESS_SHADER_READ_BIT,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                offscreenTarget->gbufferImage0,
+                colorRange));
+        }
+
+        mainOutputsBarrier->add(vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            offscreenTarget->gbufferImage1,
+            colorRange));
+        mainOutputsBarrier->add(vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            offscreenTarget->gbufferImage2,
+            colorRange));
+        mainOutputsBarrier->add(vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_TRANSFER_READ_BIT,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            offscreenTarget->shadowWriteImage,
+            colorRange));
+        mainOutputsBarrier->add(vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            offscreenTarget->shadowSampleImage,
+            colorRange));
+        mainOutputsCommandGraph->addChild(mainOutputsBarrier);
+
+        if (offscreenTarget->isMultisampled())
+        {
+            auto resolveShadowHistory = vsg::ResolveImage::create();
+            VkImageResolve resolveRegion{};
+            resolveRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            resolveRegion.srcSubresource.mipLevel = 0;
+            resolveRegion.srcSubresource.baseArrayLayer = 0;
+            resolveRegion.srcSubresource.layerCount = 1;
+            resolveRegion.dstSubresource = resolveRegion.srcSubresource;
+            resolveRegion.extent = {extent.width, extent.height, 1};
+            resolveShadowHistory->srcImage = offscreenTarget->shadowWriteImage;
+            resolveShadowHistory->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            resolveShadowHistory->dstImage = offscreenTarget->shadowSampleImage;
+            resolveShadowHistory->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            resolveShadowHistory->regions = {resolveRegion};
+            mainOutputsCommandGraph->addChild(resolveShadowHistory);
+        }
+        else
+        {
+            auto copyShadowHistory = vsg::CopyImage::create();
+            VkImageCopy copyRegion{};
+            copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            copyRegion.srcSubresource.mipLevel = 0;
+            copyRegion.srcSubresource.baseArrayLayer = 0;
+            copyRegion.srcSubresource.layerCount = 1;
+            copyRegion.dstSubresource = copyRegion.srcSubresource;
+            copyRegion.extent = {extent.width, extent.height, 1};
+            copyShadowHistory->srcImage = offscreenTarget->shadowWriteImage;
+            copyShadowHistory->srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+            copyShadowHistory->dstImage = offscreenTarget->shadowSampleImage;
+            copyShadowHistory->dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            copyShadowHistory->regions = {copyRegion};
+            mainOutputsCommandGraph->addChild(copyShadowHistory);
+        }
+
+        auto shadowHistoryReady = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0,
+            vsg::ImageMemoryBarrier::create(
+                VK_ACCESS_TRANSFER_WRITE_BIT,
+                VK_ACCESS_SHADER_READ_BIT,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                offscreenTarget->shadowSampleImage,
+                colorRange));
+        mainOutputsCommandGraph->addChild(shadowHistoryReady);
+        commandGraph1->addChild(mainOutputsCommandGraph);
+    }
+
+    commandGraph1->addChild(ssaoRenderGraph);
+
+    {
+        auto ssaoReadyCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
+        auto ssaoReady = vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            ssaoTarget->colorImage,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+        ssaoReadyCommandGraph->addChild(vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0,
+            ssaoReady));
+        commandGraph1->addChild(ssaoReadyCommandGraph);
+    }
+
+    commandGraph1->addChild(compositeRenderGraph);
+
     {
         auto barrierCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
-        auto offscreenToGeneral = vsg::ImageMemoryBarrier::create(
+        auto compositeToGeneral = vsg::ImageMemoryBarrier::create(
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VK_ACCESS_TRANSFER_READ_BIT,
             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_IMAGE_LAYOUT_GENERAL,
             VK_QUEUE_FAMILY_IGNORED,
             VK_QUEUE_FAMILY_IGNORED,
-            offscreenTarget->colorImage,
-            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
-        );
+            compositeTarget->colorImage,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
         barrierCommandGraph->addChild(vsg::PipelineBarrier::create(
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0, offscreenToGeneral
-        ));
+            0,
+            compositeToGeneral));
         commandGraph1->addChild(barrierCommandGraph);
     }
 
-    // Copy offscreen color to swapchain for display
     {
         auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(
-            offscreenTarget->colorImageView, window);
+            compositeTarget->colorImageView, window);
         auto copyCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
         copyCommandGraph->addChild(copyImageViewToWindow);
         commandGraph1->addChild(copyCommandGraph);

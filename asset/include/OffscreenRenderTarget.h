@@ -27,10 +27,6 @@ public:
     vsg::ref_ptr<vsg::Image> gbufferImage2;
     vsg::ref_ptr<vsg::ImageView> gbufferImageView2;
 
-    // SSAO result
-    vsg::ref_ptr<vsg::Image> ssaoResultImage;
-    vsg::ref_ptr<vsg::ImageView> ssaoResultImageView;
-
     // Shadow write
     vsg::ref_ptr<vsg::Image> shadowWriteImage;
     vsg::ref_ptr<vsg::ImageView> shadowWriteImageView;

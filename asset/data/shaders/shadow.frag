@@ -60,7 +60,7 @@ layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 12) uniform GlobalBuffer
     int shadow_mode;
 } globalBuffer;
 
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 13) uniform sampler2DMS shadowInputAttachment;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 13) uniform sampler2D shadowInputAttachment;
 
 // ViewDependentState
 layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData
@@ -627,7 +627,7 @@ void main()
     float old_shadow = 1;
     float oldInstanceID = -1;
     if(last_coord.x >= 0 && last_coord.y >= 0 && last_coord.x < globalBuffer.width && last_coord.y < globalBuffer.height){
-        vec2 shadowdataold_shadow = texelFetch(shadowInputAttachment, last_coord, gl_SampleID).rg;
+        vec2 shadowdataold_shadow = texelFetch(shadowInputAttachment, last_coord, 0).rg;
         oldInstanceID = shadowdataold_shadow.y;
         old_shadow = shadowdataold_shadow.x;
     }

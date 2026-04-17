@@ -43,6 +43,8 @@ class vsgRendererServer
 
     // Offscreen render target for MRT attachments
     vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget;
+    vsg::ref_ptr<ColorRenderTarget> ssaoTarget;
+    vsg::ref_ptr<ColorRenderTarget> compositeTarget;
 
     //IBL
     IBL::VsgContext vsgContext = {};

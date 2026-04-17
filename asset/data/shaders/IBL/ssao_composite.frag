@@ -3,10 +3,9 @@
 
 #define MATERIAL_DESCRIPTOR_SET 2
 
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2DMS colorSampler;
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2DMS shadowSampler;
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D ssaoSampler;
-layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform GlobalBuffer {
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2D colorSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D ssaoSampler;
+layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform GlobalBuffer {
     mat4 last_view;
     vec3 camera_pos;
     float softness;
@@ -31,7 +30,6 @@ layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform GlobalBuffer 
 layout(location = 0) in vec2 inUV;
 
 layout(location = 0) out vec4 outColor;
-layout(location = 1) out vec4 outShadow;
 
 vec3 Uncharted2Tonemap(vec3 x)
 {
@@ -50,25 +48,13 @@ vec4 LINEARtoSRGB(vec4 srgbIn)
     return vec4(linOut, srgbIn.w);
 }
 
-vec4 resolveMultisampledColor(sampler2DMS source, ivec2 coord)
-{
-    int sampleCount = textureSamples(source);
-    vec4 sum = vec4(0.0);
-    for (int sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex)
-    {
-        sum += texelFetch(source, coord, sampleIndex);
-    }
-    return sum / max(float(sampleCount), 1.0);
-}
-
 void main()
 {
     vec2 uv = inUV * 0.5 + 0.5;
 
-    ivec2 colorSize = textureSize(colorSampler);
+    ivec2 colorSize = textureSize(colorSampler, 0);
     ivec2 colorCoord = clamp(ivec2(uv * vec2(colorSize)), ivec2(0), colorSize - 1);
-    vec3 colorData = resolveMultisampledColor(colorSampler, colorCoord).xyz;
-    vec4 shadow = resolveMultisampledColor(shadowSampler, colorCoord);
+    vec3 colorData = texelFetch(colorSampler, colorCoord, 0).xyz;
 
     ivec2 ssaoSize = textureSize(ssaoSampler, 0);
     ivec2 centerCoord = clamp(ivec2(uv * vec2(ssaoSize)), ivec2(0), ssaoSize - 1);
@@ -100,5 +86,4 @@ void main()
         outColor = LINEARtoSRGB(vec4(color, 1.0));
     }
 
-    outShadow = vec4(shadow.rgb, 1.0);
 }

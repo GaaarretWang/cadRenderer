@@ -78,10 +78,10 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
         multisampleImageView->compile(device);
     }
 
-    // Offscreen color attachment (attachment[0] in render pass)
+    // Resolved scene color for the standalone composite pass.
     colorImage = vsg::Image::create();
     colorImage->imageType = VK_IMAGE_TYPE_2D;
-    colorImage->format = VK_FORMAT_B8G8R8A8_UNORM;
+    colorImage->format = VK_FORMAT_R32G32B32A32_SFLOAT;
     colorImage->extent.width = extent.width;
     colorImage->extent.height = extent.height;
     colorImage->extent.depth = 1;
@@ -167,28 +167,6 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     gbufferImageView2 = vsg::ImageView::create(gbufferImage2, VK_IMAGE_ASPECT_COLOR_BIT);
     gbufferImageView2->compile(device);
 
-    // SSAO Result
-    ssaoResultImage = vsg::Image::create();
-    ssaoResultImage->imageType = VK_IMAGE_TYPE_2D;
-    ssaoResultImage->format = VK_FORMAT_R32G32B32A32_SFLOAT;
-    ssaoResultImage->extent.width = extent.width;
-    ssaoResultImage->extent.height = extent.height;
-    ssaoResultImage->extent.depth = 1;
-    ssaoResultImage->mipLevels = 1;
-    ssaoResultImage->arrayLayers = 1;
-    ssaoResultImage->samples = samples;
-    ssaoResultImage->tiling = VK_IMAGE_TILING_OPTIMAL;
-    ssaoResultImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
-    ssaoResultImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    ssaoResultImage->flags = 0;
-    ssaoResultImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-    ssaoResultImage->compile(device);
-    ssaoResultImage->allocateAndBindMemory(device);
-
-    ssaoResultImageView = vsg::ImageView::create(ssaoResultImage, VK_IMAGE_ASPECT_COLOR_BIT);
-    ssaoResultImageView->compile(device);
-
     // Shadow Write
     shadowWriteImage = vsg::Image::create();
     shadowWriteImage->imageType = VK_IMAGE_TYPE_2D;
@@ -222,7 +200,7 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     shadowSampleImage->extent.depth = 1;
     shadowSampleImage->mipLevels = 1;
     shadowSampleImage->arrayLayers = 1;
-    shadowSampleImage->samples = samples;
+    shadowSampleImage->samples = VK_SAMPLE_COUNT_1_BIT;
     shadowSampleImage->tiling = VK_IMAGE_TILING_OPTIMAL;
     shadowSampleImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
                                VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -332,40 +310,67 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
                     msDepthPipelineBarrier->record(commandBuffer);
                 }
             }
+
+            // Shadow history is sampled on the very first frame, so initialize it explicitly.
+            auto shadowSampleToTransferDst = vsg::ImageMemoryBarrier::create(
+                0,
+                VK_ACCESS_TRANSFER_WRITE_BIT,
+                VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                shadowSampleImage,
+                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+            auto shadowSampleInitBarrier = vsg::PipelineBarrier::create(
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                0,
+                shadowSampleToTransferDst);
+            shadowSampleInitBarrier->record(commandBuffer);
+
+            auto clearShadowSample = vsg::ClearColorImage::create();
+            clearShadowSample->image = shadowSampleImage;
+            clearShadowSample->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+            clearShadowSample->color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+            clearShadowSample->ranges = {VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}};
+            clearShadowSample->record(commandBuffer);
+
+            auto shadowSampleToShaderRead = vsg::ImageMemoryBarrier::create(
+                VK_ACCESS_TRANSFER_WRITE_BIT,
+                VK_ACCESS_SHADER_READ_BIT,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                shadowSampleImage,
+                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+            auto shadowSampleReadyBarrier = vsg::PipelineBarrier::create(
+                VK_PIPELINE_STAGE_TRANSFER_BIT,
+                VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                0,
+                shadowSampleToShaderRead);
+            shadowSampleReadyBarrier->record(commandBuffer);
         });
     }
 }
 
 void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, VkFormat imageFormat, VkFormat depthFormat, bool requiresDepthRead)
 {
+    (void)imageFormat;
     bool multisampling = _samples != VK_SAMPLE_COUNT_1_BIT;
 
     if (multisampling)
     {
-        // Multisampled render pass - similar to createMRTMultisampledRenderPass
-        // Multisampled color attachment
-        vsg::AttachmentDescription colorAttachment = {};
-        colorAttachment.format = imageFormat;
-        colorAttachment.samples = _samples;
-        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-        colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-        // Resolve attachment (offscreen, not present)
         vsg::AttachmentDescription resolveAttachment = {};
-        resolveAttachment.format = imageFormat;
+        resolveAttachment.format = colorImage->format;
         resolveAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-        resolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        resolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         resolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         resolveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
         resolveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
         resolveAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        resolveAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        resolveAttachment.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-        // Multisampled depth
         vsg::AttachmentDescription depthAttachment = {};
         depthAttachment.format = depthFormat;
         depthAttachment.samples = _samples;
@@ -376,35 +381,34 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         depthAttachment.initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
         depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-        auto colorAttachmentColor = vsg::defaultGbufferColorAttachment(imageFormat);
+        auto colorAttachmentColor = vsg::defaultGbufferColorAttachment(gbufferImage0->format);
         colorAttachmentColor.samples = _samples;
-        auto colorAttachmentNormal = vsg::defaultGbufferColorAttachment(imageFormat);
+        auto colorAttachmentNormal = vsg::defaultGbufferColorAttachment(gbufferImage1->format);
         colorAttachmentNormal.samples = _samples;
-        auto colorAttachmentWorldPos = vsg::defaultGbufferColorAttachment(imageFormat);
+        auto colorAttachmentWorldPos = vsg::defaultGbufferColorAttachment(gbufferImage2->format);
         colorAttachmentWorldPos.samples = _samples;
-        auto colorAttachmentSSAONoise = vsg::defaultGbufferColorAttachment(imageFormat);
-        colorAttachmentSSAONoise.samples = _samples;
-        auto colorAttachmentShadowWrite = vsg::defaultGbufferColorAttachment(imageFormat);
+        auto colorAttachmentShadowWrite = vsg::defaultGbufferColorAttachment(shadowWriteImage->format);
         colorAttachmentShadowWrite.samples = _samples;
-        auto colorAttachmentShadowSample = vsg::defaultGbufferColorAttachment(imageFormat);
-        colorAttachmentShadowSample.samples = _samples;
+        colorAttachmentShadowWrite.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
         // Framebuffer attachment order (matching buildFramebuffer):
-        // [0] multisample color, [1] resolve color, [2] depth (multisample),
-        // [3] gbuffer0, [4] gbuffer1, [5] gbuffer2,
-        // [6] ssao, [7] shadowWrite, [8] shadowSample
-        // [9] depth resolve (if requiresDepthRead)
-
-        vsg::RenderPass::Attachments attachments{colorAttachment, resolveAttachment, depthAttachment,
-            colorAttachmentColor, colorAttachmentNormal, colorAttachmentWorldPos,
-            colorAttachmentSSAONoise, colorAttachmentShadowWrite, colorAttachmentShadowSample};
+        // [0] resolve color, [1] depth (multisample), [2] gbuffer0,
+        // [3] gbuffer1, [4] gbuffer2, [5] shadowWrite,
+        // [6] depth resolve (if requiresDepthRead)
+        vsg::RenderPass::Attachments attachments{
+            resolveAttachment,
+            depthAttachment,
+            colorAttachmentColor,
+            colorAttachmentNormal,
+            colorAttachmentWorldPos,
+            colorAttachmentShadowWrite};
 
         if (requiresDepthRead)
         {
             vsg::AttachmentDescription depthResolveAttachment = {};
             depthResolveAttachment.format = depthFormat;
             depthResolveAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-            depthResolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+            depthResolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             depthResolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
             depthResolveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
             depthResolveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -414,55 +418,36 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         }
 
         // Attachment references
-        vsg::AttachmentReference colorAttachmentRef = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference resolveAttachmentRef = {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference depthAttachmentRef = {2, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference resolveAttachmentRef = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference depthAttachmentRef = {1, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference colorAttachmentRefColor = {2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference colorAttachmentRefNormal = {3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference colorAttachmentRefWorldPos = {4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference colorAttachmentRefShadowWrite = {5, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference unusedResolveAttachmentRef = {VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_UNDEFINED};
 
-        vsg::AttachmentReference colorAttachmentRefColor = {3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefNormal = {4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefWorldPos = {5, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefSSAONoise = {6, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefShadowWrite = {7, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefShadowSample = {8, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-
-        // Subpass 0: Main rendering (no color resolve - matches VSG createMRTMultisampledRenderPass pattern)
         vsg::SubpassDescription subpass;
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpass.colorAttachments.emplace_back(colorAttachmentRefColor);
         subpass.colorAttachments.emplace_back(colorAttachmentRefNormal);
         subpass.colorAttachments.emplace_back(colorAttachmentRefWorldPos);
         subpass.colorAttachments.emplace_back(colorAttachmentRefShadowWrite);
+        subpass.resolveAttachments.emplace_back(resolveAttachmentRef);
+        subpass.resolveAttachments.emplace_back(unusedResolveAttachmentRef);
+        subpass.resolveAttachments.emplace_back(unusedResolveAttachmentRef);
+        subpass.resolveAttachments.emplace_back(unusedResolveAttachmentRef);
         subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
 
         if (requiresDepthRead)
         {
-            vsg::AttachmentReference depthResolveAttachmentRef = {9, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+            vsg::AttachmentReference depthResolveAttachmentRef = {6, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
             subpass.depthResolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
             subpass.stencilResolveMode = VK_RESOLVE_MODE_NONE;
             subpass.depthStencilResolveAttachments.emplace_back(depthResolveAttachmentRef);
         }
 
-        // Subpass 1: SSAO (no resolve)
-        vsg::SubpassDescription subpass1;
-        subpass1.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass1.colorAttachments.emplace_back(colorAttachmentRefSSAONoise);
-        subpass1.depthStencilAttachments.emplace_back(depthAttachmentRef);
-        vsg::AttachmentReference colorRef_Read = {3, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-        subpass1.inputAttachments = {colorRef_Read};
+        vsg::RenderPass::Subpasses subpasses{subpass};
 
-        // Subpass 2: Denoise (resolve color [0] to [1], shadowSample [8] unresolved)
-        vsg::SubpassDescription subpass2;
-        subpass2.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass2.colorAttachments.emplace_back(colorAttachmentRef);
-        subpass2.colorAttachments.emplace_back(colorAttachmentRefShadowSample);
-        subpass2.resolveAttachments.emplace_back(resolveAttachmentRef);
-        subpass2.depthStencilAttachments.emplace_back(depthAttachmentRef);
-        vsg::AttachmentReference colorRef_ShadowWrite = {7, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-        subpass2.inputAttachments = {colorRef_Read, colorRef_ShadowWrite};
-
-        vsg::RenderPass::Subpasses subpasses{subpass, subpass1, subpass2};
-
-        // Dependencies - same as createMRTMultisampledRenderPass
         vsg::SubpassDependency colorDependency = {};
         colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
         colorDependency.dstSubpass = 0;
@@ -481,62 +466,28 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         depthDependency.dependencyFlags = 0;
 
-        vsg::SubpassDependency colorDependency_ssao = {};
-        colorDependency_ssao.srcSubpass = 0;
-        colorDependency_ssao.dstSubpass = 1;
-        colorDependency_ssao.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        colorDependency_ssao.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        colorDependency_ssao.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        colorDependency_ssao.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        colorDependency_ssao.dependencyFlags = 0;
-
-        vsg::SubpassDependency depthDependency_ssao = {};
-        depthDependency_ssao.srcSubpass = 0;
-        depthDependency_ssao.dstSubpass = 1;
-        depthDependency_ssao.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        depthDependency_ssao.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        depthDependency_ssao.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        depthDependency_ssao.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        depthDependency_ssao.dependencyFlags = 0;
-
-        vsg::SubpassDependency ssaoToDenoiseDependency = {};
-        ssaoToDenoiseDependency.srcSubpass = 1;
-        ssaoToDenoiseDependency.dstSubpass = 2;
-        ssaoToDenoiseDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        ssaoToDenoiseDependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        ssaoToDenoiseDependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        ssaoToDenoiseDependency.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        ssaoToDenoiseDependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-        vsg::SubpassDependency depthToDenoiseDependency = {};
-        depthToDenoiseDependency.srcSubpass = 1;
-        depthToDenoiseDependency.dstSubpass = 2;
-        depthToDenoiseDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        depthToDenoiseDependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        depthToDenoiseDependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-        depthToDenoiseDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-        depthToDenoiseDependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+        vsg::SubpassDependency colorOutputDependency = {};
+        colorOutputDependency.srcSubpass = 0;
+        colorOutputDependency.dstSubpass = VK_SUBPASS_EXTERNAL;
+        colorOutputDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        colorOutputDependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
+        colorOutputDependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        colorOutputDependency.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT;
+        colorOutputDependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
         vsg::RenderPass::Dependencies dependencies{
             colorDependency, depthDependency,
-            colorDependency_ssao, depthDependency_ssao,
-            ssaoToDenoiseDependency, depthToDenoiseDependency};
+            colorOutputDependency};
 
         renderPass = vsg::RenderPass::create(device, attachments, subpasses, dependencies);
     }
     else
     {
-        // Non-multisampled render pass - based on createMRTRenderPass
-        auto colorAttachment = vsg::defaultColorAttachment(imageFormat);
-        // Key change: finalLayout is COLOR_ATTACHMENT_OPTIMAL instead of PRESENT_SRC_KHR
-        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-        auto colorAttachmentColor = vsg::defaultGbufferColorAttachment(imageFormat);
-        auto colorAttachmentNormal = vsg::defaultGbufferColorAttachment(imageFormat);
-        auto colorAttachmentWorldPos = vsg::defaultGbufferColorAttachment(imageFormat);
-        auto colorAttachmentSSAONoise = vsg::defaultGbufferColorAttachment(imageFormat);
-        auto colorAttachmentShadowWrite = vsg::defaultGbufferColorAttachment(imageFormat);
-        auto colorAttachmentShadowSample = vsg::defaultGbufferColorAttachment(imageFormat);
+        auto colorAttachmentColor = vsg::defaultGbufferColorAttachment(gbufferImage0->format);
+        auto colorAttachmentNormal = vsg::defaultGbufferColorAttachment(gbufferImage1->format);
+        auto colorAttachmentWorldPos = vsg::defaultGbufferColorAttachment(gbufferImage2->format);
+        auto colorAttachmentShadowWrite = vsg::defaultGbufferColorAttachment(shadowWriteImage->format);
+        colorAttachmentShadowWrite.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         auto depthAttachment = vsg::defaultDepthAttachment(depthFormat);
 
         if (requiresDepthRead)
@@ -544,20 +495,19 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
             depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         }
 
-        vsg::RenderPass::Attachments attachments{colorAttachment, colorAttachmentColor, colorAttachmentNormal,
-            colorAttachmentWorldPos, colorAttachmentSSAONoise, colorAttachmentShadowWrite,
-            colorAttachmentShadowSample, depthAttachment};
+        vsg::RenderPass::Attachments attachments{
+            colorAttachmentColor,
+            colorAttachmentNormal,
+            colorAttachmentWorldPos,
+            colorAttachmentShadowWrite,
+            depthAttachment};
 
-        vsg::AttachmentReference colorAttachmentRef = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefColor = {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefNormal = {2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefWorldPos = {3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefSSAONoise = {4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefShadowWrite = {5, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefShadowSample = {6, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference depthAttachmentRef = {7, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference colorAttachmentRefColor = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference colorAttachmentRefNormal = {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference colorAttachmentRefWorldPos = {2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference colorAttachmentRefShadowWrite = {3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference depthAttachmentRef = {4, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
 
-        // Subpass 0: Main rendering
         vsg::SubpassDescription subpass;
         subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
         subpass.colorAttachments.emplace_back(colorAttachmentRefColor);
@@ -566,26 +516,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         subpass.colorAttachments.emplace_back(colorAttachmentRefShadowWrite);
         subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
 
-        // Subpass 1: SSAO
-        vsg::SubpassDescription subpass1;
-        subpass1.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass1.colorAttachments.emplace_back(colorAttachmentRefSSAONoise);
-        subpass1.depthStencilAttachments.emplace_back(depthAttachmentRef);
-        vsg::AttachmentReference colorRef_Read = {1, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-        subpass1.inputAttachments = {colorRef_Read};
+        vsg::RenderPass::Subpasses subpasses{subpass};
 
-        // Subpass 2: Denoise
-        vsg::SubpassDescription subpass2;
-        subpass2.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-        subpass2.colorAttachments.emplace_back(colorAttachmentRef);
-        subpass2.colorAttachments.emplace_back(colorAttachmentRefShadowSample);
-        subpass2.depthStencilAttachments.emplace_back(depthAttachmentRef);
-        vsg::AttachmentReference colorRef_ShadowWrite = {5, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-        subpass2.inputAttachments = {colorRef_Read, colorRef_ShadowWrite};
-
-        vsg::RenderPass::Subpasses subpasses{subpass, subpass1, subpass2};
-
-        // Dependencies - same as createMRTRenderPass
         vsg::SubpassDependency colorDependency = {};
         colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
         colorDependency.dstSubpass = 0;
@@ -604,46 +536,18 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         depthDependency.dependencyFlags = 0;
 
-        vsg::SubpassDependency colorDependency_ssao = {};
-        colorDependency_ssao.srcSubpass = 0;
-        colorDependency_ssao.dstSubpass = 1;
-        colorDependency_ssao.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        colorDependency_ssao.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        colorDependency_ssao.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        colorDependency_ssao.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        colorDependency_ssao.dependencyFlags = 0;
-
-        vsg::SubpassDependency depthDependency_ssao = {};
-        depthDependency_ssao.srcSubpass = 0;
-        depthDependency_ssao.dstSubpass = 1;
-        depthDependency_ssao.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        depthDependency_ssao.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        depthDependency_ssao.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        depthDependency_ssao.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-        depthDependency_ssao.dependencyFlags = 0;
-
-        vsg::SubpassDependency ssaoToDenoiseDependency = {};
-        ssaoToDenoiseDependency.srcSubpass = 1;
-        ssaoToDenoiseDependency.dstSubpass = 2;
-        ssaoToDenoiseDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-        ssaoToDenoiseDependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        ssaoToDenoiseDependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-        ssaoToDenoiseDependency.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-        ssaoToDenoiseDependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
-
-        vsg::SubpassDependency depthToDenoiseDependency = {};
-        depthToDenoiseDependency.srcSubpass = 1;
-        depthToDenoiseDependency.dstSubpass = 2;
-        depthToDenoiseDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-        depthToDenoiseDependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-        depthToDenoiseDependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-        depthToDenoiseDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-        depthToDenoiseDependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+        vsg::SubpassDependency colorOutputDependency = {};
+        colorOutputDependency.srcSubpass = 0;
+        colorOutputDependency.dstSubpass = VK_SUBPASS_EXTERNAL;
+        colorOutputDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        colorOutputDependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
+        colorOutputDependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        colorOutputDependency.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT;
+        colorOutputDependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
         vsg::RenderPass::Dependencies dependencies{
             colorDependency, depthDependency,
-            colorDependency_ssao, depthDependency_ssao,
-            ssaoToDenoiseDependency, depthToDenoiseDependency};
+            colorOutputDependency};
 
         renderPass = vsg::RenderPass::create(device, attachments, subpasses, dependencies);
     }
@@ -653,46 +557,38 @@ void OffscreenRenderTarget::buildFramebuffer(VkExtent2D extent)
 {
     vsg::ImageViews attachments;
 
-    if (multisampleImageView)
+    if (_samples != VK_SAMPLE_COUNT_1_BIT)
     {
         // Multisampled path - must match render pass attachment order:
-        // [0]multisample color, [1]resolve color, [2]depth (multisample),
-        // [3]gbuffer0, [4]gbuffer1, [5]gbuffer2,
-        // [6]ssao, [7]shadowWrite, [8]shadowSample
-        // [9]depth resolve (single-sample, if requiresDepthRead)
-        attachments.push_back(multisampleImageView);
+        // [0] resolve color, [1] depth (multisample), [2] gbuffer0,
+        // [3] gbuffer1, [4] gbuffer2, [5] shadowWrite,
+        // [6] depth resolve (single-sample, if requiresDepthRead)
         attachments.push_back(colorImageView);
         if (multisampleDepthImageView)
         {
-            attachments.push_back(multisampleDepthImageView); // [2] multisample depth
+            attachments.push_back(multisampleDepthImageView);
         }
         else
         {
-            attachments.push_back(depthImageView); // [2] depth (no multisample depth)
+            attachments.push_back(depthImageView);
         }
         attachments.push_back(gbufferImageView0);
         attachments.push_back(gbufferImageView1);
         attachments.push_back(gbufferImageView2);
-        attachments.push_back(ssaoResultImageView);
         attachments.push_back(shadowWriteImageView);
-        attachments.push_back(shadowSampleImageView);
         if (multisampleDepthImageView)
         {
-            attachments.push_back(depthImageView); // [9] resolved depth (single sample)
+            attachments.push_back(depthImageView);
         }
     }
     else
     {
         // Non-multisampled path - must match render pass attachment order:
-        // [0]color, [1]gbuffer0, [2]gbuffer1, [3]gbuffer2,
-        // [4]ssao, [5]shadowWrite, [6]shadowSample, [7]depth
-        attachments.push_back(colorImageView);
+        // [0] gbuffer0, [1] gbuffer1, [2] gbuffer2, [3] shadowWrite, [4] depth
         attachments.push_back(gbufferImageView0);
         attachments.push_back(gbufferImageView1);
         attachments.push_back(gbufferImageView2);
-        attachments.push_back(ssaoResultImageView);
         attachments.push_back(shadowWriteImageView);
-        attachments.push_back(shadowSampleImageView);
         attachments.push_back(depthImageView);
     }
 
