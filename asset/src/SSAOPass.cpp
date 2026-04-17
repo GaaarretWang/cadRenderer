@@ -161,11 +161,12 @@ void SSAOPass::buildStandaloneSSAOCompositeData(vsg::ref_ptr<vsg::Options> optio
     shaderSet->defaultGraphicsPipelineStates.push_back(createFullscreenDepthState());
 
     auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(shaderSet);
-    auto sampledInputSampler = Utils::createNearestClampSampler();
+    auto colorSampler = Utils::createNearestClampSampler();
+    auto ssaoSampler = Utils::createLinearSampler();
     vsg::ImageInfoList colorImageInfoList = {
-        vsg::ImageInfo::create(sampledInputSampler, colorView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
+        vsg::ImageInfo::create(colorSampler, colorView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
     vsg::ImageInfoList ssaoImageInfoList = {
-        vsg::ImageInfo::create(sampledInputSampler, ssaoView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
+        vsg::ImageInfo::create(ssaoSampler, ssaoView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
 
     graphicsPipelineConfig->assignTexture("colorSampler", colorImageInfoList);
     graphicsPipelineConfig->assignTexture("ssaoSampler", ssaoImageInfoList);

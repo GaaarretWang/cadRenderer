@@ -178,22 +178,25 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     cadWindowTraits->device = device;
     window = vsg::Window::create(cadWindowTraits);
     window->getOrCreateSwapchain();
+    VkExtent2D renderExtent = {
+        static_cast<uint32_t>(render_width),
+        static_cast<uint32_t>(render_height)};
 
     // Create offscreen render target (Stage 2: create but not yet used)
     offscreenTarget = OffscreenRenderTarget::create();
-    offscreenTarget->init(device, window->extent2D(), msaaSamples, window->depthFormat(), cadWindowTraits->depthImageUsage);
+    offscreenTarget->init(device, renderExtent, msaaSamples, window->depthFormat(), cadWindowTraits->depthImageUsage);
 
     // Stage 3: Create render pass and framebuffer (not yet used by render graphs)
     bool requiresDepthRead = (cadWindowTraits->depthImageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
     offscreenTarget->buildRenderPass(device, window->surfaceFormat().format, window->depthFormat(), requiresDepthRead);
-    offscreenTarget->buildFramebuffer(window->extent2D());
+    offscreenTarget->buildFramebuffer(renderExtent);
     VkExtent2D ssaoExtent = {
-        std::max(1u, window->extent2D().width / 2),
-        std::max(1u, window->extent2D().height / 2)};
+        std::max(1u, renderExtent.width / 2),
+        std::max(1u, renderExtent.height / 2)};
     ssaoTarget = ColorRenderTarget::create();
     ssaoTarget->init(device, ssaoExtent, VK_FORMAT_R32G32B32A32_SFLOAT);
     compositeTarget = ColorRenderTarget::create();
-    compositeTarget->init(device, window->extent2D(), window->surfaceFormat().format, 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    compositeTarget->init(device, renderExtent, window->surfaceFormat().format, 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     double nearFarRatio = 0.0001;       // Ratio between the near and far planes.
 
@@ -223,7 +226,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     // -----------------------Configure camera parameters------------------------//
     double radius = 2000.0; // Fixed viewing distance.
-    auto viewport = vsg::ViewportState::create(0, 0, cadWindowTraits->width, cadWindowTraits->height);
+    auto viewport = vsg::ViewportState::create(0, 0, renderExtent.width, renderExtent.height);
     // auto perspective = vsg::Perspective::create(60.0, static_cast<double>(640) / static_cast<double>(480), nearFarRatio * radius, radius * 10.0);
     auto perspective = vsg::Perspective::create(fx, fy, cx, cy, width, height, near_plane, far_plane);
 
@@ -234,9 +237,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     camera = vsg::Camera::create(perspective, lookAt, viewport);
     pending_camera_matrix = lookAt->transform();
     camera_dirty = false;
-    VkExtent2D extent = {};
-    extent.width = render_width;
-    extent.height = render_height;
+    VkExtent2D extent = renderExtent;
 
     syncGlobalBufferData();
 
@@ -339,15 +340,23 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     // Override both render graphs to use offscreen framebuffer
     renderGraph->framebuffer = offscreenTarget->framebuffer;
+    renderGraph->renderArea.offset = {0, 0};
+    renderGraph->renderArea.extent = renderExtent;
     renderGraph1->framebuffer = offscreenTarget->framebuffer;
+    renderGraph1->renderArea.offset = {0, 0};
+    renderGraph1->renderArea.extent = renderExtent;
     vsgserver::renderer = this;
     auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(pc_data, vsg::findFile("json/Scenes.json", options->paths).string(), vsg::findFile("json/Materials.json", options->paths).string(), vsg::findFile("json/LightInfo.json", options->paths).string()));
     renderGraph1->addChild(renderImGui);
 
+    auto createPassCamera = [&](VkExtent2D targetExtent) {
+        auto passViewport = vsg::ViewportState::create(0, 0, targetExtent.width, targetExtent.height);
+        return vsg::Camera::create(camera->projectionMatrix, camera->viewMatrix, passViewport);
+    };
     auto createStandaloneRenderGraph = [&](vsg::ref_ptr<ColorRenderTarget> target,
                                            vsg::ref_ptr<vsg::Group> scene,
                                            const std::array<float, 4>& clearColor) {
-        auto passView = vsg::View::create(camera, scene);
+        auto passView = vsg::View::create(createPassCamera(target->getExtent()), scene);
         auto passRenderGraph = vsg::RenderGraph::create();
         passRenderGraph->renderArea.offset = {0, 0};
         passRenderGraph->renderArea.extent = target->getExtent();

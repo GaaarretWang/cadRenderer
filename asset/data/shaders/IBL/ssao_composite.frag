@@ -57,8 +57,7 @@ void main()
     vec3 colorData = texelFetch(colorSampler, colorCoord, 0).xyz;
 
     ivec2 ssaoSize = textureSize(ssaoSampler, 0);
-    ivec2 centerCoord = clamp(ivec2(uv * vec2(ssaoSize)), ivec2(0), ssaoSize - 1);
-    vec4 centerSSAO = texelFetch(ssaoSampler, centerCoord, 0);
+    vec4 centerSSAO = texture(ssaoSampler, uv);
 
     vec2 texelSize = 1.0 / vec2(ssaoSize);
     float result = 0.0;
@@ -68,8 +67,7 @@ void main()
         for (int y = -denoiseRadius; y <= denoiseRadius; ++y)
         {
             vec2 offset = vec2(float(x), float(y)) * texelSize;
-            ivec2 sampleCoord = clamp(ivec2((uv + offset) * vec2(ssaoSize)), ivec2(0), ssaoSize - 1);
-            result += texelFetch(ssaoSampler, sampleCoord, 0).r;
+            result += texture(ssaoSampler, uv + offset).r;
         }
     }
 
