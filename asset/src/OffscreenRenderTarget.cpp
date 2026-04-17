@@ -1,5 +1,51 @@
 #include "OffscreenRenderTarget.h"
 
+void ColorRenderTarget::init(vsg::ref_ptr<vsg::Device> device,
+                             VkExtent2D extent,
+                             VkFormat imageFormat,
+                             VkImageUsageFlags extraUsage,
+                             VkImageLayout finalLayout)
+{
+    _extent = extent;
+
+    colorImage = vsg::Image::create();
+    colorImage->imageType = VK_IMAGE_TYPE_2D;
+    colorImage->format = imageFormat;
+    colorImage->extent.width = extent.width;
+    colorImage->extent.height = extent.height;
+    colorImage->extent.depth = 1;
+    colorImage->mipLevels = 1;
+    colorImage->arrayLayers = 1;
+    colorImage->samples = VK_SAMPLE_COUNT_1_BIT;
+    colorImage->tiling = VK_IMAGE_TILING_OPTIMAL;
+    colorImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+                        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | extraUsage;
+    colorImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorImage->flags = 0;
+    colorImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    colorImage->compile(device);
+    colorImage->allocateAndBindMemory(device);
+
+    colorImageView = vsg::ImageView::create(colorImage, VK_IMAGE_ASPECT_COLOR_BIT);
+    colorImageView->compile(device);
+
+    auto colorAttachment = vsg::defaultColorAttachment(imageFormat);
+    colorAttachment.finalLayout = finalLayout;
+
+    vsg::AttachmentReference colorAttachmentRef = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    vsg::SubpassDescription subpass{};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachments.emplace_back(colorAttachmentRef);
+
+    renderPass = vsg::RenderPass::create(
+        device,
+        vsg::RenderPass::Attachments{colorAttachment},
+        vsg::RenderPass::Subpasses{subpass},
+        vsg::RenderPass::Dependencies{});
+    framebuffer = vsg::Framebuffer::create(renderPass, vsg::ImageViews{colorImageView}, extent.width, extent.height, 1);
+}
+
 void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D extent, VkSampleCountFlagBits samples, VkFormat depthFormat, VkImageUsageFlags depthImageUsage)
 {
     _extent = extent;
@@ -65,7 +111,8 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     gbufferImage0->arrayLayers = 1;
     gbufferImage0->samples = samples;
     gbufferImage0->tiling = VK_IMAGE_TILING_OPTIMAL;
-    gbufferImage0->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    gbufferImage0->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT |
+                           VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     gbufferImage0->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     gbufferImage0->flags = 0;
     gbufferImage0->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -153,7 +200,9 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     shadowWriteImage->arrayLayers = 1;
     shadowWriteImage->samples = samples;
     shadowWriteImage->tiling = VK_IMAGE_TILING_OPTIMAL;
-    shadowWriteImage->usage = VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    shadowWriteImage->usage = VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                              VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                              VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     shadowWriteImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     shadowWriteImage->flags = 0;
     shadowWriteImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -175,7 +224,8 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     shadowSampleImage->arrayLayers = 1;
     shadowSampleImage->samples = samples;
     shadowSampleImage->tiling = VK_IMAGE_TILING_OPTIMAL;
-    shadowSampleImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    shadowSampleImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+                               VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
     shadowSampleImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     shadowSampleImage->flags = 0;
     shadowSampleImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;

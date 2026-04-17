@@ -15,6 +15,7 @@ public:
     void buildFramebuffer(VkExtent2D extent);
 
     VkExtent2D getExtent() const { return _extent; }
+    bool isMultisampled() const { return _samples != VK_SAMPLE_COUNT_1_BIT; }
 
     // GBuffer images
     vsg::ref_ptr<vsg::Image> gbufferImage0;
@@ -63,4 +64,24 @@ public:
 private:
     VkExtent2D _extent;
     VkSampleCountFlagBits _samples;
+};
+
+class ColorRenderTarget : public vsg::Inherit<vsg::Object, ColorRenderTarget>
+{
+public:
+    void init(vsg::ref_ptr<vsg::Device> device,
+              VkExtent2D extent,
+              VkFormat imageFormat,
+              VkImageUsageFlags extraUsage = 0,
+              VkImageLayout finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    VkExtent2D getExtent() const { return _extent; }
+
+    vsg::ref_ptr<vsg::Image> colorImage;
+    vsg::ref_ptr<vsg::ImageView> colorImageView;
+    vsg::ref_ptr<vsg::RenderPass> renderPass;
+    vsg::ref_ptr<vsg::Framebuffer> framebuffer;
+
+private:
+    VkExtent2D _extent{};
 };
