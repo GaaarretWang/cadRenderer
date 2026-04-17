@@ -359,7 +359,10 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     renderGraph1->renderArea.extent = renderExtent;
     vsgserver::renderer = this;
     auto renderImGui = vsgImGui::RenderImGui::create(window, gui::MyGui::create(pc_data, vsg::findFile("json/Scenes.json", options->paths).string(), vsg::findFile("json/Materials.json", options->paths).string(), vsg::findFile("json/LightInfo.json", options->paths).string()));
-    renderGraph1->addChild(renderImGui);
+    auto guiRenderGraph = vsg::RenderGraph::create(window);
+    guiRenderGraph->renderArea.offset = {0, 0};
+    guiRenderGraph->renderArea.extent = window->extent2D();
+    guiRenderGraph->addChild(renderImGui);
 
     auto createPassCamera = [&](VkExtent2D targetExtent) {
         auto passViewport = vsg::ViewportState::create(0, 0, targetExtent.width, targetExtent.height);
@@ -633,6 +636,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         copyCommandGraph->addChild(copyImageViewToWindow);
         commandGraph1->addChild(copyCommandGraph);
     }
+
+    commandGraph1->addChild(guiRenderGraph);
 
     viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
     viewer->addEventHandlers({vsg::CloseHandler::create(viewer)});
