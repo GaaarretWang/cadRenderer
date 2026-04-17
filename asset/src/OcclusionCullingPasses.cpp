@@ -92,6 +92,7 @@ namespace OcclusionCullingPasses{
         );
         for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
             ProtoData* proto_data = proto_data_itr.second;
+            // if (proto_data->is_transparent) continue;
             auto indirectBarrier = vsg::BufferMemoryBarrier::create(
                 VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
                 VK_ACCESS_SHADER_WRITE_BIT,
@@ -118,6 +119,7 @@ namespace OcclusionCullingPasses{
 
         for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
             ProtoData* proto_data = proto_data_itr.second;
+            // if (proto_data->is_transparent) continue;
             auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
                                                                                 proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info,
                                                                                 proto_data->output_instance_buffer_info, camera_plane_info_buffer_info,
@@ -340,6 +342,7 @@ namespace OcclusionCullingPasses{
         auto pre_pipeline = bindPipeline;
         for(auto& proto_data_itr : CADMesh::proto_id_to_data_map){
             ProtoData* proto_data = proto_data_itr.second;
+            // if (proto_data->is_transparent) continue;
             if(proto_data->instance_matrix.size() > 32 && pre_pipeline == bindPipeline){
                 depth_pyramid_CommandGraph->addChild(bindPipeline_seat);
                 pre_pipeline = bindPipeline_seat;

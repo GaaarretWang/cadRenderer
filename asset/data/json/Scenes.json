@@ -2,6 +2,17 @@
     "default_scene": 0,
     "scenes": [
         {
+            "depth_completion_params": {
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "enable_real_depth_occlusion": 0,
+                "kernel_radius": 35,
+                "max_fill_passes": 15,
+                "shadow_mode": 0,
+                "spatial_weight": 0.5,
+                "top_k": 50,
+                "valid_depth_min_mm": 100
+            },
             "description": "飞机部件场景 - 5个飞机组件",
             "id": 0,
             "line_point_style": {
@@ -228,20 +239,20 @@
                         1.0
                     ]
                 ]
-            ],
-            "depth_completion_params": {
-                "enable_real_depth_occlusion": 0,
-                "shadow_mode": 0,
-                "valid_depth_min_mm": 100,
-                "kernel_radius": 35,
-                "top_k": 50,
-                "spatial_weight": 0.5,
-                "color_sigma": 0.15,
-                "edge_threshold": 0.25,
-                "max_fill_passes": 15
-            }
+            ]
         },
         {
+            "depth_completion_params": {
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "enable_real_depth_occlusion": 0,
+                "kernel_radius": 35,
+                "max_fill_passes": 15,
+                "shadow_mode": 0,
+                "spatial_weight": 0.5,
+                "top_k": 50,
+                "valid_depth_min_mm": 100
+            },
             "description": "仪表盘场景",
             "id": 1,
             "line_point_style": {
@@ -340,20 +351,20 @@
                         1.0
                     ]
                 ]
-            ],
-            "depth_completion_params": {
-                "enable_real_depth_occlusion": 0,
-                "shadow_mode": 0,
-                "valid_depth_min_mm": 100,
-                "kernel_radius": 35,
-                "top_k": 50,
-                "spatial_weight": 0.5,
-                "color_sigma": 0.15,
-                "edge_threshold": 0.25,
-                "max_fill_passes": 15
-            }
+            ]
         },
         {
+            "depth_completion_params": {
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "enable_real_depth_occlusion": 0,
+                "kernel_radius": 35,
+                "max_fill_passes": 15,
+                "shadow_mode": 0,
+                "spatial_weight": 0.5,
+                "top_k": 50,
+                "valid_depth_min_mm": 100
+            },
             "description": "球体场景（当前注释）",
             "id": 2,
             "line_point_style": {
@@ -484,20 +495,20 @@
                         1.0
                     ]
                 ]
-            ],
-            "depth_completion_params": {
-                "enable_real_depth_occlusion": 0,
-                "shadow_mode": 0,
-                "valid_depth_min_mm": 100,
-                "kernel_radius": 35,
-                "top_k": 50,
-                "spatial_weight": 0.5,
-                "color_sigma": 0.15,
-                "edge_threshold": 0.25,
-                "max_fill_passes": 15
-            }
+            ]
         },
         {
+            "depth_completion_params": {
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "enable_real_depth_occlusion": 0,
+                "kernel_radius": 35,
+                "max_fill_passes": 15,
+                "shadow_mode": 0,
+                "spatial_weight": 0.5,
+                "top_k": 50,
+                "valid_depth_min_mm": 100
+            },
             "description": "完整引擎场景（当前注释）",
             "id": 3,
             "line_point_style": {
@@ -596,20 +607,20 @@
                         1.0
                     ]
                 ]
-            ],
-            "depth_completion_params": {
-                "enable_real_depth_occlusion": 0,
-                "shadow_mode": 0,
-                "valid_depth_min_mm": 100,
-                "kernel_radius": 35,
-                "top_k": 50,
-                "spatial_weight": 0.5,
-                "color_sigma": 0.15,
-                "edge_threshold": 0.25,
-                "max_fill_passes": 15
-            }
+            ]
         },
         {
+            "depth_completion_params": {
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "enable_real_depth_occlusion": 0,
+                "kernel_radius": 35,
+                "max_fill_passes": 15,
+                "shadow_mode": 0,
+                "spatial_weight": 0.5,
+                "top_k": 50,
+                "valid_depth_min_mm": 100
+            },
             "description": "直升机引擎场景",
             "id": 4,
             "line_point_style": {
@@ -708,20 +719,20 @@
                         1.0
                     ]
                 ]
-            ],
-            "depth_completion_params": {
-                "enable_real_depth_occlusion": 0,
-                "shadow_mode": 0,
-                "valid_depth_min_mm": 100,
-                "kernel_radius": 35,
-                "top_k": 50,
-                "spatial_weight": 0.5,
-                "color_sigma": 0.15,
-                "edge_threshold": 0.25,
-                "max_fill_passes": 15
-            }
+            ]
         },
         {
+            "depth_completion_params": {
+                "color_sigma": 0.15000000596046448,
+                "edge_threshold": 0.25,
+                "enable_real_depth_occlusion": 0,
+                "kernel_radius": 35,
+                "max_fill_passes": 15,
+                "shadow_mode": 0,
+                "spatial_weight": 0.5,
+                "top_k": 50,
+                "valid_depth_min_mm": 100
+            },
             "description": "驾驶舱场景",
             "id": 5,
             "line_point_style": {
@@ -776,11 +787,11 @@
                 "blocker_sample_num": 8,
                 "denoise_size": 5,
                 "exposure": 11.708000183105469,
-                "hdr_image_num": 4,
+                "hdr_image_num": 1,
                 "pcf_sample_num": 8,
                 "pcf_softness": 5.784999847412109,
-                "pcss_softness": 20.100000381469727,
-                "pcss_softness_falloff": 0.10899999737739563,
+                "pcss_softness": 0.0,
+                "pcss_softness_falloff": 0.0,
                 "shadow_bias": 0.0,
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
@@ -820,20 +831,20 @@
                         1.0
                     ]
                 ]
-            ],
-            "depth_completion_params": {
-                "enable_real_depth_occlusion": 0,
-                "shadow_mode": 0,
-                "valid_depth_min_mm": 100,
-                "kernel_radius": 35,
-                "top_k": 50,
-                "spatial_weight": 0.5,
-                "color_sigma": 0.15,
-                "edge_threshold": 0.25,
-                "max_fill_passes": 15
-            }
+            ]
         },
         {
+            "depth_completion_params": {
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "enable_real_depth_occlusion": 0,
+                "kernel_radius": 35,
+                "max_fill_passes": 15,
+                "shadow_mode": 0,
+                "spatial_weight": 0.5,
+                "top_k": 50,
+                "valid_depth_min_mm": 100
+            },
             "description": "GlassModels仪表盘场景 - 批量材质去重",
             "id": 6,
             "line_point_style": {
@@ -1444,20 +1455,20 @@
                         1.0
                     ]
                 ]
-            ],
-            "depth_completion_params": {
-                "enable_real_depth_occlusion": 0,
-                "shadow_mode": 0,
-                "valid_depth_min_mm": 100,
-                "kernel_radius": 35,
-                "top_k": 50,
-                "spatial_weight": 0.5,
-                "color_sigma": 0.15,
-                "edge_threshold": 0.25,
-                "max_fill_passes": 15
-            }
+            ]
         },
         {
+            "depth_completion_params": {
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "enable_real_depth_occlusion": 0,
+                "kernel_radius": 35,
+                "max_fill_passes": 15,
+                "shadow_mode": 0,
+                "spatial_weight": 0.5,
+                "top_k": 50,
+                "valid_depth_min_mm": 100
+            },
             "description": "舱壁场景",
             "id": 7,
             "line_point_style": {
@@ -1556,20 +1567,20 @@
                         1.0
                     ]
                 ]
-            ],
-            "depth_completion_params": {
-                "enable_real_depth_occlusion": 0,
-                "shadow_mode": 0,
-                "valid_depth_min_mm": 100,
-                "kernel_radius": 35,
-                "top_k": 50,
-                "spatial_weight": 0.5,
-                "color_sigma": 0.15,
-                "edge_threshold": 0.25,
-                "max_fill_passes": 15
-            }
+            ]
         },
         {
+            "depth_completion_params": {
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "enable_real_depth_occlusion": 0,
+                "kernel_radius": 35,
+                "max_fill_passes": 15,
+                "shadow_mode": 0,
+                "spatial_weight": 0.5,
+                "top_k": 50,
+                "valid_depth_min_mm": 100
+            },
             "description": "airplane parts variant - cull off pcf",
             "id": 8,
             "line_point_style": {
@@ -1796,24 +1807,24 @@
                         1.0
                     ]
                 ]
-            ],
-            "depth_completion_params": {
-                "enable_real_depth_occlusion": 0,
-                "shadow_mode": 0,
-                "valid_depth_min_mm": 100,
-                "kernel_radius": 35,
-                "top_k": 50,
-                "spatial_weight": 0.5,
-                "color_sigma": 0.15,
-                "edge_threshold": 0.25,
-                "max_fill_passes": 15
-            }
+            ]
         },
         {
             "cull_mode_none_model_paths": [
                 "asset/data/geos/1105/twoAirplaneBody_white.fb",
                 "asset/data/geos/1105/window.fb"
             ],
+            "depth_completion_params": {
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "enable_real_depth_occlusion": 0,
+                "kernel_radius": 35,
+                "max_fill_passes": 15,
+                "shadow_mode": 1,
+                "spatial_weight": 0.5,
+                "top_k": 50,
+                "valid_depth_min_mm": 100
+            },
             "description": "airplane parts variant - cull on pcss",
             "id": 9,
             "line_point_style": {
@@ -2040,20 +2051,20 @@
                         1.0
                     ]
                 ]
-            ],
-            "depth_completion_params": {
-                "enable_real_depth_occlusion": 0,
-                "shadow_mode": 1,
-                "valid_depth_min_mm": 100,
-                "kernel_radius": 35,
-                "top_k": 50,
-                "spatial_weight": 0.5,
-                "color_sigma": 0.15,
-                "edge_threshold": 0.25,
-                "max_fill_passes": 15
-            }
+            ]
         },
         {
+            "depth_completion_params": {
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "enable_real_depth_occlusion": 1,
+                "kernel_radius": 35,
+                "max_fill_passes": 15,
+                "shadow_mode": 0,
+                "spatial_weight": 0.5,
+                "top_k": 50,
+                "valid_depth_min_mm": 100
+            },
             "description": "spheres variant - depth plane pcss",
             "id": 10,
             "line_point_style": {
@@ -2184,23 +2195,23 @@
                         1.0
                     ]
                 ]
-            ],
-            "depth_completion_params": {
-                "enable_real_depth_occlusion": 1,
-                "shadow_mode": 0,
-                "valid_depth_min_mm": 100,
-                "kernel_radius": 35,
-                "top_k": 50,
-                "spatial_weight": 0.5,
-                "color_sigma": 0.15,
-                "edge_threshold": 0.25,
-                "max_fill_passes": 15
-            }
+            ]
         },
         {
             "cull_mode_none_model_paths": [
                 "asset/data/obj/sphere_diffuse.obj"
             ],
+            "depth_completion_params": {
+                "color_sigma": 0.15,
+                "edge_threshold": 0.25,
+                "enable_real_depth_occlusion": 1,
+                "kernel_radius": 35,
+                "max_fill_passes": 15,
+                "shadow_mode": 1,
+                "spatial_weight": 0.5,
+                "top_k": 50,
+                "valid_depth_min_mm": 100
+            },
             "description": "spheres variant - depth real pcf",
             "id": 11,
             "line_point_style": {
@@ -2331,18 +2342,7 @@
                         1.0
                     ]
                 ]
-            ],
-            "depth_completion_params": {
-                "enable_real_depth_occlusion": 1,
-                "shadow_mode": 1,
-                "valid_depth_min_mm": 100,
-                "kernel_radius": 35,
-                "top_k": 50,
-                "spatial_weight": 0.5,
-                "color_sigma": 0.15,
-                "edge_threshold": 0.25,
-                "max_fill_passes": 15
-            }
+            ]
         }
     ]
 }

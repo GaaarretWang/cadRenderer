@@ -216,7 +216,7 @@ vsg::vec4 CADMesh::hexToRGB(const std::string& color)
     return vsg::vec4{r, g, b, 1.0};
 }
 
-void CADMesh::preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)
+void CADMesh::preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name, vsg::ref_ptr<vsg::Group> transparent_scene)
 {
     if(proto_ids.size() > 0){
         // Register the global model matrix.
@@ -419,6 +419,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     proto_data->material_source = ProtoData::MaterialSource::Fb;
                     proto_data->fb_color_group_key = color_group_key;
                     proto_data->material_persist_key = extractPersistMaterialKey(proto_id);
+                    proto_data->is_transparent = default_material->value().baseColorFactor.w < 1.0f;
                     // if(i < mtr_ids.size() && textures.size() > mtr_ids[i]){
                     //     proto_data->diffuse_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][0];
                     //     proto_data->normal_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][1];
@@ -444,7 +445,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     }
                     proto_data->material_index = material_idx;
                     proto_data->shaderset = model_shaderset;
-                    proto_data->scene = scene;
+                    proto_data->scene = (proto_data->is_transparent && transparent_scene) ? transparent_scene : scene;
                     proto_data->back_cull = back_cull;
                     proto_id_to_data_map[proto_id] = proto_data;
                     insert_order_to_data.push_back(proto_data);
@@ -478,7 +479,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
     }
 }
 
-void CADMesh::preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)
+void CADMesh::preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name, vsg::ref_ptr<vsg::Group> transparent_scene)
 {
     if(proto_ids.size() > 0){
         // Register the global model matrix.
@@ -599,6 +600,7 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
                     if(textures[mtr_ids[i][0]][2] != "")
                         proto_data->mr_path = std::string(material_path) + "/tex/" + textures[mtr_ids[i][0]][2];
                 }
+                proto_data->is_transparent = materials[mtr_ids[i][0]]->value().baseColorFactor.w < 1.0f;
             }
             else{
                 proto_data->diffuse_path = "";
@@ -610,10 +612,11 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
                 uint32_t material_idx = global_material_array.size();
                 global_material_array.push_back(default_material);
                 proto_data->material_index = material_idx;
+                proto_data->is_transparent = false;
             }
 
             proto_data->shaderset = model_shaderset;
-            proto_data->scene = scene;
+            proto_data->scene = (proto_data->is_transparent && transparent_scene) ? transparent_scene : scene;
             proto_data->back_cull = back_cull;
             proto_id_to_data_map[proto_id] = proto_data;
             insert_order_to_data.push_back(proto_data);

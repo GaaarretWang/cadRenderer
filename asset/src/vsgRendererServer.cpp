@@ -191,6 +191,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     //---------------------------------------------------Create scene----------------------------------//
     auto modelGroup = vsg::Group::create();
+    auto transparentGroup = vsg::Group::create();
     auto modelShadowGroup = vsg::Group::create();
     auto shadowGroup = vsg::Group::create();
     auto envSceneGroup = vsg::Group::create();
@@ -204,6 +205,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     rootSwitch->addChild(MASK_SKYBOX, drawSkyboxNode);
     rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowGroup);
     rootSwitch->addChild(MASK_PBR_FULL, modelGroup);
+    rootSwitch->addChild(MASK_TRANSPARENT, transparentGroup);
     rootSwitch->addChild(MASK_TEXT, textGroup);
     rootSwitch->addChild(MASK_WIREFRAME, wireframeGroup);
     auto rootSwitch1 = vsg::Switch::create();
@@ -280,11 +282,11 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         }
         if(format == "obj")
         {
-            transfer_model->preprocessProtoData(path_i.c_str(), texture_path_i.c_str(), model_transforms[i], IBL::customPbrShaderSet(options), modelGroup, instance_names[i]); // Load the OBJ model.
+            transfer_model->preprocessProtoData(path_i.c_str(), texture_path_i.c_str(), model_transforms[i], IBL::customPbrShaderSet(options), modelGroup, instance_names[i], transparentGroup); // Load the OBJ model.
         }
         else if(format == "fb")
         {
-            transfer_model->preprocessFBProtoData(path_i, texture_path_i.c_str(), model_transforms[i], IBL::customPbrShaderSet(options), modelGroup, instance_names[i]);
+            transfer_model->preprocessFBProtoData(path_i, texture_path_i.c_str(), model_transforms[i], IBL::customPbrShaderSet(options), modelGroup, instance_names[i], transparentGroup);
         }
     }
     // Populate CADMesh static scene-instance data.
@@ -340,7 +342,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
     auto view1 = vsg::View::create(camera, scenegraph_safe);
     // view->features = vsg::RECORD_LIGHTS;
-    view1->mask = MASK_PBR_FULL | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER | MASK_SSAO;
+    view1->mask = MASK_PBR_FULL | MASK_TRANSPARENT | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER | MASK_SSAO;
     view1->viewDependentState = CustomViewDependentState1::create(view1.get());
     view1->viewDependentState->pre_depth_pass = view->viewDependentState;
     auto renderGraph1 = vsg::RenderGraph::create(window, view1);

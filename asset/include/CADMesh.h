@@ -91,6 +91,7 @@ struct ProtoData
     MaterialSource material_source = MaterialSource::Obj;
     std::string material_persist_key;
     std::string fb_color_group_key;
+    bool is_transparent = false;
     vsg::ref_ptr<vsg::mat4Array> instance_buffer;
     vsg::ref_ptr<vsg::mat4Array> last_instance_buffer; // Proto matrices from the previous frame.
     vsg::ref_ptr<vsg::BufferInfo> input_instance_buffer_info;
@@ -291,8 +292,8 @@ public:
     std::unordered_map<std::string, std::vector<vsg::dmat4>> proto_id_default_matrix_map;
     std::unordered_map<std::string, std::vector<std::string>> proto_id_instance_name_map;
 
-    void preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string instance_name);
-    void preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string instance_name);
+    void preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string instance_name, vsg::ref_ptr<vsg::Group> transparent_scene = {});
+    void preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string instance_name, vsg::ref_ptr<vsg::Group> transparent_scene = {});
     static void buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::PushConstants> pc, vsg::BufferInfoList constant_data_buffer_info_list, vsg::ref_ptr<vsg::ImageView> ShadowSampleImageView);
 
     static void buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList constant_data_buffer_info_list);

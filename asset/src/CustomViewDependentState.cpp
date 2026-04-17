@@ -117,6 +117,7 @@ void buildShadowPass1CullGraph(vsg::ref_ptr<vsg::Group> command_graph,
     for (auto& proto_data_itr : CADMesh::proto_id_to_data_map)
     {
         ProtoData* proto_data = proto_data_itr.second;
+        if (proto_data->is_transparent) continue;
         auto storage_buffers = vsg::DescriptorBuffer::create(
             vsg::BufferInfoList{
                 proto_data->draw_indirect->bufferInfo,
@@ -352,6 +353,7 @@ void buildShadowPass2CullGraph(vsg::ref_ptr<vsg::Group> command_graph,
     for (auto& proto_data_itr : CADMesh::proto_id_to_data_map)
     {
         ProtoData* proto_data = proto_data_itr.second;
+        if (proto_data->is_transparent) continue;
         const bool use_seat_pipeline = proto_data->instance_matrix.size() > 32;
         if (use_seat_pipeline && current_pipeline == bind_pipeline)
         {

@@ -65,7 +65,7 @@ void OBJLoader::load_materials(const std::vector<tinyobj::material_t>& objmateri
         auto material = vsg::PbrMaterialValue::create();
         material->value().roughnessFactor = mat->roughness;
         material->value().metallicFactor = mat->metallic;
-        material->value().baseColorFactor = vsg::vec4{mat->diffuse[0], mat->diffuse[1], mat->diffuse[2], 1.0f};
+        material->value().baseColorFactor = vsg::vec4{mat->diffuse[0], mat->diffuse[1], mat->diffuse[2], mat->dissolve};
         material->value().specularFactor = vsg::vec4{mat->specular[0], mat->specular[1], mat->specular[2], 1.0f};
         mat_val.push_back(material);
         std::cout << mat->diffuse_texname << std::endl;
