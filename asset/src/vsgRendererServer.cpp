@@ -336,7 +336,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     view = vsg::View::create(camera, scenegraph_safe);
     CADMesh::active_view = view.get();
     // view->features = vsg::RECORD_LIGHTS;
-    view->mask = MASK_CAMERA_IMAGE;
+    view->mask = MASK_CAMERA_IMAGE | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
     // view->mask = MASK_SKYBOX | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
     auto shadow_view_dependent_state = CustomViewDependentState::create(view.get(), device, computeQueueFamily, options);
     view->viewDependentState = shadow_view_dependent_state;

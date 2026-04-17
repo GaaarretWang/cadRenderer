@@ -1721,7 +1721,7 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
     if (hasShadowInSkybox || depth_prepass_only)
     {
         auto colorBlendState = vsg::ColorBlendState::create();
-        colorBlendState->attachments.resize(hasShadowInSkybox ? 4 : 1, colorBlendState->attachments[0]);
+        colorBlendState->attachments.resize((hasShadowInSkybox || depth_prepass_only) ? 4 : 1, colorBlendState->attachments[0]);
         if (depth_prepass_only)
         {
             for (auto& attachment : colorBlendState->attachments)
