@@ -318,8 +318,8 @@
                 "ssao_radius": 0.656000018119812
             },
             "scene_media": {
-                "color_path": "asset/data/dataset3/resized_factory.png",
-                "depth_path": "asset/data/dataset3/black_depth_1280x960.png",
+                "color_path": "asset/data/dataset3/color1711699289.885392.png",
+                "depth_path": "asset/data/dataset3/depth1711699289.885392.png",
                 "pose_path": "asset/data/cameraPose/vsg_pose.txt",
                 "type": "static_image"
             },

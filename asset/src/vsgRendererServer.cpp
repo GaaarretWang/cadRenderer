@@ -5,6 +5,46 @@
 
 #include "LightInfoStateSerializer.h"
 
+namespace
+{
+class WindowTransferReadyForGui : public vsg::Inherit<vsg::Command, WindowTransferReadyForGui>
+{
+public:
+    explicit WindowTransferReadyForGui(vsg::ref_ptr<vsg::Window> in_window) :
+        window(std::move(in_window))
+    {
+    }
+
+    vsg::ref_ptr<vsg::Window> window;
+
+    void record(vsg::CommandBuffer& commandBuffer) const override
+    {
+        if (!window) return;
+
+        size_t imageIndex = window->imageIndex();
+        if (imageIndex >= window->numFrames()) return;
+
+        auto imageView = window->imageView(imageIndex);
+        auto transferToColorLoad = vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            imageView->image,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
+
+        auto pipelineBarrier = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            0,
+            transferToColorLoad);
+        pipelineBarrier->record(commandBuffer);
+    }
+};
+}
+
 std::string getDirectoryPath(const std::string& path) {
     if (path.empty()) return path;
 
@@ -170,10 +210,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     IBL::generateBRDFLUT(vsgContext);
     preprocessEnvMap();
     vsg::info("IBL: Environment lighting data created, creating window");
-
-
-    // Create the window resources.
-    // This pass contains virtual objects only.
     auto cadWindowTraits = createWindowTraits("Model", 0, options);
     cadWindowTraits->device = device;
     window = vsg::Window::create(cadWindowTraits);
@@ -182,11 +218,9 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         static_cast<uint32_t>(render_width),
         static_cast<uint32_t>(render_height)};
 
-    // Create offscreen render target (Stage 2: create but not yet used)
     offscreenTarget = OffscreenRenderTarget::create();
     offscreenTarget->init(device, renderExtent, msaaSamples, window->depthFormat(), cadWindowTraits->depthImageUsage);
 
-    // Stage 3: Create render pass and framebuffer (not yet used by render graphs)
     bool requiresDepthRead = (cadWindowTraits->depthImageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
     offscreenTarget->buildRenderPass(device, window->surfaceFormat().format, window->depthFormat(), requiresDepthRead);
     offscreenTarget->buildFramebuffer(renderExtent);
@@ -200,14 +234,10 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     compositeTarget = ColorRenderTarget::create();
     compositeTarget->init(device, renderExtent, window->surfaceFormat().format, 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-    double nearFarRatio = 0.0001;       // Ratio between the near and far planes.
-
     //---------------------------------------------------Create scene----------------------------------//
     auto modelGroup = vsg::Group::create();
     auto transparentGroup = vsg::Group::create();
-    auto modelShadowGroup = vsg::Group::create();
     auto shadowGroup = vsg::Group::create();
-    auto envSceneGroup = vsg::Group::create();
     auto wireframeGroup = vsg::Group::create();
     auto textGroup = vsg::Group::create();
     auto ssaoScene = vsg::Group::create();
@@ -228,9 +258,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     
 
     // -----------------------Configure camera parameters------------------------//
-    double radius = 2000.0; // Fixed viewing distance.
     auto viewport = vsg::ViewportState::create(0, 0, renderExtent.width, renderExtent.height);
-    // auto perspective = vsg::Perspective::create(60.0, static_cast<double>(640) / static_cast<double>(480), nearFarRatio * radius, radius * 10.0);
     auto perspective = vsg::Perspective::create(fx, fy, cx, cy, width, height, near_plane, far_plane);
 
     vsg::dvec3 centre = {0.0, 0.0, 1.0};                    // Fixed look-at target.
@@ -335,22 +363,18 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     viewer->addWindow(window);
     view = vsg::View::create(camera, scenegraph_safe);
     CADMesh::active_view = view.get();
-    // view->features = vsg::RECORD_LIGHTS;
     view->mask = MASK_CAMERA_IMAGE | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
-    // view->mask = MASK_SKYBOX | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
     auto shadow_view_dependent_state = CustomViewDependentState::create(view.get(), device, computeQueueFamily, options);
     view->viewDependentState = shadow_view_dependent_state;
     auto renderGraph = vsg::RenderGraph::create(window, view);
 
     renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
     auto view1 = vsg::View::create(camera, scenegraph_safe);
-    // view->features = vsg::RECORD_LIGHTS;
     view1->mask = MASK_PBR_FULL | MASK_TRANSPARENT | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER;
     view1->viewDependentState = CustomViewDependentState1::create(view1.get());
     view1->viewDependentState->pre_depth_pass = view->viewDependentState;
     auto renderGraph1 = vsg::RenderGraph::create(window, view1);
 
-    // Override both render graphs to use offscreen framebuffer
     renderGraph->framebuffer = offscreenTarget->framebuffer;
     renderGraph->renderArea.offset = {0, 0};
     renderGraph->renderArea.extent = renderExtent;
@@ -389,15 +413,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto ssaoRenderGraph = createStandaloneRenderGraph(ssaoTarget, ssaoScene, {1.0f, 1.0f, 1.0f, 1.0f});
     auto realSceneRenderGraph = createStandaloneRenderGraph(realSceneTarget, realSceneScene, {0.0f, 0.0f, 0.0f, 0.0f}, view->viewDependentState);
     auto compositeRenderGraph = createStandaloneRenderGraph(compositeTarget, compositeScene, {0.0f, 0.0f, 0.0f, 1.0f});
-    std::this_thread::sleep_for(std::chrono::seconds(1));
     
     OcclusionCullingPasses::initOcclusionCullingPassesImageInfo(extent, offscreenTarget);
-    auto depthPyramidImage = OcclusionCullingPasses::depthPyramidImage;
-    auto depth_pyramid_sampler = OcclusionCullingPasses::depth_pyramid_sampler;
-    auto depthPyramidImageView = OcclusionCullingPasses::depthPyramidImageView;
-    auto depthPyramidImageInfo = OcclusionCullingPasses::depthPyramidImageInfo;
-    auto framebuffer_depthImageInfo = OcclusionCullingPasses::framebuffer_depthImageInfo;
-
     OcclusionCullingPasses::generateCameraData(fx, fy, cx, cy, width, height, near_plane, far_plane, camera);
 
     auto clear_image_commandgraph = vsg::CommandGraph::create(device, computeQueueFamily);
@@ -637,6 +654,12 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         commandGraph1->addChild(copyCommandGraph);
     }
 
+    {
+        auto transferReadyForGui = vsg::CommandGraph::create(device, computeQueueFamily1);
+        transferReadyForGui->addChild(WindowTransferReadyForGui::create(window));
+        commandGraph1->addChild(transferReadyForGui);
+    }
+
     commandGraph1->addChild(guiRenderGraph);
 
     viewer->addEventHandler(vsgImGui::SendEventsToImGui::create());
@@ -735,5 +758,3 @@ bool vsgRendererServer::render() {
     }
     return false;
 }
-
-

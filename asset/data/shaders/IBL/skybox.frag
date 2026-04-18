@@ -433,8 +433,8 @@ void main()
 	float scene_brightness = 1.0;
 #endif
 	#ifdef CAMERA_DEPTH
-		outNormal = vec4(0.0, 0.0, 0.0, 0.0);
-		outWorldPos = vec4(0.0, 0.0, 0.0, 0.0);
+		outNormal = vec4(0.0, 0.0, 0.0, 1.0);
+		outWorldPos = vec4(0.0, 0.0, 0.0, 1.0);
 		vec2 depth_uv = vec2(gl_FragCoord.x / tonemapParams.width, gl_FragCoord.y / tonemapParams.height);
 		gl_FragDepth = 0.0;
 		float camera_depth_norm = texture(depthImageSampler, depth_uv).r;

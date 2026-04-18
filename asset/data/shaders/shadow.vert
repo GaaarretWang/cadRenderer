@@ -44,6 +44,7 @@ layout(location = 4) out vec3 worldViewDir;
 
 layout(location = 5) out vec3 viewDir;
 layout(location = 6) out float InstanceID;
+layout(location = 7) out vec3 worldNormal;
 layout(location = 8) out vec3 lastWorldPos;
 
 out gl_PerVertex{ vec4 gl_Position; };
@@ -77,11 +78,12 @@ void main()
     vec4 lastVertex = lastModel * vec4(vsg_Vertex, 1.0);
     vec4 normal = vec4(vsg_Normal, 0.0);
     mat4 mv = pc.view;
+    worldNormal = mat3(model) * normal.xyz;
 
     gl_Position = (pc.projection * mv) * vertex;
     eyePos = (mv * vertex).xyz;
     viewDir = - (mv * vertex).xyz;
-    normalDir = (mv * normal).xyz;
+    normalDir = mat3(pc.view) * worldNormal;
     vertexColor = vsg_Color;
     InstanceID = vsg_InstanceID.x;
     texCoord0 = vsg_TexCoord0;

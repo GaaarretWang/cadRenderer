@@ -422,7 +422,7 @@ void main()
 
     if (linearZ <= 0.0 || linearZ >= globalBuffer.z_far)
     {
-        outColor = vec4(0.0);
+        outColor = texture(cameraImageSampler, uv);
         return;
     }
 

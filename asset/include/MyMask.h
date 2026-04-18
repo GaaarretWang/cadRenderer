@@ -15,12 +15,6 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 #include <cstdint>
 #include <vsg/core/Mask.h>
 
-//constexpr vsg::Mask MASK_SHADOW_CASTER = 1ul;
-//constexpr vsg::Mask MASK_SHADOW_RECEIVER = 2ul;
-//constexpr vsg::Mask MASK_BACKGROUND = 4ul;
-//constexpr vsg::Mask MASK_MODEL = MASK_SHADOW_CASTER | MASK_SHADOW_RECEIVER;
-//constexpr vsg::Mask MASK_GEOMETRY = MASK_SHADOW_RECEIVER | MASK_BACKGROUND;
-
 #ifndef MYMASK_H
 #define MYMASK_H
 constexpr vsg::Mask MASK_PBR_FULL = 1ul;

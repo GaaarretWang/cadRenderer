@@ -51,10 +51,8 @@ class vsgRendererServer
     IBL::VsgContext vsgContext = {};
     vsg::ref_ptr<vsg::StateGroup> drawSkyboxNode = vsg::StateGroup::create();
     vsg::ref_ptr<vsg::StateGroup> drawCameraImageNode = vsg::StateGroup::create();
-    vsg::ref_ptr<vsg::StateGroup> drawShadowBackgroundNode = vsg::StateGroup::create();
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;
     vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
-    std::unordered_map<int, vsg::ref_ptr<vsg::Group>> hdr_to_light_group_map;
     std::unordered_map<int, float> hdr_base_brightness; // baseBrightness value for each HDR environment.
     int hdr_image_num = 4;
     int hdr_image_max_num = 7;
@@ -102,7 +100,9 @@ class vsgRendererServer
     vsg::ref_ptr<vsg::WindowTraits> createWindowTraits(std::string windowTitle, int num,  vsg::ref_ptr<vsg::Options> options)
     {
         auto windowTraits = vsg::WindowTraits::create();
-        windowTraits->samples = msaaSamples;  // Configure multisampling.
+        // Final present+GUI runs on the window render pass; keep it single-sampled
+        // so the copied composite lands on the same image the GUI pass loads.
+        windowTraits->samples = VK_SAMPLE_COUNT_1_BIT;
         windowTraits->windowTitle = windowTitle;
         windowTraits->width = render_width;
         windowTraits->height = render_height;
@@ -218,50 +218,46 @@ public:
         point_shader = config_shader.buildLineShader(vsg::findFile("shaders/point.vert", options->paths).string(), vsg::findFile("shaders/point.frag", options->paths).string());
     }
 
+    void runIblViewerFrame()
+    {
+        viewer_IBL->compile();
+        if (!viewer_IBL->advanceToNextFrame()) return;
+
+        viewer_IBL->handleEvents();
+        viewer_IBL->update();
+        viewer_IBL->recordAndSubmit();
+        viewer_IBL->present();
+    }
+
+    void rebuildBackgroundNodes()
+    {
+        IBL::drawSkyboxVSGNode(drawSkyboxNode, render_width, render_height);
+        IBL::drawSkyboxVSGNode(
+                               drawCameraImageNode,
+                               render_width,
+                               render_height,
+                               frame_image_resources->cameraInfo(),
+                               frame_image_resources->depthInfo(),
+                               vsg::ref_ptr<vsg::Data>(pc_data),
+                               camera_image_params,
+                               true);
+    }
+
     void preprocessEnvMap(){
         std::string envmapFilepath = vsg::findFile("textures/" + std::to_string(hdr_image_num) + ".hdr", options->paths).string();
         IBL::generateEnvmap(vsgContext, envmapFilepath, -1);
         IBL::generateIrradianceCube(vsgContext, -1);
         IBL::generatePrefilteredEnvmapCube(vsgContext, -1);
-
-        viewer_IBL->compile();
-        bool process_done = false;
-        while (viewer_IBL->advanceToNextFrame())
-        {
-            if(process_done)
-                break;
-            viewer_IBL->handleEvents();
-            viewer_IBL->update();
-            viewer_IBL->recordAndSubmit();
-            viewer_IBL->present();
-            process_done = true;
-        }
+        runIblViewerFrame();
         for(int i = hdr_image_max_num; i > 0; i--){
             std::string envmapFilepath = vsg::findFile("textures/" + std::to_string(i) + ".hdr", options->paths).string();
             IBL::generateEnvmap(vsgContext, envmapFilepath, i);
             IBL::generateIrradianceCube(vsgContext, i);
             IBL::generatePrefilteredEnvmapCube(vsgContext, i);
-
-            viewer_IBL->compile();
-            bool process_done = false;
-            while (viewer_IBL->advanceToNextFrame())
-            {
-                if(process_done)
-                    break;
-                viewer_IBL->handleEvents();
-                viewer_IBL->update();
-                viewer_IBL->recordAndSubmit();
-                viewer_IBL->present();
-                process_done = true;
-            }
+            runIblViewerFrame();
         }
 
-        IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
-        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, frame_image_resources->cameraInfo(),
-                               frame_image_resources->depthInfo(),
-                               vsg::ref_ptr<vsg::Data>(pc_data),
-                               camera_image_params,
-                               true);
+        rebuildBackgroundNodes();
     }
 
     void updateEnvMap(){
@@ -278,9 +274,7 @@ public:
             command->record(commandBuffer);
         });
 
-        IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
-        IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height,
-            frame_image_resources->cameraInfo(), frame_image_resources->depthInfo(), vsg::ref_ptr<vsg::Data>(pc_data), camera_image_params, true);
+        rebuildBackgroundNodes();
     }
 
     void update_directional_lights(){

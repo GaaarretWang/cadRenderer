@@ -85,7 +85,7 @@ int main(int argc, char** argv){
 #endif
     }
 
-    // Save or compare PNG reference images after reaching the requested frame count.
+    // Save or compare PNG reference images after the loop completes.
     if(save_ref || compare_ref){
         int rw = rendering_server.renderer.render_width;
         int rh = rendering_server.renderer.render_height;
@@ -124,7 +124,7 @@ int main(int argc, char** argv){
         }
     }
 
-    // Stop once the requested frame count is reached.
+    // Stop once the requested frame count is reached, or once a capture-mode run completes.
     std::cout << "Program stopped after " << total_frames_rendered << " frames" << std::endl;
         return 0;
     } catch (const std::exception& e) {

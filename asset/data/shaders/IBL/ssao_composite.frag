@@ -55,8 +55,9 @@ void main()
 
     ivec2 colorSize = textureSize(colorSampler, 0);
     ivec2 colorCoord = clamp(ivec2(uv * vec2(colorSize)), ivec2(0), colorSize - 1);
-    vec3 colorData = texelFetch(colorSampler, colorCoord, 0).xyz;
+    vec4 colorData = texelFetch(colorSampler, colorCoord, 0);
     vec4 realSceneData = texture(realSceneSampler, uv);
+    bool isShadowReceiver = colorData.a < 0.0;
 
     ivec2 ssaoSize = textureSize(ssaoSampler, 0);
     vec4 centerSSAO = texture(ssaoSampler, uv);
@@ -73,15 +74,20 @@ void main()
         }
     }
 
-    if (centerSSAO.w > 0.5)
+    float kernelWidth = float(denoiseRadius * 2 + 1);
+    float occlusion = result / (kernelWidth * kernelWidth);
+
+    if (isShadowReceiver)
     {
-        outColor = realSceneData.a > 0.5 ? realSceneData : vec4(colorData, 1.0);
+        outColor = vec4(colorData.rgb * occlusion, 1.0);
+    }
+    else if (centerSSAO.w > 0.5)
+    {
+        outColor = realSceneData.a > 0.5 ? realSceneData : vec4(colorData.rgb, 1.0);
     }
     else
     {
-        float kernelWidth = float(denoiseRadius * 2 + 1);
-        float occlusion = result / (kernelWidth * kernelWidth);
-        vec3 color = Uncharted2Tonemap(colorData * occlusion * globalBuffer.exposure);
+        vec3 color = Uncharted2Tonemap(colorData.rgb * occlusion * globalBuffer.exposure);
         color = color * (vec3(1.0) / Uncharted2Tonemap(vec3(11.2)));
         outColor = LINEARtoSRGB(vec4(color, 1.0));
     }

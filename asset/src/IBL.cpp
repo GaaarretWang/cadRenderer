@@ -1670,8 +1670,7 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
     viewer->addRecordAndSubmitTaskAndPresentation({commandGraph});
 }
 
-ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
-                                  vsg::ref_ptr<vsg::StateGroup> root,
+ptr<StateGroup> drawSkyboxVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
                                   int width,
                                   int height,
                                   vsg::ImageInfoList camera_data,
@@ -1694,17 +1693,18 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
     auto shaderStages = ShaderStages{vertexShader, fragmentShader};
     auto tonemapParams = tonemap_params_override ? tonemap_params_override : vsg::ref_ptr<vsg::Data>(vsg::Value<IBL::DynamicSkyboxParams>::create(IBL::DynamicSkyboxParams{}));
 
-    bool hasShadowInSkybox = (depth_data.size() > 0 && shadow_pc_data);
+    const bool hasCameraImage = !camera_data.empty();
+    const bool hasCameraDepth = !depth_data.empty();
+    const bool hasShadowInSkybox = hasCameraDepth && shadow_pc_data;
 
     auto skyBoxShaderSet = ShaderSet::create(shaderStages, shaderCompileSettings);
     skyBoxShaderSet->addAttributeBinding("inPos", "", 0, VK_FORMAT_R32G32B32_SFLOAT, gSkyboxCube.vertices);
     skyBoxShaderSet->addDescriptorBinding("envmap", "", 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vec4Array2D::create(1, 1, vsg::Data::Properties{Constants::EnvmapCube::format}));
     skyBoxShaderSet->addDescriptorBinding("tonemapParams", "", 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, tonemapParams);
-    if(camera_data.size() > 0) skyBoxShaderSet->addDescriptorBinding("cameraImage", "CAMERA_IMAGE", 0, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
-    if(depth_data.size() > 0) skyBoxShaderSet->addDescriptorBinding("depthImage", "CAMERA_DEPTH", 0, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ushortArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
+    if (hasCameraImage) skyBoxShaderSet->addDescriptorBinding("cameraImage", "CAMERA_IMAGE", 0, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
+    if (hasCameraDepth) skyBoxShaderSet->addDescriptorBinding("depthImage", "CAMERA_DEPTH", 0, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ushortArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
 
     if(hasShadowInSkybox) {
-        // CAMERA_DEPTH + shadow: extend the push-constant range and add the VIEW_DESCRIPTOR_SET binding.
         skyBoxShaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 256);
 
         #define VIEW_DESCRIPTOR_SET 1
@@ -1721,7 +1721,7 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
     if (hasShadowInSkybox || depth_prepass_only)
     {
         auto colorBlendState = vsg::ColorBlendState::create();
-        colorBlendState->attachments.resize((hasShadowInSkybox || depth_prepass_only) ? 4 : 1, colorBlendState->attachments[0]);
+        colorBlendState->attachments.resize(4, colorBlendState->attachments[0]);
         if (depth_prepass_only)
         {
             for (auto& attachment : colorBlendState->attachments)
@@ -1739,11 +1739,10 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
     rasterState->cullMode = VK_CULL_MODE_NONE;
     pplcfg->pipelineStates.push_back(rasterState);
     auto depthState = vsg::DepthStencilState::create();
-    if(depth_data.size() > 0) {
-        // Enable depth writes when depth data is available for the camera-depth prepass.
+    if(hasCameraDepth) {
         depthState->depthTestEnable = VK_TRUE;
         depthState->depthWriteEnable = VK_TRUE;
-        depthState->depthCompareOp = VK_COMPARE_OP_ALWAYS; // Always pass the depth test so the skybox always writes.
+        depthState->depthCompareOp = VK_COMPARE_OP_ALWAYS;
     } else {
         depthState->depthTestEnable = VK_FALSE;
         depthState->depthWriteEnable = VK_FALSE;
@@ -1752,8 +1751,8 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
     pplcfg->assignArray(pipelineInputs, "inPos", VK_VERTEX_INPUT_RATE_VERTEX, gSkyboxCube.vertices);
     pplcfg->assignTexture("envmap", ImageInfoList{textures.envmapCubeInfo});
     pplcfg->assignDescriptor("tonemapParams", tonemapParams);
-    if(camera_data.size() > 0) pplcfg->assignTexture("cameraImage", camera_data);
-    if(depth_data.size() > 0) pplcfg->assignTexture("depthImage", depth_data);
+    if(hasCameraImage) pplcfg->assignTexture("cameraImage", camera_data);
+    if(hasCameraDepth) pplcfg->assignTexture("depthImage", depth_data);
     if (depth_prepass_only)
     {
         pplcfg->shaderHints->defines.insert("DEPTH_PREPASS_ONLY");
@@ -1766,7 +1765,6 @@ ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context,
     drawCmds->addChild(DrawIndexed::create(gSkyboxCube.indices->size(), 1, 0, 0, 0));
     pplcfg->copyTo(root);
 
-    // In CAMERA_DEPTH + shadow mode, add push constants for the shadow parameters.
     if(hasShadowInSkybox) {
         auto pc = vsg::PushConstants::create(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, shadow_pc_data);
         root->stateCommands.push_back(pc);
