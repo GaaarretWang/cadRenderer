@@ -89,8 +89,9 @@ data/
 │   │   ├── custom_pbr.frag       # Custom PBR fragment shader
 │   │   ├── standard.vert         # Standard vertex shader
 │   │   ├── skybox.frag/.vert     # Skybox rendering
-│   │   ├── ssao.frag/.vert       # SSAO shaders
-│   │   ├── ssao_denoise.frag/.vert # SSAO denoising
+│   │   ├── ssao_standalone.frag  # Standalone SSAO generation
+│   │   ├── ssao_composite.frag   # SSAO + real-scene composite
+│   │   ├── real_scene_standalone.frag # Real-scene color reconstruction
 │   │   └── (other IBL shaders)
 │   ├── shadow.vert/.frag         # Shadow mapping shaders
 │   ├── line.vert/.frag           # Line rendering shaders
