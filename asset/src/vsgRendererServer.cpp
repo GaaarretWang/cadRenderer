@@ -4,7 +4,6 @@
 #include <array>
 
 #include "LightInfoStateSerializer.h"
-#include "PresentPass.h"
 
 namespace
 {
@@ -232,8 +231,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     ssaoTarget->init(device, ssaoExtent, VK_FORMAT_R32G32B32A32_SFLOAT);
     realSceneTarget = ColorRenderTarget::create();
     realSceneTarget->init(device, renderExtent, window->surfaceFormat().format);
-    compositeTarget = ColorRenderTarget::create();
-    compositeTarget->init(device, renderExtent, window->surfaceFormat().format);
     finalColorTarget = ColorRenderTarget::create();
     finalColorTarget->init(device, renderExtent, window->surfaceFormat().format, 0, VK_IMAGE_LAYOUT_GENERAL, msaaSamples);
 
@@ -246,7 +243,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto ssaoScene = vsg::Group::create();
     auto realSceneScene = vsg::Group::create();
     auto compositeScene = vsg::Group::create();
-    auto presentScene = vsg::Group::create();
 
     auto rootSwitch = vsg::Switch::create();
     rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraDepthPrepassNode);
@@ -336,14 +332,15 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         offscreenTarget->gbufferImageView2,
         ssaoExtent,
         global_buffer_info_list);
-    auto compositeColorView = offscreenTarget->isMultisampled() ? offscreenTarget->colorImageView : offscreenTarget->gbufferImageView0;
     SSAOPass::buildStandaloneSSAOCompositeData(
         options,
         compositeScene,
-        compositeColorView,
+        offscreenTarget->gbufferImageView0,
         ssaoTarget->colorImageView,
         realSceneTarget->colorImageView,
-        global_buffer_info_list);
+        global_buffer_info_list,
+        offscreenTarget->isMultisampled(),
+        msaaSamples);
     SSAOPass::buildStandaloneRealSceneData(
         options,
         realSceneScene,
@@ -352,11 +349,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         offscreenTarget->depthImageView,
         global_buffer_info_list,
         vsg::ref_ptr<vsg::Data>(pc_data));
-    PresentPass::buildPresentToMsaaData(
-        options,
-        presentScene,
-        compositeTarget->colorImageView,
-        msaaSamples);
 
     // Sample HDR environment lighting.
     init_directional_lights();
@@ -421,8 +413,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     };
     auto ssaoRenderGraph = createStandaloneRenderGraph(ssaoTarget, ssaoScene, {1.0f, 1.0f, 1.0f, 1.0f});
     auto realSceneRenderGraph = createStandaloneRenderGraph(realSceneTarget, realSceneScene, {0.0f, 0.0f, 0.0f, 0.0f}, view->viewDependentState);
-    auto compositeRenderGraph = createStandaloneRenderGraph(compositeTarget, compositeScene, {0.0f, 0.0f, 0.0f, 1.0f});
-    auto presentRenderGraph = createStandaloneRenderGraph(finalColorTarget, presentScene, {0.0f, 0.0f, 0.0f, 1.0f});
+    auto compositeRenderGraph = createStandaloneRenderGraph(finalColorTarget, compositeScene, {0.0f, 0.0f, 0.0f, 1.0f});
     
     OcclusionCullingPasses::initOcclusionCullingPassesImageInfo(extent, offscreenTarget);
     OcclusionCullingPasses::generateCameraData(fx, fy, cx, cy, width, height, near_plane, far_plane, camera);
@@ -636,27 +627,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     }
 
     commandGraph1->addChild(compositeRenderGraph);
-
-    {
-        auto compositeReadyCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
-        auto compositeReady = vsg::ImageMemoryBarrier::create(
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_ACCESS_SHADER_READ_BIT,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VK_QUEUE_FAMILY_IGNORED,
-            VK_QUEUE_FAMILY_IGNORED,
-            compositeTarget->colorImage,
-            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1});
-        compositeReadyCommandGraph->addChild(vsg::PipelineBarrier::create(
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-            0,
-            compositeReady));
-        commandGraph1->addChild(compositeReadyCommandGraph);
-    }
-
-    commandGraph1->addChild(presentRenderGraph);
 
     {
         auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(

@@ -69,12 +69,14 @@ vsg::ref_ptr<vsg::StateGroup> createFullscreenStateGroup(vsg::ref_ptr<vsg::Graph
     return stateGroup;
 }
 
-vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> createFullscreenPipelineConfig(vsg::ref_ptr<vsg::ShaderSet> shaderSet)
+vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> createFullscreenPipelineConfig(vsg::ref_ptr<vsg::ShaderSet> shaderSet,
+                                                                               VkSampleCountFlagBits outputSamples = VK_SAMPLE_COUNT_1_BIT)
 {
     auto rasterizationState = vsg::RasterizationState::create();
     rasterizationState->cullMode = VK_CULL_MODE_NONE;
     shaderSet->defaultGraphicsPipelineStates.push_back(rasterizationState);
     shaderSet->defaultGraphicsPipelineStates.push_back(createFullscreenDepthState());
+    shaderSet->defaultGraphicsPipelineStates.push_back(vsg::MultisampleState::create(outputSamples));
     return vsg::GraphicsPipelineConfigurator::create(shaderSet);
 }
 
@@ -101,10 +103,13 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneSSAOShaderSet(vsg::ref_ptr<const vs
     return shaderSet;
 }
 
-vsg::ref_ptr<vsg::ShaderSet> createStandaloneSSAOCompositeShaderSet(vsg::ref_ptr<const vsg::Options> options)
+vsg::ref_ptr<vsg::ShaderSet> createStandaloneSSAOCompositeShaderSet(vsg::ref_ptr<const vsg::Options> options,
+                                                                    bool useMsaaColorInput)
 {
     auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/ssao_composite.frag", options->paths);
+    auto fragShaderFilepath = vsg::findFile(
+        useMsaaColorInput ? "shaders/IBL/ssao_composite_msaa.frag" : "shaders/IBL/ssao_composite.frag",
+        options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
 
@@ -116,7 +121,15 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneSSAOCompositeShaderSet(vsg::ref_ptr
 
     auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
     shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
-    shaderSet->addDescriptorBinding("colorSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+    shaderSet->addDescriptorBinding(
+        "colorSampler",
+        "",
+        kMaterialDescriptorSet,
+        0,
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        1,
+        VK_SHADER_STAGE_FRAGMENT_BIT,
+        vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
     shaderSet->addDescriptorBinding("ssaoSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
     shaderSet->addDescriptorBinding("realSceneSampler", "", kMaterialDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
     shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
@@ -179,9 +192,13 @@ void SSAOPass::buildStandaloneSSAOCompositeData(vsg::ref_ptr<vsg::Options> optio
                                                 vsg::ref_ptr<vsg::ImageView> colorView,
                                                 vsg::ref_ptr<vsg::ImageView> ssaoView,
                                                 vsg::ref_ptr<vsg::ImageView> realSceneView,
-                                                vsg::BufferInfoList global_buffer_info_list)
+                                                vsg::BufferInfoList global_buffer_info_list,
+                                                bool useMsaaColorInput,
+                                                VkSampleCountFlagBits outputSamples)
 {
-    auto graphicsPipelineConfig = createFullscreenPipelineConfig(createStandaloneSSAOCompositeShaderSet(options));
+    auto graphicsPipelineConfig = createFullscreenPipelineConfig(
+        createStandaloneSSAOCompositeShaderSet(options, useMsaaColorInput),
+        outputSamples);
     auto colorSampler = Utils::createNearestClampSampler();
     auto ssaoSampler = Utils::createLinearSampler();
     vsg::ImageInfoList colorImageInfoList = {
