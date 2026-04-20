@@ -28,5 +28,14 @@ namespace SSAOPass{
                                       vsg::ref_ptr<vsg::ImageView> sceneDepthView,
                                       vsg::BufferInfoList global_buffer_info_list,
                                       vsg::ref_ptr<vsg::Data> shadow_pc_data);
+
+    void buildStandaloneResolvedDepthData(vsg::ref_ptr<vsg::Options> options,
+                                          vsg::ref_ptr<vsg::Group> scene,
+                                          vsg::ref_ptr<vsg::ImageView> depthView);
+
+    void buildStandaloneResolvedNormalData(vsg::ref_ptr<vsg::Options> options,
+                                           vsg::ref_ptr<vsg::Group> scene,
+                                           vsg::ref_ptr<vsg::ImageView> depthView,
+                                           vsg::ref_ptr<vsg::ImageView> normalView);
 }
 #endif

@@ -46,6 +46,8 @@ class vsgRendererServer
     vsg::ref_ptr<ColorRenderTarget> ssaoTarget;
     vsg::ref_ptr<ColorRenderTarget> realSceneTarget;
     vsg::ref_ptr<ColorRenderTarget> finalColorTarget;
+    vsg::ref_ptr<ColorRenderTarget> resolvedEffectDepthTarget;
+    vsg::ref_ptr<ColorRenderTarget> resolvedEffectNormalTarget;
 
     //IBL
     IBL::VsgContext vsgContext = {};

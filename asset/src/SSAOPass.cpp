@@ -163,6 +163,45 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneRealSceneShaderSet(vsg::ref_ptr<con
     shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(kViewDescriptorSet));
     return shaderSet;
 }
+
+vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedDepthShaderSet(vsg::ref_ptr<const vsg::Options> options)
+{
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/gbuffer_resolve_depth.frag", options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+
+    if (!vertexShader || !fragmentShader)
+    {
+        vsg::error("createStandaloneResolvedDepthShaderSet(...) could not find shaders.");
+        return {};
+    }
+
+    auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
+    shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
+    shaderSet->addDescriptorBinding("depthSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
+    return shaderSet;
+}
+
+vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedNormalShaderSet(vsg::ref_ptr<const vsg::Options> options)
+{
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/gbuffer_resolve_normal.frag", options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+
+    if (!vertexShader || !fragmentShader)
+    {
+        vsg::error("createStandaloneResolvedNormalShaderSet(...) could not find shaders.");
+        return {};
+    }
+
+    auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
+    shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
+    shaderSet->addDescriptorBinding("depthSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
+    shaderSet->addDescriptorBinding("normalSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT}));
+    return shaderSet;
+}
 }
 
 void SSAOPass::buildStandaloneSSAOData(vsg::ref_ptr<vsg::Options> options,
@@ -240,4 +279,34 @@ void SSAOPass::buildStandaloneRealSceneData(vsg::ref_ptr<vsg::Options> options,
         128,
         shadow_pc_data));
     scene->addChild(stateGroup);
+}
+
+void SSAOPass::buildStandaloneResolvedDepthData(vsg::ref_ptr<vsg::Options> options,
+                                                vsg::ref_ptr<vsg::Group> scene,
+                                                vsg::ref_ptr<vsg::ImageView> depthView)
+{
+    auto graphicsPipelineConfig = createFullscreenPipelineConfig(createStandaloneResolvedDepthShaderSet(options));
+    auto depthSampler = Utils::createNearestClampSampler();
+    vsg::ImageInfoList depthInfoList = {
+        vsg::ImageInfo::create(depthSampler, depthView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)};
+
+    graphicsPipelineConfig->assignTexture("depthSampler", depthInfoList);
+    scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
+}
+
+void SSAOPass::buildStandaloneResolvedNormalData(vsg::ref_ptr<vsg::Options> options,
+                                                 vsg::ref_ptr<vsg::Group> scene,
+                                                 vsg::ref_ptr<vsg::ImageView> depthView,
+                                                 vsg::ref_ptr<vsg::ImageView> normalView)
+{
+    auto graphicsPipelineConfig = createFullscreenPipelineConfig(createStandaloneResolvedNormalShaderSet(options));
+    auto nearestSampler = Utils::createNearestClampSampler();
+    vsg::ImageInfoList depthInfoList = {
+        vsg::ImageInfo::create(nearestSampler, depthView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)};
+    vsg::ImageInfoList normalInfoList = {
+        vsg::ImageInfo::create(nearestSampler, normalView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
+
+    graphicsPipelineConfig->assignTexture("depthSampler", depthInfoList);
+    graphicsPipelineConfig->assignTexture("normalSampler", normalInfoList);
+    scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
 }
