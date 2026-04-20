@@ -55,6 +55,8 @@ namespace SSAOPass{
                                           vsg::ref_ptr<vsg::ImageView> worldPosView,
                                           vsg::ref_ptr<vsg::ImageView> materialView,
                                           vsg::ref_ptr<vsg::ImageView> ssaoView,
-                                          vsg::BufferInfoList global_buffer_info_list);
+                                          vsg::BufferInfoList global_buffer_info_list,
+                                          bool useMsaaInputs,
+                                          VkSampleCountFlagBits outputSamples);
 }
 #endif

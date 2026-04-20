@@ -188,9 +188,11 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     vsg::QueueSettings queueSettings{vsg::QueueSetting{queueFamily, {1.0}}};
 
+    bool sampleRateShadingSupported = physicalDevice->getFeatures().sampleRateShading == VK_TRUE;
     auto deviceFeatures = vsg::DeviceFeatures::create();
     deviceFeatures->get().samplerAnisotropy = VK_TRUE;
     deviceFeatures->get().geometryShader = VK_TRUE;
+    deviceFeatures->get().sampleRateShading = sampleRateShadingSupported ? VK_TRUE : VK_FALSE;
     try {
         device = vsg::Device::create(physicalDevice, queueSettings, validatedNames, deviceExtensions, deviceFeatures);
     }
@@ -233,8 +235,15 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     realSceneTarget->init(device, renderExtent, window->surfaceFormat().format);
     finalColorTarget = ColorRenderTarget::create();
     finalColorTarget->init(device, renderExtent, window->surfaceFormat().format, 0, VK_IMAGE_LAYOUT_GENERAL, msaaSamples);
+    bool useMsaaDeferredDebugInputs = offscreenTarget->isMultisampled() && sampleRateShadingSupported;
     deferredDebugTarget = ColorRenderTarget::create();
-    deferredDebugTarget->init(device, renderExtent, window->surfaceFormat().format);
+    deferredDebugTarget->init(
+        device,
+        renderExtent,
+        window->surfaceFormat().format,
+        0,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        useMsaaDeferredDebugInputs ? msaaSamples : VK_SAMPLE_COUNT_1_BIT);
     if (offscreenTarget->isMultisampled())
     {
         resolvedEffectDepthTarget = ColorRenderTarget::create();
@@ -366,7 +375,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             offscreenTarget->materialImageView);
     }
     bool useResolvedSsaoInputs = resolvedEffectNormalTarget && resolvedEffectWorldPosTarget;
-    bool useResolvedDeferredDebugInputs = resolvedEffectNormalTarget && resolvedEffectWorldPosTarget && resolvedEffectMaterialTarget;
     SSAOPass::buildStandaloneSSAOData(
         options,
         ssaoScene,
@@ -387,11 +395,16 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     SSAOPass::buildStandaloneDeferredDebugData(
         options,
         deferredDebugScene,
-        useResolvedDeferredDebugInputs ? resolvedEffectNormalTarget->colorImageView : offscreenTarget->gbufferImageView1,
-        useResolvedDeferredDebugInputs ? resolvedEffectWorldPosTarget->colorImageView : offscreenTarget->gbufferImageView2,
-        useResolvedDeferredDebugInputs ? resolvedEffectMaterialTarget->colorImageView : offscreenTarget->materialImageView,
+        useMsaaDeferredDebugInputs ? offscreenTarget->gbufferImageView1 :
+                                     (resolvedEffectNormalTarget ? resolvedEffectNormalTarget->colorImageView : offscreenTarget->gbufferImageView1),
+        useMsaaDeferredDebugInputs ? offscreenTarget->gbufferImageView2 :
+                                     (resolvedEffectWorldPosTarget ? resolvedEffectWorldPosTarget->colorImageView : offscreenTarget->gbufferImageView2),
+        useMsaaDeferredDebugInputs ? offscreenTarget->materialImageView :
+                                     (resolvedEffectMaterialTarget ? resolvedEffectMaterialTarget->colorImageView : offscreenTarget->materialImageView),
         ssaoTarget->colorImageView,
-        global_buffer_info_list);
+        global_buffer_info_list,
+        useMsaaDeferredDebugInputs,
+        useMsaaDeferredDebugInputs ? msaaSamples : VK_SAMPLE_COUNT_1_BIT);
     SSAOPass::buildStandaloneRealSceneData(
         options,
         realSceneScene,

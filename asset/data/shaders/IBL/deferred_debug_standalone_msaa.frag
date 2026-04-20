@@ -20,9 +20,9 @@ layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData {
 layout(set = VIEW_DESCRIPTOR_SET, binding = 2) uniform sampler2DArrayShadow shadowMaps;
 layout(set = VIEW_DESCRIPTOR_SET, binding = 3) uniform sampler2DArray shadowMapsSampler;
 
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2D normalSampler;
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D worldPosSampler;
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D materialSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2DMS normalSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2DMS worldPosSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2DMS materialSampler;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D ssaoSampler;
 
 layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform GlobalBuffer {
@@ -332,12 +332,13 @@ vec4 LINEARtoSRGB(vec4 srgbIn)
 void main()
 {
     vec2 uv = inUV * 0.5 + 0.5;
-    ivec2 inputSize = textureSize(normalSampler, 0);
+    ivec2 inputSize = textureSize(normalSampler);
     ivec2 coord = clamp(ivec2(uv * vec2(inputSize)), ivec2(0), inputSize - 1);
+    int sampleIndex = gl_SampleID;
 
-    vec4 normalData = texelFetch(normalSampler, coord, 0);
-    vec4 worldPosData = texelFetch(worldPosSampler, coord, 0);
-    vec4 materialData = texelFetch(materialSampler, coord, 0);
+    vec4 normalData = texelFetch(normalSampler, coord, sampleIndex);
+    vec4 worldPosData = texelFetch(worldPosSampler, coord, sampleIndex);
+    vec4 materialData = texelFetch(materialSampler, coord, sampleIndex);
 
     vec3 worldN = normalData.xyz;
     vec3 worldPos = worldPosData.xyz;
