@@ -474,7 +474,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         resolvedEffectWorldPosRenderGraph = createStandaloneRenderGraph(resolvedEffectWorldPosTarget, resolvedEffectWorldPosScene, {0.0f, 0.0f, 0.0f, 1.0f});
         resolvedEffectMaterialRenderGraph = createStandaloneRenderGraph(resolvedEffectMaterialTarget, resolvedEffectMaterialScene, {0.0f, 0.0f, 0.0f, 1.0f});
     }
-    auto deferredDebugRenderGraph = createStandaloneRenderGraph(deferredDebugTarget, deferredDebugScene, {0.0f, 0.0f, 0.0f, 1.0f});
+    auto deferredDebugRenderGraph = createStandaloneRenderGraph(deferredDebugTarget, deferredDebugScene, {0.0f, 0.0f, 0.0f, 1.0f}, view->viewDependentState);
     auto realSceneRenderGraph = createStandaloneRenderGraph(realSceneTarget, realSceneScene, {0.0f, 0.0f, 0.0f, 0.0f}, view->viewDependentState);
     auto compositeRenderGraph = createStandaloneRenderGraph(finalColorTarget, compositeScene, {0.0f, 0.0f, 0.0f, 1.0f});
     
