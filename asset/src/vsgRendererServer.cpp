@@ -486,6 +486,15 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             colorRange));
         mainOutputsBarrier->add(vsg::ImageMemoryBarrier::create(
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            offscreenTarget->materialImage,
+            colorRange));
+        mainOutputsBarrier->add(vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VK_ACCESS_TRANSFER_READ_BIT,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,

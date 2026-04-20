@@ -20,6 +20,7 @@ layout(location = 0) out vec4 outColor;
 layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outWorldPos;
 layout(location = 3) out vec4 outShadow;
+layout(location = 4) out vec4 outMaterial;
 
 void main()
 {
@@ -29,6 +30,7 @@ void main()
     outNormal = vec4(0.0, 0.0, 0.0, 1.0);
     outWorldPos = vec4(0.0, 0.0, 0.0, 1.0);
     outShadow = vec4(0.0);
+    outMaterial = vec4(0.0);
     gl_FragDepth = 0.0;
 
     float cameraDepthNorm = texture(depthImageSampler, screenUV).r;
