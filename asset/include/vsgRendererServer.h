@@ -50,7 +50,7 @@ class vsgRendererServer
     //IBL
     IBL::VsgContext vsgContext = {};
     vsg::ref_ptr<vsg::StateGroup> drawSkyboxNode = vsg::StateGroup::create();
-    vsg::ref_ptr<vsg::StateGroup> drawCameraImageNode = vsg::StateGroup::create();
+    vsg::ref_ptr<vsg::StateGroup> drawCameraDepthPrepassNode = vsg::StateGroup::create();
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;
     vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
     std::unordered_map<int, float> hdr_base_brightness; // baseBrightness value for each HDR environment.
@@ -232,15 +232,12 @@ public:
     void rebuildBackgroundNodes()
     {
         IBL::drawSkyboxVSGNode(drawSkyboxNode, render_width, render_height);
-        IBL::drawSkyboxVSGNode(
-                               drawCameraImageNode,
-                               render_width,
-                               render_height,
-                               frame_image_resources->cameraInfo(),
-                               frame_image_resources->depthInfo(),
-                               vsg::ref_ptr<vsg::Data>(pc_data),
-                               camera_image_params,
-                               true);
+        IBL::drawCameraDepthPrepassVSGNode(
+            drawCameraDepthPrepassNode,
+            render_width,
+            render_height,
+            frame_image_resources->depthInfo(),
+            camera_image_params);
     }
 
     void preprocessEnvMap(){

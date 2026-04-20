@@ -1673,12 +1673,11 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
 ptr<StateGroup> drawSkyboxVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
                                   int width,
                                   int height,
-                                  vsg::ImageInfoList camera_data,
-                                  vsg::ImageInfoList depth_data,
-                                  vsg::ref_ptr<vsg::Data> shadow_pc_data,
-                                  vsg::ref_ptr<vsg::Data> tonemap_params_override,
-                                  bool depth_prepass_only)
+                                  vsg::ref_ptr<vsg::Data> tonemap_params_override)
 {
+    (void)width;
+    (void)height;
+
     auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skybox.vert", appData.options->paths);
     auto fragShaderFilepath = vsg::findFile("shaders/IBL/skybox.frag", appData.options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
@@ -1693,83 +1692,100 @@ ptr<StateGroup> drawSkyboxVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
     auto shaderStages = ShaderStages{vertexShader, fragmentShader};
     auto tonemapParams = tonemap_params_override ? tonemap_params_override : vsg::ref_ptr<vsg::Data>(vsg::Value<IBL::DynamicSkyboxParams>::create(IBL::DynamicSkyboxParams{}));
 
-    const bool hasCameraImage = !camera_data.empty();
-    const bool hasCameraDepth = !depth_data.empty();
-    const bool hasShadowInSkybox = hasCameraDepth && shadow_pc_data;
-
-    auto skyBoxShaderSet = ShaderSet::create(shaderStages, shaderCompileSettings);
-    skyBoxShaderSet->addAttributeBinding("inPos", "", 0, VK_FORMAT_R32G32B32_SFLOAT, gSkyboxCube.vertices);
-    skyBoxShaderSet->addDescriptorBinding("envmap", "", 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vec4Array2D::create(1, 1, vsg::Data::Properties{Constants::EnvmapCube::format}));
-    skyBoxShaderSet->addDescriptorBinding("tonemapParams", "", 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, tonemapParams);
-    if (hasCameraImage) skyBoxShaderSet->addDescriptorBinding("cameraImage", "CAMERA_IMAGE", 0, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
-    if (hasCameraDepth) skyBoxShaderSet->addDescriptorBinding("depthImage", "CAMERA_DEPTH", 0, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ushortArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
-
-    if(hasShadowInSkybox) {
-        skyBoxShaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 256);
-
-        #define VIEW_DESCRIPTOR_SET 1
-        skyBoxShaderSet->addDescriptorBinding("lightData", "", VIEW_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array::create(64));
-        skyBoxShaderSet->addDescriptorBinding("viewportData", "", VIEW_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Value::create(0,0, 1280, 1024));
-        skyBoxShaderSet->addDescriptorBinding("shadowMaps", "", VIEW_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
-        skyBoxShaderSet->addDescriptorBinding("shadowMapsSampler", "", VIEW_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
-        skyBoxShaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(VIEW_DESCRIPTOR_SET));
-
-    } else {
-        skyBoxShaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
-    }
-
-    if (hasShadowInSkybox || depth_prepass_only)
-    {
-        auto colorBlendState = vsg::ColorBlendState::create();
-        colorBlendState->attachments.resize(4, colorBlendState->attachments[0]);
-        if (depth_prepass_only)
-        {
-            for (auto& attachment : colorBlendState->attachments)
-            {
-                attachment.colorWriteMask = 0;
-            }
-        }
-        skyBoxShaderSet->defaultGraphicsPipelineStates.push_back(colorBlendState);
-    }
+    auto shaderSet = ShaderSet::create(shaderStages, shaderCompileSettings);
+    shaderSet->addAttributeBinding("inPos", "", 0, VK_FORMAT_R32G32B32_SFLOAT, gSkyboxCube.vertices);
+    shaderSet->addDescriptorBinding("envmap", "", 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vec4Array2D::create(1, 1, vsg::Data::Properties{Constants::EnvmapCube::format}));
+    shaderSet->addDescriptorBinding("tonemapParams", "", 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, tonemapParams);
+    shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT, 0, 128);
 
     vsg::DataList pipelineInputs;
-
-    auto pplcfg = vsg::GraphicsPipelineConfigurator::create(skyBoxShaderSet);
+    auto pplcfg = vsg::GraphicsPipelineConfigurator::create(shaderSet);
     auto rasterState = RasterizationState::create();
     rasterState->cullMode = VK_CULL_MODE_NONE;
     pplcfg->pipelineStates.push_back(rasterState);
     auto depthState = vsg::DepthStencilState::create();
-    if(hasCameraDepth) {
-        depthState->depthTestEnable = VK_TRUE;
-        depthState->depthWriteEnable = VK_TRUE;
-        depthState->depthCompareOp = VK_COMPARE_OP_ALWAYS;
-    } else {
-        depthState->depthTestEnable = VK_FALSE;
-        depthState->depthWriteEnable = VK_FALSE;
-    }
+    depthState->depthTestEnable = VK_FALSE;
+    depthState->depthWriteEnable = VK_FALSE;
     pplcfg->pipelineStates.push_back(depthState);
     pplcfg->assignArray(pipelineInputs, "inPos", VK_VERTEX_INPUT_RATE_VERTEX, gSkyboxCube.vertices);
     pplcfg->assignTexture("envmap", ImageInfoList{textures.envmapCubeInfo});
     pplcfg->assignDescriptor("tonemapParams", tonemapParams);
-    if(hasCameraImage) pplcfg->assignTexture("cameraImage", camera_data);
-    if(hasCameraDepth) pplcfg->assignTexture("depthImage", depth_data);
-    if (depth_prepass_only)
-    {
-        pplcfg->shaderHints->defines.insert("DEPTH_PREPASS_ONLY");
-    }
     pplcfg->init();
 
     auto drawCmds = Commands::create();
     drawCmds->addChild(BindVertexBuffers::create(pplcfg->baseAttributeBinding, pipelineInputs));
     drawCmds->addChild(BindIndexBuffer::create(gSkyboxCube.indices));
     drawCmds->addChild(DrawIndexed::create(gSkyboxCube.indices->size(), 1, 0, 0, 0));
-    pplcfg->copyTo(root);
 
-    if(hasShadowInSkybox) {
-        auto pc = vsg::PushConstants::create(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, shadow_pc_data);
-        root->stateCommands.push_back(pc);
+    root->stateCommands.clear();
+    root->children.clear();
+    pplcfg->copyTo(root);
+    root->addChild(drawCmds);
+    return root;
+}
+
+ptr<StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
+                                              int width,
+                                              int height,
+                                              vsg::ImageInfoList depth_data,
+                                              vsg::ref_ptr<vsg::Data> tonemap_params_override)
+{
+    (void)width;
+    (void)height;
+
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skybox.vert", appData.options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/camera_depth_prepass.frag", appData.options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+    if (!vertexShader || !fragmentShader)
+    {
+        std::cout << "Could not create camera depth prepass shaders." << std::endl;
+        return ptr<StateGroup>();
     }
 
+    auto shaderCompileSettings = ShaderCompileSettings::create();
+    auto shaderStages = ShaderStages{vertexShader, fragmentShader};
+    auto tonemapParams = tonemap_params_override ? tonemap_params_override : vsg::ref_ptr<vsg::Data>(vsg::Value<IBL::DynamicSkyboxParams>::create(IBL::DynamicSkyboxParams{}));
+
+    auto shaderSet = ShaderSet::create(shaderStages, shaderCompileSettings);
+    shaderSet->addAttributeBinding("inPos", "", 0, VK_FORMAT_R32G32B32_SFLOAT, gSkyboxCube.vertices);
+    shaderSet->addDescriptorBinding("tonemapParams", "", 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, tonemapParams);
+    shaderSet->addDescriptorBinding("depthImage", "", 0, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ushortArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
+    shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
+
+    auto colorBlendState = vsg::ColorBlendState::create();
+    colorBlendState->attachments.resize(4, colorBlendState->attachments[0]);
+    for (auto& attachment : colorBlendState->attachments)
+    {
+        attachment.colorWriteMask = 0;
+    }
+    shaderSet->defaultGraphicsPipelineStates.push_back(colorBlendState);
+
+    vsg::DataList pipelineInputs;
+    auto pplcfg = vsg::GraphicsPipelineConfigurator::create(shaderSet);
+    auto rasterState = RasterizationState::create();
+    rasterState->cullMode = VK_CULL_MODE_NONE;
+    pplcfg->pipelineStates.push_back(rasterState);
+
+    auto depthState = vsg::DepthStencilState::create();
+    depthState->depthTestEnable = VK_TRUE;
+    depthState->depthWriteEnable = VK_TRUE;
+    depthState->depthCompareOp = VK_COMPARE_OP_ALWAYS;
+    pplcfg->pipelineStates.push_back(depthState);
+
+    pplcfg->assignArray(pipelineInputs, "inPos", VK_VERTEX_INPUT_RATE_VERTEX, gSkyboxCube.vertices);
+    pplcfg->assignDescriptor("tonemapParams", tonemapParams);
+    pplcfg->assignTexture("depthImage", depth_data);
+    pplcfg->init();
+
+    auto drawCmds = Commands::create();
+    drawCmds->addChild(BindVertexBuffers::create(pplcfg->baseAttributeBinding, pipelineInputs));
+    drawCmds->addChild(BindIndexBuffer::create(gSkyboxCube.indices));
+    drawCmds->addChild(DrawIndexed::create(gSkyboxCube.indices->size(), 1, 0, 0, 0));
+
+    root->stateCommands.clear();
+    root->children.clear();
+    pplcfg->copyTo(root);
     root->addChild(drawCmds);
     return root;
 }

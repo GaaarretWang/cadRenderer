@@ -245,7 +245,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto compositeScene = vsg::Group::create();
 
     auto rootSwitch = vsg::Switch::create();
-    rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraImageNode);
+    rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraDepthPrepassNode);
     rootSwitch->addChild(MASK_SKYBOX, drawSkyboxNode);
     rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowGroup);
     rootSwitch->addChild(MASK_PBR_FULL, modelGroup);
