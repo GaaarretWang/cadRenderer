@@ -69,9 +69,15 @@ public:
               VkExtent2D extent,
               VkFormat imageFormat,
               VkImageUsageFlags extraUsage = 0,
-              VkImageLayout finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+              VkImageLayout finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+              VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT);
 
     VkExtent2D getExtent() const { return _extent; }
+    bool isMultisampled() const { return _samples != VK_SAMPLE_COUNT_1_BIT; }
+    uint32_t clearValueCount() const { return isMultisampled() ? 2u : 1u; }
+
+    vsg::ref_ptr<vsg::Image> multisampleImage;
+    vsg::ref_ptr<vsg::ImageView> multisampleImageView;
 
     vsg::ref_ptr<vsg::Image> colorImage;
     vsg::ref_ptr<vsg::ImageView> colorImageView;
@@ -80,4 +86,5 @@ public:
 
 private:
     VkExtent2D _extent{};
+    VkSampleCountFlagBits _samples = VK_SAMPLE_COUNT_1_BIT;
 };

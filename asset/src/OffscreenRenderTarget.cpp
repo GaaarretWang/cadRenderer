@@ -1,12 +1,76 @@
 #include "OffscreenRenderTarget.h"
 
+namespace
+{
+VkAccessFlags layoutAccessMask(VkImageLayout layout)
+{
+    switch (layout)
+    {
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        return VK_ACCESS_SHADER_READ_BIT;
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        return VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+        return VK_ACCESS_TRANSFER_READ_BIT;
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        return VK_ACCESS_TRANSFER_WRITE_BIT;
+    default:
+        return 0;
+    }
+}
+
+VkPipelineStageFlags layoutStageMask(VkImageLayout layout)
+{
+    switch (layout)
+    {
+    case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+        return VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+        return VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+    case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+        return VK_PIPELINE_STAGE_TRANSFER_BIT;
+    default:
+        return VK_PIPELINE_STAGE_ALL_COMMANDS_BIT;
+    }
+}
+}
+
 void ColorRenderTarget::init(vsg::ref_ptr<vsg::Device> device,
                              VkExtent2D extent,
                              VkFormat imageFormat,
                              VkImageUsageFlags extraUsage,
-                             VkImageLayout finalLayout)
+                             VkImageLayout finalLayout,
+                             VkSampleCountFlagBits samples)
 {
     _extent = extent;
+    _samples = samples;
+
+    bool multisampling = samples != VK_SAMPLE_COUNT_1_BIT;
+
+    if (multisampling)
+    {
+        multisampleImage = vsg::Image::create();
+        multisampleImage->imageType = VK_IMAGE_TYPE_2D;
+        multisampleImage->format = imageFormat;
+        multisampleImage->extent.width = extent.width;
+        multisampleImage->extent.height = extent.height;
+        multisampleImage->extent.depth = 1;
+        multisampleImage->mipLevels = 1;
+        multisampleImage->arrayLayers = 1;
+        multisampleImage->samples = samples;
+        multisampleImage->tiling = VK_IMAGE_TILING_OPTIMAL;
+        multisampleImage->usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        multisampleImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        multisampleImage->flags = 0;
+        multisampleImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        multisampleImage->compile(device);
+        multisampleImage->allocateAndBindMemory(device);
+
+        multisampleImageView = vsg::ImageView::create(multisampleImage, VK_IMAGE_ASPECT_COLOR_BIT);
+        multisampleImageView->compile(device);
+    }
 
     colorImage = vsg::Image::create();
     colorImage->imageType = VK_IMAGE_TYPE_2D;
@@ -30,20 +94,150 @@ void ColorRenderTarget::init(vsg::ref_ptr<vsg::Device> device,
     colorImageView = vsg::ImageView::create(colorImage, VK_IMAGE_ASPECT_COLOR_BIT);
     colorImageView->compile(device);
 
-    auto colorAttachment = vsg::defaultColorAttachment(imageFormat);
-    colorAttachment.finalLayout = finalLayout;
+    if (multisampling)
+    {
+        vsg::AttachmentDescription colorAttachment = {};
+        colorAttachment.format = imageFormat;
+        colorAttachment.samples = samples;
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        colorAttachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-    vsg::AttachmentReference colorAttachmentRef = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-    vsg::SubpassDescription subpass{};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachments.emplace_back(colorAttachmentRef);
+        vsg::AttachmentDescription resolveAttachment = {};
+        resolveAttachment.format = imageFormat;
+        resolveAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        resolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        resolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        resolveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        resolveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        resolveAttachment.initialLayout = finalLayout;
+        resolveAttachment.finalLayout = finalLayout;
 
-    renderPass = vsg::RenderPass::create(
-        device,
-        vsg::RenderPass::Attachments{colorAttachment},
-        vsg::RenderPass::Subpasses{subpass},
-        vsg::RenderPass::Dependencies{});
-    framebuffer = vsg::Framebuffer::create(renderPass, vsg::ImageViews{colorImageView}, extent.width, extent.height, 1);
+        vsg::AttachmentReference colorAttachmentRef = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference resolveAttachmentRef = {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+
+        vsg::SubpassDescription subpass{};
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachments.emplace_back(colorAttachmentRef);
+        subpass.resolveAttachments.emplace_back(resolveAttachmentRef);
+
+        vsg::SubpassDependency colorDependency = {};
+        colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+        colorDependency.dstSubpass = 0;
+        colorDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        colorDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        colorDependency.srcAccessMask = 0;
+        colorDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        colorDependency.dependencyFlags = 0;
+
+        vsg::SubpassDependency colorOutputDependency = {};
+        colorOutputDependency.srcSubpass = 0;
+        colorOutputDependency.dstSubpass = VK_SUBPASS_EXTERNAL;
+        colorOutputDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        colorOutputDependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
+        colorOutputDependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        colorOutputDependency.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT;
+        colorOutputDependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+        renderPass = vsg::RenderPass::create(
+            device,
+            vsg::RenderPass::Attachments{colorAttachment, resolveAttachment},
+            vsg::RenderPass::Subpasses{subpass},
+            vsg::RenderPass::Dependencies{colorDependency, colorOutputDependency});
+        framebuffer = vsg::Framebuffer::create(
+            renderPass,
+            vsg::ImageViews{multisampleImageView, colorImageView},
+            extent.width,
+            extent.height,
+            1);
+    }
+    else
+    {
+        vsg::AttachmentDescription colorAttachment = {};
+        colorAttachment.format = imageFormat;
+        colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+        colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+        colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        colorAttachment.initialLayout = finalLayout;
+        colorAttachment.finalLayout = finalLayout;
+
+        vsg::AttachmentReference colorAttachmentRef = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::SubpassDescription subpass{};
+        subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+        subpass.colorAttachments.emplace_back(colorAttachmentRef);
+
+        vsg::SubpassDependency colorDependency = {};
+        colorDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+        colorDependency.dstSubpass = 0;
+        colorDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        colorDependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        colorDependency.srcAccessMask = 0;
+        colorDependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        colorDependency.dependencyFlags = 0;
+
+        vsg::SubpassDependency colorOutputDependency = {};
+        colorOutputDependency.srcSubpass = 0;
+        colorOutputDependency.dstSubpass = VK_SUBPASS_EXTERNAL;
+        colorOutputDependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        colorOutputDependency.dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT;
+        colorOutputDependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        colorOutputDependency.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT;
+        colorOutputDependency.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+        renderPass = vsg::RenderPass::create(
+            device,
+            vsg::RenderPass::Attachments{colorAttachment},
+            vsg::RenderPass::Subpasses{subpass},
+            vsg::RenderPass::Dependencies{colorDependency, colorOutputDependency});
+        framebuffer = vsg::Framebuffer::create(renderPass, vsg::ImageViews{colorImageView}, extent.width, extent.height, 1);
+    }
+
+    auto physicalDevice = device->getPhysicalDevice();
+    int graphicsFamily = physicalDevice->getQueueFamily(VK_QUEUE_GRAPHICS_BIT);
+    auto commandPool = vsg::CommandPool::create(device, graphicsFamily);
+    vsg::submitCommandsToQueue(commandPool, device->getQueue(graphicsFamily), [&](vsg::CommandBuffer& commandBuffer) {
+        auto colorImageBarrier = vsg::ImageMemoryBarrier::create(
+            0,
+            layoutAccessMask(finalLayout),
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            finalLayout,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            colorImage,
+            colorImageView->subresourceRange);
+
+        auto colorPipelineBarrier = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            layoutStageMask(finalLayout),
+            0,
+            colorImageBarrier);
+        colorPipelineBarrier->record(commandBuffer);
+
+        if (multisampling)
+        {
+            auto multisampleImageBarrier = vsg::ImageMemoryBarrier::create(
+                0,
+                VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                multisampleImage,
+                multisampleImageView->subresourceRange);
+
+            auto multisamplePipelineBarrier = vsg::PipelineBarrier::create(
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                0,
+                multisampleImageBarrier);
+            multisamplePipelineBarrier->record(commandBuffer);
+        }
+    });
 }
 
 void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D extent, VkSampleCountFlagBits samples, VkFormat depthFormat, VkImageUsageFlags depthImageUsage)
