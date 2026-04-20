@@ -77,6 +77,7 @@ namespace gui
     struct Params : public Inherit<Object, Params>
     {
         bool showGui = true; // you can toggle this with your own EventHandler and key
+        bool showDeferredDebug = false;
         float baseColor[3]{1.0f, 1.0f, 1.0f};
         float roughness = 0.5f;
         float metallic = 0.5f;

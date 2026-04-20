@@ -233,6 +233,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     realSceneTarget->init(device, renderExtent, window->surfaceFormat().format);
     finalColorTarget = ColorRenderTarget::create();
     finalColorTarget->init(device, renderExtent, window->surfaceFormat().format, 0, VK_IMAGE_LAYOUT_GENERAL, msaaSamples);
+    deferredDebugTarget = ColorRenderTarget::create();
+    deferredDebugTarget->init(device, renderExtent, window->surfaceFormat().format);
     if (offscreenTarget->isMultisampled())
     {
         resolvedEffectDepthTarget = ColorRenderTarget::create();
@@ -241,6 +243,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         resolvedEffectNormalTarget->init(device, renderExtent, VK_FORMAT_R32G32B32A32_SFLOAT);
         resolvedEffectWorldPosTarget = ColorRenderTarget::create();
         resolvedEffectWorldPosTarget->init(device, renderExtent, VK_FORMAT_R32G32B32A32_SFLOAT);
+        resolvedEffectMaterialTarget = ColorRenderTarget::create();
+        resolvedEffectMaterialTarget->init(device, renderExtent, VK_FORMAT_R32G32B32A32_SFLOAT);
     }
 
     //---------------------------------------------------Create scene----------------------------------//
@@ -253,6 +257,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto resolvedEffectDepthScene = vsg::Group::create();
     auto resolvedEffectNormalScene = vsg::Group::create();
     auto resolvedEffectWorldPosScene = vsg::Group::create();
+    auto resolvedEffectMaterialScene = vsg::Group::create();
+    auto deferredDebugScene = vsg::Group::create();
     auto realSceneScene = vsg::Group::create();
     auto compositeScene = vsg::Group::create();
 
@@ -353,8 +359,14 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             resolvedEffectWorldPosScene,
             offscreenTarget->multisampleDepthImageView,
             offscreenTarget->gbufferImageView2);
+        SSAOPass::buildStandaloneResolvedMaterialData(
+            options,
+            resolvedEffectMaterialScene,
+            offscreenTarget->multisampleDepthImageView,
+            offscreenTarget->materialImageView);
     }
     bool useResolvedSsaoInputs = resolvedEffectNormalTarget && resolvedEffectWorldPosTarget;
+    bool useResolvedDeferredDebugInputs = resolvedEffectNormalTarget && resolvedEffectWorldPosTarget && resolvedEffectMaterialTarget;
     SSAOPass::buildStandaloneSSAOData(
         options,
         ssaoScene,
@@ -372,6 +384,14 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         global_buffer_info_list,
         offscreenTarget->isMultisampled(),
         msaaSamples);
+    SSAOPass::buildStandaloneDeferredDebugData(
+        options,
+        deferredDebugScene,
+        useResolvedDeferredDebugInputs ? resolvedEffectNormalTarget->colorImageView : offscreenTarget->gbufferImageView1,
+        useResolvedDeferredDebugInputs ? resolvedEffectWorldPosTarget->colorImageView : offscreenTarget->gbufferImageView2,
+        useResolvedDeferredDebugInputs ? resolvedEffectMaterialTarget->colorImageView : offscreenTarget->materialImageView,
+        ssaoTarget->colorImageView,
+        global_buffer_info_list);
     SSAOPass::buildStandaloneRealSceneData(
         options,
         realSceneScene,
@@ -446,12 +466,15 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsg::ref_ptr<vsg::RenderGraph> resolvedEffectDepthRenderGraph;
     vsg::ref_ptr<vsg::RenderGraph> resolvedEffectNormalRenderGraph;
     vsg::ref_ptr<vsg::RenderGraph> resolvedEffectWorldPosRenderGraph;
-    if (resolvedEffectDepthTarget && resolvedEffectNormalTarget && resolvedEffectWorldPosTarget)
+    vsg::ref_ptr<vsg::RenderGraph> resolvedEffectMaterialRenderGraph;
+    if (resolvedEffectDepthTarget && resolvedEffectNormalTarget && resolvedEffectWorldPosTarget && resolvedEffectMaterialTarget)
     {
         resolvedEffectDepthRenderGraph = createStandaloneRenderGraph(resolvedEffectDepthTarget, resolvedEffectDepthScene, {0.0f, 0.0f, 0.0f, 1.0f});
         resolvedEffectNormalRenderGraph = createStandaloneRenderGraph(resolvedEffectNormalTarget, resolvedEffectNormalScene, {0.0f, 0.0f, 0.0f, 1.0f});
         resolvedEffectWorldPosRenderGraph = createStandaloneRenderGraph(resolvedEffectWorldPosTarget, resolvedEffectWorldPosScene, {0.0f, 0.0f, 0.0f, 1.0f});
+        resolvedEffectMaterialRenderGraph = createStandaloneRenderGraph(resolvedEffectMaterialTarget, resolvedEffectMaterialScene, {0.0f, 0.0f, 0.0f, 1.0f});
     }
+    auto deferredDebugRenderGraph = createStandaloneRenderGraph(deferredDebugTarget, deferredDebugScene, {0.0f, 0.0f, 0.0f, 1.0f});
     auto realSceneRenderGraph = createStandaloneRenderGraph(realSceneTarget, realSceneScene, {0.0f, 0.0f, 0.0f, 0.0f}, view->viewDependentState);
     auto compositeRenderGraph = createStandaloneRenderGraph(finalColorTarget, compositeScene, {0.0f, 0.0f, 0.0f, 1.0f});
     
@@ -610,7 +633,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         offscreenTarget->multisampleDepthImage != offscreenTarget->depthImage &&
         resolvedEffectDepthRenderGraph &&
         resolvedEffectNormalRenderGraph &&
-        resolvedEffectWorldPosRenderGraph)
+        resolvedEffectWorldPosRenderGraph &&
+        resolvedEffectMaterialRenderGraph)
     {
         auto resolvedEffectInputsReady = vsg::CommandGraph::create(device, computeQueueFamily1);
         auto depthReadBarrier = vsg::ImageMemoryBarrier::create(
@@ -631,6 +655,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         commandGraph1->addChild(resolvedEffectDepthRenderGraph);
         commandGraph1->addChild(resolvedEffectNormalRenderGraph);
         commandGraph1->addChild(resolvedEffectWorldPosRenderGraph);
+        commandGraph1->addChild(resolvedEffectMaterialRenderGraph);
     }
 
     if (useResolvedSsaoInputs)
@@ -667,6 +692,18 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             VK_QUEUE_FAMILY_IGNORED,
             resolvedEffectWorldPosTarget->colorImage,
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
+        if (resolvedEffectMaterialTarget)
+        {
+            resolvedEffectReadyBarrier->add(vsg::ImageMemoryBarrier::create(
+                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                VK_ACCESS_SHADER_READ_BIT,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                resolvedEffectMaterialTarget->colorImage,
+                VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
+        }
         resolvedEffectReadyCommandGraph->addChild(resolvedEffectReadyBarrier);
         commandGraph1->addChild(resolvedEffectReadyCommandGraph);
     }
@@ -691,6 +728,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             ssaoReady));
         commandGraph1->addChild(ssaoReadyCommandGraph);
     }
+
+    commandGraph1->addChild(deferredDebugRenderGraph);
 
     {
         auto realSceneDepthReadCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
@@ -744,11 +783,21 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     commandGraph1->addChild(compositeRenderGraph);
 
     {
-        auto copyImageViewToWindow = vsg::CopyImageViewToWindow::create(
-            finalColorTarget->colorImageView, window);
-        auto copyCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
-        copyCommandGraph->addChild(copyImageViewToWindow);
-        commandGraph1->addChild(copyCommandGraph);
+        presentSourceSwitch = vsg::Switch::create();
+
+        auto finalCopyCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
+        finalCopyCommandGraph->addChild(vsg::CopyImageViewToWindow::create(
+            finalColorTarget->colorImageView,
+            window));
+        presentSourceSwitch->addChild(static_cast<vsg::Mask>(vsg::MASK_ALL), finalCopyCommandGraph);
+
+        auto deferredDebugCopyCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
+        deferredDebugCopyCommandGraph->addChild(vsg::CopyImageViewToWindow::create(
+            deferredDebugTarget->colorImageView,
+            window));
+        presentSourceSwitch->addChild(static_cast<vsg::Mask>(0), deferredDebugCopyCommandGraph);
+
+        commandGraph1->addChild(presentSourceSwitch);
     }
 
     {
@@ -781,6 +830,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 }
 
 bool vsgRendererServer::render() {
+    if (presentSourceSwitch && presentSourceSwitch->children.size() >= 2)
+    {
+        bool showDeferredDebug = gui::global_params && gui::global_params->showDeferredDebug && deferredDebugTarget;
+        presentSourceSwitch->children[0].mask = showDeferredDebug ? 0 : vsg::MASK_ALL;
+        presentSourceSwitch->children[1].mask = showDeferredDebug ? vsg::MASK_ALL : 0;
+    }
+
     if (camera->viewMatrix->is_compatible(typeid(vsg::LookAt))){
         vsg::LookAt* lookAt = dynamic_cast<vsg::LookAt*>(camera->viewMatrix.get());
         pc_data->value().camera_pos = lookAt->eye;
