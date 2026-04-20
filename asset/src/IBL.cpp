@@ -1952,7 +1952,19 @@ vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options>
         VK_BLEND_OP_ADD,                              // Alpha blend: srcAlpha * 1 + dstAlpha * 0
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
     };
-    colorBlendState->attachments.resize(5, colorBlendState->attachments[0]); 
+    colorBlendState->attachments.resize(5, colorBlendState->attachments[0]);
+    for (size_t attachmentIndex = 1; attachmentIndex < colorBlendState->attachments.size(); ++attachmentIndex)
+    {
+        colorBlendState->attachments[attachmentIndex] = {
+            VK_FALSE,
+            VK_BLEND_FACTOR_ONE,
+            VK_BLEND_FACTOR_ZERO,
+            VK_BLEND_OP_ADD,
+            VK_BLEND_FACTOR_ONE,
+            VK_BLEND_FACTOR_ZERO,
+            VK_BLEND_OP_ADD,
+            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT};
+    }
     shaderSet->defaultGraphicsPipelineStates.push_back(colorBlendState);
 
     return shaderSet;

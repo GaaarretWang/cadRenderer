@@ -610,7 +610,7 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
 
         // Framebuffer attachment order (matching buildFramebuffer):
         // [0] resolve color, [1] depth (multisample), [2] gbuffer0,
-        // [3] gbuffer1, [4] gbuffer2, [5] material, [6] shadowWrite,
+        // [3] gbuffer1, [4] gbuffer2, [5] shadowWrite, [6] material,
         // [7] depth resolve (if requiresDepthRead)
         vsg::RenderPass::Attachments attachments{
             resolveAttachment,
@@ -618,8 +618,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
             colorAttachmentColor,
             colorAttachmentNormal,
             colorAttachmentWorldPos,
-            colorAttachmentMaterial,
-            colorAttachmentShadowWrite};
+            colorAttachmentShadowWrite,
+            colorAttachmentMaterial};
 
         if (requiresDepthRead)
         {
@@ -641,8 +641,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         vsg::AttachmentReference colorAttachmentRefColor = {2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
         vsg::AttachmentReference colorAttachmentRefNormal = {3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
         vsg::AttachmentReference colorAttachmentRefWorldPos = {4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefMaterial = {5, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefShadowWrite = {6, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference colorAttachmentRefShadowWrite = {5, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference colorAttachmentRefMaterial = {6, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
         vsg::AttachmentReference unusedResolveAttachmentRef = {VK_ATTACHMENT_UNUSED, VK_IMAGE_LAYOUT_UNDEFINED};
 
         vsg::SubpassDescription subpass;
@@ -650,8 +650,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         subpass.colorAttachments.emplace_back(colorAttachmentRefColor);
         subpass.colorAttachments.emplace_back(colorAttachmentRefNormal);
         subpass.colorAttachments.emplace_back(colorAttachmentRefWorldPos);
-        subpass.colorAttachments.emplace_back(colorAttachmentRefMaterial);
         subpass.colorAttachments.emplace_back(colorAttachmentRefShadowWrite);
+        subpass.colorAttachments.emplace_back(colorAttachmentRefMaterial);
         subpass.resolveAttachments.emplace_back(resolveAttachmentRef);
         subpass.resolveAttachments.emplace_back(unusedResolveAttachmentRef);
         subpass.resolveAttachments.emplace_back(unusedResolveAttachmentRef);
@@ -721,15 +721,15 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
             colorAttachmentColor,
             colorAttachmentNormal,
             colorAttachmentWorldPos,
-            colorAttachmentMaterial,
             colorAttachmentShadowWrite,
+            colorAttachmentMaterial,
             depthAttachment};
 
         vsg::AttachmentReference colorAttachmentRefColor = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
         vsg::AttachmentReference colorAttachmentRefNormal = {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
         vsg::AttachmentReference colorAttachmentRefWorldPos = {2, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefMaterial = {3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-        vsg::AttachmentReference colorAttachmentRefShadowWrite = {4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference colorAttachmentRefShadowWrite = {3, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+        vsg::AttachmentReference colorAttachmentRefMaterial = {4, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
         vsg::AttachmentReference depthAttachmentRef = {5, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
 
         vsg::SubpassDescription subpass;
@@ -737,8 +737,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         subpass.colorAttachments.emplace_back(colorAttachmentRefColor);
         subpass.colorAttachments.emplace_back(colorAttachmentRefNormal);
         subpass.colorAttachments.emplace_back(colorAttachmentRefWorldPos);
-        subpass.colorAttachments.emplace_back(colorAttachmentRefMaterial);
         subpass.colorAttachments.emplace_back(colorAttachmentRefShadowWrite);
+        subpass.colorAttachments.emplace_back(colorAttachmentRefMaterial);
         subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
 
         vsg::RenderPass::Subpasses subpasses{subpass};
@@ -786,7 +786,7 @@ void OffscreenRenderTarget::buildFramebuffer(VkExtent2D extent)
     {
         // Multisampled path - must match render pass attachment order:
         // [0] resolve color, [1] depth (multisample), [2] gbuffer0,
-        // [3] gbuffer1, [4] gbuffer2, [5] material, [6] shadowWrite,
+        // [3] gbuffer1, [4] gbuffer2, [5] shadowWrite, [6] material,
         // [7] depth resolve (single-sample, if requiresDepthRead)
         attachments.push_back(colorImageView);
         if (multisampleDepthImageView)
@@ -800,8 +800,8 @@ void OffscreenRenderTarget::buildFramebuffer(VkExtent2D extent)
         attachments.push_back(gbufferImageView0);
         attachments.push_back(gbufferImageView1);
         attachments.push_back(gbufferImageView2);
-        attachments.push_back(materialImageView);
         attachments.push_back(shadowWriteImageView);
+        attachments.push_back(materialImageView);
         if (multisampleDepthImageView)
         {
             attachments.push_back(depthImageView);
@@ -810,12 +810,12 @@ void OffscreenRenderTarget::buildFramebuffer(VkExtent2D extent)
     else
     {
         // Non-multisampled path - must match render pass attachment order:
-        // [0] gbuffer0, [1] gbuffer1, [2] gbuffer2, [3] material, [4] shadowWrite, [5] depth
+        // [0] gbuffer0, [1] gbuffer1, [2] gbuffer2, [3] shadowWrite, [4] material, [5] depth
         attachments.push_back(gbufferImageView0);
         attachments.push_back(gbufferImageView1);
         attachments.push_back(gbufferImageView2);
-        attachments.push_back(materialImageView);
         attachments.push_back(shadowWriteImageView);
+        attachments.push_back(materialImageView);
         attachments.push_back(depthImageView);
     }
 
