@@ -797,12 +797,6 @@ namespace gui
         if (ImGui::Button("Save Params"))
             saveParams();
 
-        bool show_deferred_debug = global_params->showDeferredDebug;
-        if (ImGui::Checkbox("Show Deferred Debug", &show_deferred_debug))
-        {
-            global_params->showDeferredDebug = show_deferred_debug;
-        }
-
         if (ImGui::CollapsingHeader("Render Params", ImGuiTreeNodeFlags_DefaultOpen))
             drawRenderParams();
         if (ImGui::CollapsingHeader("Performance"))

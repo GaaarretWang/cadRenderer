@@ -108,7 +108,7 @@ layout(location = 3) in vec2 texCoord0;
 layout(location = 4) in float highlight;
 layout(location = 5) in float InstanceID;
 layout(location = 6) in vec3 worldNormal;
-layout(location = 7) in vec3 worldViewDir;
+layout(location = 7) in vec3 worldPos;
 layout(location = 8) in vec3 lastWorldPos;
 layout(location = 9) in flat uint materialIndex;
 
@@ -601,8 +601,8 @@ vec3 getWorldNormal()
 #ifdef VSG_NORMAL_MAP
     vec3 tangentNormal = texture(normalMap, texCoord0).xyz * 2.0 - 1.0;
     
-    vec3 Q1 = dFdx(worldViewDir);
-    vec3 Q2 = dFdy(worldViewDir);
+    vec3 Q1 = dFdx(worldPos);
+    vec3 Q2 = dFdy(worldPos);
     vec2 st1 = dFdx(texCoord0);
     vec2 st2 = dFdy(texCoord0);
 
@@ -936,7 +936,7 @@ void main()
 
     vec3 worldN = getWorldNormal();
     vec3 worldCamPos = globalBuffer.camera_pos;
-    vec3 worldV = normalize(worldCamPos - worldViewDir);    
+    vec3 worldV = normalize(worldCamPos - worldPos);    
 
     vec3 color = vec3(0.0, 0.0, 0.0);
     vec4 lightNums = lightData.values[0];
@@ -969,7 +969,7 @@ void main()
                                       lightData.values[index++],
                                       lightData.values[index++],
                                       lightData.values[index++]);
-                vec4 sm_tc = (sm_matrix) * vec4(worldViewDir, 1.0);
+                vec4 sm_tc = (sm_matrix) * vec4(worldPos, 1.0);
                 if (sm_tc.x >= 0.0 && sm_tc.x <= 1.0 && sm_tc.y >= 0.0 && sm_tc.y <= 1.0 && sm_tc.z >= 0.0)
                 {
                     matched = true;
@@ -1055,7 +1055,7 @@ void main()
     }
 
     outNormal = vec4(worldN, perceptualRoughness);
-    outWorldPos = vec4(worldViewDir, metallic);
+    outWorldPos = vec4(worldPos, metallic);
 
     outShadow = vec4(scene_brightness, InstanceID, (1 - gl_FragCoord.z), 1);
     outMaterial = vec4(baseColor.rgb, ambientOcclusion);

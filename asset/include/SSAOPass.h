@@ -49,14 +49,22 @@ namespace SSAOPass{
                                              vsg::ref_ptr<vsg::ImageView> depthView,
                                              vsg::ref_ptr<vsg::ImageView> materialView);
 
-    void buildStandaloneDeferredDebugData(vsg::ref_ptr<vsg::Options> options,
-                                          vsg::ref_ptr<vsg::Group> scene,
-                                          vsg::ref_ptr<vsg::ImageView> normalView,
-                                          vsg::ref_ptr<vsg::ImageView> worldPosView,
-                                          vsg::ref_ptr<vsg::ImageView> materialView,
-                                          vsg::ref_ptr<vsg::ImageView> ssaoView,
-                                          vsg::BufferInfoList global_buffer_info_list,
-                                          bool useMsaaInputs,
-                                          VkSampleCountFlagBits outputSamples);
+    void buildStandaloneDeferredOpaqueData(vsg::ref_ptr<vsg::Options> options,
+                                           vsg::ref_ptr<vsg::Group> scene,
+                                           vsg::ref_ptr<vsg::ImageView> colorView,
+                                           vsg::ref_ptr<vsg::ImageView> normalView,
+                                           vsg::ref_ptr<vsg::ImageView> worldPosView,
+                                           vsg::ref_ptr<vsg::ImageView> materialView,
+                                           vsg::ref_ptr<vsg::ImageView> ssaoView,
+                                           vsg::BufferInfoList global_buffer_info_list,
+                                           bool useMsaaInputs,
+                                           VkSampleCountFlagBits outputSamples);
+
+    void buildStandaloneDeferredCompositeData(vsg::ref_ptr<vsg::Options> options,
+                                              vsg::ref_ptr<vsg::Group> scene,
+                                              vsg::ref_ptr<vsg::ImageView> deferredView,
+                                              VkImageLayout deferredLayout,
+                                              vsg::ref_ptr<vsg::ImageView> fallbackView,
+                                              VkImageLayout fallbackLayout);
 }
 #endif

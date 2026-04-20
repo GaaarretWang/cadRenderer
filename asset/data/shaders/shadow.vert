@@ -40,7 +40,7 @@ layout(location = 0) out vec3 eyePos;
 layout(location = 1) out vec3 normalDir;
 layout(location = 2) out vec4 vertexColor;
 layout(location = 3) out vec2 texCoord0;
-layout(location = 4) out vec3 worldViewDir;
+layout(location = 4) out vec3 worldPos;
 
 layout(location = 5) out vec3 viewDir;
 layout(location = 6) out float InstanceID;
@@ -87,6 +87,6 @@ void main()
     vertexColor = vsg_Color;
     InstanceID = vsg_InstanceID.x;
     texCoord0 = vsg_TexCoord0;
-    worldViewDir = (vertex).xyz;
+    worldPos = (vertex).xyz;
     lastWorldPos = lastVertex.xyz;
 }

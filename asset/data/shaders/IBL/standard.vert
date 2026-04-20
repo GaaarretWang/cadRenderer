@@ -44,7 +44,7 @@ layout(location = 3) out vec2 texCoord0;
 layout(location = 4) out float highlight;
 layout(location = 5) out float InstanceID;
 layout(location = 6) out vec3 worldNormal;
-layout(location = 7) out vec3 worldViewDir;
+layout(location = 7) out vec3 worldPos;
 layout(location = 8) out vec3 lastWorldPos;
 layout(location = 9) out flat uint materialIndex;
 
@@ -92,7 +92,7 @@ void main()
 
     gl_Position = pc.projection * viewVertex;
 
-    worldViewDir = (modelVertex).xyz;
+    worldPos = (modelVertex).xyz;
     lastWorldPos = lastVertex.xyz;
     eyePos = viewVertex.xyz;
 

@@ -307,19 +307,19 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedMaterialShaderSet(vsg::ref_
     return shaderSet;
 }
 
-vsg::ref_ptr<vsg::ShaderSet> createStandaloneDeferredDebugShaderSet(vsg::ref_ptr<const vsg::Options> options,
-                                                                    bool useMsaaInputs)
+vsg::ref_ptr<vsg::ShaderSet> createStandaloneDeferredOpaqueShaderSet(vsg::ref_ptr<const vsg::Options> options,
+                                                                     bool useMsaaInputs)
 {
     auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
     auto fragShaderFilepath = vsg::findFile(
-        useMsaaInputs ? "shaders/IBL/deferred_debug_standalone_msaa.frag" : "shaders/IBL/deferred_debug_standalone.frag",
+        useMsaaInputs ? "shaders/IBL/deferred_opaque_standalone_msaa.frag" : "shaders/IBL/deferred_opaque_standalone.frag",
         options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
 
     if (!vertexShader || !fragmentShader)
     {
-        vsg::error("createStandaloneDeferredDebugShaderSet(...) could not find shaders.");
+        vsg::error("createStandaloneDeferredOpaqueShaderSet(...) could not find shaders.");
         return {};
     }
 
@@ -330,17 +330,39 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneDeferredDebugShaderSet(vsg::ref_ptr
     shaderSet->addDescriptorBinding("irradiance", "", kCustomDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{IBL::Constants::IrradianceCube::format}));
     shaderSet->addDescriptorBinding("prefilter", "", kCustomDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{IBL::Constants::PrefilteredEnvmapCube::format}));
     shaderSet->addDescriptorBinding("params", "", kCustomDescriptorSet, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, IBL::textures.params);
-    shaderSet->addDescriptorBinding("normalSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
-    shaderSet->addDescriptorBinding("worldPosSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
-    shaderSet->addDescriptorBinding("materialSampler", "", kMaterialDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
-    shaderSet->addDescriptorBinding("ssaoSampler", "", kMaterialDescriptorSet, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
-    shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
+    shaderSet->addDescriptorBinding("colorSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
+    shaderSet->addDescriptorBinding("normalSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
+    shaderSet->addDescriptorBinding("worldPosSampler", "", kMaterialDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
+    shaderSet->addDescriptorBinding("materialSampler", "", kMaterialDescriptorSet, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
+    shaderSet->addDescriptorBinding("ssaoSampler", "", kMaterialDescriptorSet, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
+    shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
     shaderSet->addDescriptorBinding("lightData", "", kViewDescriptorSet, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array::create(64));
     shaderSet->addDescriptorBinding("viewportData", "", kViewDescriptorSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Value::create(0, 0, 1280, 1024));
     shaderSet->addDescriptorBinding("shadowMaps", "", kViewDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
     shaderSet->addDescriptorBinding("shadowMapsSampler", "", kViewDescriptorSet, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
     shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(kViewDescriptorSet));
     shaderSet->customDescriptorSetBindings.push_back(DeferredIblDescriptorSetBinding::create(kCustomDescriptorSet));
+    return shaderSet;
+}
+
+vsg::ref_ptr<vsg::ShaderSet> createStandaloneDeferredCompositeShaderSet(vsg::ref_ptr<const vsg::Options> options)
+{
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/deferred_composite.frag", options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+
+    if (!vertexShader || !fragmentShader)
+    {
+        vsg::error("createStandaloneDeferredCompositeShaderSet(...) could not find shaders.");
+        return {};
+    }
+
+    auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
+    shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
+    auto colorPlaceholder = vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM});
+    shaderSet->addDescriptorBinding("deferredSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, colorPlaceholder);
+    shaderSet->addDescriptorBinding("fallbackSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, colorPlaceholder);
     return shaderSet;
 }
 }
@@ -487,22 +509,25 @@ void SSAOPass::buildStandaloneResolvedMaterialData(vsg::ref_ptr<vsg::Options> op
     scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
 }
 
-void SSAOPass::buildStandaloneDeferredDebugData(vsg::ref_ptr<vsg::Options> options,
-                                                vsg::ref_ptr<vsg::Group> scene,
-                                                vsg::ref_ptr<vsg::ImageView> normalView,
-                                                vsg::ref_ptr<vsg::ImageView> worldPosView,
-                                                vsg::ref_ptr<vsg::ImageView> materialView,
-                                                vsg::ref_ptr<vsg::ImageView> ssaoView,
-                                                vsg::BufferInfoList global_buffer_info_list,
-                                                bool useMsaaInputs,
-                                                VkSampleCountFlagBits outputSamples)
+void SSAOPass::buildStandaloneDeferredOpaqueData(vsg::ref_ptr<vsg::Options> options,
+                                                 vsg::ref_ptr<vsg::Group> scene,
+                                                 vsg::ref_ptr<vsg::ImageView> colorView,
+                                                 vsg::ref_ptr<vsg::ImageView> normalView,
+                                                 vsg::ref_ptr<vsg::ImageView> worldPosView,
+                                                 vsg::ref_ptr<vsg::ImageView> materialView,
+                                                 vsg::ref_ptr<vsg::ImageView> ssaoView,
+                                                 vsg::BufferInfoList global_buffer_info_list,
+                                                 bool useMsaaInputs,
+                                                 VkSampleCountFlagBits outputSamples)
 {
     auto graphicsPipelineConfig = createFullscreenPipelineConfig(
-        createStandaloneDeferredDebugShaderSet(options, useMsaaInputs),
+        createStandaloneDeferredOpaqueShaderSet(options, useMsaaInputs),
         outputSamples,
         useMsaaInputs);
     auto nearestSampler = Utils::createNearestClampSampler();
     auto linearSampler = Utils::createLinearSampler();
+    vsg::ImageInfoList colorInfoList = {
+        vsg::ImageInfo::create(nearestSampler, colorView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
     vsg::ImageInfoList normalInfoList = {
         vsg::ImageInfo::create(nearestSampler, normalView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
     vsg::ImageInfoList worldPosInfoList = {
@@ -512,11 +537,32 @@ void SSAOPass::buildStandaloneDeferredDebugData(vsg::ref_ptr<vsg::Options> optio
     vsg::ImageInfoList ssaoInfoList = {
         vsg::ImageInfo::create(linearSampler, ssaoView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
 
+    graphicsPipelineConfig->assignTexture("colorSampler", colorInfoList);
     graphicsPipelineConfig->assignTexture("normalSampler", normalInfoList);
     graphicsPipelineConfig->assignTexture("worldPosSampler", worldPosInfoList);
     graphicsPipelineConfig->assignTexture("materialSampler", materialInfoList);
     graphicsPipelineConfig->assignTexture("ssaoSampler", ssaoInfoList);
     graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
+
+    scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
+}
+
+void SSAOPass::buildStandaloneDeferredCompositeData(vsg::ref_ptr<vsg::Options> options,
+                                                    vsg::ref_ptr<vsg::Group> scene,
+                                                    vsg::ref_ptr<vsg::ImageView> deferredView,
+                                                    VkImageLayout deferredLayout,
+                                                    vsg::ref_ptr<vsg::ImageView> fallbackView,
+                                                    VkImageLayout fallbackLayout)
+{
+    auto graphicsPipelineConfig = createFullscreenPipelineConfig(createStandaloneDeferredCompositeShaderSet(options));
+    auto nearestSampler = Utils::createNearestClampSampler();
+    vsg::ImageInfoList deferredInfoList = {
+        vsg::ImageInfo::create(nearestSampler, deferredView, deferredLayout)};
+    vsg::ImageInfoList fallbackInfoList = {
+        vsg::ImageInfo::create(nearestSampler, fallbackView, fallbackLayout)};
+
+    graphicsPipelineConfig->assignTexture("deferredSampler", deferredInfoList);
+    graphicsPipelineConfig->assignTexture("fallbackSampler", fallbackInfoList);
 
     scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
 }

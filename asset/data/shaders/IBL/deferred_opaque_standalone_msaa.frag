@@ -20,12 +20,13 @@ layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData {
 layout(set = VIEW_DESCRIPTOR_SET, binding = 2) uniform sampler2DArrayShadow shadowMaps;
 layout(set = VIEW_DESCRIPTOR_SET, binding = 3) uniform sampler2DArray shadowMapsSampler;
 
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2DMS normalSampler;
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2DMS worldPosSampler;
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2DMS materialSampler;
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D ssaoSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2DMS colorSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2DMS normalSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2DMS worldPosSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2DMS materialSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D ssaoSampler;
 
-layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform GlobalBuffer {
+layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform GlobalBuffer {
     mat4 last_view;
     vec3 camera_pos;
     float softness;
@@ -339,12 +340,13 @@ void main()
     vec4 normalData = texelFetch(normalSampler, coord, sampleIndex);
     vec4 worldPosData = texelFetch(worldPosSampler, coord, sampleIndex);
     vec4 materialData = texelFetch(materialSampler, coord, sampleIndex);
+    vec4 colorData = texelFetch(colorSampler, coord, sampleIndex);
 
     vec3 worldN = normalData.xyz;
     vec3 worldPos = worldPosData.xyz;
     if (length(worldN) < 0.001 || length(worldPos) < 0.001)
     {
-        outColor = vec4(0.0, 0.0, 0.0, 1.0);
+        outColor = vec4(0.0, 0.0, 0.0, 0.0);
         return;
     }
 
@@ -425,5 +427,6 @@ void main()
 
     vec3 mapped = Uncharted2Tonemap(color * scene_brightness * occlusion * globalBuffer.exposure);
     mapped *= vec3(1.0) / Uncharted2Tonemap(vec3(11.2));
-    outColor = LINEARtoSRGB(vec4(mapped, 1.0));
+    float opaqueCoverage = colorData.a > 0.999 ? 1.0 : 0.0;
+    outColor = LINEARtoSRGB(vec4(mapped, opaqueCoverage));
 }

@@ -50,8 +50,8 @@ class vsgRendererServer
     vsg::ref_ptr<ColorRenderTarget> resolvedEffectNormalTarget;
     vsg::ref_ptr<ColorRenderTarget> resolvedEffectWorldPosTarget;
     vsg::ref_ptr<ColorRenderTarget> resolvedEffectMaterialTarget;
-    vsg::ref_ptr<ColorRenderTarget> deferredDebugTarget;
-    vsg::ref_ptr<vsg::Switch> presentSourceSwitch;
+    vsg::ref_ptr<ColorRenderTarget> deferredOpaqueTarget;
+    vsg::ref_ptr<ColorRenderTarget> deferredFinalTarget;
 
     //IBL
     IBL::VsgContext vsgContext = {};
