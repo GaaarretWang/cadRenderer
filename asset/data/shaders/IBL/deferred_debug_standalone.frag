@@ -35,6 +35,7 @@ layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform GlobalBuffer 
 layout(set = VIEW_DESCRIPTOR_SET, binding = 0) uniform LightData {
     vec4 values[2048];
 } lightData;
+layout(set = VIEW_DESCRIPTOR_SET, binding = 2) uniform sampler2DArrayShadow shadowMaps;
 
 layout(location = 0) in vec2 inUV;
 layout(location = 0) out vec4 outColor;
@@ -75,6 +76,37 @@ vec3 tonemap(vec3 color)
     return pow(color, vec3(1.0 / 2.2));
 }
 
+float shadowVisibility(vec3 worldPos, inout int lightIndex, inout int shadowMapIndex, vec4 shadowMapSettings)
+{
+    float visibility = 1.0;
+    bool matched = false;
+    int shadowMapCount = int(shadowMapSettings.r);
+    for (int i = 0; i < shadowMapCount; ++i)
+    {
+        mat4 shadowMatrix = mat4(
+            lightData.values[lightIndex++],
+            lightData.values[lightIndex++],
+            lightData.values[lightIndex++],
+            lightData.values[lightIndex++]);
+
+        vec4 shadowCoord = shadowMatrix * vec4(worldPos, 1.0);
+        if (!matched &&
+            shadowCoord.x >= 0.0 && shadowCoord.x <= 1.0 &&
+            shadowCoord.y >= 0.0 && shadowCoord.y <= 1.0 &&
+            shadowCoord.z >= 0.0 && shadowCoord.z <= 1.0)
+        {
+            matched = true;
+            visibility = texture(
+                shadowMaps,
+                vec4(shadowCoord.xy, shadowMapIndex, shadowCoord.z + globalBuffer.shadow_bias));
+        }
+
+        ++shadowMapIndex;
+    }
+
+    return visibility;
+}
+
 void main()
 {
     vec2 uv = inUV * 0.5 + 0.5;
@@ -109,6 +141,7 @@ void main()
     vec4 lightNums = lightData.values[0];
     int numDirectionalLights = int(lightNums[1]);
     int lightIndex = 1;
+    int shadowMapIndex = 0;
     bool hasDirectionalLight = false;
     for (int i = 0; i < numDirectionalLights; ++i)
     {
@@ -121,6 +154,7 @@ void main()
         if (nDotL > 0.0)
         {
             hasDirectionalLight = true;
+            float visibility = shadowVisibility(worldPos, lightIndex, shadowMapIndex, shadowMapSettings);
             vec3 radiance = max(lightColorData.rgb, vec3(0.0)) * max(lightColorData.a, 0.0);
             vec3 halfVector = normalize(viewDir + lightDir);
             float nDotV = max(dot(normal, viewDir), 0.0);
@@ -131,10 +165,13 @@ void main()
             float denominator = max(4.0 * nDotV * nDotL, 1e-4);
             vec3 specular = numerator / denominator;
             vec3 kD = (vec3(1.0) - fresnel) * (1.0 - metallic);
-            color += (kD * diffuseColor / PI + specular) * radiance * nDotL;
+            color += (kD * diffuseColor / PI + specular) * radiance * nDotL * visibility;
         }
-
-        lightIndex += 4 * int(shadowMapSettings.r);
+        else
+        {
+            lightIndex += 4 * int(shadowMapSettings.r);
+            shadowMapIndex += int(shadowMapSettings.r);
+        }
     }
 
     if (!hasDirectionalLight)
