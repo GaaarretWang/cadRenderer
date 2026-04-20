@@ -10,7 +10,8 @@ namespace SSAOPass{
                                  vsg::ref_ptr<vsg::ImageView> normalView,
                                  vsg::ref_ptr<vsg::ImageView> worldPosView,
                                  VkExtent2D outputExtent,
-                                 vsg::BufferInfoList global_buffer_info_list);
+                                 vsg::BufferInfoList global_buffer_info_list,
+                                 bool useResolvedInputs = false);
 
     void buildStandaloneSSAOCompositeData(vsg::ref_ptr<vsg::Options> options,
                                           vsg::ref_ptr<vsg::Group> scene,
@@ -37,5 +38,10 @@ namespace SSAOPass{
                                            vsg::ref_ptr<vsg::Group> scene,
                                            vsg::ref_ptr<vsg::ImageView> depthView,
                                            vsg::ref_ptr<vsg::ImageView> normalView);
+
+    void buildStandaloneResolvedWorldPosData(vsg::ref_ptr<vsg::Options> options,
+                                             vsg::ref_ptr<vsg::Group> scene,
+                                             vsg::ref_ptr<vsg::ImageView> depthView,
+                                             vsg::ref_ptr<vsg::ImageView> worldPosView);
 }
 #endif

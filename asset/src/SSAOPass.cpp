@@ -80,10 +80,13 @@ vsg::ref_ptr<vsg::GraphicsPipelineConfigurator> createFullscreenPipelineConfig(v
     return vsg::GraphicsPipelineConfigurator::create(shaderSet);
 }
 
-vsg::ref_ptr<vsg::ShaderSet> createStandaloneSSAOShaderSet(vsg::ref_ptr<const vsg::Options> options)
+vsg::ref_ptr<vsg::ShaderSet> createStandaloneSSAOShaderSet(vsg::ref_ptr<const vsg::Options> options,
+                                                           bool useResolvedInputs)
 {
     auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/ssao_standalone.frag", options->paths);
+    auto fragShaderFilepath = vsg::findFile(
+        useResolvedInputs ? "shaders/IBL/ssao_standalone_resolved.frag" : "shaders/IBL/ssao_standalone.frag",
+        options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
 
@@ -95,8 +98,17 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneSSAOShaderSet(vsg::ref_ptr<const vs
 
     auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
     shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
-    shaderSet->addDescriptorBinding("normalSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
-    shaderSet->addDescriptorBinding("worldPosSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
+    vsg::ref_ptr<vsg::Data> gbufferPlaceholder;
+    if (useResolvedInputs)
+    {
+        gbufferPlaceholder = vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT});
+    }
+    else
+    {
+        gbufferPlaceholder = vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM});
+    }
+    shaderSet->addDescriptorBinding("normalSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
+    shaderSet->addDescriptorBinding("worldPosSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
     shaderSet->addDescriptorBinding("samplerNoise", "", kMaterialDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
     shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
     shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
@@ -199,7 +211,27 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedNormalShaderSet(vsg::ref_pt
     auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
     shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
     shaderSet->addDescriptorBinding("depthSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
-    shaderSet->addDescriptorBinding("normalSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT}));
+    shaderSet->addDescriptorBinding("normalSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT}));
+    return shaderSet;
+}
+
+vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedWorldPosShaderSet(vsg::ref_ptr<const vsg::Options> options)
+{
+    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/IBL/gbuffer_resolve_world_pos.frag", options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+
+    if (!vertexShader || !fragmentShader)
+    {
+        vsg::error("createStandaloneResolvedWorldPosShaderSet(...) could not find shaders.");
+        return {};
+    }
+
+    auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
+    shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
+    shaderSet->addDescriptorBinding("depthSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
+    shaderSet->addDescriptorBinding("worldPosSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT}));
     return shaderSet;
 }
 }
@@ -209,9 +241,10 @@ void SSAOPass::buildStandaloneSSAOData(vsg::ref_ptr<vsg::Options> options,
                                        vsg::ref_ptr<vsg::ImageView> normalView,
                                        vsg::ref_ptr<vsg::ImageView> worldPosView,
                                        VkExtent2D outputExtent,
-                                       vsg::BufferInfoList global_buffer_info_list)
+                                       vsg::BufferInfoList global_buffer_info_list,
+                                       bool useResolvedInputs)
 {
-    auto graphicsPipelineConfig = createFullscreenPipelineConfig(createStandaloneSSAOShaderSet(options));
+    auto graphicsPipelineConfig = createFullscreenPipelineConfig(createStandaloneSSAOShaderSet(options, useResolvedInputs));
     auto sampledInputSampler = Utils::createNearestClampSampler();
     vsg::ImageInfoList normalImageInfoList = {
         vsg::ImageInfo::create(sampledInputSampler, normalView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
@@ -308,5 +341,22 @@ void SSAOPass::buildStandaloneResolvedNormalData(vsg::ref_ptr<vsg::Options> opti
 
     graphicsPipelineConfig->assignTexture("depthSampler", depthInfoList);
     graphicsPipelineConfig->assignTexture("normalSampler", normalInfoList);
+    scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
+}
+
+void SSAOPass::buildStandaloneResolvedWorldPosData(vsg::ref_ptr<vsg::Options> options,
+                                                   vsg::ref_ptr<vsg::Group> scene,
+                                                   vsg::ref_ptr<vsg::ImageView> depthView,
+                                                   vsg::ref_ptr<vsg::ImageView> worldPosView)
+{
+    auto graphicsPipelineConfig = createFullscreenPipelineConfig(createStandaloneResolvedWorldPosShaderSet(options));
+    auto nearestSampler = Utils::createNearestClampSampler();
+    vsg::ImageInfoList depthInfoList = {
+        vsg::ImageInfo::create(nearestSampler, depthView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)};
+    vsg::ImageInfoList worldPosInfoList = {
+        vsg::ImageInfo::create(nearestSampler, worldPosView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
+
+    graphicsPipelineConfig->assignTexture("depthSampler", depthInfoList);
+    graphicsPipelineConfig->assignTexture("worldPosSampler", worldPosInfoList);
     scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
 }
