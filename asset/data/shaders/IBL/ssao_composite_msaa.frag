@@ -6,8 +6,9 @@
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2DMS colorSampler;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D ssaoSampler;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D realSceneSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D maskSampler;
 #define GLOBAL_BUFFER_SET MATERIAL_DESCRIPTOR_SET
-#define GLOBAL_BUFFER_BINDING 3
+#define GLOBAL_BUFFER_BINDING 4
 #pragma include "global_buffer.glsl"
 
 layout(location = 0) in vec2 inUV;
@@ -36,7 +37,7 @@ float computeOcclusion(vec2 uv)
     return result / (kernelWidth * kernelWidth);
 }
 
-vec3 compositeSample(vec4 colorData, vec4 realSceneData, bool preferRealScene, float occlusion)
+vec3 compositeSample(vec4 colorData, vec4 realSceneData, float maskValue, bool preferRealScene, float occlusion)
 {
     bool isEmptySample = abs(colorData.a) < 1e-6 && length(colorData.rgb) < 1e-6;
     bool hasRealScene = realSceneData.a > 0.5;
@@ -46,7 +47,7 @@ vec3 compositeSample(vec4 colorData, vec4 realSceneData, bool preferRealScene, f
         return realSceneData.rgb;
     }
 
-    if (colorData.a < 0.0)
+    if (maskValue > 1.5 || colorData.a < 0.0)
     {
         return colorData.rgb * occlusion;
     }
@@ -70,6 +71,7 @@ void main()
     int sampleCount = textureSamples(colorSampler);
 
     vec4 realSceneData = texture(realSceneSampler, uv);
+    float maskValue = texture(maskSampler, uv).r;
     vec4 centerSSAO = texture(ssaoSampler, uv);
     bool preferRealScene = centerSSAO.w > 0.5;
     float occlusion = computeOcclusion(uv);
@@ -78,7 +80,7 @@ void main()
     for (int sampleIndex = 0; sampleIndex < sampleCount; ++sampleIndex)
     {
         vec4 colorData = texelFetch(colorSampler, colorCoord, sampleIndex);
-        accumulated += compositeSample(colorData, realSceneData, preferRealScene, occlusion);
+        accumulated += compositeSample(colorData, realSceneData, maskValue, preferRealScene, occlusion);
     }
 
     outColor = vec4(accumulated / float(sampleCount), 1.0);

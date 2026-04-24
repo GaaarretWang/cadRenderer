@@ -55,7 +55,7 @@ vsg::ref_ptr<vsg::ShaderSet> ConfigShader::buildShadowShader(std::string vert, s
     shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(VIEW_DESCRIPTOR_SET));
 
     auto colorBlendState = vsg::ColorBlendState::create();
-    colorBlendState->attachments.resize(5, colorBlendState->attachments[0]); 
+    colorBlendState->attachments.resize(6, colorBlendState->attachments[0]); 
     shaderSet->defaultGraphicsPipelineStates.push_back(colorBlendState);
 
     return shaderSet;

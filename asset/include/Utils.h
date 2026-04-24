@@ -156,16 +156,22 @@ namespace Utils{
         clearColor2->ranges = {range0};
 
         auto clearColor3 = vsg::ClearColorImage::create();
-        clearColor3->image = offscreenTarget->materialImage;
+        clearColor3->image = offscreenTarget->maskImage;
         clearColor3->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         clearColor3->color = {{0.0f, 0.0f, 0.0f, 0.0f}};
         clearColor3->ranges = {range0};
 
         auto clearColor4 = vsg::ClearColorImage::create();
-        clearColor4->image = offscreenTarget->shadowWriteImage;
+        clearColor4->image = offscreenTarget->materialImage;
         clearColor4->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         clearColor4->color = {{0.0f, 0.0f, 0.0f, 0.0f}};
         clearColor4->ranges = {range0};
+
+        auto clearColor5 = vsg::ClearColorImage::create();
+        clearColor5->image = offscreenTarget->shadowWriteImage;
+        clearColor5->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        clearColor5->color = {{0.0f, 0.0f, 0.0f, 0.0f}};
+        clearColor5->ranges = {range0};
 
         addBarrier(
             VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -225,6 +231,18 @@ namespace Utils{
                 VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                 VK_QUEUE_FAMILY_IGNORED,
                 VK_QUEUE_FAMILY_IGNORED,
+                offscreenTarget->maskImage,
+                range0));
+        addBarrier(
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            vsg::ImageMemoryBarrier::create(
+                0,
+                VK_ACCESS_TRANSFER_WRITE_BIT,
+                VK_IMAGE_LAYOUT_UNDEFINED,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
                 offscreenTarget->shadowWriteImage,
                 range0));
 
@@ -233,6 +251,7 @@ namespace Utils{
         clear_image_commandgraph->addChild(clearColor2);
         clear_image_commandgraph->addChild(clearColor3);
         clear_image_commandgraph->addChild(clearColor4);
+        clear_image_commandgraph->addChild(clearColor5);
 
         if (hasSeparateMsaaDepth)
         {
@@ -308,6 +327,18 @@ namespace Utils{
                 VK_QUEUE_FAMILY_IGNORED,
                 VK_QUEUE_FAMILY_IGNORED,
                 offscreenTarget->materialImage,
+                range0));
+        addBarrier(
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            vsg::ImageMemoryBarrier::create(
+                VK_ACCESS_TRANSFER_WRITE_BIT,
+                VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
+                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                VK_QUEUE_FAMILY_IGNORED,
+                VK_QUEUE_FAMILY_IGNORED,
+                offscreenTarget->maskImage,
                 range0));
         addBarrier(
             VK_PIPELINE_STAGE_TRANSFER_BIT,

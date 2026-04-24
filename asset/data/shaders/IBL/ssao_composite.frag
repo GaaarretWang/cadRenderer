@@ -6,8 +6,9 @@
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2D colorSampler;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D ssaoSampler;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D realSceneSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D maskSampler;
 #define GLOBAL_BUFFER_SET MATERIAL_DESCRIPTOR_SET
-#define GLOBAL_BUFFER_BINDING 3
+#define GLOBAL_BUFFER_BINDING 4
 #pragma include "global_buffer.glsl"
 
 layout(location = 0) in vec2 inUV;
@@ -24,7 +25,8 @@ void main()
     ivec2 colorCoord = clamp(ivec2(uv * vec2(colorSize)), ivec2(0), colorSize - 1);
     vec4 colorData = texelFetch(colorSampler, colorCoord, 0);
     vec4 realSceneData = texture(realSceneSampler, uv);
-    bool isShadowReceiver = colorData.a < 0.0;
+    float maskValue = texture(maskSampler, uv).r;
+    bool isShadowReceiver = maskValue > 1.5 || colorData.a < 0.0;
 
     ivec2 ssaoSize = textureSize(ssaoSampler, 0);
     vec4 centerSSAO = texture(ssaoSampler, uv);

@@ -68,6 +68,7 @@ layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outWorldPos;
 layout(location = 3) out vec4 outShadow;
 layout(location = 4) out vec4 outMaterial;
+layout(location = 5) out float outMask;
 
 layout(push_constant) uniform PushConstants {
     mat4 projection;
@@ -96,6 +97,7 @@ void main()
             outWorldPos = vec4(0.0, 0.0, 0.0, 1.0);
             outShadow = vec4(1.0, -10000000.0, gl_FragCoord.z, 1.0);
             outMaterial = vec4(0.0);
+            outMask = 0.0;
             return;
         }
     }
@@ -212,4 +214,5 @@ void main()
     outWorldPos = vec4(0.0, 0.0, 0.0, 1.0);
     outShadow = vec4(scene_brightness, InstanceID, gl_FragCoord.z, 1);
     outMaterial = vec4(0.0);
+    outMask = 2.0;
 }

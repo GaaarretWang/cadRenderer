@@ -27,6 +27,9 @@ public:
     vsg::ref_ptr<vsg::Image> gbufferImage2;
     vsg::ref_ptr<vsg::ImageView> gbufferImageView2;
 
+    vsg::ref_ptr<vsg::Image> maskImage;
+    vsg::ref_ptr<vsg::ImageView> maskImageView;
+
     vsg::ref_ptr<vsg::Image> materialImage;
     vsg::ref_ptr<vsg::ImageView> materialImageView;
 

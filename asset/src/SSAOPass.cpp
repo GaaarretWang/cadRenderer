@@ -196,7 +196,8 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneSSAOCompositeShaderSet(vsg::ref_ptr
         vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
     shaderSet->addDescriptorBinding("ssaoSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
     shaderSet->addDescriptorBinding("realSceneSampler", "", kMaterialDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_B8G8R8A8_UNORM}));
-    shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 3, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
+    shaderSet->addDescriptorBinding("maskSampler", "", kMaterialDescriptorSet, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
+    shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 4, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
     return shaderSet;
 }
 
@@ -307,6 +308,26 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedMaterialShaderSet(vsg::ref_
     return shaderSet;
 }
 
+vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedMaskShaderSet(vsg::ref_ptr<const vsg::Options> options)
+{
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/gbuffer_resolve_mask.frag", options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+
+    if (!vertexShader || !fragmentShader)
+    {
+        vsg::error("createStandaloneResolvedMaskShaderSet(...) could not find shaders.");
+        return {};
+    }
+
+    auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
+    shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
+    shaderSet->addDescriptorBinding("depthSampler", "", kMaterialDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_D32_SFLOAT}));
+    shaderSet->addDescriptorBinding("maskSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
+    return shaderSet;
+}
+
 vsg::ref_ptr<vsg::ShaderSet> createStandaloneDeferredOpaqueShaderSet(vsg::ref_ptr<const vsg::Options> options,
                                                                      bool useMsaaInputs)
 {
@@ -395,6 +416,7 @@ void SSAOPass::buildStandaloneSSAOCompositeData(vsg::ref_ptr<vsg::Options> optio
                                                 vsg::ref_ptr<vsg::ImageView> colorView,
                                                 vsg::ref_ptr<vsg::ImageView> ssaoView,
                                                 vsg::ref_ptr<vsg::ImageView> realSceneView,
+                                                vsg::ref_ptr<vsg::ImageView> maskView,
                                                 vsg::BufferInfoList global_buffer_info_list,
                                                 bool useMsaaColorInput,
                                                 VkSampleCountFlagBits outputSamples)
@@ -410,10 +432,13 @@ void SSAOPass::buildStandaloneSSAOCompositeData(vsg::ref_ptr<vsg::Options> optio
         vsg::ImageInfo::create(ssaoSampler, ssaoView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
     vsg::ImageInfoList realSceneImageInfoList = {
         vsg::ImageInfo::create(colorSampler, realSceneView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
+    vsg::ImageInfoList maskImageInfoList = {
+        vsg::ImageInfo::create(colorSampler, maskView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
 
     graphicsPipelineConfig->assignTexture("colorSampler", colorImageInfoList);
     graphicsPipelineConfig->assignTexture("ssaoSampler", ssaoImageInfoList);
     graphicsPipelineConfig->assignTexture("realSceneSampler", realSceneImageInfoList);
+    graphicsPipelineConfig->assignTexture("maskSampler", maskImageInfoList);
     graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
 
     scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
@@ -507,6 +532,23 @@ void SSAOPass::buildStandaloneResolvedMaterialData(vsg::ref_ptr<vsg::Options> op
 
     graphicsPipelineConfig->assignTexture("depthSampler", depthInfoList);
     graphicsPipelineConfig->assignTexture("materialSampler", materialInfoList);
+    scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
+}
+
+void SSAOPass::buildStandaloneResolvedMaskData(vsg::ref_ptr<vsg::Options> options,
+                                               vsg::ref_ptr<vsg::Group> scene,
+                                               vsg::ref_ptr<vsg::ImageView> depthView,
+                                               vsg::ref_ptr<vsg::ImageView> maskView)
+{
+    auto graphicsPipelineConfig = createFullscreenPipelineConfig(createStandaloneResolvedMaskShaderSet(options));
+    auto nearestSampler = Utils::createNearestClampSampler();
+    vsg::ImageInfoList depthInfoList = {
+        vsg::ImageInfo::create(nearestSampler, depthView, VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL)};
+    vsg::ImageInfoList maskInfoList = {
+        vsg::ImageInfo::create(nearestSampler, maskView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
+
+    graphicsPipelineConfig->assignTexture("depthSampler", depthInfoList);
+    graphicsPipelineConfig->assignTexture("maskSampler", maskInfoList);
     scene->addChild(createFullscreenStateGroup(graphicsPipelineConfig));
 }
 

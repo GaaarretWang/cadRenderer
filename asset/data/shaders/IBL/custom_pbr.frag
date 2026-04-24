@@ -99,6 +99,7 @@ layout(location = 1) out vec4 outNormal;
 layout(location = 2) out vec4 outWorldPos;
 layout(location = 3) out vec4 outShadow;
 layout(location = 4) out vec4 outMaterial;
+layout(location = 5) out float outMask;
 
 layout(push_constant) uniform PushConstants {
     mat4 projection;
@@ -628,4 +629,5 @@ void main()
 
     outShadow = vec4(scene_brightness, InstanceID, (1 - gl_FragCoord.z), 1);
     outMaterial = vec4(baseColor.rgb, ambientOcclusion);
+    outMask = 1.0;
 }

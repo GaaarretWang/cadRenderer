@@ -49,6 +49,7 @@ class vsgRendererServer
     vsg::ref_ptr<ColorRenderTarget> realSceneTarget;
     vsg::ref_ptr<ColorRenderTarget> finalColorTarget;
     vsg::ref_ptr<ColorRenderTarget> resolvedEffectDepthTarget;
+    vsg::ref_ptr<ColorRenderTarget> resolvedEffectMaskTarget;
     vsg::ref_ptr<ColorRenderTarget> resolvedEffectNormalTarget;
     vsg::ref_ptr<ColorRenderTarget> resolvedEffectWorldPosTarget;
     vsg::ref_ptr<ColorRenderTarget> resolvedEffectMaterialTarget;

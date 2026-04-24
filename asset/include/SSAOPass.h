@@ -18,6 +18,7 @@ namespace SSAOPass{
                                           vsg::ref_ptr<vsg::ImageView> colorView,
                                           vsg::ref_ptr<vsg::ImageView> ssaoView,
                                           vsg::ref_ptr<vsg::ImageView> realSceneView,
+                                          vsg::ref_ptr<vsg::ImageView> maskView,
                                           vsg::BufferInfoList global_buffer_info_list,
                                           bool useMsaaColorInput,
                                           VkSampleCountFlagBits outputSamples);
@@ -49,6 +50,11 @@ namespace SSAOPass{
                                              vsg::ref_ptr<vsg::Group> scene,
                                              vsg::ref_ptr<vsg::ImageView> depthView,
                                              vsg::ref_ptr<vsg::ImageView> materialView);
+
+    void buildStandaloneResolvedMaskData(vsg::ref_ptr<vsg::Options> options,
+                                         vsg::ref_ptr<vsg::Group> scene,
+                                         vsg::ref_ptr<vsg::ImageView> depthView,
+                                         vsg::ref_ptr<vsg::ImageView> maskView);
 
     void buildStandaloneDeferredOpaqueData(vsg::ref_ptr<vsg::Options> options,
                                            vsg::ref_ptr<vsg::Group> scene,

@@ -1780,7 +1780,7 @@ ptr<StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root
     shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
 
     auto colorBlendState = vsg::ColorBlendState::create();
-    colorBlendState->attachments.resize(5, colorBlendState->attachments[0]);
+    colorBlendState->attachments.resize(6, colorBlendState->attachments[0]);
     for (auto& attachment : colorBlendState->attachments)
     {
         attachment.colorWriteMask = 0;
@@ -1978,7 +1978,7 @@ vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options>
         VK_BLEND_OP_ADD,                              // Alpha blend: srcAlpha * 1 + dstAlpha * 0
         VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
     };
-    colorBlendState->attachments.resize(5, colorBlendState->attachments[0]);
+    colorBlendState->attachments.resize(6, colorBlendState->attachments[0]);
     for (size_t attachmentIndex = 1; attachmentIndex < colorBlendState->attachments.size(); ++attachmentIndex)
     {
         colorBlendState->attachments[attachmentIndex] = {
