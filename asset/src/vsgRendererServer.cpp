@@ -462,7 +462,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     renderGraph->clearValues[0].color = {{-1.f, -1.f, -1.f, 1.f}};
     auto view1 = vsg::View::create(camera, scenegraph_safe);
-    view1->mask = MASK_PBR_FULL | MASK_TRANSPARENT | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER;
+    view1->mask = MASK_TRANSPARENT | MASK_WIREFRAME | MASK_TEXT | MASK_SHADOW_RECEIVER;
     view1->viewDependentState = CustomViewDependentState1::create(view1.get());
     view1->viewDependentState->pre_depth_pass = view->viewDependentState;
     auto renderGraph1 = vsg::RenderGraph::create(window, view1);
