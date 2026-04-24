@@ -9,7 +9,7 @@ public:
     void init(vsg::ref_ptr<vsg::Device> device, VkExtent2D extent, VkSampleCountFlagBits samples, VkFormat depthFormat, VkImageUsageFlags depthImageUsage);
 
     // Create custom render pass (like createMRTRenderPass but with offscreen layout for attachment[0])
-    void buildRenderPass(vsg::ref_ptr<vsg::Device> device, VkFormat imageFormat, VkFormat depthFormat, bool requiresDepthRead);
+    void buildRenderPass(vsg::ref_ptr<vsg::Device> device, VkFormat imageFormat, VkFormat depthFormat);
 
     // Create framebuffer using the render pass and all image views
     void buildFramebuffer(VkExtent2D extent);
@@ -42,7 +42,7 @@ public:
     vsg::ref_ptr<vsg::Image> depthImage;
     vsg::ref_ptr<vsg::ImageView> depthImageView;
 
-    // Multisample depth (only when multisampling + requiresDepthRead)
+    // Multisample depth source (aliases depthImage on the multisampled path)
     vsg::ref_ptr<vsg::Image> multisampleDepthImage;
     vsg::ref_ptr<vsg::ImageView> multisampleDepthImageView;
 

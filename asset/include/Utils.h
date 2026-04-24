@@ -65,6 +65,9 @@ namespace Utils{
     inline void BuildClearCommandGraph(vsg::ref_ptr<vsg::CommandGraph> clear_image_commandgraph, VkExtent2D extent, vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget, VkSampleCountFlagBits msaaSamples){
         vsg::ref_ptr<vsg::ClearDepthStencilImage> clearDepth = vsg::ClearDepthStencilImage::create();
         vsg::ref_ptr<vsg::ClearDepthStencilImage> clearDepth1 = vsg::ClearDepthStencilImage::create();
+        bool hasSeparateMsaaDepth = msaaSamples != VK_SAMPLE_COUNT_1_BIT &&
+                                    offscreenTarget->multisampleDepthImage &&
+                                    offscreenTarget->multisampleDepthImage != offscreenTarget->depthImage;
 
         auto addBarrier = [&](VkPipelineStageFlags srcStage,
                               VkPipelineStageFlags dstStage,
@@ -90,11 +93,11 @@ namespace Utils{
         clearDepth1->depthStencil = {0.0f, 0};
         clearDepth1->ranges = {range};
         clearDepth1->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
+        if (hasSeparateMsaaDepth)
             clearDepth->image = offscreenTarget->multisampleDepthImage;
         clearDepth1->image = offscreenTarget->depthImage;
 
-        if (msaaSamples != VK_SAMPLE_COUNT_1_BIT)
+        if (hasSeparateMsaaDepth)
         {
             addBarrier(
                 VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
@@ -122,7 +125,7 @@ namespace Utils{
                 offscreenTarget->depthImage,
                 range));
 
-        if(msaaSamples != VK_SAMPLE_COUNT_1_BIT)
+        if (hasSeparateMsaaDepth)
             clear_image_commandgraph->addChild(clearDepth);
         clear_image_commandgraph->addChild(clearDepth1);
 
@@ -231,7 +234,7 @@ namespace Utils{
         clear_image_commandgraph->addChild(clearColor3);
         clear_image_commandgraph->addChild(clearColor4);
 
-        if (msaaSamples != VK_SAMPLE_COUNT_1_BIT)
+        if (hasSeparateMsaaDepth)
         {
             addBarrier(
                 VK_PIPELINE_STAGE_TRANSFER_BIT,

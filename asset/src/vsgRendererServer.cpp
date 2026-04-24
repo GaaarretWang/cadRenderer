@@ -223,8 +223,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     offscreenTarget = OffscreenRenderTarget::create();
     offscreenTarget->init(device, renderExtent, msaaSamples, window->depthFormat(), cadWindowTraits->depthImageUsage);
 
-    bool requiresDepthRead = (cadWindowTraits->depthImageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
-    offscreenTarget->buildRenderPass(device, window->surfaceFormat().format, window->depthFormat(), requiresDepthRead);
+    offscreenTarget->buildRenderPass(device, window->surfaceFormat().format, window->depthFormat());
     offscreenTarget->buildFramebuffer(renderExtent);
     VkExtent2D ssaoExtent = {
         std::max(1u, renderExtent.width / 2),
@@ -531,7 +530,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto depth_pyramid_CommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
     if (useResolvedDepthForOcclusion &&
         offscreenTarget->multisampleDepthImage &&
-        offscreenTarget->multisampleDepthImage != offscreenTarget->depthImage &&
         resolvedEffectDepthRenderGraph)
     {
         auto resolvedDepthInputsReady = vsg::CommandGraph::create(device, computeQueueFamily1);
@@ -707,7 +705,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     if (offscreenTarget->isMultisampled() &&
         offscreenTarget->multisampleDepthImage &&
-        offscreenTarget->multisampleDepthImage != offscreenTarget->depthImage &&
         resolvedEffectNormalRenderGraph &&
         resolvedEffectWorldPosRenderGraph &&
         resolvedEffectMaterialRenderGraph)

@@ -450,33 +450,10 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     depthImageView = vsg::ImageView::create(depthImage);
     depthImageView->compile(device);
 
-    // Multisample depth (when multisampling + requiresDepthRead)
-    bool requiresDepthRead = (depthImageUsage & VK_IMAGE_USAGE_TRANSFER_SRC_BIT) != 0;
-    if (multisampling && requiresDepthRead)
+    if (multisampling)
     {
         multisampleDepthImage = depthImage;
         multisampleDepthImageView = depthImageView;
-
-        // Create resolved depth buffer (single sample)
-        depthImage = vsg::Image::create();
-        depthImage->imageType = VK_IMAGE_TYPE_2D;
-        depthImage->extent.width = extent.width;
-        depthImage->extent.height = extent.height;
-        depthImage->extent.depth = 1;
-        depthImage->mipLevels = 1;
-        depthImage->arrayLayers = 1;
-        depthImage->format = depthFormat;
-        depthImage->tiling = VK_IMAGE_TILING_OPTIMAL;
-        depthImage->initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        depthImage->usage = depthImageUsage;
-        depthImage->samples = VK_SAMPLE_COUNT_1_BIT;
-        depthImage->sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-        depthImage->compile(device);
-        depthImage->allocateAndBindMemory(device);
-
-        depthImageView = vsg::ImageView::create(depthImage);
-        depthImageView->compile(device);
     }
 
     // Transition depth image layout
@@ -511,7 +488,7 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
                     0, msImageBarrier);
                 msPipelineBarrier->record(commandBuffer);
 
-                if (multisampleDepthImage)
+                if (multisampleDepthImage && multisampleDepthImage != depthImage)
                 {
                     auto msDepthBarrier = vsg::ImageMemoryBarrier::create(
                         0, VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
@@ -569,7 +546,7 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     }
 }
 
-void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, VkFormat imageFormat, VkFormat depthFormat, bool requiresDepthRead)
+void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, VkFormat imageFormat, VkFormat depthFormat)
 {
     (void)imageFormat;
     bool multisampling = _samples != VK_SAMPLE_COUNT_1_BIT;
@@ -609,9 +586,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         colorAttachmentShadowWrite.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
         // Framebuffer attachment order (matching buildFramebuffer):
-        // [0] resolve color, [1] depth (multisample), [2] gbuffer0,
-        // [3] gbuffer1, [4] gbuffer2, [5] shadowWrite, [6] material,
-        // [7] depth resolve (if requiresDepthRead)
+        // [0] resolve color, [1] depth, [2] gbuffer0,
+        // [3] gbuffer1, [4] gbuffer2, [5] shadowWrite, [6] material
         vsg::RenderPass::Attachments attachments{
             resolveAttachment,
             depthAttachment,
@@ -620,20 +596,6 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
             colorAttachmentWorldPos,
             colorAttachmentShadowWrite,
             colorAttachmentMaterial};
-
-        if (requiresDepthRead)
-        {
-            vsg::AttachmentDescription depthResolveAttachment = {};
-            depthResolveAttachment.format = depthFormat;
-            depthResolveAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-            depthResolveAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            depthResolveAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-            depthResolveAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-            depthResolveAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-            depthResolveAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            depthResolveAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-            attachments.push_back(depthResolveAttachment);
-        }
 
         // Attachment references
         vsg::AttachmentReference resolveAttachmentRef = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
@@ -658,14 +620,6 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         subpass.resolveAttachments.emplace_back(unusedResolveAttachmentRef);
         subpass.resolveAttachments.emplace_back(unusedResolveAttachmentRef);
         subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
-
-        if (requiresDepthRead)
-        {
-            vsg::AttachmentReference depthResolveAttachmentRef = {7, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL};
-            subpass.depthResolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
-            subpass.stencilResolveMode = VK_RESOLVE_MODE_NONE;
-            subpass.depthStencilResolveAttachments.emplace_back(depthResolveAttachmentRef);
-        }
 
         vsg::RenderPass::Subpasses subpasses{subpass};
 
@@ -712,10 +666,7 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         colorAttachmentShadowWrite.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
         auto depthAttachment = vsg::defaultDepthAttachment(depthFormat);
 
-        if (requiresDepthRead)
-        {
-            depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        }
+        depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 
         vsg::RenderPass::Attachments attachments{
             colorAttachmentColor,
@@ -785,27 +736,15 @@ void OffscreenRenderTarget::buildFramebuffer(VkExtent2D extent)
     if (_samples != VK_SAMPLE_COUNT_1_BIT)
     {
         // Multisampled path - must match render pass attachment order:
-        // [0] resolve color, [1] depth (multisample), [2] gbuffer0,
-        // [3] gbuffer1, [4] gbuffer2, [5] shadowWrite, [6] material,
-        // [7] depth resolve (single-sample, if requiresDepthRead)
+        // [0] resolve color, [1] depth, [2] gbuffer0,
+        // [3] gbuffer1, [4] gbuffer2, [5] shadowWrite, [6] material
         attachments.push_back(colorImageView);
-        if (multisampleDepthImageView)
-        {
-            attachments.push_back(multisampleDepthImageView);
-        }
-        else
-        {
-            attachments.push_back(depthImageView);
-        }
+        attachments.push_back(depthImageView);
         attachments.push_back(gbufferImageView0);
         attachments.push_back(gbufferImageView1);
         attachments.push_back(gbufferImageView2);
         attachments.push_back(shadowWriteImageView);
         attachments.push_back(materialImageView);
-        if (multisampleDepthImageView)
-        {
-            attachments.push_back(depthImageView);
-        }
     }
     else
     {
