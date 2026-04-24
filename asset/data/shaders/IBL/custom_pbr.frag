@@ -629,5 +629,8 @@ void main()
 
     outShadow = vec4(scene_brightness, InstanceID, (1 - gl_FragCoord.z), 1);
     outMaterial = vec4(baseColor.rgb, ambientOcclusion);
-    outMask = 1.0;
+
+    bool isMaskedOpaque = materialArray.materials[materialIndex].alphaMask == 1.0f;
+    bool isOpaqueSurface = isMaskedOpaque || baseColor.a >= 0.999f;
+    outMask = isOpaqueSurface ? 1.0 : 0.0;
 }
