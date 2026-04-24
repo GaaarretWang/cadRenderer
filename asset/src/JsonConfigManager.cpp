@@ -5,19 +5,6 @@
 #include <algorithm>
 #include <cctype>
 
-namespace
-{
-int normalizeDepthOcclusionFlag(int value)
-{
-    return value != 0 ? 1 : 0;
-}
-
-int normalizeShadowModeValue(int value)
-{
-    return value == CAMERA_DEPTH ? CAMERA_DEPTH : FULL_MODEL;
-}
-}
-
 JsonConfigManager::JsonConfigManager(std::string scenes_json_path, std::string materials_json_path, std::string lightinfo_json_path)
     : scenes_json_path_(std::move(scenes_json_path)),
       materials_json_path_(std::move(materials_json_path)),

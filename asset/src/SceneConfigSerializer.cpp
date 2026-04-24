@@ -151,7 +151,7 @@ int SceneConfigSerializer::normalizeDepthOcclusionFlag(int value)
 
 int SceneConfigSerializer::normalizeShadowModeValue(int value)
 {
-    return value == CAMERA_DEPTH ? CAMERA_DEPTH : FULL_MODEL;
+    return value == SHADOW_REAL_DEPTH ? SHADOW_REAL_DEPTH : SHADOW_RECEIVER_PLANE;
 }
 
 void SceneConfigSerializer::normalizeDepthCompletionParams(SceneRuntimeState::DepthCompletionParams& params)
