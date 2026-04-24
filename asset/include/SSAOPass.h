@@ -27,6 +27,7 @@ namespace SSAOPass{
                                       const vsg::ImageInfoList& cameraImageInfoList,
                                       const vsg::ImageInfoList& realDepthInfoList,
                                       vsg::ref_ptr<vsg::ImageView> sceneDepthView,
+                                      VkImageLayout sceneDepthLayout,
                                       vsg::BufferInfoList global_buffer_info_list,
                                       vsg::ref_ptr<vsg::Data> shadow_pc_data);
 

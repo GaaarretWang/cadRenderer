@@ -7,8 +7,15 @@ namespace OcclusionCullingPasses{
     vsg::ref_ptr<vsg::ImageView> depthPyramidImageView;
     vsg::ref_ptr<vsg::ImageInfo> depthPyramidImageInfo;
     vsg::ref_ptr<vsg::ImageInfo> framebuffer_depthImageInfo;
+    vsg::ref_ptr<vsg::Image> framebufferDepthSourceImage;
+    VkImageSubresourceRange framebufferDepthSourceRange{};
+    VkImageLayout framebufferDepthSourceLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-    void initOcclusionCullingPassesImageInfo(VkExtent2D extent, vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget){
+    void initOcclusionCullingPassesImageInfo(VkExtent2D extent,
+                                             vsg::ref_ptr<vsg::Image> depthSourceImage,
+                                             vsg::ref_ptr<vsg::ImageView> depthSourceView,
+                                             VkImageLayout depthSourceLayout,
+                                             VkImageSubresourceRange depthSourceRange){
         depthPyramidImage = vsg::Image::create();
         depthPyramidImage->imageType = VK_IMAGE_TYPE_2D;
         depthPyramidImage->format = VK_FORMAT_R32_SFLOAT; // Treat it as compatible with the depth data we need.
@@ -36,7 +43,10 @@ namespace OcclusionCullingPasses{
 
         depthPyramidImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, depthPyramidImageView, VK_IMAGE_LAYOUT_GENERAL);
 
-        framebuffer_depthImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, offscreenTarget->depthImageView);
+        framebufferDepthSourceImage = depthSourceImage;
+        framebufferDepthSourceRange = depthSourceRange;
+        framebufferDepthSourceLayout = depthSourceLayout;
+        framebuffer_depthImageInfo = vsg::ImageInfo::create(depth_pyramid_sampler, depthSourceView, depthSourceLayout);
     }
 
     CameraPlaneInfo camera_plane_info;
@@ -146,7 +156,7 @@ namespace OcclusionCullingPasses{
         depth_cull_command_graph1->addChild(Pass1CullToPass1Barrier);
     }
 
-    void buildDepthPyramid(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, vsg::ref_ptr<vsg::Options> options, VkExtent2D extent, vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget)
+    void buildDepthPyramid(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, vsg::ref_ptr<vsg::Options> options, VkExtent2D extent)
     {
         vsg::DescriptorSetLayoutBindings descriptorBindings{
             {0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1, VK_SHADER_STAGE_COMPUTE_BIT, nullptr}, 
@@ -170,18 +180,18 @@ namespace OcclusionCullingPasses{
             );
 
             auto depthToComputeBarrier = vsg::ImageMemoryBarrier::create(
-                VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,  
+                VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_SHADER_READ_BIT,
                 VK_ACCESS_SHADER_READ_BIT,   
-                VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,  
-                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                framebufferDepthSourceLayout,
+                VK_IMAGE_LAYOUT_GENERAL,
                 VK_QUEUE_FAMILY_IGNORED,
                 VK_QUEUE_FAMILY_IGNORED,
-                offscreenTarget->depthImage,
-                VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1}
+                framebufferDepthSourceImage,
+                framebufferDepthSourceRange
             );
 
             depth_pyramid_CommandGraph->addChild(vsg::PipelineBarrier::create(
-                VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                 VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
                 0, barrier, depthToComputeBarrier
             ));
@@ -198,7 +208,7 @@ namespace OcclusionCullingPasses{
                 pcData
             ));
 
-            auto storageImage = vsg::DescriptorImage::create(vsg::ImageInfoList{depthPyramidImageInfo, framebuffer_depthImageInfo}, 0);
+            auto storageImage = vsg::DescriptorImage::create(vsg::ImageInfoList{depthPyramidImageInfo, framebuffer_depthImageInfo}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
             auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{storageImage});
             auto bindDescriptorSet = vsg::BindDescriptorSet::create(VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, descriptorSet);
             depth_pyramid_CommandGraph->addChild(bindDescriptorSet);

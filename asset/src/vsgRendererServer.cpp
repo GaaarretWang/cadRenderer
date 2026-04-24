@@ -249,7 +249,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     if (offscreenTarget->isMultisampled())
     {
         resolvedEffectDepthTarget = ColorRenderTarget::create();
-        resolvedEffectDepthTarget->init(device, renderExtent, VK_FORMAT_R32G32B32A32_SFLOAT);
+        resolvedEffectDepthTarget->init(device, renderExtent, VK_FORMAT_R32_SFLOAT, 0, VK_IMAGE_LAYOUT_GENERAL);
         resolvedEffectNormalTarget = ColorRenderTarget::create();
         resolvedEffectNormalTarget->init(device, renderExtent, VK_FORMAT_R32G32B32A32_SFLOAT);
         resolvedEffectWorldPosTarget = ColorRenderTarget::create();
@@ -416,12 +416,18 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         finalColorTarget->colorImageView,
         VK_IMAGE_LAYOUT_GENERAL);
+    const bool useResolvedDepthForRealScene = resolvedEffectDepthTarget.valid();
+    const bool useResolvedDepthForOcclusion = resolvedEffectDepthTarget.valid();
+    auto realSceneDepthView = useResolvedDepthForRealScene ? resolvedEffectDepthTarget->colorImageView : offscreenTarget->depthImageView;
+    VkImageLayout realSceneDepthLayout = useResolvedDepthForRealScene ? VK_IMAGE_LAYOUT_GENERAL
+                                                                      : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
     SSAOPass::buildStandaloneRealSceneData(
         options,
         realSceneScene,
         frame_image_resources->cameraInfo(),
         frame_image_resources->depthInfo(),
-        offscreenTarget->depthImageView,
+        realSceneDepthView,
+        realSceneDepthLayout,
         global_buffer_info_list,
         vsg::ref_ptr<vsg::Data>(pc_data));
 
@@ -503,7 +509,13 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto realSceneRenderGraph = createStandaloneRenderGraph(realSceneTarget, realSceneScene, {0.0f, 0.0f, 0.0f, 0.0f}, view->viewDependentState);
     auto compositeRenderGraph = createStandaloneRenderGraph(finalColorTarget, compositeScene, {0.0f, 0.0f, 0.0f, 1.0f});
     
-    OcclusionCullingPasses::initOcclusionCullingPassesImageInfo(extent, offscreenTarget);
+    OcclusionCullingPasses::initOcclusionCullingPassesImageInfo(
+        extent,
+        useResolvedDepthForOcclusion ? resolvedEffectDepthTarget->colorImage : offscreenTarget->depthImage,
+        useResolvedDepthForOcclusion ? resolvedEffectDepthTarget->colorImageView : offscreenTarget->depthImageView,
+        useResolvedDepthForOcclusion ? VK_IMAGE_LAYOUT_GENERAL : VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+        useResolvedDepthForOcclusion ? VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
+                                     : VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1});
     OcclusionCullingPasses::generateCameraData(fx, fy, cx, cy, width, height, near_plane, far_plane, camera);
 
     auto clear_image_commandgraph = vsg::CommandGraph::create(device, computeQueueFamily);
@@ -517,6 +529,46 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     commandGraph->addChild(renderGraph);
 
     auto depth_pyramid_CommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
+    if (useResolvedDepthForOcclusion &&
+        offscreenTarget->multisampleDepthImage &&
+        offscreenTarget->multisampleDepthImage != offscreenTarget->depthImage &&
+        resolvedEffectDepthRenderGraph)
+    {
+        auto resolvedDepthInputsReady = vsg::CommandGraph::create(device, computeQueueFamily1);
+        auto depthReadBarrier = vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            offscreenTarget->multisampleDepthImage,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1});
+        resolvedDepthInputsReady->addChild(vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+            VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0,
+            depthReadBarrier));
+        commandGraph1->addChild(resolvedDepthInputsReady);
+        commandGraph1->addChild(resolvedEffectDepthRenderGraph);
+
+        auto resolvedDepthReadyForOcclusion = vsg::CommandGraph::create(device, computeQueueFamily1);
+        auto resolvedDepthBarrier = vsg::PipelineBarrier::create(
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+            0);
+        resolvedDepthBarrier->add(vsg::ImageMemoryBarrier::create(
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT,
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_IMAGE_LAYOUT_GENERAL,
+            VK_QUEUE_FAMILY_IGNORED,
+            VK_QUEUE_FAMILY_IGNORED,
+            resolvedEffectDepthTarget->colorImage,
+            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
+        resolvedDepthReadyForOcclusion->addChild(resolvedDepthBarrier);
+        commandGraph1->addChild(resolvedDepthReadyForOcclusion);
+    }
     commandGraph1->addChild(depth_pyramid_CommandGraph);
     commandGraph1->addChild(renderGraph1);
 
@@ -656,7 +708,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     if (offscreenTarget->isMultisampled() &&
         offscreenTarget->multisampleDepthImage &&
         offscreenTarget->multisampleDepthImage != offscreenTarget->depthImage &&
-        resolvedEffectDepthRenderGraph &&
         resolvedEffectNormalRenderGraph &&
         resolvedEffectWorldPosRenderGraph &&
         resolvedEffectMaterialRenderGraph)
@@ -677,7 +728,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             0,
             depthReadBarrier));
         commandGraph1->addChild(resolvedEffectInputsReady);
-        commandGraph1->addChild(resolvedEffectDepthRenderGraph);
         commandGraph1->addChild(resolvedEffectNormalRenderGraph);
         commandGraph1->addChild(resolvedEffectWorldPosRenderGraph);
         commandGraph1->addChild(resolvedEffectMaterialRenderGraph);
@@ -690,15 +740,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
             0);
-        resolvedEffectReadyBarrier->add(vsg::ImageMemoryBarrier::create(
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_ACCESS_SHADER_READ_BIT,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            VK_QUEUE_FAMILY_IGNORED,
-            VK_QUEUE_FAMILY_IGNORED,
-            resolvedEffectDepthTarget->colorImage,
-            VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}));
         resolvedEffectReadyBarrier->add(vsg::ImageMemoryBarrier::create(
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             VK_ACCESS_SHADER_READ_BIT,
@@ -756,6 +797,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     commandGraph1->addChild(deferredOpaqueRenderGraph);
 
+    if (!useResolvedDepthForRealScene)
     {
         auto realSceneDepthReadCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
         auto depthToReadOnly = vsg::ImageMemoryBarrier::create(
@@ -777,6 +819,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     commandGraph1->addChild(realSceneRenderGraph);
 
+    if (!useResolvedDepthForRealScene)
     {
         auto realSceneReadyCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
         auto realSceneReadyBarrier = vsg::PipelineBarrier::create(
@@ -852,7 +895,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     viewer->compile(); // Compile the command graphs into executable work.
 
     OcclusionCullingPasses::buildFirstComputePass(depth_cull_command_graph1, options);
-    OcclusionCullingPasses::buildDepthPyramid(depth_pyramid_CommandGraph, options, extent, offscreenTarget);
+    OcclusionCullingPasses::buildDepthPyramid(depth_pyramid_CommandGraph, options, extent);
     OcclusionCullingPasses::buildSecondComputePass(depth_pyramid_CommandGraph, options, extent);
 
     viewer->compile(); // Recompile after adding the compute passes.
