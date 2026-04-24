@@ -2,6 +2,7 @@
 setlocal
 
 set "BUILD_ONLY=0"
+if not defined RUN_SECONDS set "RUN_SECONDS=120"
 if /I "%~1"=="--build-only" set "BUILD_ONLY=1"
 
 set "ROOT=%~dp0"
@@ -53,9 +54,18 @@ if "%BUILD_ONLY%"=="1" (
     exit /b 0
 )
 
-echo [3/3] Running...
-pushd "%BUILD_DIR%"
-"%EXE_PATH%" -s 6
-popd
+echo [3/4] Running for %RUN_SECONDS% seconds...
+set "RENDER_PID="
+for /f %%P in ('powershell -NoProfile -Command "$p = Start-Process -FilePath '%EXE_PATH%' -ArgumentList '-s 6' -WorkingDirectory '%BUILD_DIR%' -PassThru; $p.Id"') do set "RENDER_PID=%%P"
+if not defined RENDER_PID (
+    echo ERROR: failed to start executable.
+    exit /b 1
+)
+powershell -NoProfile -Command "Start-Sleep -Seconds %RUN_SECONDS%"
+
+echo [4/4] Cleaning Rendering processes...
+powershell -NoProfile -Command "Stop-Process -Id %RENDER_PID% -Force -ErrorAction SilentlyContinue"
+powershell -NoProfile -Command "Get-Process Rendering -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue"
+echo Rendering.exe cleanup finished.
 
 exit /b 0
