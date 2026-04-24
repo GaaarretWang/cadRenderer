@@ -28,16 +28,18 @@ layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2DMS colorSamp
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2DMS normalSampler;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2DMS worldPosSampler;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2DMS materialSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2DMS maskSampler;
 #else
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2D colorSampler;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D normalSampler;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D worldPosSampler;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform sampler2D materialSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D maskSampler;
 #endif
-layout(set = MATERIAL_DESCRIPTOR_SET, binding = 4) uniform sampler2D ssaoSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 5) uniform sampler2D ssaoSampler;
 
 #define GLOBAL_BUFFER_SET MATERIAL_DESCRIPTOR_SET
-#define GLOBAL_BUFFER_BINDING 5
+#define GLOBAL_BUFFER_BINDING 6
 #pragma include "global_buffer.glsl"
 
 layout(location = 0) in vec2 inUV;
@@ -74,6 +76,7 @@ void main()
     vec4 worldPosData = texelFetch(worldPosSampler, coord, sampleIndex);
     vec4 materialData = texelFetch(materialSampler, coord, sampleIndex);
     vec4 colorData = texelFetch(colorSampler, coord, sampleIndex);
+    float maskValue = texelFetch(maskSampler, coord, sampleIndex).r;
 
     vec3 worldN = normalData.xyz;
     vec3 worldPos = worldPosData.xyz;
@@ -160,6 +163,6 @@ void main()
 
     vec3 mapped = Uncharted2Tonemap(color * scene_brightness * occlusion * globalBuffer.exposure);
     mapped *= vec3(1.0) / Uncharted2Tonemap(vec3(11.2));
-    float opaqueCoverage = colorData.a > 0.999 ? 1.0 : 0.0;
+    float opaqueCoverage = abs(maskValue - 1.0) < 0.5 ? 1.0 : 0.0;
     outColor = LINEARtoSRGB(vec4(mapped, opaqueCoverage));
 }

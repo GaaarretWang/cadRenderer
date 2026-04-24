@@ -413,6 +413,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
                                      (resolvedEffectWorldPosTarget ? resolvedEffectWorldPosTarget->colorImageView : offscreenTarget->gbufferImageView2),
         useMsaaDeferredOpaqueInputs ? offscreenTarget->materialImageView :
                                      (resolvedEffectMaterialTarget ? resolvedEffectMaterialTarget->colorImageView : offscreenTarget->materialImageView),
+        useMsaaDeferredOpaqueInputs ? offscreenTarget->maskImageView :
+                                     (resolvedEffectMaskTarget ? resolvedEffectMaskTarget->colorImageView : offscreenTarget->maskImageView),
         ssaoTarget->colorImageView,
         global_buffer_info_list,
         useMsaaDeferredOpaqueInputs,

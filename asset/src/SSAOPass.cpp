@@ -347,6 +347,7 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneDeferredOpaqueShaderSet(vsg::ref_pt
     auto shaderSet = vsg::ShaderSet::create(vsg::ShaderStages{vertexShader, fragmentShader});
     shaderSet->addAttributeBinding("vsg_Vertex", "", 0, VK_FORMAT_R32G32B32_SFLOAT, vsg::vec3Array::create(1));
     auto gbufferPlaceholder = vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32G32B32A32_SFLOAT});
+    auto maskPlaceholder = vsg::floatArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT});
     shaderSet->addDescriptorBinding("brdfLut", "", kCustomDescriptorSet, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{IBL::Constants::BrdfLUT::format}));
     shaderSet->addDescriptorBinding("irradiance", "", kCustomDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{IBL::Constants::IrradianceCube::format}));
     shaderSet->addDescriptorBinding("prefilter", "", kCustomDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array2D::create(1, 1, vsg::Data::Properties{IBL::Constants::PrefilteredEnvmapCube::format}));
@@ -355,8 +356,9 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneDeferredOpaqueShaderSet(vsg::ref_pt
     shaderSet->addDescriptorBinding("normalSampler", "", kMaterialDescriptorSet, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
     shaderSet->addDescriptorBinding("worldPosSampler", "", kMaterialDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
     shaderSet->addDescriptorBinding("materialSampler", "", kMaterialDescriptorSet, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
-    shaderSet->addDescriptorBinding("ssaoSampler", "", kMaterialDescriptorSet, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
-    shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 5, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
+    shaderSet->addDescriptorBinding("maskSampler", "", kMaterialDescriptorSet, 4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, maskPlaceholder);
+    shaderSet->addDescriptorBinding("ssaoSampler", "", kMaterialDescriptorSet, 5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, gbufferPlaceholder);
+    shaderSet->addDescriptorBinding("GlobalBuffer", "", kMaterialDescriptorSet, 6, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubyteArray::create(sizeof(GlobalConstantData)));
     shaderSet->addDescriptorBinding("lightData", "", kViewDescriptorSet, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array::create(64));
     shaderSet->addDescriptorBinding("viewportData", "", kViewDescriptorSet, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Value::create(0, 0, 1280, 1024));
     shaderSet->addDescriptorBinding("shadowMaps", "", kViewDescriptorSet, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
@@ -558,6 +560,7 @@ void SSAOPass::buildStandaloneDeferredOpaqueData(vsg::ref_ptr<vsg::Options> opti
                                                  vsg::ref_ptr<vsg::ImageView> normalView,
                                                  vsg::ref_ptr<vsg::ImageView> worldPosView,
                                                  vsg::ref_ptr<vsg::ImageView> materialView,
+                                                 vsg::ref_ptr<vsg::ImageView> maskView,
                                                  vsg::ref_ptr<vsg::ImageView> ssaoView,
                                                  vsg::BufferInfoList global_buffer_info_list,
                                                  bool useMsaaInputs,
@@ -577,6 +580,8 @@ void SSAOPass::buildStandaloneDeferredOpaqueData(vsg::ref_ptr<vsg::Options> opti
         vsg::ImageInfo::create(nearestSampler, worldPosView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
     vsg::ImageInfoList materialInfoList = {
         vsg::ImageInfo::create(nearestSampler, materialView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
+    vsg::ImageInfoList maskInfoList = {
+        vsg::ImageInfo::create(nearestSampler, maskView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
     vsg::ImageInfoList ssaoInfoList = {
         vsg::ImageInfo::create(linearSampler, ssaoView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)};
 
@@ -584,6 +589,7 @@ void SSAOPass::buildStandaloneDeferredOpaqueData(vsg::ref_ptr<vsg::Options> opti
     graphicsPipelineConfig->assignTexture("normalSampler", normalInfoList);
     graphicsPipelineConfig->assignTexture("worldPosSampler", worldPosInfoList);
     graphicsPipelineConfig->assignTexture("materialSampler", materialInfoList);
+    graphicsPipelineConfig->assignTexture("maskSampler", maskInfoList);
     graphicsPipelineConfig->assignTexture("ssaoSampler", ssaoInfoList);
     graphicsPipelineConfig->assignDescriptor("GlobalBuffer", global_buffer_info_list);
 
