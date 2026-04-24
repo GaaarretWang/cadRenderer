@@ -111,7 +111,7 @@ namespace OcclusionCullingPasses{
             VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
             0
         );
-        auto shaderPath = vsg::findFile("shaders/computevertex.comp", options->paths);
+        auto shaderPath = vsg::findFile("shaders/output/computevertex.comp", options->paths);
         auto computeShader = vsg::read_cast<vsg::ShaderStage>(shaderPath, options);
         auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
         auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
@@ -186,7 +186,7 @@ namespace OcclusionCullingPasses{
                 0, barrier, depthToComputeBarrier
             ));
 
-            auto shaderPath = vsg::findFile("shaders/computevertex_depthimage.comp", options->paths);
+            auto shaderPath = vsg::findFile("shaders/output/computevertex_depthimage.comp", options->paths);
             auto computeShader = vsg::read_cast<vsg::ShaderStage>(shaderPath, options);
             auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
             auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
@@ -224,7 +224,7 @@ namespace OcclusionCullingPasses{
 
         for(uint32_t i = 1; i < 10; i ++)
         {
-            auto shaderPath = vsg::findFile("shaders/computevertex_depthpyramid.comp", options->paths);
+            auto shaderPath = vsg::findFile("shaders/output/computevertex_depthpyramid.comp", options->paths);
             auto computeShader = vsg::read_cast<vsg::ShaderStage>(shaderPath, options);
             auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
             auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
@@ -323,15 +323,15 @@ namespace OcclusionCullingPasses{
             VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT,
             0
         );
-        auto shaderPath = vsg::findFile("shaders/computevertex1.comp", options->paths);
+        auto shaderPath = vsg::findFile("shaders/output/computevertex1.comp", options->paths);
         auto computeShader = vsg::read_cast<vsg::ShaderStage>(shaderPath, options);
         auto pipeline = vsg::ComputePipeline::create(pipelineLayout, computeShader);
         auto bindPipeline = vsg::BindComputePipeline::create(pipeline);
-        auto shaderPath_seat = vsg::findFile("shaders/computevertex1_seat.comp", options->paths);
+        auto shaderPath_seat = vsg::findFile("shaders/output/computevertex1_seat.comp", options->paths);
         auto computeShader_seat = vsg::read_cast<vsg::ShaderStage>(shaderPath_seat, options);
         auto pipeline_seat = vsg::ComputePipeline::create(pipelineLayout, computeShader_seat);
         auto bindPipeline_seat = vsg::BindComputePipeline::create(pipeline_seat);
-        auto shaderPath_transparent = vsg::findFile("shaders/computevertex1_transparent.comp", options->paths);
+        auto shaderPath_transparent = vsg::findFile("shaders/output/computevertex1_transparent.comp", options->paths);
         auto computeShader_transparent = vsg::read_cast<vsg::ShaderStage>(shaderPath_transparent, options);
         auto pipeline_transparent = vsg::ComputePipeline::create(pipelineLayout, computeShader_transparent);
         auto bindPipeline_transparent = vsg::BindComputePipeline::create(pipeline_transparent);

@@ -1,8 +1,9 @@
-﻿#ifndef VSGRENDERERSERVER_H
+#ifndef VSGRENDERERSERVER_H
 #define VSGRENDERERSERVER_H
 #pragma  once
 #include <iostream>
 #include <memory>
+#include <stdexcept>
 #include <unordered_set>
 #include <screenshot.h>
 #include <vsg/all.h>
@@ -18,6 +19,7 @@
 #include "SSAOPass.h"
 #include "OcclusionCullingPasses.h"
 #include "RenderState.h"
+#include "ShaderPreprocessor.h"
 
 #include "json.hpp"
 #include "OffscreenRenderTarget.h"
@@ -130,7 +132,7 @@ class vsgRendererServer
             VK_KHR_MULTIVIEW_EXTENSION_NAME,
             VK_KHR_MAINTENANCE2_EXTENSION_NAME,
             VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
-            VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME, 
+            VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
             VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
             VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
             VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
@@ -218,32 +220,69 @@ public:
 
     void setUpShader(){
         //-----------------------------------------Configure shaders--------------------------------//
+        auto shadersDir = vsg::findFile("shaders", options->paths);
+        if (shadersDir.empty())
+        {
+            throw std::runtime_error("Shader directory not found.");
+        }
+
+        ShaderPreprocessor preprocessor(shadersDir.string());
+        if (!preprocessor.processAll())
+        {
+            throw std::runtime_error("Shader preprocessing failed.");
+        }
+
         ConfigShader config_shader;
-        shadow_shader = config_shader.buildShadowShader(vsg::findFile("shaders/shadow.vert", options->paths).string(), vsg::findFile("shaders/shadow.frag", options->paths).string());
-        line_shader = config_shader.buildLineShader(vsg::findFile("shaders/line.vert", options->paths).string(), vsg::findFile("shaders/line.frag", options->paths).string());
-        point_shader = config_shader.buildLineShader(vsg::findFile("shaders/point.vert", options->paths).string(), vsg::findFile("shaders/point.frag", options->paths).string());
+        shadow_shader = config_shader.buildShadowShader(vsg::findFile("shaders/output/shadow.vert", options->paths).string(), vsg::findFile("shaders/output/shadow.frag", options->paths).string());
+        line_shader = config_shader.buildLineShader(vsg::findFile("shaders/output/line.vert", options->paths).string(), vsg::findFile("shaders/output/line.frag", options->paths).string());
+        point_shader = config_shader.buildLineShader(vsg::findFile("shaders/output/point.vert", options->paths).string(), vsg::findFile("shaders/output/point.frag", options->paths).string());
     }
 
-    void runIblViewerFrame()
+    bool runIblViewerFrame(const std::string& stage)
     {
         viewer_IBL->compile();
-        if (!viewer_IBL->advanceToNextFrame()) return;
+        if (!viewer_IBL->advanceToNextFrame())
+        {
+            vsg::error("IBL: viewer did not advance for ", stage);
+            return false;
+        }
 
         viewer_IBL->handleEvents();
         viewer_IBL->update();
         viewer_IBL->recordAndSubmit();
         viewer_IBL->present();
+        return true;
     }
 
     void rebuildBackgroundNodes()
     {
-        IBL::drawSkyboxVSGNode(drawSkyboxNode, render_width, render_height);
-        IBL::drawCameraDepthPrepassVSGNode(
+        auto skyboxNode = IBL::drawSkyboxVSGNode(drawSkyboxNode, render_width, render_height);
+        if (!skyboxNode)
+        {
+            throw std::runtime_error("Failed to rebuild skybox node.");
+        }
+
+        if (!frame_image_resources)
+        {
+            throw std::runtime_error("Frame image resources are not initialized.");
+        }
+
+        auto depthInfo = frame_image_resources->depthInfo();
+        if (depthInfo.empty())
+        {
+            throw std::runtime_error("Frame image depth info is empty.");
+        }
+
+        auto cameraDepthNode = IBL::drawCameraDepthPrepassVSGNode(
             drawCameraDepthPrepassNode,
             render_width,
             render_height,
-            frame_image_resources->depthInfo(),
+            depthInfo,
             camera_image_params);
+        if (!cameraDepthNode)
+        {
+            throw std::runtime_error("Failed to rebuild camera depth prepass node.");
+        }
     }
 
     void preprocessEnvMap(){
@@ -251,13 +290,19 @@ public:
         IBL::generateEnvmap(vsgContext, envmapFilepath, -1);
         IBL::generateIrradianceCube(vsgContext, -1);
         IBL::generatePrefilteredEnvmapCube(vsgContext, -1);
-        runIblViewerFrame();
+        if (!runIblViewerFrame("selected hdr " + std::to_string(hdr_image_num)))
+        {
+            throw std::runtime_error("IBL preprocessing failed for selected HDR.");
+        }
         for(int i = hdr_image_max_num; i > 0; i--){
             std::string envmapFilepath = vsg::findFile("textures/" + std::to_string(i) + ".hdr", options->paths).string();
             IBL::generateEnvmap(vsgContext, envmapFilepath, i);
             IBL::generateIrradianceCube(vsgContext, i);
             IBL::generatePrefilteredEnvmapCube(vsgContext, i);
-            runIblViewerFrame();
+            if (!runIblViewerFrame("hdr " + std::to_string(i)))
+            {
+                throw std::runtime_error("IBL preprocessing failed for HDR " + std::to_string(i) + ".");
+            }
         }
 
         rebuildBackgroundNodes();
@@ -324,7 +369,7 @@ public:
     vsg::ref_ptr<vsg::Options> options = vsg::Options::create();
 
     void initRenderer(std::string engine_path, std::vector<vsg::dmat4>& model_transforms, std::vector<std::string>& model_paths, std::vector<std::string>& instance_names, vsg::dmat4 plane_transform);
-    
+
     void setRealColorAndImage(unsigned char * real_color, unsigned short * real_depth){
         color_pixels = real_color;
         depth_pixels = real_depth;
@@ -348,7 +393,7 @@ public:
         pending_camera_matrix = view_matrix;
         camera_dirty = true;
     }
-    
+
     void updateObjectPose(std::string instance_name, vsg::dmat4 model_matrix){
         auto& matrix_index = CADMesh::id_to_matrix_index_map[instance_name];
 

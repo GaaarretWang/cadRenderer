@@ -100,7 +100,7 @@ void buildShadowPass1CullGraph(vsg::ref_ptr<vsg::Group> command_graph,
         0);
     command_graph->addChild(pre_barrier);
 
-    auto shader_path = vsg::findFile("shaders/computevertex_shadow_pass1.comp", options->paths);
+    auto shader_path = vsg::findFile("shaders/output/computevertex_shadow_pass1.comp", options->paths);
     auto compute_shader = vsg::read_cast<vsg::ShaderStage>(shader_path, options);
     auto pipeline = vsg::ComputePipeline::create(pipeline_layout, compute_shader);
     command_graph->addChild(vsg::BindComputePipeline::create(pipeline));
@@ -203,7 +203,7 @@ void buildShadowDepthPyramidGraph(vsg::ref_ptr<vsg::Group> command_graph,
         transition_shadow_depth));
 
     {
-        auto shader_path = vsg::findFile("shaders/computevertex_depthimage.comp", options->paths);
+        auto shader_path = vsg::findFile("shaders/output/computevertex_depthimage.comp", options->paths);
         auto compute_shader = vsg::read_cast<vsg::ShaderStage>(shader_path, options);
         auto pipeline = vsg::ComputePipeline::create(pipeline_layout, compute_shader);
         command_graph->addChild(vsg::BindComputePipeline::create(pipeline));
@@ -234,7 +234,7 @@ void buildShadowDepthPyramidGraph(vsg::ref_ptr<vsg::Group> command_graph,
 
     for (uint32_t mip_level = 1; mip_level < kShadowPyramidMipCount; ++mip_level)
     {
-        auto shader_path = vsg::findFile("shaders/computevertex_depthpyramid.comp", options->paths);
+        auto shader_path = vsg::findFile("shaders/output/computevertex_depthpyramid.comp", options->paths);
         auto compute_shader = vsg::read_cast<vsg::ShaderStage>(shader_path, options);
         auto pipeline = vsg::ComputePipeline::create(pipeline_layout, compute_shader);
         command_graph->addChild(vsg::BindComputePipeline::create(pipeline));
@@ -329,12 +329,12 @@ void buildShadowPass2CullGraph(vsg::ref_ptr<vsg::Group> command_graph,
         0);
     command_graph->addChild(pre_barrier);
 
-    auto shader_path = vsg::findFile("shaders/computevertex_shadow_pass2.comp", options->paths);
+    auto shader_path = vsg::findFile("shaders/output/computevertex_shadow_pass2.comp", options->paths);
     auto compute_shader = vsg::read_cast<vsg::ShaderStage>(shader_path, options);
     auto pipeline = vsg::ComputePipeline::create(pipeline_layout, compute_shader);
     auto bind_pipeline = vsg::BindComputePipeline::create(pipeline);
 
-    auto seat_shader_path = vsg::findFile("shaders/computevertex_shadow_pass2_seat.comp", options->paths);
+    auto seat_shader_path = vsg::findFile("shaders/output/computevertex_shadow_pass2_seat.comp", options->paths);
     auto compute_shader_seat = vsg::read_cast<vsg::ShaderStage>(seat_shader_path, options);
     auto pipeline_seat = vsg::ComputePipeline::create(pipeline_layout, compute_shader_seat);
     auto bind_pipeline_seat = vsg::BindComputePipeline::create(pipeline_seat);

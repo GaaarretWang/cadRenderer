@@ -1,33 +1,23 @@
 #version 450
 #extension GL_ARB_separate_shader_objects : enable
 
+// Resolved (non-MSAA) variant
+#define SSAO_RESOLVED
+
 #define MATERIAL_DESCRIPTOR_SET 2
 #define SSAO_WHOLE_KERNEL_SIZE 128
 
+#ifdef SSAO_RESOLVED
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2D normalSampler;
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2D worldPosSampler;
+#else
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 0) uniform sampler2DMS normalSampler;
+layout(set = MATERIAL_DESCRIPTOR_SET, binding = 1) uniform sampler2DMS worldPosSampler;
+#endif
 layout(set = MATERIAL_DESCRIPTOR_SET, binding = 2) uniform sampler2D samplerNoise;
-layout(std140, set = MATERIAL_DESCRIPTOR_SET, binding = 3) uniform GlobalBuffer {
-    mat4 last_view;
-    vec3 camera_pos;
-    float softness;
-    float baseBrightness;
-    float ssao_radius;
-    float exposure;
-    float softness_falloff;
-    float shadow_bias;
-    float z_far;
-    int width;
-    int height;
-    int ssao_kernel_size;
-    int denoise_size;
-    int blocker_sample_num;
-    int pcf_sample_num;
-    int shadow_type;
-    uint frame_num;
-    int enable_real_depth_occlusion;
-    int shadow_mode;
-} globalBuffer;
+#define GLOBAL_BUFFER_SET MATERIAL_DESCRIPTOR_SET
+#define GLOBAL_BUFFER_BINDING 3
+#pragma include "global_buffer.glsl"
 
 layout(push_constant) uniform PushConstants {
     mat4 projection;
@@ -171,7 +161,11 @@ const vec4 ssaoKernel[SSAO_WHOLE_KERNEL_SIZE] = vec4[](
 void main()
 {
     vec2 uv = inUV * 0.5 + 0.5;
+#ifdef SSAO_RESOLVED
     ivec2 inputSize = textureSize(normalSampler, 0);
+#else
+    ivec2 inputSize = textureSize(normalSampler);
+#endif
     ivec2 centerCoord = clamp(ivec2(uv * vec2(inputSize)), ivec2(0), inputSize - 1);
 
     vec3 worldPosition = texelFetch(worldPosSampler, centerCoord, 0).rgb;

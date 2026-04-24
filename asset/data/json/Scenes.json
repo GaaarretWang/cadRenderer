@@ -243,7 +243,7 @@
         },
         {
             "depth_completion_params": {
-                "color_sigma": 0.15,
+                "color_sigma": 0.15000000596046448,
                 "edge_threshold": 0.25,
                 "enable_real_depth_occlusion": 0,
                 "kernel_radius": 35,
@@ -289,7 +289,7 @@
                                 0.0,
                                 0.0,
                                 0.0013216500000000002,
-                                -0.2542339
+                                -0.523233893801117
                             ],
                             [
                                 0.0,
@@ -310,8 +310,8 @@
                 "hdr_image_num": 8,
                 "pcf_sample_num": 8,
                 "pcf_softness": 5.784999847412109,
-                "pcss_softness": 20.100000381469727,
-                "pcss_softness_falloff": 0.10899999737739563,
+                "pcss_softness": 0.0,
+                "pcss_softness_falloff": 0.0,
                 "shadow_bias": 0.0,
                 "shadow_type": 1,
                 "ssao_kernel_size": 64,
@@ -669,7 +669,7 @@
                     ]
                 }
             ],
-            "msaa": 1,
+            "msaa": 4,
             "name": "helicopter_engine",
             "render_params": {
                 "blocker_sample_num": 8,

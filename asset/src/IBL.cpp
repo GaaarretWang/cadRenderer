@@ -153,11 +153,11 @@ void createImage2D(vsg::Context& context, VkFormat format, VkImageUsageFlags usa
     imageView->image = image;
 }
 
-void createImageCube(vsg::Context& context, 
-    VkFormat format, 
-    VkImageUsageFlags usage, 
-    VkExtent2D extent, uint32_t numMips, 
-    ptr<vsg::Image>& image, 
+void createImageCube(vsg::Context& context,
+    VkFormat format,
+    VkImageUsageFlags usage,
+    VkExtent2D extent, uint32_t numMips,
+    ptr<vsg::Image>& image,
     ptr<vsg::ImageView>& imageView)
 {
     // Image
@@ -182,7 +182,7 @@ void createImageCube(vsg::Context& context,
     //imageView->subresourceRange.levelCount = numMips;
     //imageView->subresourceRange.layerCount = 6;
     //imageView->image = image;
-    
+
     // !! vsg::createImageView uses ImageView::create(image, aspect), so changing viewType after compile() has no effect.
     // Manually set ImageView::type before calling it.
 
@@ -202,7 +202,7 @@ void createImageCube(vsg::Context& context,
     imageView->subresourceRange = {};
     imageView->subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     imageView->subresourceRange.levelCount = numMips;
-    imageView->subresourceRange.layerCount = 6;    
+    imageView->subresourceRange.layerCount = 6;
     imageView->compile(device);
 }
 
@@ -430,12 +430,12 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
 
     // environment cubemap (only used by skybox and texture generations)
     {
-        createImageCube(*context, 
-            Constants::EnvmapCube::format, 
+        createImageCube(*context,
+            Constants::EnvmapCube::format,
             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, // DST for mipmap generation
             Constants::EnvmapCube::extent,
-            Constants::EnvmapCube::numMips, 
-            textures.envmapCube, 
+            Constants::EnvmapCube::numMips,
+            textures.envmapCube,
             textures.envmapCubeView
         );
         createSamplerCube(
@@ -444,9 +444,9 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
         );
 
         createImageInfo(
-            textures.envmapCubeView, 
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
-            textures.envmapCubeSmapler, 
+            textures.envmapCubeView,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            textures.envmapCubeSmapler,
             textures.envmapCubeInfo
         );
     }
@@ -455,12 +455,12 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
     for(int i = 1; i <= hdr_image_max_num; i++){
         {
             _ImageLine tempLine;
-            createImageCube(*context, 
-                Constants::EnvmapCube::format, 
+            createImageCube(*context,
+                Constants::EnvmapCube::format,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, // DST for mipmap generation
                 Constants::EnvmapCube::extent,
-                Constants::EnvmapCube::numMips, 
-                tempLine.cube, 
+                Constants::EnvmapCube::numMips,
+                tempLine.cube,
                 tempLine.cubeView
             );
             createSamplerCube(
@@ -469,9 +469,9 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
             );
 
             createImageInfo(
-                tempLine.cubeView, 
-                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
-                tempLine.cubeSmapler, 
+                tempLine.cubeView,
+                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                tempLine.cubeSmapler,
                 tempLine.cubeInfo
             );
 
@@ -480,12 +480,12 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
 
         {
             _ImageLine tempLine;
-            createImageCube(*context, 
-                Constants::IrradianceCube::format, 
+            createImageCube(*context,
+                Constants::IrradianceCube::format,
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-                Constants::IrradianceCube::extent, 
-                Constants::IrradianceCube::numMips, 
-                tempLine.cube, 
+                Constants::IrradianceCube::extent,
+                Constants::IrradianceCube::numMips,
+                tempLine.cube,
                 tempLine.cubeView
             );
             createSamplerCube(
@@ -493,9 +493,9 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
                 tempLine.cubeSmapler
             );
             createImageInfo(
-                tempLine.cubeView, 
+                tempLine.cubeView,
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                tempLine.cubeSmapler, 
+                tempLine.cubeSmapler,
                 tempLine.cubeInfo
             );
 
@@ -509,7 +509,7 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
                 VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
                 Constants::PrefilteredEnvmapCube::extent,
                 Constants::PrefilteredEnvmapCube::numMips,
-                tempLine.cube, 
+                tempLine.cube,
                 tempLine.cubeView
             );
             createSamplerCube(
@@ -517,9 +517,9 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
                 tempLine.cubeSmapler
             );
             createImageInfo(
-                tempLine.cubeView, 
+                tempLine.cubeView,
                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                tempLine.cubeSmapler, 
+                tempLine.cubeSmapler,
                 tempLine.cubeInfo
             );
 
@@ -529,30 +529,30 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
 
     // move brdf lut here
     {
-        createImage2D(*context, 
-            Constants::BrdfLUT::format, 
+        createImage2D(*context,
+            Constants::BrdfLUT::format,
             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-            Constants::BrdfLUT::extent, 
-            textures.brdfLut, 
+            Constants::BrdfLUT::extent,
+            textures.brdfLut,
             textures.brdfLutView);
-        createSampler(1, 
+        createSampler(1,
             textures.brdfLutSampler);
 
         createImageInfo(
-            textures.brdfLutView, 
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
-            textures.brdfLutSampler, 
+            textures.brdfLutView,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            textures.brdfLutSampler,
             textures.brdfLutInfo
         );
     }
     // irradiance cubemap
     {
-        createImageCube(*context, 
-            Constants::IrradianceCube::format, 
+        createImageCube(*context,
+            Constants::IrradianceCube::format,
             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT,
-            Constants::IrradianceCube::extent, 
-            Constants::IrradianceCube::numMips, 
-            textures.irradianceCube, 
+            Constants::IrradianceCube::extent,
+            Constants::IrradianceCube::numMips,
+            textures.irradianceCube,
             textures.irradianceCubeView
         );
         createSamplerCube(
@@ -560,13 +560,13 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
             textures.irradianceCubeSampler
         );
         createImageInfo(
-            textures.irradianceCubeView, 
+            textures.irradianceCubeView,
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-            textures.irradianceCubeSampler, 
+            textures.irradianceCubeSampler,
             textures.irradianceCubeInfo
         );
     }
-    
+
     {
         createImageCube(*context,
             Constants::PrefilteredEnvmapCube::format,
@@ -623,7 +623,7 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
         // {1.0f, 1.0f, 1.0}}
 
         //---------------------------------------------------
-        
+
         // Right
         {1.0f, -1.0f, -1.0f},
         {1.0f, -1.0f, 1.0f},
@@ -783,7 +783,7 @@ private:
     }
 
 public:
-   
+
     LoadHdrImageSTBI() :
         mpFilepath(""), mpData(nullptr), mpWidth(0), mpHeight(0), mpNumChannels(0){}
 
@@ -814,7 +814,7 @@ public:
         return vsg::ivec3(mpWidth, mpHeight, mpNumChannels);
     }
 
-    void freeImage() 
+    void freeImage()
     {
         if (mpData != nullptr)
         {
@@ -854,10 +854,10 @@ float *loadHdrFile(const std::string& filepath, int& width, int& height, int& ch
 void generateBRDFLUT(VsgContext &vsgContext)
 {
     // TODO: actually create shaders
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreenquad.vert", appData.options->paths);
-    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/genbrdflut.frag", appData.options->paths);
-    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/fullscreenquad.vert", appData.options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath, appData.options);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/genbrdflut.frag", appData.options->paths);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath, appData.options);
     if (!vertexShader || !fragmentShader)
     {
         std::cout << "Could not create fullscreenguad.vert genbrdflut.frag shaders." << std::endl;
@@ -963,10 +963,10 @@ void generateBRDFLUT(VsgContext &vsgContext)
 
 void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr)
 {
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreenquad.vert", appData.options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/equirect2cube.frag", appData.options->paths);
-    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
-    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/fullscreenquad.vert", appData.options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/equirect2cube.frag", appData.options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath, appData.options);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath, appData.options);
     if (!vertexShader || !fragmentShader)
     {
         std::cout << "Could not create fullscreenguad equirect2cude shaders." << std::endl;
@@ -1010,7 +1010,7 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
     auto pipelineLayout = vsg::PipelineLayout::create(vsg::DescriptorSetLayouts{descriptorSetLayout}, pushConstantRanges);
 
     const vsg::ShaderStages shaders{vertexShader, fragmentShader};
-    
+
     //vsg::VertexInputState::Bindings vertexBindingsDescriptions{
     //    VkVertexInputBindingDescription{0, sizeof(vsg::vec3), VK_VERTEX_INPUT_RATE_VERTEX}};
 
@@ -1071,7 +1071,7 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
         setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.testMap.at(hdr).cube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cubeAllMipSubresRange);
     }
     commandGraph->addChild(setCubeLayoutTransferDst);
-  
+
     //auto projMatValue = vsg::mat4Value::create(vsg::perspective((M_PI / 2.0), 1.0, 0.1, 512.0));
     //std::vector<ptr<vsg::mat4Value>> viewMatValues= {
     //    // POSITIVE_X
@@ -1162,7 +1162,7 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
         commandGraph->addChild(copyFBToCubeFace);
 
         // blit to higher mips
-        for(uint32_t targetMipLevel = 1; targetMipLevel < Constants::EnvmapCube::numMips; targetMipLevel++) 
+        for(uint32_t targetMipLevel = 1; targetMipLevel < Constants::EnvmapCube::numMips; targetMipLevel++)
         {
             int32_t mipDim = (int32_t) Constants::EnvmapCube::dim >> targetMipLevel;
             VkImageBlit blitRegion = {};
@@ -1173,7 +1173,7 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
             blitRegion.dstSubresource.layerCount = 1;
             blitRegion.dstSubresource.mipLevel = targetMipLevel;
             blitRegion.dstOffsets[1] = {mipDim, mipDim, 1};
-            
+
             auto blitFBToCubeFaceMip = vsg::BlitImage::create();
             blitFBToCubeFaceMip->regions = {blitRegion};
             blitFBToCubeFaceMip->srcImage = pFBImage;
@@ -1202,7 +1202,7 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
     }
     else{
         setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.testMap.at(hdr).cube, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, cubeAllMipSubresRange);
-    
+
     }
     commandGraph->addChild(setCubeLayoutShaderRead);
     gVkEvents.envmapCubeGeneratedBarrier = setCubeLayoutShaderRead->imageMemoryBarriers.at(0);
@@ -1211,12 +1211,12 @@ void generateEnvmap(VsgContext& vsgContext, std::string& envmapFilepath, int hdr
 
 void generateIrradianceCube(VsgContext& vsgContext, int hdr) // Generate the irradiance cube map.
 {
-    //auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreenquad.vert", appData.options->paths);
-    //auto fragShaderFilepath = vsg::findFile("shaders/IBL/irradianceCube.frag", appData.options->paths);
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skyboxCubegen.vert", appData.options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/irradiancecubeMesh.frag", appData.options->paths);
-    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
-    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+    //auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/fullscreenquad.vert", appData.options->paths);
+    //auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/irradianceCube.frag", appData.options->paths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/skyboxCubegen.vert", appData.options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/irradiancecubeMesh.frag", appData.options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath, appData.options);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath, appData.options);
     if (!vertexShader || !fragmentShader)
     {
         std::cout << "Could not create skyboxCubegen irradianceCubeMesh shaders." << std::endl;
@@ -1255,7 +1255,7 @@ void generateIrradianceCube(VsgContext& vsgContext, int hdr) // Generate the irr
         {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}};
     auto descriptorSetLayout = vsg::DescriptorSetLayout::create(descriptorSetLayoutBindings);
     // And actual Descriptor for cubemap texture
-    
+
     vsg::ref_ptr<vsg::DescriptorImage> envmapRectDescriptor;
     if(hdr==-1){
         envmapRectDescriptor = vsg::DescriptorImage::create(textures.envmapCubeInfo, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -1275,7 +1275,7 @@ void generateIrradianceCube(VsgContext& vsgContext, int hdr) // Generate the irr
 
     // create pipeline
     const vsg::ShaderStages shaders{vertexShader, fragmentShader};
-    
+
     vsg::VertexInputState::Bindings vertexBindingsDescriptions{
         VkVertexInputBindingDescription{0, sizeof(vsg::vec3), VK_VERTEX_INPUT_RATE_VERTEX}};
 
@@ -1303,7 +1303,7 @@ void generateIrradianceCube(VsgContext& vsgContext, int hdr) // Generate the irr
         blendState,
         depthState};
     auto pipeline = vsg::GraphicsPipeline::create(pipelineLayout.get(), shaders, pipelineStates, /*subpass=*/0);
-    
+
     auto setFBLayoutAttachment = createImageLayoutPipelineBarrier(pFBImage, VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     commandGraph->addChild(setFBLayoutAttachment);
 
@@ -1322,8 +1322,8 @@ void generateIrradianceCube(VsgContext& vsgContext, int hdr) // Generate the irr
         setCubeLayoutTransferDst = createImageLayoutPipelineBarrier(textures.irraMap.at(hdr).cube, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, subresourceRange);
     }
     commandGraph->addChild(setCubeLayoutTransferDst);
-    
-    //VkViewport viewport = {};    
+
+    //VkViewport viewport = {};
     //viewport.width = viewport.height = Constants::IrradianceCube::dim;
     //viewport.minDepth = 0.0f;
     //viewport.maxDepth = 1.0f;
@@ -1429,13 +1429,13 @@ void generateIrradianceCube(VsgContext& vsgContext, int hdr) // Generate the irr
 
     IBL::ptr<vsg::PipelineBarrier> setCubeLayoutShaderRead;
     if(hdr==-1){
-        setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.irradianceCube, 
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+        setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.irradianceCube,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         subresourceRange);
     }
     else{
-        setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.irraMap.at(hdr).cube, 
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+        setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.irraMap.at(hdr).cube,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         subresourceRange);
     }
     commandGraph->addChild(setCubeLayoutShaderRead);
@@ -1445,10 +1445,10 @@ void generateIrradianceCube(VsgContext& vsgContext, int hdr) // Generate the irr
 
 void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
 {
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skyboxCubegen.vert", appData.options->paths);
-    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/prefilterenvmapMesh.frag", appData.options->paths);
-    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/skyboxCubegen.vert", appData.options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath, appData.options);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/prefilterenvmapMesh.frag", appData.options->paths);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath, appData.options);
     if (!vertexShader || !fragmentShader)
     {
         std::cout << "Could not create skyboxCubegen prefilterenvmapMesh shaders." << std::endl;
@@ -1678,10 +1678,21 @@ ptr<StateGroup> drawSkyboxVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
     (void)width;
     (void)height;
 
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skybox.vert", appData.options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/skybox.frag", appData.options->paths);
-    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
-    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+    if (!root)
+    {
+        vsg::error("IBL: drawSkyboxVSGNode root is null");
+        return ptr<StateGroup>();
+    }
+    if (!appData.options)
+    {
+        vsg::error("IBL: drawSkyboxVSGNode options are null");
+        return ptr<StateGroup>();
+    }
+
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/skybox.vert", appData.options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/skybox.frag", appData.options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath, appData.options);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath, appData.options);
     if (!vertexShader || !fragmentShader)
     {
         std::cout << "Could not create skybox shaders." << std::endl;
@@ -1691,6 +1702,21 @@ ptr<StateGroup> drawSkyboxVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
     auto shaderCompileSettings = ShaderCompileSettings::create();
     auto shaderStages = ShaderStages{vertexShader, fragmentShader};
     auto tonemapParams = tonemap_params_override ? tonemap_params_override : vsg::ref_ptr<vsg::Data>(vsg::Value<IBL::DynamicSkyboxParams>::create(IBL::DynamicSkyboxParams{}));
+    if (!tonemapParams)
+    {
+        vsg::error("IBL: skybox tonemap params are null");
+        return ptr<StateGroup>();
+    }
+    if (!textures.envmapCubeInfo)
+    {
+        vsg::error("IBL: skybox envmapCubeInfo is null");
+        return ptr<StateGroup>();
+    }
+    if (!gSkyboxCube.vertices || !gSkyboxCube.indices)
+    {
+        vsg::error("IBL: skybox geometry is null");
+        return ptr<StateGroup>();
+    }
 
     auto shaderSet = ShaderSet::create(shaderStages, shaderCompileSettings);
     shaderSet->addAttributeBinding("inPos", "", 0, VK_FORMAT_R32G32B32_SFLOAT, gSkyboxCube.vertices);
@@ -1733,10 +1759,10 @@ ptr<StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root
     (void)width;
     (void)height;
 
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skybox.vert", appData.options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/camera_depth_prepass.frag", appData.options->paths);
-    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
-    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/skybox.vert", appData.options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/camera_depth_prepass.frag", appData.options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath, appData.options);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath, appData.options);
     if (!vertexShader || !fragmentShader)
     {
         std::cout << "Could not create camera depth prepass shaders." << std::endl;
@@ -1790,7 +1816,7 @@ ptr<StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root
     return root;
 }
 
-struct IBLDescriptorSetBinding : vsg::Inherit<CustomDescriptorSetBinding, IBLDescriptorSetBinding> 
+struct IBLDescriptorSetBinding : vsg::Inherit<CustomDescriptorSetBinding, IBLDescriptorSetBinding>
 {
     uint32_t set;
     ptr<DescriptorSet> descriptorSet;
@@ -1876,10 +1902,10 @@ vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options>
 {
     vsg::info("Local pbr_ShaderSet(", options, ")");
 
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/standard.vert", options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/custom_pbr.frag", options->paths);
-    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
-    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/standard.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/custom_pbr.frag", options->paths);
+    auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath, options);
+    auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath, options);
 
     if (!vertexShader || !fragmentShader)
     {
@@ -1940,7 +1966,7 @@ vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options>
     shaderSet->definesArrayStates.push_back(vsg::DefinesArrayState{{"VSG_BILLBOARD"}, vsg::BillboardArrayState::create()});
 
     shaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(VIEW_DESCRIPTOR_SET));
-    
+
     auto colorBlendState = vsg::ColorBlendState::create();
     colorBlendState->attachments[0] = {
         VK_TRUE,                                      // Enable blending
@@ -1993,7 +2019,7 @@ vsg::ref_ptr<vsg::Node> createTestScene(vsg::ref_ptr<vsg::Options> options, bool
             pbrMaterial.roughnessFactor = row * 0.1f;
             pbrMaterial.metallicFactor = col * 0.1f;
 
-            
+
             builder->shaderSet = shaderSet;
             //geomInfo.cullNode = insertCullNode;
             //if (textureFile) stateInfo.image = vsg::read_cast<vsg::Data>(textureFile, options);
@@ -2045,7 +2071,7 @@ ptr<Node> iblDemoSceneGraph(VsgContext& context)
     //auto pplLayout = shaderSet->createPipelineLayout({}, {0, 2});
     //auto stateGroup = vsg::StateGroup::create();
     //stateGroup->add(IBLDescriptorSetBinding::create(VK_PIPELINE_BIND_POINT_GRAPHICS, pplLayout, iblDescriptorSet));
-    
+
     //auto sharedObjectsFromSceneBuilder = SharedObjects::create();
     options->shaderSets["pbribl"] = shaderSet;
     //options->inheritedState = stateGroup->stateCommands;
@@ -2057,7 +2083,7 @@ ptr<Node> iblDemoSceneGraph(VsgContext& context)
 
 void updateHDRTextures(vsg::ref_ptr<vsg::Commands>& command, int hdr)
 {
-    
+
     // CommandGraph to hold the different RenderGraphs used to render each view
     // auto commandGraph = vsg::CommandGraph::create(vsgContext.device, vsgContext.queueFamily);
 
@@ -2102,7 +2128,7 @@ void updateHDRTextures(vsg::ref_ptr<vsg::Commands>& command, int hdr)
             command->addChild(copyFBToCubeFace);
 
             // blit to higher mips
-            for(uint32_t targetMipLevel = 1; targetMipLevel < Constants::EnvmapCube::numMips; targetMipLevel++) 
+            for(uint32_t targetMipLevel = 1; targetMipLevel < Constants::EnvmapCube::numMips; targetMipLevel++)
             {
                 int32_t mipDim = (int32_t) Constants::EnvmapCube::dim >> targetMipLevel;
                 VkImageBlit blitRegion = {};
@@ -2116,7 +2142,7 @@ void updateHDRTextures(vsg::ref_ptr<vsg::Commands>& command, int hdr)
                 blitRegion.dstSubresource.layerCount = 1;
                 blitRegion.dstSubresource.mipLevel = targetMipLevel;
                 blitRegion.dstOffsets[1] = {mipDim, mipDim, 1};
-                
+
                 auto blitFBToCubeFaceMip = vsg::BlitImage::create();
                 blitFBToCubeFaceMip->regions = {blitRegion};
                 blitFBToCubeFaceMip->srcImage = textures.testMap.at(hdr).cube;
@@ -2127,13 +2153,13 @@ void updateHDRTextures(vsg::ref_ptr<vsg::Commands>& command, int hdr)
             }
         }
         auto setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(
-            textures.envmapCube, 
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+            textures.envmapCube,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             cubeAllMipSubresRange);
         command->addChild(setCubeLayoutShaderRead);
     }
-    
+
     {
         VkImageSubresourceRange subresourceRange = {};
         subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -2170,12 +2196,12 @@ void updateHDRTextures(vsg::ref_ptr<vsg::Commands>& command, int hdr)
                 command->addChild(copyFBToCubeMap);
             }
         }
-        auto setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.irraMap.at(hdr).cube, 
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
+        auto setCubeLayoutShaderRead = createImageLayoutPipelineBarrier(textures.irraMap.at(hdr).cube,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
             subresourceRange);
         command->addChild(setCubeLayoutShaderRead);
     }
-    
+
     {
         VkImageSubresourceRange subresourceRange = {};
         subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;

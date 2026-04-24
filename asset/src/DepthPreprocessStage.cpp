@@ -48,7 +48,7 @@ void DepthPreprocessStage::build(vsg::ref_ptr<vsg::CommandGraph> command_graph,
         vsg::DescriptorSetLayouts{descriptor_set_layout},
         vsg::PushConstantRanges{{VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PushConstants)}});
 
-    auto shader_path = vsg::findFile("shaders/depth_preprocess.comp", options->paths);
+    auto shader_path = vsg::findFile("shaders/output/depth_preprocess.comp", options->paths);
     auto compute_shader = vsg::read_cast<vsg::ShaderStage>(shader_path, options);
     auto pipeline = vsg::ComputePipeline::create(pipeline_layout, compute_shader);
     command_graph->addChild(vsg::BindComputePipeline::create(pipeline));

@@ -135,9 +135,9 @@ struct DeferredIblDescriptorSetBinding : vsg::Inherit<vsg::CustomDescriptorSetBi
 vsg::ref_ptr<vsg::ShaderSet> createStandaloneSSAOShaderSet(vsg::ref_ptr<const vsg::Options> options,
                                                            bool useResolvedInputs)
 {
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/fullscreen_quad.vert", options->paths);
     auto fragShaderFilepath = vsg::findFile(
-        useResolvedInputs ? "shaders/IBL/ssao_standalone_resolved.frag" : "shaders/IBL/ssao_standalone.frag",
+        useResolvedInputs ? "shaders/output/IBL/ssao_standalone_resolved.frag" : "shaders/output/IBL/ssao_standalone.frag",
         options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
@@ -170,9 +170,9 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneSSAOShaderSet(vsg::ref_ptr<const vs
 vsg::ref_ptr<vsg::ShaderSet> createStandaloneSSAOCompositeShaderSet(vsg::ref_ptr<const vsg::Options> options,
                                                                     bool useMsaaColorInput)
 {
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/fullscreen_quad.vert", options->paths);
     auto fragShaderFilepath = vsg::findFile(
-        useMsaaColorInput ? "shaders/IBL/ssao_composite_msaa.frag" : "shaders/IBL/ssao_composite.frag",
+        useMsaaColorInput ? "shaders/output/IBL/ssao_composite_msaa.frag" : "shaders/output/IBL/ssao_composite.frag",
         options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
@@ -202,8 +202,8 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneSSAOCompositeShaderSet(vsg::ref_ptr
 
 vsg::ref_ptr<vsg::ShaderSet> createStandaloneRealSceneShaderSet(vsg::ref_ptr<const vsg::Options> options)
 {
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/real_scene_standalone.frag", options->paths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/real_scene_standalone.frag", options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
 
@@ -230,8 +230,8 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneRealSceneShaderSet(vsg::ref_ptr<con
 
 vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedDepthShaderSet(vsg::ref_ptr<const vsg::Options> options)
 {
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/gbuffer_resolve_depth.frag", options->paths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/gbuffer_resolve_depth.frag", options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
 
@@ -249,8 +249,8 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedDepthShaderSet(vsg::ref_ptr
 
 vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedNormalShaderSet(vsg::ref_ptr<const vsg::Options> options)
 {
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/gbuffer_resolve_normal.frag", options->paths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/gbuffer_resolve_normal.frag", options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
 
@@ -269,8 +269,8 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedNormalShaderSet(vsg::ref_pt
 
 vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedWorldPosShaderSet(vsg::ref_ptr<const vsg::Options> options)
 {
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/gbuffer_resolve_world_pos.frag", options->paths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/gbuffer_resolve_world_pos.frag", options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
 
@@ -289,8 +289,8 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedWorldPosShaderSet(vsg::ref_
 
 vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedMaterialShaderSet(vsg::ref_ptr<const vsg::Options> options)
 {
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/gbuffer_resolve_material.frag", options->paths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/gbuffer_resolve_material.frag", options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
 
@@ -310,9 +310,9 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneResolvedMaterialShaderSet(vsg::ref_
 vsg::ref_ptr<vsg::ShaderSet> createStandaloneDeferredOpaqueShaderSet(vsg::ref_ptr<const vsg::Options> options,
                                                                      bool useMsaaInputs)
 {
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/fullscreen_quad.vert", options->paths);
     auto fragShaderFilepath = vsg::findFile(
-        useMsaaInputs ? "shaders/IBL/deferred_opaque_standalone_msaa.frag" : "shaders/IBL/deferred_opaque_standalone.frag",
+        useMsaaInputs ? "shaders/output/IBL/deferred_opaque_standalone_msaa.frag" : "shaders/output/IBL/deferred_opaque_standalone.frag",
         options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
@@ -347,8 +347,8 @@ vsg::ref_ptr<vsg::ShaderSet> createStandaloneDeferredOpaqueShaderSet(vsg::ref_pt
 
 vsg::ref_ptr<vsg::ShaderSet> createStandaloneDeferredCompositeShaderSet(vsg::ref_ptr<const vsg::Options> options)
 {
-    auto vertexShaderFilepath = vsg::findFile("shaders/IBL/fullscreen_quad.vert", options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/IBL/deferred_composite.frag", options->paths);
+    auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/fullscreen_quad.vert", options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/deferred_composite.frag", options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
 
