@@ -26,7 +26,7 @@ void main()
     vec4 colorData = texelFetch(colorSampler, colorCoord, 0);
     vec4 realSceneData = texture(realSceneSampler, uv);
     float maskValue = texture(maskSampler, uv).r;
-    bool isShadowReceiver = maskValue > 1.5 || colorData.a < 0.0;
+    bool isShadowReceiver = maskValue > 1.5;
 
     ivec2 ssaoSize = textureSize(ssaoSampler, 0);
     vec4 centerSSAO = texture(ssaoSampler, uv);

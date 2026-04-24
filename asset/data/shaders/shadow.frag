@@ -209,7 +209,7 @@ void main()
         scene_brightness = clamp(scene_brightness, 0.0, 1.0);
     }
 
-    outColor = vec4(texture(cameraImage, screen_uv).rgb * scene_brightness, -1.0);
+    outColor = vec4(texture(cameraImage, screen_uv).rgb * scene_brightness, 1.0);
     outNormal = vec4(0.0, 0.0, 0.0, 1.0);
     outWorldPos = vec4(0.0, 0.0, 0.0, 1.0);
     outShadow = vec4(scene_brightness, InstanceID, gl_FragCoord.z, 1);

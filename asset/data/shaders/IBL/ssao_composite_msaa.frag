@@ -47,7 +47,7 @@ vec3 compositeSample(vec4 colorData, vec4 realSceneData, float maskValue, bool p
         return realSceneData.rgb;
     }
 
-    if (maskValue > 1.5 || colorData.a < 0.0)
+    if (maskValue > 1.5)
     {
         return colorData.rgb * occlusion;
     }
