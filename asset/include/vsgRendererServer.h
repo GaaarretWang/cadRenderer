@@ -281,6 +281,7 @@ public:
             drawCameraBaseNode,
             render_width,
             render_height,
+            frame_image_resources->cameraInfo(),
             depthInfo,
             camera_image_params);
         if (!cameraBaseNode)

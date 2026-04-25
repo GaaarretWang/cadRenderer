@@ -1753,6 +1753,7 @@ ptr<StateGroup> drawSkyboxVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
 ptr<StateGroup> drawCameraBaseVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
                                       int width,
                                       int height,
+                                      vsg::ImageInfoList camera_image_data,
                                       vsg::ImageInfoList depth_data,
                                       vsg::ref_ptr<vsg::Data> tonemap_params_override)
 {
@@ -1775,6 +1776,7 @@ ptr<StateGroup> drawCameraBaseVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
 
     auto shaderSet = ShaderSet::create(shaderStages, shaderCompileSettings);
     shaderSet->addAttributeBinding("inPos", "", 0, VK_FORMAT_R32G32B32_SFLOAT, gSkyboxCube.vertices);
+    shaderSet->addDescriptorBinding("cameraImage", "", 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec3Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8_UNORM}));
     shaderSet->addDescriptorBinding("tonemapParams", "", 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, tonemapParams);
     shaderSet->addDescriptorBinding("depthImage", "", 0, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ushortArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
     shaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
@@ -1800,6 +1802,7 @@ ptr<StateGroup> drawCameraBaseVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
     pplcfg->pipelineStates.push_back(depthState);
 
     pplcfg->assignArray(pipelineInputs, "inPos", VK_VERTEX_INPUT_RATE_VERTEX, gSkyboxCube.vertices);
+    pplcfg->assignTexture("cameraImage", camera_image_data);
     pplcfg->assignDescriptor("tonemapParams", tonemapParams);
     pplcfg->assignTexture("depthImage", depth_data);
     pplcfg->init();
@@ -1822,10 +1825,18 @@ ptr<StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root
                                               vsg::ImageInfoList depth_data,
                                               vsg::ref_ptr<vsg::Data> tonemap_params_override)
 {
+    auto placeholderCamera = vsg::ubvec3Array2D::create(1, 1);
+    placeholderCamera->properties.format = VK_FORMAT_R8G8B8_UNORM;
+    auto placeholderSampler = vsg::Sampler::create();
+    placeholderSampler->magFilter = VK_FILTER_NEAREST;
+    placeholderSampler->minFilter = VK_FILTER_NEAREST;
+    vsg::ImageInfoList cameraImageInfo = {vsg::ImageInfo::create(placeholderSampler, placeholderCamera)};
+
     return drawCameraBaseVSGNode(
         root,
         width,
         height,
+        std::move(cameraImageInfo),
         std::move(depth_data),
         std::move(tonemap_params_override));
 }
