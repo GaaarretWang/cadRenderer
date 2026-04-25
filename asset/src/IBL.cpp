@@ -1750,22 +1750,22 @@ ptr<StateGroup> drawSkyboxVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
     return root;
 }
 
-ptr<StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
-                                              int width,
-                                              int height,
-                                              vsg::ImageInfoList depth_data,
-                                              vsg::ref_ptr<vsg::Data> tonemap_params_override)
+ptr<StateGroup> drawCameraBaseVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
+                                      int width,
+                                      int height,
+                                      vsg::ImageInfoList depth_data,
+                                      vsg::ref_ptr<vsg::Data> tonemap_params_override)
 {
     (void)width;
     (void)height;
 
     auto vertexShaderFilepath = vsg::findFile("shaders/output/IBL/skybox.vert", appData.options->paths);
-    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/camera_depth_prepass.frag", appData.options->paths);
+    auto fragShaderFilepath = vsg::findFile("shaders/output/IBL/camera_base_prepass.frag", appData.options->paths);
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath, appData.options);
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath, appData.options);
     if (!vertexShader || !fragmentShader)
     {
-        std::cout << "Could not create camera depth prepass shaders." << std::endl;
+        std::cout << "Could not create camera base prepass shaders." << std::endl;
         return ptr<StateGroup>();
     }
 
@@ -1816,13 +1816,13 @@ ptr<StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root
     return root;
 }
 
-ptr<StateGroup> drawCameraBaseVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
-                                      int width,
-                                      int height,
-                                      vsg::ImageInfoList depth_data,
-                                      vsg::ref_ptr<vsg::Data> tonemap_params_override)
+ptr<StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
+                                              int width,
+                                              int height,
+                                              vsg::ImageInfoList depth_data,
+                                              vsg::ref_ptr<vsg::Data> tonemap_params_override)
 {
-    return drawCameraDepthPrepassVSGNode(
+    return drawCameraBaseVSGNode(
         root,
         width,
         height,
