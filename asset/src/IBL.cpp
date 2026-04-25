@@ -1829,29 +1829,6 @@ ptr<StateGroup> drawCameraBaseVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
     return root;
 }
 
-ptr<StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
-                                              int width,
-                                              int height,
-                                              vsg::ImageInfoList depth_data,
-                                              vsg::ref_ptr<vsg::Data> tonemap_params_override)
-{
-    auto placeholderCamera = vsg::ubvec3Array2D::create(1, 1);
-    placeholderCamera->properties.format = VK_FORMAT_R8G8B8_UNORM;
-    auto placeholderSampler = vsg::Sampler::create();
-    placeholderSampler->magFilter = VK_FILTER_NEAREST;
-    placeholderSampler->minFilter = VK_FILTER_NEAREST;
-    vsg::ImageInfoList cameraImageInfo = {vsg::ImageInfo::create(placeholderSampler, placeholderCamera)};
-
-    return drawCameraBaseVSGNode(
-        root,
-        width,
-        height,
-        std::move(cameraImageInfo),
-        std::move(depth_data),
-        std::move(tonemap_params_override),
-        false);
-}
-
 struct IBLDescriptorSetBinding : vsg::Inherit<CustomDescriptorSetBinding, IBLDescriptorSetBinding>
 {
     uint32_t set;

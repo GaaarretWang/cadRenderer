@@ -131,12 +131,6 @@ namespace IBL
                                                vsg::ref_ptr<vsg::Data> tonemap_params_override = {},
                                                bool write_color = false);
 
-    ptr<vsg::StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
-                                                       int width,
-                                                       int height,
-                                                       vsg::ImageInfoList depth_data,
-                                                       vsg::ref_ptr<vsg::Data> tonemap_params_override = {});
-
     vsg::ref_ptr<vsg::ShaderSet> customPbrShaderSet(vsg::ref_ptr<const vsg::Options> options);
 
     ptr<vsg::Node> iblDemoSceneGraph(VsgContext& context);
