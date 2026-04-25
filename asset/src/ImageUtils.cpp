@@ -1,9 +1,59 @@
 #include "ImageUtils.h"
 #include <vsgXchange/images.h>
 #include <stb_image.h>
+#include <cstring>
 #include <filesystem>
 #include <cmath>
 #include <iostream>
+
+namespace {
+
+ImageUtils::CompareResult comparePixelBuffers(const uint8_t* pixels1,
+                                             const uint8_t* pixels2,
+                                             int width,
+                                             int height,
+                                             int channels,
+                                             int tolerance) {
+    ImageUtils::CompareResult result;
+
+    if (!pixels1 || !pixels2) {
+        result.message = "Null pixel buffer";
+        return result;
+    }
+
+    if (width <= 0 || height <= 0 || channels <= 0) {
+        result.message = "Invalid image dimensions";
+        return result;
+    }
+
+    result.total_pixels = width * height;
+    result.diff_pixels = 0;
+
+    for (int i = 0; i < result.total_pixels; ++i) {
+        const int offset = i * channels;
+        bool pixel_diff = false;
+        for (int c = 0; c < channels; ++c) {
+            const int diff = std::abs(static_cast<int>(pixels1[offset + c]) - static_cast<int>(pixels2[offset + c]));
+            if (diff > tolerance) {
+                pixel_diff = true;
+                break;
+            }
+        }
+        if (pixel_diff) {
+            ++result.diff_pixels;
+        }
+    }
+
+    result.diff_ratio = result.total_pixels > 0 ?
+        static_cast<double>(result.diff_pixels) / static_cast<double>(result.total_pixels) : 0.0;
+    result.valid = true;
+    result.message = "Diff: " + std::to_string(result.diff_pixels) + "/" +
+        std::to_string(result.total_pixels) + " pixels (" +
+        std::to_string(result.diff_ratio * 100.0) + "%)";
+    return result;
+}
+
+} // namespace
 
 // Save vsg::Data as a PNG file.
 bool ImageUtils::savePNG(const std::string& filepath, vsg::ref_ptr<vsg::Data> data) {
@@ -68,6 +118,7 @@ bool ImageUtils::savePNG(const std::string& filepath,
 
 // Load a PNG file into vsg::Data.
 vsg::ref_ptr<vsg::Data> ImageUtils::loadPNG(const std::string& filepath, int desired_channels) {
+    (void)desired_channels;
     auto options = vsg::Options::create(vsgXchange::images::create());
     auto data = vsg::read_cast<vsg::Data>(filepath, options);
 
@@ -108,33 +159,21 @@ ImageUtils::CompareResult ImageUtils::comparePNG(const std::string& file1,
         return result;
     }
 
-    result.total_pixels = w1 * h1;
-    result.diff_pixels = 0;
-
-    // Fetch the pixel-data pointers.
-    const uint8_t* pixels1 = static_cast<const uint8_t*>(data1->dataPointer());
-    const uint8_t* pixels2 = static_cast<const uint8_t*>(data2->dataPointer());
-
-    // Compare pixels one by one.
-    for (int i = 0; i < result.total_pixels; i++) {
-        int offset = i * 4;
-        bool pixel_diff = false;
-        for (int c = 0; c < 4; c++) {
-            int diff = std::abs((int)pixels1[offset + c] - (int)pixels2[offset + c]);
-            if (diff > tolerance) {
-                pixel_diff = true;
-                break;
-            }
-        }
-        if (pixel_diff) result.diff_pixels++;
+    const int channels1 = static_cast<int>(data1->valueSize());
+    const int channels2 = static_cast<int>(data2->valueSize());
+    if (channels1 != channels2) {
+        result.message = "Image channel mismatch: " +
+            std::to_string(channels1) + " vs " + std::to_string(channels2);
+        return result;
     }
 
-    result.diff_ratio = (double)result.diff_pixels / result.total_pixels;
-    result.valid = true;
-    result.message = "Diff: " + std::to_string(result.diff_pixels) + "/" +
-        std::to_string(result.total_pixels) + " pixels (" +
-        std::to_string(result.diff_ratio * 100.0) + "%)";
-    return result;
+    return comparePixelBuffers(
+        static_cast<const uint8_t*>(data1->dataPointer()),
+        static_cast<const uint8_t*>(data2->dataPointer()),
+        w1,
+        h1,
+        channels1,
+        tolerance);
 }
 
 // Compare in-memory data against a reference image.
@@ -160,15 +199,20 @@ ImageUtils::CompareResult ImageUtils::compareWithRef(const uint8_t* pixels,
         return result;
     }
 
-    result.total_pixels = width * height;
-    result.diff_pixels = 0;
+    const int ref_channels = static_cast<int>(ref_data->valueSize());
+    if (ref_channels != channels) {
+        result.message = "Channel mismatch: rendered " +
+            std::to_string(channels) + " vs ref " + std::to_string(ref_channels);
+        return result;
+    }
 
-    result.diff_ratio = (double)result.diff_pixels / result.total_pixels;
-    result.valid = true;
-    result.message = "Diff: " + std::to_string(result.diff_pixels) + "/" +
-        std::to_string(result.total_pixels) + " pixels (" +
-        std::to_string(result.diff_ratio * 100.0) + "%)";
-    return result;
+    return comparePixelBuffers(
+        pixels,
+        static_cast<const uint8_t*>(ref_data->dataPointer()),
+        width,
+        height,
+        channels,
+        tolerance);
 }
 
 // Decode in-memory PNG data into an RGB image for loadImagePair.

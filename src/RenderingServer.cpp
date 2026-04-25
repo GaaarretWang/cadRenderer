@@ -51,20 +51,14 @@ void RenderingServer::applyFrameData(const FrameData& frame_data)
     renderer.applyFrameInput(SceneInitAssembler::buildCameraFrameInput(frame_data));
 }
 
-int RenderingServer::Init(int argc, char** argv)
+int RenderingServer::Init(const std::string& scene_name_or_id)
 {
     renderer.setWidthAndHeight(width, height, upsample_scale, encode_scale);
     renderer.setKParameters(fx, fy, cx, cy);
 
-    vsg::CommandLine arguments(&argc, argv);
-
-    std::string scene_to_load = "0";
-    arguments.read("--scene", scene_to_load);
-    arguments.read("-s", scene_to_load);
-
-    if (!loadSceneFromJSON(scene_to_load))
+    if (!loadSceneFromJSON(scene_name_or_id))
     {
-        vsg::error("Failed to load scene '", scene_to_load, "', program will exit");
+        vsg::error("Failed to load scene '", scene_name_or_id, "', program will exit");
         return -1;
     }
 

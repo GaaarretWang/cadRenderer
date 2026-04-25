@@ -47,6 +47,6 @@ public:
     RenderingServer();
     ~RenderingServer();
 
-    int Init(int argc, char** argv);
+    int Init(const std::string& scene_name_or_id);
     int Update();
 };

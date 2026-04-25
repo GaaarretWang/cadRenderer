@@ -1,10 +1,20 @@
 @echo off
-setlocal
+setlocal EnableExtensions EnableDelayedExpansion
 
 set "BUILD_ONLY=0"
-if not defined RUN_SECONDS set "RUN_SECONDS=120"
-if /I "%~1"=="--build-only" set "BUILD_ONLY=1"
+set "RENDER_ARGS="
 
+:parse_args
+if "%~1"=="" goto args_done
+if /I "%~1"=="--build-only" (
+    set "BUILD_ONLY=1"
+) else (
+    set "RENDER_ARGS=!RENDER_ARGS! %1"
+)
+shift
+goto parse_args
+
+:args_done
 set "ROOT=%~dp0"
 if "%ROOT:~-1%"=="\" set "ROOT=%ROOT:~0,-1%"
 set "BUILD_DIR=%ROOT%\build"
@@ -54,18 +64,10 @@ if "%BUILD_ONLY%"=="1" (
     exit /b 0
 )
 
-echo [3/4] Running for %RUN_SECONDS% seconds...
-set "RENDER_PID="
-for /f %%P in ('powershell -NoProfile -Command "$p = Start-Process -FilePath '%EXE_PATH%' -ArgumentList '-s 6' -WorkingDirectory '%BUILD_DIR%' -PassThru; $p.Id"') do set "RENDER_PID=%%P"
-if not defined RENDER_PID (
-    echo ERROR: failed to start executable.
-    exit /b 1
-)
-powershell -NoProfile -Command "Start-Sleep -Seconds %RUN_SECONDS%"
+echo [3/3] Running...
+pushd "%BUILD_DIR%" >nul
+"%EXE_PATH%"!RENDER_ARGS!
+set "RUN_EXIT_CODE=%ERRORLEVEL%"
+popd >nul
 
-echo [4/4] Cleaning Rendering processes...
-powershell -NoProfile -Command "Stop-Process -Id %RENDER_PID% -Force -ErrorAction SilentlyContinue"
-powershell -NoProfile -Command "Get-Process Rendering -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue"
-echo Rendering.exe cleanup finished.
-
-exit /b 0
+exit /b %RUN_EXIT_CODE%
