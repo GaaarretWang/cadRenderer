@@ -59,7 +59,7 @@ class vsgRendererServer
     //IBL
     IBL::VsgContext vsgContext = {};
     vsg::ref_ptr<vsg::StateGroup> drawSkyboxNode = vsg::StateGroup::create();
-    vsg::ref_ptr<vsg::StateGroup> drawCameraDepthPrepassNode = vsg::StateGroup::create();
+    vsg::ref_ptr<vsg::StateGroup> drawCameraBaseNode = vsg::StateGroup::create();
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;
     vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
     std::unordered_map<int, float> hdr_base_brightness; // baseBrightness value for each HDR environment.
@@ -255,14 +255,17 @@ public:
         return true;
     }
 
-    void rebuildBackgroundNodes()
+    void rebuildSkyboxNode()
     {
         auto skyboxNode = IBL::drawSkyboxVSGNode(drawSkyboxNode, render_width, render_height);
         if (!skyboxNode)
         {
             throw std::runtime_error("Failed to rebuild skybox node.");
         }
+    }
 
+    void rebuildCameraBaseNode()
+    {
         if (!frame_image_resources)
         {
             throw std::runtime_error("Frame image resources are not initialized.");
@@ -274,16 +277,22 @@ public:
             throw std::runtime_error("Frame image depth info is empty.");
         }
 
-        auto cameraDepthNode = IBL::drawCameraDepthPrepassVSGNode(
-            drawCameraDepthPrepassNode,
+        auto cameraBaseNode = IBL::drawCameraBaseVSGNode(
+            drawCameraBaseNode,
             render_width,
             render_height,
             depthInfo,
             camera_image_params);
-        if (!cameraDepthNode)
+        if (!cameraBaseNode)
         {
-            throw std::runtime_error("Failed to rebuild camera depth prepass node.");
+            throw std::runtime_error("Failed to rebuild camera base node.");
         }
+    }
+
+    void rebuildBackgroundNodes()
+    {
+        rebuildSkyboxNode();
+        rebuildCameraBaseNode();
     }
 
     void preprocessEnvMap(){

@@ -1816,6 +1816,20 @@ ptr<StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root
     return root;
 }
 
+ptr<StateGroup> drawCameraBaseVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
+                                      int width,
+                                      int height,
+                                      vsg::ImageInfoList depth_data,
+                                      vsg::ref_ptr<vsg::Data> tonemap_params_override)
+{
+    return drawCameraDepthPrepassVSGNode(
+        root,
+        width,
+        height,
+        std::move(depth_data),
+        std::move(tonemap_params_override));
+}
+
 struct IBLDescriptorSetBinding : vsg::Inherit<CustomDescriptorSetBinding, IBLDescriptorSetBinding>
 {
     uint32_t set;

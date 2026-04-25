@@ -123,6 +123,12 @@ namespace IBL
                                            int height,
                                            vsg::ref_ptr<vsg::Data> tonemap_params_override = {});
 
+    ptr<vsg::StateGroup> drawCameraBaseVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
+                                               int width,
+                                               int height,
+                                               vsg::ImageInfoList depth_data,
+                                               vsg::ref_ptr<vsg::Data> tonemap_params_override = {});
+
     ptr<vsg::StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
                                                        int width,
                                                        int height,
