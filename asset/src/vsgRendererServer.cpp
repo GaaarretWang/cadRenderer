@@ -277,7 +277,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     auto compositeScene = vsg::Group::create();
 
     auto rootSwitch = vsg::Switch::create();
-    rootSwitch->addChild(MASK_CAMERA_IMAGE, drawCameraBaseNode);
+    rootSwitch->addChild(MASK_CAMERA_BASE, drawCameraBaseNode);
     rootSwitch->addChild(MASK_SKYBOX, drawSkyboxNode);
     rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowGroup);
     rootSwitch->addChild(MASK_PBR_FULL, modelGroup);
@@ -455,7 +455,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     viewer->addWindow(window);
     view = vsg::View::create(camera, scenegraph_safe);
     CADMesh::active_view = view.get();
-    view->mask = MASK_CAMERA_IMAGE | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
+    view->mask = MASK_CAMERA_BASE | MASK_PBR_FULL | MASK_SHADOW_RECEIVER;
     auto shadow_view_dependent_state = CustomViewDependentState::create(view.get(), device, computeQueueFamily, options);
     view->viewDependentState = shadow_view_dependent_state;
     auto renderGraph = vsg::RenderGraph::create(window, view);
