@@ -21,7 +21,12 @@ REM Typical commands in the editable block include build, run, compare,
 REM git add/commit, file cleanup, and process cleanup.
 REM AGENT_EDIT_START
 pushd "%ROOT%" >nul
-git add tools/debug/agent_debug.bat
+git add tools\debug\agent_debug.bat
+if errorlevel 1 goto agent_done
+
+git commit -m "chore: reset agent debug template"
+
+:agent_done
 set "AGENT_EXIT_CODE=%ERRORLEVEL%"
 popd >nul
 REM AGENT_EDIT_END
