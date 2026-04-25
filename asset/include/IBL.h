@@ -118,11 +118,6 @@ namespace IBL
 
     void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr);
 
-    ptr<vsg::StateGroup> drawSkyboxVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
-                                           int width,
-                                           int height,
-                                           vsg::ref_ptr<vsg::Data> tonemap_params_override = {});
-
     ptr<vsg::StateGroup> drawCameraBaseVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
                                                int width,
                                                int height,
