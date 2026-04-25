@@ -1755,7 +1755,8 @@ ptr<StateGroup> drawCameraBaseVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
                                       int height,
                                       vsg::ImageInfoList camera_image_data,
                                       vsg::ImageInfoList depth_data,
-                                      vsg::ref_ptr<vsg::Data> tonemap_params_override)
+                                      vsg::ref_ptr<vsg::Data> tonemap_params_override,
+                                      bool write_color)
 {
     (void)width;
     (void)height;
@@ -1783,9 +1784,18 @@ ptr<StateGroup> drawCameraBaseVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
 
     auto colorBlendState = vsg::ColorBlendState::create();
     colorBlendState->attachments.resize(6, colorBlendState->attachments[0]);
-    for (auto& attachment : colorBlendState->attachments)
+    for (size_t attachmentIndex = 0; attachmentIndex < colorBlendState->attachments.size(); ++attachmentIndex)
     {
+        auto& attachment = colorBlendState->attachments[attachmentIndex];
         attachment.colorWriteMask = 0;
+        if (write_color && attachmentIndex == 0)
+        {
+            attachment.colorWriteMask =
+                VK_COLOR_COMPONENT_R_BIT |
+                VK_COLOR_COMPONENT_G_BIT |
+                VK_COLOR_COMPONENT_B_BIT |
+                VK_COLOR_COMPONENT_A_BIT;
+        }
     }
     shaderSet->defaultGraphicsPipelineStates.push_back(colorBlendState);
 
@@ -1838,7 +1848,8 @@ ptr<StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root
         height,
         std::move(cameraImageInfo),
         std::move(depth_data),
-        std::move(tonemap_params_override));
+        std::move(tonemap_params_override),
+        false);
 }
 
 struct IBLDescriptorSetBinding : vsg::Inherit<CustomDescriptorSetBinding, IBLDescriptorSetBinding>

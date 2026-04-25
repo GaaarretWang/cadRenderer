@@ -128,7 +128,8 @@ namespace IBL
                                                int height,
                                                vsg::ImageInfoList camera_image_data,
                                                vsg::ImageInfoList depth_data,
-                                               vsg::ref_ptr<vsg::Data> tonemap_params_override = {});
+                                               vsg::ref_ptr<vsg::Data> tonemap_params_override = {},
+                                               bool write_color = false);
 
     ptr<vsg::StateGroup> drawCameraDepthPrepassVSGNode(vsg::ref_ptr<vsg::StateGroup> root,
                                                        int width,

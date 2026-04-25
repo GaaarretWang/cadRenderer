@@ -1,5 +1,7 @@
 #version 450
 
+layout(set = 0, binding = 0) uniform sampler2D cameraImageSampler;
+
 layout(set = 0, binding = 1) uniform Params {
     float exposure;
     float gamma;
@@ -25,8 +27,9 @@ layout(location = 4) out vec4 outMaterial;
 void main()
 {
     vec2 screenUV = vec2(gl_FragCoord.x / tonemapParams.width, gl_FragCoord.y / tonemapParams.height);
+    vec3 cameraColor = texture(cameraImageSampler, screenUV).rgb;
 
-    outColor = vec4(0.0);
+    outColor = vec4(cameraColor, 1.0);
     outNormal = vec4(0.0, 0.0, 0.0, 1.0);
     outWorldPos = vec4(0.0, 0.0, 0.0, 1.0);
     outShadow = vec4(0.0);
