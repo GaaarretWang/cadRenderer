@@ -60,6 +60,8 @@ smoke test 成功后，允许继续当前修改序列；非视觉改动可直接
 
 - 每满 3 次提交，必须全量跑一次 compare
 - compare 入口优先使用 `tools/debug/compare_all.bat`
+- compare 通过后，默认直接继续后续 commit，不再等待用户逐步确认；
+  只有 compare 失败或存在明确未覆盖风险时才停下说明
 
 ## Compare 失败后的处理
 
