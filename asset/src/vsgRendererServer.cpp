@@ -278,7 +278,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
 
     auto rootSwitch = vsg::Switch::create();
     rootSwitch->addChild(MASK_CAMERA_BASE, drawCameraBaseNode);
-    rootSwitch->addChild(MASK_SKYBOX, drawSkyboxNode);
     rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowGroup);
     rootSwitch->addChild(MASK_PBR_FULL, modelGroup);
     rootSwitch->addChild(MASK_TRANSPARENT, transparentGroup);

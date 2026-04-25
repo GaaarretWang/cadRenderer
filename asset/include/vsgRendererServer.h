@@ -58,7 +58,6 @@ class vsgRendererServer
 
     //IBL
     IBL::VsgContext vsgContext = {};
-    vsg::ref_ptr<vsg::StateGroup> drawSkyboxNode = vsg::StateGroup::create();
     vsg::ref_ptr<vsg::StateGroup> drawCameraBaseNode = vsg::StateGroup::create();
     std::unordered_map<int, vsg::ref_ptr<vsg::Group>> lightGroups;
     vsg::ref_ptr<vsg::Group> curLightGroup = vsg::Group::create();
@@ -255,15 +254,6 @@ public:
         return true;
     }
 
-    void rebuildSkyboxNode()
-    {
-        auto skyboxNode = IBL::drawSkyboxVSGNode(drawSkyboxNode, render_width, render_height);
-        if (!skyboxNode)
-        {
-            throw std::runtime_error("Failed to rebuild skybox node.");
-        }
-    }
-
     void rebuildCameraBaseNode()
     {
         if (!frame_image_resources)
@@ -295,7 +285,6 @@ public:
 
     void rebuildBackgroundNodes()
     {
-        rebuildSkyboxNode();
         rebuildCameraBaseNode();
     }
 
