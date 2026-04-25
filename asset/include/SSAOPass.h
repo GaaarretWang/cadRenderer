@@ -58,7 +58,6 @@ namespace SSAOPass{
 
     void buildStandaloneDeferredOpaqueData(vsg::ref_ptr<vsg::Options> options,
                                            vsg::ref_ptr<vsg::Group> scene,
-                                           vsg::ref_ptr<vsg::ImageView> colorView,
                                            vsg::ref_ptr<vsg::ImageView> normalView,
                                            vsg::ref_ptr<vsg::ImageView> worldPosView,
                                            vsg::ref_ptr<vsg::ImageView> materialView,

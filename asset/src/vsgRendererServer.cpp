@@ -405,7 +405,6 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     SSAOPass::buildStandaloneDeferredOpaqueData(
         options,
         deferredOpaqueScene,
-        offscreenTarget->gbufferImageView0,
         useMsaaDeferredOpaqueInputs ? offscreenTarget->gbufferImageView1 :
                                      (resolvedEffectNormalTarget ? resolvedEffectNormalTarget->colorImageView : offscreenTarget->gbufferImageView1),
         useMsaaDeferredOpaqueInputs ? offscreenTarget->gbufferImageView2 :
