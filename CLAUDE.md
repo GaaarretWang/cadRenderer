@@ -3,6 +3,8 @@
 本文件是仓库内的通用规则总入口。调试、构建、compare 的专项规则见
 [tools/debug/rules.md](tools/debug/rules.md)。
 渲染管线专项知识库见 [RENDERER_KNOWLEDGE.md](RENDERER_KNOWLEDGE.md)。
+仓库内长期 memory 索引见 [tools/memory/README.md](tools/memory/README.md)，
+渲染引擎专项 memory 见 [tools/memory/rendering_engine/INDEX.md](tools/memory/rendering_engine/INDEX.md)。
 
 ## 第一屏硬约束
 
@@ -39,6 +41,8 @@
 ### 目录与上下文
 
 - 开始改动前先看 `DIRECTORY_STRUCTURE.md`，按目录结构定位代码。
+- 涉及渲染引擎、历史调试结论或项目特定约束时，先看
+  `tools/memory/README.md` 和对应专项 `INDEX.md`，优先使用仓库内 memory。
 - 优先缩小上下文，只读与当前任务直接相关的文件。
 
 ### 效果与审查

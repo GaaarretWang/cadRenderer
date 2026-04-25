@@ -993,6 +993,7 @@ bool vsgRendererServer::render() {
 
         auto t7 = std::chrono::high_resolution_clock::now();
         viewer->present();
+        flushPendingEnvLightingUpdate();
         if (vsgserver::runtime_controller)
         {
             vsgserver::runtime_controller->clearServerDirtyFlags();

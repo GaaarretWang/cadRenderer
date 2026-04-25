@@ -324,8 +324,6 @@ public:
         vsg::submitCommandsToQueue(commandPool, fence, 100000000000, queue, [&](vsg::CommandBuffer& commandBuffer) {
             command->record(commandBuffer);
         });
-
-        rebuildBackgroundNodes();
     }
 
     void update_directional_lights(){
@@ -423,7 +421,6 @@ public:
         updateEnvMap();
         update_directional_lights();
         IBL::textures.params->dirty();
-        viewer->compile();
         if (view && view->viewDependentState)
         {
             auto* light_state = static_cast<CustomViewDependentState*>(view->viewDependentState.get());
@@ -436,14 +433,7 @@ public:
 
     void requestEnvLightingUpdate()
     {
-        if (!env_lighting_update_ready || !view || !window || !device || !view->viewDependentState)
-        {
-            env_lighting_update_pending = true;
-            return;
-        }
-
-        env_lighting_update_pending = false;
-        updateEnvLighting();
+        env_lighting_update_pending = true;
     }
 
     void flushPendingEnvLightingUpdate()
