@@ -277,7 +277,7 @@ public:
             throw std::runtime_error("Frame image depth info is empty.");
         }
 
-        const bool cameraBaseWritesColor = false;
+        const bool cameraBaseWritesColor = true;
 
         auto cameraBaseNode = IBL::drawCameraBaseVSGNode(
             drawCameraBaseNode,
