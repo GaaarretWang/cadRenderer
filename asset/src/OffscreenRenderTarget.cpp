@@ -719,8 +719,8 @@ void OffscreenRenderTarget::buildRenderPass(vsg::ref_ptr<vsg::Device> device, Vk
         subpass.colorAttachments.emplace_back(colorAttachmentRefNormal);
         subpass.colorAttachments.emplace_back(colorAttachmentRefWorldPos);
         subpass.colorAttachments.emplace_back(colorAttachmentRefShadowWrite);
-        subpass.colorAttachments.emplace_back(colorAttachmentRefMask);
         subpass.colorAttachments.emplace_back(colorAttachmentRefMaterial);
+        subpass.colorAttachments.emplace_back(colorAttachmentRefMask);
         subpass.depthStencilAttachments.emplace_back(depthAttachmentRef);
 
         vsg::RenderPass::Subpasses subpasses{subpass};
