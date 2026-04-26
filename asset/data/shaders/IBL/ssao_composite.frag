@@ -16,6 +16,7 @@ layout(location = 0) in vec2 inUV;
 layout(location = 0) out vec4 outColor;
 
 #pragma include "tonemapping.glsl"
+#pragma include "fallback_composite_common.glsl"
 
 void main()
 {
@@ -26,44 +27,9 @@ void main()
     vec4 colorData = texelFetch(colorSampler, colorCoord, 0);
     vec4 realSceneData = texture(realSceneSampler, uv);
     float maskValue = texture(maskSampler, uv).r;
-    bool isOpaqueVirtual = abs(maskValue - 1.0) < 0.5;
-    bool isShadowReceiver = maskValue > 1.5;
 
-    ivec2 ssaoSize = textureSize(ssaoSampler, 0);
     vec4 centerSSAO = texture(ssaoSampler, uv);
-
-    vec2 texelSize = 1.0 / vec2(ssaoSize);
-    float result = 0.0;
-    int denoiseRadius = globalBuffer.denoise_size / 2;
-    for (int x = -denoiseRadius; x <= denoiseRadius; ++x)
-    {
-        for (int y = -denoiseRadius; y <= denoiseRadius; ++y)
-        {
-            vec2 offset = vec2(float(x), float(y)) * texelSize;
-            result += texture(ssaoSampler, uv + offset).r;
-        }
-    }
-
-    float kernelWidth = float(denoiseRadius * 2 + 1);
-    float occlusion = result / (kernelWidth * kernelWidth);
-
-    if (isOpaqueVirtual)
-    {
-        outColor = vec4(0.0);
-    }
-    else if (isShadowReceiver)
-    {
-        outColor = vec4(colorData.rgb * occlusion, 1.0);
-    }
-    else if (centerSSAO.w > 0.5)
-    {
-        outColor = realSceneData.a > 0.5 ? realSceneData : colorData;
-    }
-    else
-    {
-        vec3 color = Uncharted2Tonemap(colorData.rgb * occlusion * globalBuffer.exposure);
-        color = color * (vec3(1.0) / Uncharted2Tonemap(vec3(11.2)));
-        outColor = LINEARtoSRGB(vec4(color, colorData.a));
-    }
-
+    bool preferRealScene = centerSSAO.w > 0.5;
+    float occlusion = ComputeDenoisedOcclusion(ssaoSampler, uv, globalBuffer.denoise_size);
+    outColor = CompositeFallbackSample(colorData, realSceneData, maskValue, preferRealScene, occlusion, globalBuffer.exposure);
 }
