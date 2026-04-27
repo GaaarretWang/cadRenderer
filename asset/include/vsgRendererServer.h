@@ -215,7 +215,7 @@ public:
 
     /**
      * 预处理所有 HDR 环境贴图，生成 IBL 所需的 cubemap 资源
-     * 每个 HDR 贴图需要生成三种 cubemap：
+     * 每个 HDR 贴图需要生成三种 cubemap，通过渲染到纹理实现：
      * - Envmap：原始环境贴图 cubemap
      * - IrradianceCube：漫反射辐照度 cubemap（低频，用于间接光照）
      * - PrefilteredEnvmapCube：预滤波镜面反射 cubemap（多级 mip 对应不同粗糙度）
@@ -223,30 +223,52 @@ public:
      * 使用 viewer_IBL（专用 Viewer）驱动预计算渲染循环
      */
     void preprocessEnvMap(){
+        // ===================== 第 1 遍：处理当前激活的 HDR =====================
+        // hdr_image_num = 4（当前使用的 HDR 编号）
+        // -1 表示写入主纹理（envmapCube / irradianceCube / prefilterCube）
+        // 这些主纹理将直接被着色器使用
+
+        // 查找当前 HDR 文件路径（如 textures/4.hdr）
         std::string envmapFilepath = vsg::findFile("textures/" + std::to_string(hdr_image_num) + ".hdr", options->paths);
+        // 生成环境贴图 cubemap（equirectangular → cubemap）
         IBL::generateEnvmap(vsgContext, envmapFilepath, -1);
+        // 生成漫反射辐照度 cubemap（球面调和卷积）
         IBL::generateIrradianceCube(vsgContext, -1);
+        // 生成预滤波镜面反射 cubemap（GGX 重要性采样）
         IBL::generatePrefilteredEnvmapCube(vsgContext, -1);
 
+        // 编译 CommandGraph：收集资源需求，构建渲染管线
         viewer_IBL->compile();
+        // 驱动一帧渲染循环，执行离线预计算
         bool process_done = false;
-        while (viewer_IBL->advanceToNextFrame())
+        while (viewer_IBL->advanceToNextFrame())  // 获取下一帧，返回 false 表示退出
         {
             if(process_done)
                 break;
-            viewer_IBL->handleEvents();
-            viewer_IBL->update();
-            viewer_IBL->recordAndSubmit();
-            viewer_IBL->present();
-            process_done = true;
+            viewer_IBL->handleEvents();       // 处理窗口输入事件（键盘、鼠标等）
+            viewer_IBL->update();             // 更新场景图中标记 dirty 的数据
+            viewer_IBL->recordAndSubmit();    // 录制 Vulkan 命令并提交到 GPU 队列
+            viewer_IBL->present();            // 将渲染结果呈现到窗口/交换链
+            process_done = true;              // 标记已完成，只执行一帧
         }
+
+        // ===================== 第 2 遍：预生成其他 HDR 的缓存纹理 =====================
+        // 从 hdr_image_max_num (7) 倒序遍历到 1
+        // 将结果存入 testMap[i] / irraMap[i] / prefMap[i]
+        // 运行时切换 HDR 时，通过 updateHDRTextures 快速拷贝到主纹理
         for(int i = hdr_image_max_num; i > 0; i--){
+            // 跳过当前 HDR（已在第 1 遍处理）
+            if(i == hdr_image_num) continue;
+
+            // 查找第 i 个 HDR 文件路径
             std::string envmapFilepath = vsg::findFile("textures/" + std::to_string(i) + ".hdr", options->paths);
             IBL::generateEnvmap(vsgContext, envmapFilepath, i);
             IBL::generateIrradianceCube(vsgContext, i);
             IBL::generatePrefilteredEnvmapCube(vsgContext, i);
 
+            // 编译 CommandGraph
             viewer_IBL->compile();
+            // 执行一帧渲染，完成离线预计算
             bool process_done = false;
             while (viewer_IBL->advanceToNextFrame())
             {
@@ -260,7 +282,10 @@ public:
             }
         }
 
+        // ===================== 第 3 遍：构建天空盒渲染节点 =====================
+        // 创建天空盒 StateGroup（绑定 IBL 纹理、shader、几何数据）
         IBL::drawSkyboxVSGNode(vsgContext, drawSkyboxNode, render_width, render_height);
+        // 创建相机图像叠加节点（AR 融合用）
         IBL::drawSkyboxVSGNode(vsgContext, drawCameraImageNode, render_width, render_height, camera_info,
                                shader_type == CAMERA_DEPTH ? depth_info : vsg::ImageInfoList{},
                                shader_type == CAMERA_DEPTH ? vsg::ref_ptr<vsg::Data>(pc_data) : vsg::ref_ptr<vsg::Data>{});

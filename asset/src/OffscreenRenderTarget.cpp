@@ -28,6 +28,7 @@ void OffscreenRenderTarget::init(vsg::ref_ptr<vsg::Device> device, VkExtent2D ex
     // 仅在开启 MSAA 时创建。Vulkan 的 multisample 渲染需要两个附件：
     //   1. multisample image（多样本）：实际渲染目标
     //   2. resolve image（单样本）：Vulkan 自动将多样本结果 resolve 到此附件
+    
     // 此处创建的是多样本附件，colorImage 作为 resolve 附件
     // Multisample color image (same as Window::buildSwapchain multisample path)
     if (multisampling)

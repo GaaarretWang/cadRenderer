@@ -9,16 +9,19 @@
 #include <tuple>
 #include <algorithm>
 
+// ==================== 静态成员初始化 ====================
+
 vsg::ImageInfoList CADMesh::camera_info;
 vsg::ImageInfoList CADMesh::depth_info;
-std::unordered_map<std::string, vsg::ImageInfoList> CADMesh::texture_name_to_image_map;
-std::unordered_map<std::string, ProtoData*> CADMesh::proto_id_to_data_map;
-std::vector<ProtoData*> CADMesh::insert_order_to_data;
+std::unordered_map<std::string, vsg::ImageInfoList> CADMesh::texture_name_to_image_map;  // 纹理缓存（避免重复加载）
+std::unordered_map<std::string, ProtoData*> CADMesh::proto_id_to_data_map;                // proto 查找表
+std::vector<ProtoData*> CADMesh::insert_order_to_data;                                    // 按加载顺序排列的 proto 列表
 
-// Global material array
+// 全局材质数组（每个 proto 对应一个 PBR 材质，buildDrawData 时打包为 GPU buffer）
 std::vector<vsg::ref_ptr<vsg::PbrMaterialValue>> CADMesh::global_material_array;
 vsg::ref_ptr<vsg::PbrMaterialArray> CADMesh::global_material_buffer;
 
+// 实例名 → 矩阵索引映射（支持按名称更新实例变换/高亮状态）
 std::unordered_map<std::string, std::vector<MatrixIndex>> CADMesh::id_to_matrix_index_map;
 
 // static const std::unordered_map<std::string, std::tuple<float,float,float,float,float>> glassModelsMaterials = {
@@ -45,13 +48,16 @@ std::unordered_map<std::string, std::vector<MatrixIndex>> CADMesh::id_to_matrix_
 //     {"#FF8000", {1.000f, 0.502f, 0.000f, 0.000f, 0.200f}},
 // };
 
+// 全局 model 矩阵累加器：初始化阶段临时存储所有 model 的变换矩阵
+// buildDrawData 最后阶段将其拷贝到 global_model_matrix_buffer 并释放
 static std::vector<vsg::dmat4> global_model_matrices_accumulator;
 
+// 全局 model 矩阵 buffer（当前帧 + 上一帧双缓冲）
 vsg::ref_ptr<vsg::mat4Array> CADMesh::global_model_matrix_buffer;
 vsg::ref_ptr<vsg::BufferInfo> CADMesh::global_model_matrix_buffer_info;
 vsg::ref_ptr<vsg::mat4Array> CADMesh::last_global_model_matrix_buffer;
 vsg::ref_ptr<vsg::BufferInfo> CADMesh::last_global_model_matrix_buffer_info;
-std::unordered_map<std::string, uint32_t> CADMesh::model_name_to_global_index;
+std::unordered_map<std::string, uint32_t> CADMesh::model_name_to_global_index;  // model 名 → 全局索引
 
 DynamicLines CADMesh::dynamic_lines;
 DynamicPoints CADMesh::dynamic_points;
@@ -68,9 +74,23 @@ int CADMesh::current_scene_id = -1;
 vsg::View* CADMesh::active_view = nullptr;
 std::unordered_map<std::string, std::string> CADMesh::instance_name_to_rel_path;
 
+/**
+ * copyCurrentToLastMatrices — 双缓冲矩阵切换
+ *
+ * 每帧开始时调用，将当前帧的变换矩阵保存为"上一帧"状态。
+ * 用途：
+ *   - 运动模糊（Motion Blur）：shader 中比较 current vs last 矩阵，计算运动方向和距离
+ *   - 时间滤波（Temporal Filtering）：利用两帧之间的变换差异做抗抖动
+ *
+ * 切换机制：
+ *   global_model_matrix_buffer（当前帧 model 矩阵）→ last_global_model_matrix_buffer
+ *   proto_data->instance_buffer（当前帧实例矩阵）→ proto_data->last_instance_buffer
+ *
+ * dirty() 调用通知 VSG 该 buffer 内容已变化，需要重新上传到 GPU
+ */
 void CADMesh::copyCurrentToLastMatrices()
 {
-    // 拷贝全局模型矩阵到上一帧缓冲
+    // 拷贝全局 model 矩阵到上一帧缓冲
     if (global_model_matrix_buffer && last_global_model_matrix_buffer) {
         for (size_t i = 0; i < global_model_matrix_buffer->size(); i++) {
             last_global_model_matrix_buffer->set(i, global_model_matrix_buffer->at(i));
@@ -78,7 +98,7 @@ void CADMesh::copyCurrentToLastMatrices()
         last_global_model_matrix_buffer->dirty();
     }
 
-    // 拷贝每个proto的实例矩阵到上一帧缓冲
+    // 拷贝每个 proto 的实例矩阵到上一帧缓冲
     for (ProtoData* proto_data : insert_order_to_data) {
         if (proto_data->instance_buffer && proto_data->last_instance_buffer) {
             for (size_t i = 0; i < proto_data->instance_buffer->size(); i++) {
@@ -164,10 +184,29 @@ vsg::vec4 CADMesh::hexToRGB(const std::string& color)
     return vsg::vec4{r, g, b, 1.0};
 }
 
+/**
+ * preprocessFBProtoData — 加载 FB (FlatBuffer) 格式 CAD 模型
+ *
+ * 功能：通过 cadDataManager 接口解析 .fb 文件，提取几何数据（顶点/法线/UV/索引）和材质参数，
+ *       构建 ProtoData 并注册到全局查找表中。
+ *
+ * 两次调用模式（同一个 CADMesh 实例）：
+ *   第一次调用（proto_ids 为空）：完整加载模型 → 创建 ProtoData → 记录 proto_id
+ *   第二次调用（proto_ids 非空）：复用已有 ProtoData，只追加新的实例矩阵
+ *     → 同一模型文件的多个实例共享几何数据，只分配不同的变换矩阵
+ *
+ * 数据流程：
+ *   1. cadDataManager 解析 .fb → RenderInfo 列表（每个子网格一个 RenderInfo）
+ *   2. 提取顶点/法线/UV/索引 → 创建 vsg::vec3Array/vec2Array/uintArray
+ *   3. 提取材质参数（颜色/粗糙度/金属度）→ 创建 PbrMaterialValue
+ *   4. 构建 ProtoData（几何 + 材质 + 纹理路径）
+ *   5. 注册全局 model 矩阵和实例矩阵
+ */
 void CADMesh::preprocessFBProtoData(const std::string model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)
 {
+    // ---- 快速路径：proto 已加载过，只追加实例矩阵 ----
     if(proto_ids.size() > 0){
-        // 注册全局 model 矩阵
+        // 注册（或查找）全局 model 矩阵索引
         uint32_t model_idx;
         if (model_name_to_global_index.count(model_instance_name) == 0) {
             model_idx = global_model_matrices_accumulator.size();
@@ -177,6 +216,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
             model_idx = model_name_to_global_index[model_instance_name];
         }
 
+        // 为每个已有 proto 追加新的实例矩阵（复用默认矩阵作为新实例的初始变换）
         for(auto& id: proto_ids){
             for(int i = 0; i < proto_id_default_matrix_map[id].size(); i ++){
                 auto matrix = proto_id_default_matrix_map[id][i];
@@ -185,6 +225,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                 proto_id_to_data_map[id]->instance_model_indices.push_back(model_idx);
 
                 auto proto_data = proto_id_to_data_map[id];
+                // 注册到矩阵索引映射表（支持按名称查找实例数据）
                 id_to_matrix_index_map[model_instance_name + proto_id_instance_name_map[id][i]].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
                 id_to_matrix_index_map[model_instance_name].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
             }
@@ -283,42 +324,46 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
     } else {
         model_idx = model_name_to_global_index[model_instance_name];
     }
+    // ---- 遍历所有 RenderInfo，提取每个子网格的几何和材质数据 ----
     for (auto it = MapInfo.begin(); it != MapInfo.end(); ++it){
         auto info = it->second;
         for (int o = 0; o < info.size(); o++) {
-            std::unordered_map<TinyModelVertex, uint32_t> uniqueVertices; //存储点信息，相同点只存一份
-            std::vector<TinyModelVertex> mVertices{};                     //保存点在数组中位置信息
-            std::vector<vsg::vec3> mVerticesPos{};                        //保存点在数组中位置信息
-            std::vector<vsg::vec3> mVerticesNor{};                        //保存点在数组中位置信息
-            std::vector<uint32_t> mIndices{};                             //索引，找点
-            
+            std::unordered_map<TinyModelVertex, uint32_t> uniqueVertices;  // 顶点去重哈希表
+            std::vector<TinyModelVertex> mVertices{};                      // 去重后的顶点列表
+            std::vector<vsg::vec3> mVerticesPos{};                         // 顶点位置（辅助）
+            std::vector<vsg::vec3> mVerticesNor{};                         // 顶点法线（辅助）
+            std::vector<uint32_t> mIndices{};                              // 索引数组（指向去重后顶点）
+
+            // 从 cadDataManager 提取 RenderInfo 的各项数据
             cadDataManager::RenderInfo modelfbs = info[o];
-            int num = modelfbs.matrixNum;
-            auto matrix = modelfbs.matrix;
-            auto type = modelfbs.type;
-            auto protoId = modelfbs.protoId;
-            auto modelGeo = modelfbs.geo;
-            auto modelIndex = modelGeo->getIndex();
-            auto position = modelGeo->getPosition();
-            auto normal = modelGeo->getNormal();
-            auto uv = modelGeo->getUV();
+            int num = modelfbs.matrixNum;            // 该子网格的实例数量
+            auto matrix = modelfbs.matrix;            // 实例变换矩阵（flat array，每 16 个 float 为一个 mat4）
+            auto type = modelfbs.type;                // 几何类型："mesh" 表示三角网格
+            auto protoId = modelfbs.protoId;          // 原型 ID（用于同一模型的多实例共享）
+            auto modelGeo = modelfbs.geo;             // 几何数据接口
+            auto modelIndex = modelGeo->getIndex();   // 索引数组（uint32 列表）
+            auto position = modelGeo->getPosition();  // 顶点位置数组（每 3 个 float 为一个 vec3）
+            auto normal = modelGeo->getNormal();      // 法线数组
+            auto uv = modelGeo->getUV();              // UV 坐标数组
+
+            // 材质参数提取
             auto modelPar = modelfbs.params;
             auto metalness = modelPar->mMetalness;
             auto specular = modelPar->mSpecular;
             auto opacity = modelPar->mOpacity;
-            auto color = modelPar->mColor;//后续会改成三维rgb
+            auto color = modelPar->mColor;                    // Hex 颜色字符串，如 "#FF8000"
             auto emissive = modelPar->mEmissive;
             auto emissiveIntensity = modelPar->mEmissiveIntensity;
             auto shininess = modelPar->mShininess;
             auto roughness = modelPar->mRoughness;
             auto transmission = modelPar->mTransmission;
-            auto material = modelPar->getMaterialName();//这里得到材质的名称(未生效)
-            auto proto_instance_ids = modelfbs.instanceIds;
+            auto material = modelPar->getMaterialName();      // 材质名称（目前未完全生效）
+            auto proto_instance_ids = modelfbs.instanceIds;   // 子实例 ID 列表
             std::string testcolor = color.substr(1);
 
-            //设置材质参数
-            vsg::ref_ptr<vsg::PbrMaterialValue> default_material = vsg::PbrMaterialValue::create(); 
-            default_material->value().baseColorFactor = hexToRGB(color);
+            // 构建 PBR 材质对象：将 FB 材质参数映射到 vsg::PbrMaterial
+            vsg::ref_ptr<vsg::PbrMaterialValue> default_material = vsg::PbrMaterialValue::create();
+            default_material->value().baseColorFactor = hexToRGB(color);   // Hex → vec4(RGBA)
             default_material->value().roughnessFactor = roughness;
             default_material->value().metallicFactor = metalness;
             // std::string color_upper = color;
@@ -334,9 +379,11 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                 default_material->value().baseColorFactor.w = 0.7;
             }
 
+            // ---- 仅处理三角网格类型 ----
             if (type == "mesh")
             {
-                vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(position.size() / 3); //分配数组空间
+                // 将 FB 的 flat 数组数据拷贝到 VSG 的 typed 数组（支持 GPU buffer 绑定）
+                vsg::ref_ptr<vsg::vec3Array> vertices = vsg::vec3Array::create(position.size() / 3);
                 vsg::ref_ptr<vsg::vec3Array> normals = vsg::vec3Array::create(normal.size() / 3);
                 vsg::ref_ptr<vsg::vec2Array> uvs = vsg::vec2Array::create(uv.size() / 2);
                 vsg::ref_ptr<vsg::uintArray> indices = vsg::uintArray::create(modelIndex.size());
@@ -349,6 +396,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                 int* indices_beginPointer = static_cast<int*>(indices->dataPointer(0));
                 std::copy(modelIndex.begin(), modelIndex.end(), indices_beginPointer);
 
+                // ---- 构建 ProtoData ----
                 ProtoData* proto_data;
                 std::string proto_id = model_path + modelfbs.protoId + std::to_string(o);
                 proto_ids.push_back(proto_id);
@@ -379,21 +427,28 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     proto_id_to_data_map[proto_id] = proto_data;
                     insert_order_to_data.push_back(proto_data);
                 }
+                // ---- 解析实例变换矩阵并注册 ----
+                // matrix 是 flat 数组，每 16 个 float 对应一个 4x4 变换矩阵（行主序）
                 proto_id_default_matrix_map[proto_id] = std::vector<vsg::dmat4>();
                 proto_id_instance_name_map[proto_id] = std::vector<std::string>();
                 for(int m_i = 0; m_i < matrix.size() / 16; m_i++){
+                    // 从 flat 数组解析 4x4 矩阵
                     vsg::dmat4 transforms_matrix;
                     for (int m = 0; m < 4; m++)
                         for (int n = 0; n < 4; n++)
                             transforms_matrix[m][n] = matrix[m_i * 16 + m * 4 + n];
 
+                    // 记录默认矩阵和实例名（用于同一模型的多实例复用）
                     proto_id_default_matrix_map[proto_id].push_back(transforms_matrix);
                     proto_id_instance_name_map[proto_id].push_back(proto_instance_ids[m_i]);
 
+                    // 注册实例矩阵到 ProtoData（每个实例对应一个 instance_matrix 条目）
                     proto_data->instance_matrix.push_back(transforms_matrix);
                     proto_data->instance_model_indices.push_back(model_idx);
 
-                    // std::cout << "proto_instance_ids[m_i] " << model_instance_name + proto_id_instance_name_map[proto_id][m_i] << std::endl;
+                    // 注册到矩阵索引映射表（两级索引）：
+                    //   1. model_instance_name + proto_instance_id → 精确到子实例
+                    //   2. model_instance_name → 整个 model 级别（包含所有子实例）
                     if(id_to_matrix_index_map.find(model_instance_name + proto_id_instance_name_map[proto_id][m_i]) == id_to_matrix_index_map.end())
                         id_to_matrix_index_map[model_instance_name + proto_id_instance_name_map[proto_id][m_i]] = std::vector<MatrixIndex>();
                     id_to_matrix_index_map[model_instance_name + proto_id_instance_name_map[proto_id][m_i]].push_back(MatrixIndex(proto_data, proto_data->instance_matrix.size() - 1));
@@ -408,8 +463,24 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
     }
 }
 
+/**
+ * preprocessProtoData — 加载 OBJ 格式模型
+ *
+ * 与 preprocessFBProtoData 的区别：
+ *   - 数据源：OBJLoader（读取 .obj + .mtl）而非 cadDataManager
+ *   - 顶点去重：使用 TinyModelVertex 哈希表合并相同属性的顶点（OBJ 格式中位置/法线/UV 独立索引）
+ *   - 纹理：直接从 mtl 文件中读取 diffuse/normal/metallic-roughness 贴图路径
+ *   - 材质：从 PbrMaterialValue 数组读取，而非 FB 的参数字段
+ *
+ * OBJ 顶点去重逻辑：
+ *   OBJ 格式允许位置、法线、UV 使用不同的索引（f 1/2/3 4/5/6 ...），
+ *   但 Vulkan 要求一个顶点的所有属性共享同一索引。
+ *   因此需要将 (pos, normal, uv, color) 组合为 TinyModelVertex，用哈希表去重，
+ *   生成新的紧凑顶点数组和对应的索引数组。
+ */
 void CADMesh::preprocessProtoData(const char* model_path, const char* material_path, const vsg::dmat4& modelMatrix, vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, std::string model_instance_name)
 {
+    // 快速路径：proto 已加载，只追加实例
     if(proto_ids.size() > 0){
         // 注册全局 model 矩阵
         uint32_t model_idx;
@@ -595,8 +666,33 @@ void CADMesh::preprocessProtoData(const char* model_path, const char* material_p
     }
 }
 
+/**
+ * buildDrawData — 构建 GPU 绘制数据（核心函数）
+ *
+ * 为每个 ProtoData 创建完整的渲染管线配置，包括：
+ *   1. 全局材质 buffer（global_material_buffer）
+ *   2. 每个 proto 的：
+ *      - 实例矩阵 buffer（current + last 双缓冲）
+ *      - 高亮/选中 buffer
+ *      - 计算输出 buffer（供 compute shader 写入剔除后的实例数据）
+ *      - 包围盒 buffer（供遮挡剔除使用）
+ *      - GraphicsPipelineConfig（shader、descriptor set、顶点输入布局）
+ *      - DrawIndexedIndirect 命令（GPU-Driven 间接绘制）
+ *      - StateGroup 场景图节点
+ *   3. 全局 model 矩阵 buffer（current + last 双缓冲）
+ *
+ * VSG 渲染管线配置流程：
+ *   GraphicsPipelineConfigurator → assignDescriptor/assignTexture/assignArray → init → copyTo(StateGroup)
+ *
+ * @param scene                     场景图根节点（子节点将挂载到此处）
+ * @param pc                        Push Constants（每帧全局数据）
+ * @param constant_data_buffer_info_list  ConstantBuffer descriptor（全局常量）
+ * @param ShadowSampleImageView     阴影采样结果图像（供 shader 采样阴影）
+ */
 void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::PushConstants> pc, vsg::BufferInfoList constant_data_buffer_info_list, vsg::ref_ptr<vsg::ImageView> ShadowSampleImageView){
-    // Create material buffer from global array
+    // ---- Step 1: 构建全局材质 buffer ----
+    // 将 global_material_array（CPU 端）打包为 PbrMaterialArray（GPU 端 buffer）
+    // 每个 proto 通过 material_index 索引到此 buffer 中的对应材质
     if (!global_material_buffer || global_material_buffer->size() != global_material_array.size()) {
         global_material_buffer = vsg::PbrMaterialArray::create(global_material_array.size());
         for (size_t i = 0; i < global_material_array.size(); ++i) {
@@ -604,8 +700,13 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         }
         global_material_buffer->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
     }
+
+    // ---- Step 2: 为每个 ProtoData 构建渲染管线 ----
     for(ProtoData* proto_data : insert_order_to_data){
+        // 创建图形管线配置（基于该 proto 的 ShaderSet）
         auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(proto_data->shaderset);
+
+        // 配置背面剔除：某些双面材质模型（如 window.fb）需要关闭
         if(! proto_data->back_cull){
             for (auto& state : graphicsPipelineConfig->pipelineStates) {
                 if (auto rasterState = state.cast<vsg::RasterizationState>()) {
@@ -616,7 +717,11 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
                 }
             }
         }
-        graphicsPipelineConfig->subpass = 0;
+        graphicsPipelineConfig->subpass = 0;  // 在 RenderPass 的 Subpass 0 中执行
+
+        // ---- 创建实例矩阵 buffer（当前帧，DYNAMIC_DATA_TRANSFER_AFTER_RECORD）----
+        // DYNAMIC_DATA_TRANSFER_AFTER_RECORD: 在 command buffer 录制之后再上传数据
+        // 这意味着每帧渲染时可以修改矩阵内容，GPU 读取的是最新值
         proto_data->instance_buffer = vsg::mat4Array::create(proto_data->instance_matrix.size());
         proto_data->instance_buffer->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
         for(int i = 0; i < proto_data->instance_matrix.size(); i ++){
@@ -624,7 +729,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         }
         proto_data->input_instance_buffer_info = vsg::BufferInfo::create(proto_data->instance_buffer);
 
-        // 创建上一帧proto矩阵缓冲区
+        // ---- 创建上一帧实例矩阵 buffer（双缓冲，用于运动模糊等）----
         proto_data->last_instance_buffer = vsg::mat4Array::create(proto_data->instance_matrix.size());
         proto_data->last_instance_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
         for(int i = 0; i < proto_data->instance_matrix.size(); i ++){
@@ -632,6 +737,10 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         }
         proto_data->last_instance_buffer_info = vsg::BufferInfo::create(proto_data->last_instance_buffer);
 
+        // ---- 创建高亮/选中 buffer ----
+        // 每实例 4 个 uint: [highlight_state, 0, 0, model_index]
+        // highlight_state: 0=无高亮, 1=选中高亮
+        // model_index: 该实例在 global_model_matrix_buffer 中的索引，shader 用它查找 model 矩阵
         proto_data->highlight_buffer = vsg::uintArray::create(proto_data->instance_matrix.size() * 4);
         proto_data->highlight_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
         for(int i = 0; i < proto_data->instance_matrix.size(); i++){
@@ -642,18 +751,25 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         }
         proto_data->input_highlight_buffer_info = vsg::BufferInfo::create(proto_data->highlight_buffer);
 
-        // 2个mat4，1个int，3个padding int，一共36
+        // ---- 创建 compute shader 输出 buffer ----
+        // compute shader 剔除后将可见实例数据写入此 buffer
+        // 每实例 512 字节: 2个mat4(可见实例的 current/last 矩阵) + 1个int(实例ID) + padding
         auto instance_data_buffer = vsg::floatArray::create(proto_data->instance_matrix.size() * 512);
         proto_data->output_instance_buffer_info = vsg::BufferInfo::create(instance_data_buffer);
 
+        // ---- 绑定 descriptor set ----
+        // instanceModelMatrix: compute shader 输出的可见实例数据，vertex shader 读取
+        // ConstantBuffer: 全局常量（z_far, shader_type, width, height）
         vsg::BufferInfoList info_list = {proto_data->output_instance_buffer_info};
         graphicsPipelineConfig->assignDescriptor("instanceModelMatrix", info_list);
         graphicsPipelineConfig->assignDescriptor("ConstantBuffer", constant_data_buffer_info_list);
-        
+
+        // 绑定阴影采样贴图（Subpass 2 的 denoise 输出）
         auto noiseSampler = Utils::createNearestClampSampler();
         vsg::ImageInfoList ShadowSampleViewList = {vsg::ImageInfo::create(noiseSampler, ShadowSampleImageView, VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL)};
         graphicsPipelineConfig->assignTexture("shadowsampler", ShadowSampleViewList);
 
+        // ---- 绑定材质纹理（可选）----
         if(proto_data->diffuse_path != ""){
             graphicsPipelineConfig->assignTexture("diffuseMap", texture_name_to_image_map[proto_data->diffuse_path]);
         }
@@ -664,113 +780,153 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
             graphicsPipelineConfig->assignTexture("mrMap", texture_name_to_image_map[proto_data->mr_path]);
         }
 
-        //todo
+        // 绑定相机图像和深度图（AR/MR 虚实融合用）
         graphicsPipelineConfig->assignTexture("cameraImage", camera_info);
         graphicsPipelineConfig->assignTexture("depthImage", depth_info);
+
+        // 绑定全局材质数组 descriptor（shader 通过 material_index 索引到具体材质）
         graphicsPipelineConfig->assignDescriptor("materialArray", global_material_buffer);
 
+        // ---- 计算包围盒（AABB）----
+        // 遍历所有顶点，计算轴对齐包围盒
+        // 包围盒数据存储到 bounds_data，用于 compute shader 的遮挡剔除测试
         vsg::box bounds;
         for (uint32_t i = 0; i < proto_data->vertices->size(); ++i)
         {
             bounds.add(proto_data->vertices->at(i));
         }
-        
+
+        // ---- 配置顶点输入布局 ----
+        // vsg_Vertex: 顶点位置（per-vertex，每个顶点一个值）
+        // vsg_Normal: 顶点法线（per-vertex）
+        // vsg_TexCoord0: 纹理坐标（per-vertex，可选）
+        // vsg_Color: 顶点颜色（per-instance，所有实例共享白色，实际颜色由材质决定）
         vsg::DataList vertexArrays;
         graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Vertex", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->vertices);
         graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Normal", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->normals);
         if(proto_data->uvs)
             graphicsPipelineConfig->assignArray(vertexArrays, "vsg_TexCoord0", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->uvs);
-        // if(proto_data->colors)
-        //     graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_VERTEX, proto_data->colors);
-        // else
-            graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f}));
+        // 使用 per-instance 的统一白色，实际颜色由 PbrMaterial 的 baseColorFactor 决定
+        graphicsPipelineConfig->assignArray(vertexArrays, "vsg_Color", VK_VERTEX_INPUT_RATE_INSTANCE, vsg::vec4Value::create(vsg::vec4{1.0f, 1.0f, 1.0f, 1.0f}));
 
+        // ---- 配置实例 ID 数组（per-instance attribute）----
+        // 每个实例一个 vec4: (instance_id, material_index, 1.0, 1.0)
+        // instance_id: 唯一标识符，shader 中用于查找高亮状态
+        // material_index: 在 global_material_buffer 中的索引，shader 用它获取 PBR 材质参数
         static float instance_id = 0;
         auto instance_id_array = vsg::vec4Array::create(proto_data->instance_matrix.size());
-
-        // Use proto_data's material_index (stored during preprocessFBProtoData)
         uint32_t material_index = proto_data->material_index;
-
         for (size_t i = 0; i < proto_data->instance_matrix.size(); ++i) {
             instance_id_array->set(i, vsg::vec4(++instance_id, float(material_index), 1.0f, 1.0f));
         }
         graphicsPipelineConfig->assignArray(vertexArrays, "vsg_InstanceID", VK_VERTEX_INPUT_RATE_INSTANCE, instance_id_array);
+
+        // ---- 构建绘制命令 ----
         auto drawCommands = vsg::Commands::create();
         drawCommands->addChild(vsg::BindVertexBuffers::create(graphicsPipelineConfig->baseAttributeBinding, vertexArrays));
         drawCommands->addChild(vsg::BindIndexBuffer::create(proto_data->indices));
 
+        // ---- 存储包围盒数据（供遮挡剔除 compute shader 使用）----
+        // bounds_data[0] = (min.x, min.y, min.z, 1), bounds_data[1] = (max.x, max.y, max.z, 1)
         proto_data->bounds_data = vsg::vec4Array::create(10);
         proto_data->bounds_data->set(0, vsg::vec4(bounds.min.x, bounds.min.y, bounds.min.z, 1));
         proto_data->bounds_data->set(1, vsg::vec4(bounds.max.x, bounds.max.y, bounds.max.z, 1));
         proto_data->bounds_data->properties.dataVariance = vsg::DYNAMIC_DATA;
         proto_data->bounds_buffer_info = vsg::BufferInfo::create(proto_data->bounds_data);
 
+        // ---- 创建 DrawIndexedIndirect 间接绘制命令 ----
+        // VkDrawIndexedIndirectCommand 结构：
+        //   indexCount: 每个实例绘制的索引数
+        //   instanceCount: 实例数量（compute shader 会修改此值为可见实例数）
+        //   firstIndex: 起始索引偏移
+        //   vertexOffset: 顶点偏移
+        //   firstInstance: 起始实例偏移
         VkDrawIndexedIndirectCommand cmd = {
-            proto_data->indices->size(),      // indexCount
-            proto_data->instance_matrix.size(),     // instanceCount
+            proto_data->indices->size(),            // indexCount
+            proto_data->instance_matrix.size(),     // instanceCount（初始值=全部实例，compute shader 会覆盖为可见数）
             0,         // firstIndex
-            0,         // vertexOffsetid == 0
+            0,         // vertexOffset
             0          // firstInstance
         };
+
+        // 间接命令完整备份（用于帧间恢复，如切换剔除模式时重置命令）
         auto indirect_full_buffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
         indirect_full_buffer->set(0, cmd);
         auto indirect_full_buffer_info = vsg::BufferInfo::create(indirect_full_buffer);
         proto_data->indirect_full_buffer_info = indirect_full_buffer_info;
 
+        // 实际使用的间接命令 buffer（compute shader 会修改其 instanceCount）
         auto indirectBuffer = vsg::Array<VkDrawIndexedIndirectCommand>::create(1);
         indirectBuffer->set(0, cmd);
         auto draw_indirect = vsg::DrawIndexedIndirect::create(
-            indirectBuffer,  // 间接命令缓冲区
-            1,              // 绘制命令数量
-            sizeof(VkDrawIndexedIndirectCommand) // 命令步长
+            indirectBuffer,                          // 间接命令缓冲区
+            1,                                       // 绘制命令数量
+            sizeof(VkDrawIndexedIndirectCommand)     // 命令步长
         );
+        // 绑定实例矩阵和高亮 buffer 到 DrawIndexedIndirect
+        // VSG 的 DrawIndexedIndirect 扩展了这些字段，供 vertex shader 直接读取
         draw_indirect->instanceMatrix = proto_data->instance_buffer;
         draw_indirect->highlightBuffer = proto_data->highlight_buffer;
         proto_data->draw_indirect = draw_indirect;
         drawCommands->addChild(draw_indirect);
-        // auto draw_indexed = vsg::DrawIndexed::create(proto_data->indices->size(), proto_data->instance_matrix.size() / 2, 0, 0, 0);
-        // draw_indexed->instanceMatrix = proto_data->instance_buffer;
-        // drawCommands->addChild(draw_indexed);
+
+        // ---- 初始化管线并挂载到场景图 ----
         graphicsPipelineConfig->init();
 
+        // 创建 StateGroup（管理管线状态的场景图节点）
         auto stateGroup = vsg::StateGroup::create();
         graphicsPipelineConfig->copyTo(stateGroup);
+
+        // 只有第一个 proto 挂载 Push Constants（所有 proto 共享同一份 push constant）
         static int i = 0;
-        if(++i == 1) 
+        if(++i == 1)
             stateGroup->add(pc);
+
         stateGroup->addChild(drawCommands);
         proto_data->scene->addChild(stateGroup);
     }
 
-    // 创建全局 model 矩阵缓冲区
+    // ---- Step 3: 构建全局 model 矩阵 buffer ----
+    // 全局 model 矩阵 buffer（当前帧）
+    // DYNAMIC_DATA_TRANSFER_AFTER_RECORD: 每帧录制 command buffer 之后再上传，确保 GPU 读取最新值
     global_model_matrix_buffer = vsg::mat4Array::create(global_model_matrices_accumulator.size());
     global_model_matrix_buffer->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
     for (size_t i = 0; i < global_model_matrices_accumulator.size(); i++)
         global_model_matrix_buffer->set(i, vsg::mat4(global_model_matrices_accumulator[i]));
     global_model_matrix_buffer_info = vsg::BufferInfo::create(global_model_matrix_buffer);
 
-    // 创建上一帧全局 model 矩阵缓冲区
+    // 全局 model 矩阵 buffer（上一帧，用于运动模糊）
     last_global_model_matrix_buffer = vsg::mat4Array::create(global_model_matrices_accumulator.size());
     last_global_model_matrix_buffer->properties.dataVariance = vsg::DYNAMIC_DATA;
     for (size_t i = 0; i < global_model_matrices_accumulator.size(); i++)
         last_global_model_matrix_buffer->set(i, vsg::mat4(global_model_matrices_accumulator[i]));
     last_global_model_matrix_buffer_info = vsg::BufferInfo::create(last_global_model_matrix_buffer);
 
-    // 释放累积器内存
+    // 释放累积器（已拷贝到 buffer，不再需要）
     global_model_matrices_accumulator.clear();
     global_model_matrices_accumulator.shrink_to_fit();
 
-    // 设置所有 draw_indirect 的 globalModelMatrix
+    // ---- Step 4: 将全局 model 矩阵 buffer 绑定到所有 DrawIndexedIndirect ----
+    // vertex shader 通过 globalModelMatrix 将 model 级变换与 proto 级实例矩阵相乘
     for (ProtoData* proto_data : insert_order_to_data) {
         proto_data->draw_indirect->globalModelMatrix = global_model_matrix_buffer;
     }
 }
 
+/**
+ * buildDynamicLinesData — 构建动态线框绘制管线
+ *
+ * 与静态 CAD 模型不同，动态线框数据每帧可由 CPU 端更新（addLineData）。
+ * 预分配 20000 个顶点/索引的固定容量，未使用区域填充 -10000.f 使其不可见。
+ *
+ * 拓扑模式：VK_PRIMITIVE_TOPOLOGY_LINE_LIST（每两个索引构成一条线段）
+ */
 void CADMesh::buildDynamicLinesData(vsg::ref_ptr<vsg::ShaderSet> model_shaderset, vsg::ref_ptr<vsg::Group> scene, vsg::BufferInfoList constant_data_buffer_info_list)
 {
-    dynamic_lines.vertices = vsg::vec3Array::create(20000); 
+    // 预分配固定容量的动态数据 buffer（DYNAMIC_DATA 允许每帧 CPU 写入）
+    dynamic_lines.vertices = vsg::vec3Array::create(20000);
     dynamic_lines.vertices->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
-    dynamic_lines.indices = vsg::uintArray::create(20000); 
+    dynamic_lines.indices = vsg::uintArray::create(20000);
     dynamic_lines.indices->properties.dataVariance = vsg::DataVariance::DYNAMIC_DATA;
     auto graphicsPipelineConfig = vsg::GraphicsPipelineConfigurator::create(model_shaderset);
     graphicsPipelineConfig->assignTexture("cameraImage", camera_info);

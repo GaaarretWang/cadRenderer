@@ -1611,19 +1611,65 @@ typedef enum VkSampleCountFlagBits {
 } VkSampleCountFlagBits;
 typedef VkFlags VkSampleCountFlags;
 
+// VkImageUsageFlagBits: 图像用途标志, 定义图像可以被如何使用
+// 这些标志用于 VkImageCreateInfo::usage 字段, 指定图像的预期用途
+// 多个标志可以通过位或 (|) 组合使用
 typedef enum VkImageUsageFlagBits {
+    // 图像可以用作传输操作的源 (vkCmdCopyImage, vkCmdBlitImage 的 srcImage)
+    // 即: 可以从该图像读取数据并传输到其他图像
     VK_IMAGE_USAGE_TRANSFER_SRC_BIT = 0x00000001,
+
+    // 图像可以用作传输操作的目标 (vkCmdCopyImage, vkCmdBlitImage 的 dstImage)
+    // 即: 可以从其他图像接收数据传输
     VK_IMAGE_USAGE_TRANSFER_DST_BIT = 0x00000002,
+
+    // 图像可以通过图像视图 (ImageView) 被 shader 采样 (vkCmdBindDescriptorSets 绑定)
+    // 即: 可以在 fragment shader 中使用 sampler 读取纹理数据
+    // 典型用途: 颜色贴图、法线贴图、环境贴图等
     VK_IMAGE_USAGE_SAMPLED_BIT = 0x00000004,
+
+    // 图像可以用作存储图像 (storage image), 即在 compute shader 中读写
+    // 即: 可以在 compute shader 中使用 imageLoad/imageStore 访问
+    // 典型用途: G-Buffer、计算着色器输出、GPU 计算结果
     VK_IMAGE_USAGE_STORAGE_BIT = 0x00000008,
+
+    // 图像可以用作颜色附件 (color attachment), 即帧缓冲的渲染目标
+    // 即: 可以作为 vkCmdBeginRenderPass 的 colorAttachment 写入
+    // 典型用途: 屏幕后处理、HDR 渲染、离线渲染目标
     VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT = 0x00000010,
+
+    // 图像可以用作深度/模板附件 (depth/stencil attachment)
+    // 即: 可以作为帧缓冲的深度/模板缓冲使用
+    // 典型用途: 深度缓冲、阴影图、模板缓冲
     VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT = 0x00000020,
+
+    // 图像是临时附件 (transient attachment), GPU 会在渲染过程中自动分配/释放内存
+    // 通常与 VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT 配合使用
+    // 典型用途: 多重采样解析缓冲、延迟渲染的 G-Buffer
+    // 优势: 节省显存带宽, 因为不需要将数据写回显存
     VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT = 0x00000040,
+
+    // 图像可以用作输入附件 (input attachment), 即在 fragment shader 中读取
+    // 即: 可以作为当前渲染 pass 的输入, 用于子通道 (subpass) 依赖
+    // 典型用途: 延迟渲染中, 从上一个 pass 的 G-Buffer 读取数据
     VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT = 0x00000080,
+
+    // 图像可以用作可变速率阴影图像 (shading rate image)
+    // 用于 VK_NV_shading_rate_image 扩展, 控制片段着色速率
+    // 典型用途: 可变着色率 (VRS), 减少远处物体的着色开销
     VK_IMAGE_USAGE_SHADING_RATE_IMAGE_BIT_NV = 0x00000100,
+
+    // 图像可以用作片段密度图 (fragment density map)
+    // 用于 VK_EXT_fragment_density_map 扩展, 控制片段密度
+    // 典型用途: 虚拟纹理、层次细节 (LOD)
     VK_IMAGE_USAGE_FRAGMENT_DENSITY_MAP_BIT_EXT = 0x00000200,
+
+    // 枚举最大值 (用于验证)
     VK_IMAGE_USAGE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VkImageUsageFlagBits;
+
+// VkImageUsageFlags: VkImageUsageFlagBits 的位掩码类型
+// 用于 VkImageCreateInfo::usage 字段
 typedef VkFlags VkImageUsageFlags;
 typedef VkFlags VkInstanceCreateFlags;
 

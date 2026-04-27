@@ -141,6 +141,8 @@ int RenderingServer::Init(int argc, char** argv){
     renderer.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/window.fb");
 
     // renderer.cull_mode_none_model_paths.insert(rendering_dir + "asset/data/geos/1105/window.fb");
+
+    //vsgRendererServer渲染器初始化，初始化 Vulkan 设备、创建 IBL 资源、构建完整渲染管线
     renderer.initRenderer(rendering_dir, model_transforms, model_paths, instance_names, vsg::dmat4());
     
     device = renderer.device;

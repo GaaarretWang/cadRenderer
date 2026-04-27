@@ -92,16 +92,28 @@ int main(int argc, char** argv){
                 values.push_back(std::stod(value));
             count ++;
         }
-        // pos, up, forward => centre, eye, up
-        lookatvalues.push_back(values[0] + values[6]);
-        lookatvalues.push_back(values[1] + values[7]);
-        lookatvalues.push_back(values[2] + values[8]);
-        lookatvalues.push_back(values[0]);
-        lookatvalues.push_back(values[1]);
-        lookatvalues.push_back(values[2]);
-        lookatvalues.push_back(values[3]);
-        lookatvalues.push_back(values[4]);
-        lookatvalues.push_back(values[5]);
+        // 输入：values 数组存储相机的 pos、up、forward 三个向量
+        // values[0-2] = 相机位置 eye (x,y,z)
+        // values[3-5] = 相机上方向 up (x,y,z)
+        // values[6-8] = 相机前向方向 forward (x,y,z)
+
+        // 输出：lookatvalues 按顺序存入 center, eye, up
+        // lookAt(eye, center, up)
+
+        // 1. 计算观察目标 center = eye + forward
+        lookatvalues.push_back(values[0] + values[6]); // center.x
+        lookatvalues.push_back(values[1] + values[7]); // center.y
+        lookatvalues.push_back(values[2] + values[8]); // center.z
+
+        // 2. 相机位置 eye
+        lookatvalues.push_back(values[0]); // eye.x
+        lookatvalues.push_back(values[1]); // eye.y
+        lookatvalues.push_back(values[2]); // eye.z
+
+        // 3. 相机上方向 up
+        lookatvalues.push_back(values[3]); // up.x
+        lookatvalues.push_back(values[4]); // up.y
+        lookatvalues.push_back(values[5]); // up.z
 
         camera_pos.push_back(lookatvalues);
     }
@@ -112,6 +124,8 @@ int main(int argc, char** argv){
     RenderingServer rendering_server;
     rendering_server.upsample_scale = render_scale;
     rendering_server.encode_scale = encode_scale;
+    
+    // 第一个Init操作，初始化Render_Server，通过json文件加载场景
     rendering_server.Init(argc, argv);
 #ifndef RENDER_TEST
     Rendering rendering_client;

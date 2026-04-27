@@ -65,29 +65,65 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsg::info("SERVER: Init Vulkan Device");
 
     // ===================== 手动初始化 Vulkan Instance =====================
+    // Vulkan Instance 是应用程序与 Vulkan 驱动之间的连接对象
+    // 类似于 OpenGL 的 GLContext，但更轻量且需要显式配置扩展
+    
+    // instanceExtensions: 扩展列表 - Vulkan 功能扩展
+    // 每个扩展对应 GPU 的特定硬件能力（如 surface、swapchain、external memory 等）
     vsg::Names instanceExtensions;
+    
+    // requestedLayers: 验证层列表 - 用于调试的中间层
+    // 可捕获 Vulkan API 调用错误、检测资源泄漏等（仅开发环境启用）
     vsg::Names requestedLayers;
+
+    // debugLayer: 调试层开关 - 启用 VK_LAYER_KHRONOS_validation
+    // 提供详细的验证信息和性能警告
     bool debugLayer = false;
+    // apiDumpLayer: API 日志层开关 - 记录所有 Vulkan API 调用
+    // 用于追踪渲染调用序列和调试
     bool apiDumpLayer = false;
     uint32_t vulkanVersion = VK_API_VERSION_1_1;
+    // VK_KHR_get_physical_device_properties_2: 物理设备查询扩展
     instanceExtensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-
+    // 条件编译：根据 debugLayer/apiDumpLayer 决定是否启用验证层
     if (debugLayer || apiDumpLayer)
     {
+        // VK_EXT_debug_report: 调试报告扩展
+        // 允许应用程序注册回调接收验证层消息
         instanceExtensions.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+        
+        // VK_LAYER_KHRONOS_validation: Khronos 官方验证层
+        // 检测 API 使用错误、资源泄漏、内存越界等
         requestedLayers.push_back("VK_LAYER_KHRONOS_validation");
+        
+        // VK_LAYER_LUNARG_api_dump: API 调用日志层
+        // 输出每个 Vulkan 调用的完整参数（用于调试）
         if (apiDumpLayer) requestedLayers.push_back("VK_LAYER_LUNARG_api_dump");
     }
+    
+    // VK_KHR_surface: 表面扩展 - 创建渲染表面（窗口）
+    // 是 Vulkan 渲染到屏幕的必需扩展
     instanceExtensions.push_back("VK_KHR_surface");
 
+    // 平台特定扩展：根据操作系统选择
     #ifdef _WIN32
+        // VK_KHR_win32_surface: Windows 平台表面扩展
+        // 创建与 Win32 窗口句柄关联的 Vulkan 表面
         instanceExtensions.push_back("VK_KHR_win32_surface");
+        // VK_KHR_external_semaphore_capabilities: 外部信号量能力
+        // 支持与其他 API（如 CUDA）同步
         instanceExtensions.push_back(VK_KHR_EXTERNAL_SEMAPHORE_CAPABILITIES_EXTENSION_NAME);
+        // VK_KHR_external_memory_capabilities: 外部内存能力
+        // 支持与其他 API（如 CUDA）共享显存
         instanceExtensions.push_back(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME);
     #else
+        // VK_KHR_xcb_surface: Linux X11 平台表面扩展
+        // 创建与 X11 窗口关联的 Vulkan 表面
         instanceExtensions.push_back("VK_KHR_xcb_surface");
     #endif
 
+    // validateInstancelayerNames: 验证层名称验证
+    // 确保请求的验证层存在且版本兼容，过滤不存在的层
     vsg::Names validatedNames = vsg::validateInstancelayerNames(requestedLayers);
 
     vsg::info("mainV2: Create Instance");
@@ -95,30 +131,49 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     // ===================== 创建相机图像纹理（CPU→GPU 传输用） =====================
     // vsg_color_image: 相机颜色图像，CPU 端每帧更新颜色像素数据
     // vsg_depth_image: 相机深度图像，CPU 端每帧更新深度像素数据
+    
+    // ubvec3Array2D: 无符号字节 vec3 数组（RGB），用于存储颜色数据
     vsg_color_image = vsg::ubvec3Array2D::create(width, height);
+    // ushortArray2D: 无符号短整型数组，用于存储深度数据（16位精度）
     vsg_depth_image = vsg::ushortArray2D::create(width, height);
+    
+    // properties.format: 像素格式定义
+    // VK_FORMAT_R8G8B8_UNORM: 8位无符号 normalized RGB（0-255）
     vsg_color_image->properties.format = VK_FORMAT_R8G8B8_UNORM;
+    // DYNAMIC_DATA: 标记数据每帧都会更新，提示 GPU 优化上传策略
     vsg_color_image->properties.dataVariance = vsg::DYNAMIC_DATA; // 每帧动态更新
+    
+    // VK_FORMAT_R16_UNORM: 16位无符号 normalized 深度（0-65535）
     vsg_depth_image->properties.format = VK_FORMAT_R16_UNORM;
     vsg_depth_image->properties.dataVariance = vsg::DYNAMIC_DATA;
+    
+    // createImageInfo: 将 VSG 数据数组转换为 Vulkan ImageInfo
+    // ImageInfo 包含 image、imageView、sampler，用于 描述符集 绑定
     camera_info = createImageInfo(vsg_color_image);
     depth_info = createImageInfo(vsg_depth_image);
 
 
     // ===================== 创建 Vulkan Instance =====================
+    // vsg::Instance: Vulkan 实例对象，管理应用程序与 GPU 驱动的连接
+    // 参数: instanceExtensions（扩展列表）, validatedNames（验证层）, vulkanVersion（API版本）
     vsg::ref_ptr<vsg::Instance> instance;
     try {
-        instance = vsg::Instance::create(instanceExtensions, validatedNames, vulkanVersion);//问题语
+        // vsg::Instance::create: 创建 Vulkan 实例，可能抛出 vsg::Exception
+        instance = vsg::Instance::create(instanceExtensions, validatedNames, vulkanVersion);
     } catch (const vsg::Exception& ex) {
+        // 捕获 VSG 特定的异常，包含 Vulkan 错误码和消息
         vsg::error("Error creating Vulkan Instance: ", ex.message, ", result code: ", ex.result);
         return;
     }
     catch (const std::exception& e) {
+        // 捕获标准 C++ 异常
         vsg::error("Error creating Vulkan Instance: ", e.what());
         return;
     }
 
     // 获取物理设备和图形队列族索引
+    // getPhysicalDeviceAndQueueFamily: 查询支持图形操作的物理设备
+    // 返回: physicalDevice（GPU硬件）, queueFamily（图形队列索引）
     auto [physicalDevice, queueFamily] = instance->getPhysicalDeviceAndQueueFamily(VK_QUEUE_GRAPHICS_BIT);
     if (!physicalDevice || queueFamily < 0)
     {
@@ -127,38 +182,66 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     }
 
     // ===================== 设备扩展（CUDA-Vulkan 互操作必需） =====================
+    // deviceExtensions: 设备级别扩展，控制 GPU 特定功能
     vsg::Names deviceExtensions;
+    
+    // VK_KHR_swapchain: 交换链扩展，渲染输出到窗口的必需扩展
     deviceExtensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
-    deviceExtensions.insert(deviceExtensions.end(), {VK_KHR_MULTIVIEW_EXTENSION_NAME,
-                                                    VK_KHR_MAINTENANCE2_EXTENSION_NAME,
-                                                    VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
-                                                    VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
-                                                    VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-                                                    VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
+    
+    // 批量添加多个设备扩展
+    deviceExtensions.insert(deviceExtensions.end(), {
+        // VK_KHR_multiview: 多视图扩展，支持单次渲染到多个视图（VR/AR）
+        VK_KHR_MULTIVIEW_EXTENSION_NAME,
+        // VK_KHR_maintenance2: 维护2扩展，修复 Vulkan 1.0 的一些问题
+        VK_KHR_MAINTENANCE2_EXTENSION_NAME,
+        // VK_KHR_create_renderpass2: RenderPass 2 扩展，新版渲染通道创建API
+        VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME,
+        // VK_KHR_depth_stencil_resolve: 深度模板解析扩展，多重采样抗锯齿支持
+        VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME,
+        // VK_KHR_buffer_device_address: 缓冲区设备地址扩展，GPU 直接寻址
+        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+        // VK_KHR_external_memory: 外部内存扩展，跨 API 共享显存
+        VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME,
 #ifdef _WIN32
-                                                    VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME,
-                                                    VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
-                                                    VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME,
+        // Windows 平台特定的外部内存扩展
+        VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME,
+        // 外部信号量扩展，支持跨 API 同步
+        VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
+        // Windows 平台特定的外部信号量扩展
+        VK_KHR_EXTERNAL_SEMAPHORE_WIN32_EXTENSION_NAME,
 #else
-                                                    VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
-                                                    VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
-                                                    VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME,
+        // Linux 平台特定的外部内存扩展（使用 fd 文件描述符）
+        VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME,
+        // 外部信号量扩展
+        VK_KHR_EXTERNAL_SEMAPHORE_EXTENSION_NAME,
+        // Linux 平台特定的外部信号量扩展
+        VK_KHR_EXTERNAL_SEMAPHORE_FD_EXTENSION_NAME,
 #endif
-                                                    });
+    });
 
+    // QueueSettings: 队列配置，设置图形队列的优先级
+    // queueFamily: 之前获取的图形队列族索引
+    // {1.0}: 队列优先级（0.0-1.0，1.0 最高）
     vsg::QueueSettings queueSettings{vsg::QueueSetting{queueFamily, {1.0}}};
 
     // 启用各向异性过滤和几何着色器
+    // DeviceFeatures: GPU 特性开关，需要硬件支持才能启用
     auto deviceFeatures = vsg::DeviceFeatures::create();
+    // samplerAnisotropy: 各向异性过滤，远处纹理更清晰
     deviceFeatures->get().samplerAnisotropy = VK_TRUE;
+    // geometryShader: 几何着色器，可在顶点着色器后处理图元
     deviceFeatures->get().geometryShader = VK_TRUE;
+    
     try {
+        // vsg::Device::create: 创建 Vulkan 逻辑设备
         device = vsg::Device::create(physicalDevice, queueSettings, validatedNames, deviceExtensions, deviceFeatures);
     }
     catch (const vsg::Exception& ex) {
         vsg::error("Error creating Vulkan Device: ", ex.message, ", result code: ", ex.result);
         return;
     }
+    
+    // vsg::Context: VSG 的 Vulkan 上下文对象，管理 资源分配 和 命令缓冲
     auto context = vsg::Context::create(device);
 
     // ===================== IBL 资源初始化 =====================
@@ -168,10 +251,14 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     vsgContext.device = device;
     vsgContext.queueFamily = queueFamily;
     IBL::appData.options = options;
-    loadHDRConfig();
+
+    loadHDRConfig(); // 读取 HDR 最大数量配置
+
     IBL::createResources(vsgContext, hdr_image_max_num);  // 创建立方体贴图、LUT 等 GPU 资源
     IBL::generateBRDFLUT(vsgContext);                     // 生成 BRDF 积分查找表
+    
     preprocessEnvMap();                                    // 预处理所有 HDR 环境贴图
+    
     vsg::info("IBL: Environment lighting data created, creating window");
 
 
@@ -210,7 +297,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     rootSwitch->addChild(MASK_SKYBOX, drawSkyboxNode);              // 天空盒
     rootSwitch->addChild(MASK_SHADOW_RECEIVER, shadowGroup);        // 阴影接收面
     rootSwitch->addChild(MASK_PBR_FULL, modelGroup);                // CAD 模型
-    rootSwitch->addChild(MASK_TEXT, textGroup);                      // 文字
+    rootSwitch->addChild(MASK_TEXT, textGroup);                     // 文字
     rootSwitch->addChild(MASK_WIREFRAME, wireframeGroup);           // 线框
 
     // rootSwitch1: Subpass 1→2 过渡 + SSAO 降噪
@@ -228,8 +315,8 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
         0
     );
     auto ssaoImageBarrier = vsg::ImageMemoryBarrier::create(
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,          // 前序：金字塔生成的写入
-        VK_ACCESS_SHADER_READ_BIT,           // 后续：剔除阶段的读取
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,           // 前序：金字塔生成的写入
+        VK_ACCESS_SHADER_READ_BIT,                      // 后续：剔除阶段的读取
         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_QUEUE_FAMILY_IGNORED,
@@ -413,22 +500,30 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     // 将离屏颜色附件从 COLOR_ATTACHMENT_OPTIMAL 转换为 GENERAL
     // vkCmdCopyImage 要求源图像在 TRANSFER_SRC 或 GENERAL 布局
     {
+        // 创建在计算队列上执行的命令图，专门用于执行图像布局转换
         auto barrierCommandGraph = vsg::CommandGraph::create(device, computeQueueFamily1);
+
+        // 图像内存屏障：设置颜色图像的布局转换与访问权限变更
         auto offscreenToGeneral = vsg::ImageMemoryBarrier::create(
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_ACCESS_TRANSFER_READ_BIT,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            VK_IMAGE_LAYOUT_GENERAL,
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,    // 旧访问：颜色附件写入权限
+            VK_ACCESS_TRANSFER_READ_BIT,             // 新访问：传输读取权限
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,// 旧布局：渲染输出最优布局
+            VK_IMAGE_LAYOUT_GENERAL,                 // 新布局：通用布局（支持拷贝）
             VK_QUEUE_FAMILY_IGNORED,
             VK_QUEUE_FAMILY_IGNORED,
             offscreenTarget->colorImage,
             VkImageSubresourceRange{VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1}
         );
+
+        // 管线屏障：指定GPU执行阶段同步（颜色输出阶段 → 传输阶段）
         barrierCommandGraph->addChild(vsg::PipelineBarrier::create(
             VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
             VK_PIPELINE_STAGE_TRANSFER_BIT,
-            0, offscreenToGeneral
+            0, 
+            offscreenToGeneral
         ));
+
+        // 把屏障命令加入主命令流
         commandGraph1->addChild(barrierCommandGraph);
     }
 

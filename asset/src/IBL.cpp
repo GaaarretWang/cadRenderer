@@ -507,25 +507,39 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
     auto& context = vsgContext.context;
     auto& viewer = vsgContext.viewer;
 
-    // VkEvents for synchronaziation;
+    // ===================== GPU 同步事件初始化 =====================
+    // VkEvent: Vulkan 事件, 用于 GPU 命令流之间的同步
+    // envmapCubeGeneratedEvent: envmap cubemap 生成完成事件
+    // envmapCubeRenderedEvent: envmap cubemap 渲染完成事件 (未使用)
     gVkEvents.envmapCubeGeneratedEvent = Event::create(context->device);
     gVkEvents.envmapCubeRenderedEvent = Event::create(context->device);
 
-    // environment cubemap (only used by skybox and texture generations)
+    // ===================== 主环境贴图 cubemap 创建 =====================
+    // envmapCube: 从 equirectangular HDR 转换而来的 cubemap
+    // 用于天空盒渲染和后续的 irradiance/prefilter 生成
     {
+        // createImageCube: 创建 cubemap 图像 (6 面, 支持 mipmap)
+        // 参数: context, format, usage, extent, numMips, image, imageView
         createImageCube(*context, 
             Constants::EnvmapCube::format, 
+            // VK_IMAGE_USAGE_SAMPLED_BIT: 可被 shader 采样
+            // VK_IMAGE_USAGE_TRANSFER_DST_BIT: 可作为传输目标 (用于 mipmap 生成)
             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, // DST for mipmap generation
             Constants::EnvmapCube::extent,
             Constants::EnvmapCube::numMips, 
             textures.envmapCube, 
             textures.envmapCubeView
         );
+        
+        // createSamplerCube: 创建 cubemap 采样器
+        // 线性过滤 + CLAMP_TO_EDGE 寻址模式
         createSamplerCube(
             Constants::EnvmapCube::numMips, // 1 for no mips
             textures.envmapCubeSmapler
         );
 
+        // createImageInfo: 打包 ImageView + Sampler + Layout
+        // 供 descriptor set 绑定使用
         createImageInfo(
             textures.envmapCubeView, 
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, 
@@ -534,8 +548,11 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
         );
     }
 
-    // test cubemap (only used by skybox and texture generations)
+    // ===================== HDR 图片集合 cubemap 创建 =====================
+    // testMap/irraMap/prefMap: 按 HDR 图片编号索引的 cubemap 集合
+    // 支持多 HDR 环境贴图切换 (从 1 开始编号)
     for(int i = 1; i <= hdr_image_max_num; i++){
+        // --- testMap: 环境贴图 cubemap ---
         {
             _ImageLine tempLine;
             createImageCube(*context, 
@@ -561,6 +578,7 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
             textures.testMap.insert({i, tempLine});
         }
 
+        // --- irraMap: 辐照度 cubemap (漫反射 IBL) ---
         {
             _ImageLine tempLine;
             createImageCube(*context, 
@@ -585,6 +603,7 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
             textures.irraMap.insert({i, tempLine});
         }
 
+        // --- prefMap: 预滤波 cubemap (镜面反射 IBL) ---
         {
             _ImageLine tempLine;
             createImageCube(*context,
@@ -610,10 +629,17 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
         }
     }
 
-    // move brdf lut here
+    // ===================== BRDF LUT 创建 =====================
+    // BRDF LUT: BRDF 积分查找表, Split-Sum 近似的一部分
+    // 纹理格式: R16G16_SFLOAT (512x512)
+    // R 通道: scale (镜面反射缩放因子)
+    // G 通道: bias  (镜面反射偏移因子)
+    // 仅依赖 roughness 和 NdotV, 一次生成永久复用
     {
         createImage2D(*context, 
             Constants::BrdfLUT::format, 
+            // VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT: 作为渲染目标 (离线生成)
+            // VK_IMAGE_USAGE_SAMPLED_BIT: 可被 shader 采样
             VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
             Constants::BrdfLUT::extent, 
             textures.brdfLut, 
@@ -628,8 +654,11 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
             textures.brdfLutInfo
         );
     }
-    // 创建辐照度 cubemap 资源 (64x64, 用于漫反射 IBL)
-    // irradiance cubemap
+    
+    // ===================== 主辐照度 cubemap 创建 =====================
+    // irradianceCube: 辐照度 cubemap (64x64, 7 级 mipmap)
+    // 用于漫反射 IBL (Diffuse Indirect Lighting)
+    // 漫反射光照变化平缓, 低分辨率即可
     {
         createImageCube(*context, 
             Constants::IrradianceCube::format, 
@@ -651,7 +680,10 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
         );
     }
 
-    // 创建预滤波 cubemap 资源 (512x512, 10 级 mipmap, 用于镜面反射 IBL)
+    // ===================== 主预滤波 cubemap 创建 =====================
+    // prefilterCube: 预滤波 cubemap (512x512, 10 级 mipmap)
+    // 用于镜面反射 IBL (Specular Indirect Lighting)
+    // 每个 mip level 对应一个 roughness 级别 (mip 0 = 光滑, mip 9 = 粗糙)
     {
         createImageCube(*context,
             Constants::PrefilteredEnvmapCube::format,
@@ -670,44 +702,12 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
             textures.prefilterCubeInfo);
     }
 
-    // 创建天空盒立方体几何数据 (6 面, 每面 4 个顶点, 2 个三角形)
+    // ===================== 天空盒立方体几何数据创建 =====================
+    // gSkyboxCube: 天空盒立方体的几何数据
+    // 6 面 x 4 顶点 = 24 个顶点, 每面 2 个三角形 = 36 个索引
     // 顶点顺序: Right, Left, Front, Back, Bottom, Top
+    // 用于 irradiance/prefilter 生成时的天空盒渲染
     gSkyboxCube.vertices = vsg::vec3Array::create({
-        // // Back
-        // {-1.0f, -1.0f, -1.0f},
-        // {1.0f, -1.0f, -1.0f},
-        // {-1.0f, 1.0f, -1.0f},
-        // {1.0f, 1.0f, -1.0f},
-
-        // // Front
-        // {-1.0f, -1.0f, 1.0f},
-        // {1.0f, -1.0f, 1.0f},
-        // {-1.0f, 1.0f, 1.0f},
-        // {1.0f, 1.0f, 1.0f},
-
-        // // Left
-        // {-1.0f, -1.0f, -1.0f},
-        // {-1.0f, -1.0f, 1.0f},
-        // {-1.0f, 1.0f, -1.0f},
-        // {-1.0f, 1.0f, 1.0f},
-
-        // // Right
-        // {1.0f, -1.0f, -1.0f},
-        // {1.0f, -1.0f, 1.0f},
-        // {1.0f, 1.0f, -1.0f},
-        // {1.0f, 1.0f, 1.0f},
-
-        // // Bottom
-        // {-1.0f, -1.0f, -1.0f},
-        // {-1.0f, -1.0f, 1.0f},
-        // {1.0f, -1.0f, -1.0f},
-        // {1.0f, -1.0f, 1.0f},
-
-        // // Top
-        // {-1.0f, 1.0f, -1.0f},
-        // {-1.0f, 1.0f, 1.0f},
-        // {1.0f, 1.0f, -1.0f},
-        // {1.0f, 1.0f, 1.0}}
 
         //---------------------------------------------------
         
@@ -748,32 +748,40 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
         {1.0f, 1.0f, -1.0f}}
     );
 
+    // ===================== 天空盒索引数据创建 =====================
+    // indices: 索引数组, 定义 6 个面的三角形绘制顺序
+    // 每面 2 个三角形, 共 36 个索引
+    // 顶点顺序: Right(0-3), Left(4-7), Front(8-11), Back(12-15), Bottom(16-19), Top(20-23)
     gSkyboxCube.indices = vsg::ushortArray::create({
-        // Back
+        // Back (+Z 方向, 观察者背对)
         0, 2, 1,
         1, 2, 3,
 
-        // Front
+        // Front (-Z 方向, 观察者面向)
         6, 4, 5,
         7, 6, 5,
 
-        // Left
+        // Left (-X 方向)
         10, 8, 9,
         11, 10, 9,
 
-        // Right
+        // Right (+X 方向)
         14, 13, 12,
         15, 13, 14,
 
-        // Bottom
+        // Bottom (-Y 方向, 地面)
         17, 16, 19,
         19, 16, 18,
 
-        // Top
+        // Top (+Y 方向, 天花板)
         23, 20, 21,
         22, 20, 23}
     );
 
+    // ===================== IBL 参数缓冲区创建 =====================
+    // textures.params: 传递给 shader 的参数 buffer
+    // 用于运行时动态调整 IBL 效果 (如环境光强度)
+    // DYNAMIC_DATA_TRANSFER_AFTER_RECORD: 标记数据在记录后传输
     textures.params = vec4Array::create(1, vec4(0, 0, 0, 1.0f));
     textures.params->properties.dataVariance = vsg::DYNAMIC_DATA_TRANSFER_AFTER_RECORD;
     textures.paramsInfo = BufferInfo::create(textures.params.get());
@@ -781,47 +789,20 @@ void createResources(VsgContext& vsgContext, int hdr_image_max_num)
 
 // clearResources: 清理 IBL 系统的所有 GPU 资源
 // 重置全局状态 (textures, appData, events, skybox geometry, shaderSets)
+// 资源释放策略: 注释掉的代码保留原始引用, 避免野指针
 void clearResources()
 {
-    //textures.envmapCube = nullptr;
-    //textures.envmapCubeView = nullptr;
-    //textures.envmapCubeSmapler = nullptr;
-    //textures.envmapCubeInfo = nullptr;
 
-    //textures.brdfLut = nullptr;
-    //textures.brdfLutView = nullptr;
-    //textures.brdfLutSampler = nullptr;
-    //textures.brdfLutInfo = nullptr;
-
-    //textures.irradianceCube = nullptr;
-    //textures.irradianceCubeView = nullptr;
-    //textures.irradianceCubeSampler = nullptr;
-    //textures.irradianceCubeInfo = nullptr;
-
-    //textures.prefilterCube = nullptr;
-    //textures.prefilterCubeView = nullptr;
-    //textures.prefilterCubeSampler = nullptr;
-    //textures.prefilterCubeInfo = nullptr;
-
+    // ===================== 重置应用程序数据 =====================
     appData = {};
 
+    // ===================== 重置纹理资源 =====================
+    // {}: 使用 VSG 的默认构造函数, 自动释放 ref_ptr
     textures = {};
     gVkEvents = {};
     gSkyboxCube = {};
     gEnvmapRect = {};
-    //if (gVkEvents.envmapCubeRenderedEvent)
-    //    gVkEvents.envmapCubeRenderedEvent = nullptr;
-    //if (gVkEvents.envmapCubeGeneratedEvent)
-    //    gVkEvents.envmapCubeGeneratedEvent = nullptr;
-    //if (gVkEvents.envmapCubeRenderedBarrier)
-    //    gVkEvents.envmapCubeRenderedBarrier = nullptr;
-    //if (gVkEvents.envmapCubeGeneratedBarrier)
-    //    gVkEvents.envmapCubeGeneratedBarrier = nullptr;
-
-    //if (gSkyboxCube.vertices)
-    //    gSkyboxCube.vertices =nullptr;
-    //if (gSkyboxCube.indices)
-    //    gSkyboxCube.indices = nullptr;
+    
     shaderSets.clear();
 }
 
@@ -1001,14 +982,6 @@ void generateBRDFLUT(VsgContext &vsgContext)
     rtt_rendergraph->framebuffer = fbuf;
 
     // create RenderGraph
-    // descriptors: empty
-    //vsg::DescriptorSetLayoutBindings debugDescriptorBindings = {
-    //    {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}
-    //};
-    ////auto descriptorSetLayout = vsg::DescriptorSetLayout::create(vsg::DescriptorSetLayoutBindings{});
-    //auto descriptorSetLayout = vsg::DescriptorSetLayout::create(debugDescriptorBindings);
-    //auto texDescriptor = vsg::DescriptorImage::create(gEnvmapRect.sampler, gEnvmapRect.image, 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    //auto descriptorSet = vsg::DescriptorSet::create(descriptorSetLayout, vsg::Descriptors{texDescriptor});
 
     // pushConstantRange: empty
     vsg::PushConstantRanges pushConstantRanges{};
@@ -1835,89 +1808,163 @@ void generatePrefilteredEnvmapCube(VsgContext& vsgContext, int hdr)
 // VSG Commands 概念: 封装 Vulkan 绑定和绘制命令 (BindVertexBuffers/DrawIndexed 等)
 ptr<StateGroup> drawSkyboxVSGNode(VsgContext& context, vsg::ref_ptr<vsg::StateGroup> root, int width, int height, vsg::ImageInfoList camera_data, vsg::ImageInfoList depth_data, vsg::ref_ptr<vsg::Data> shadow_pc_data)
 {
+    // ===================== 第 1 步：加载 skybox shader =====================
     auto vertexShaderFilepath = vsg::findFile("shaders/IBL/skybox.vert", appData.options->paths);
     auto fragShaderFilepath = vsg::findFile("shaders/IBL/skybox.frag", appData.options->paths);
+    // 从文件加载 vertex shader (VK_SHADER_STAGE_VERTEX_BIT, 入口函数 "main")
     auto vertexShader = vsg::ShaderStage::read(VK_SHADER_STAGE_VERTEX_BIT, "main", vertexShaderFilepath);
+    // 从文件加载 fragment shader (VK_SHADER_STAGE_FRAGMENT_BIT, 入口函数 "main")
     auto fragmentShader = vsg::ShaderStage::read(VK_SHADER_STAGE_FRAGMENT_BIT, "main", fragShaderFilepath);
+    // 检查 shader 是否加载成功
     if (!vertexShader || !fragmentShader)
     {
         std::cout << "Could not create skybox shaders." << std::endl;
         return ptr<StateGroup>();
     }
 
+    // ===================== 第 2 步：创建 tone mapping 参数 =====================
     auto shaderCompileSettings = ShaderCompileSettings::create();
     auto shaderStages = ShaderStages{vertexShader, fragmentShader};
+    // tonemapParams: tone mapping 参数 [exposure, gamma, width, height]
     auto tonemapParams = floatArray::create(4);
-    tonemapParams->set(0, 3.0f); //exposure
-    tonemapParams->set(1, 2.2f); //gamma
-    tonemapParams->set(2, width * 1.f); //width
-    tonemapParams->set(3, height * 1.f); //height
+    tonemapParams->set(0, 3.0f);   // exposure: 曝光值 (控制 HDR 亮度)
+    tonemapParams->set(1, 2.2f);   // gamma: Gamma 校正值 (sRGB = 2.2)
+    tonemapParams->set(2, width * 1.f);  // width: 视口宽度 (用于 shader 计算)
+    tonemapParams->set(3, height * 1.f); // height: 视口高度 (用于 shader 计算)
 
+    // ===================== 第 3 步：判断渲染模式 =====================
+    // hasShadowInSkybox: 是否启用深度测试 + 阴影模式
+    // 条件: 同时存在 depth_data (深度图) 和 shadow_pc_data (阴影参数)
     bool hasShadowInSkybox = (depth_data.size() > 0 && shadow_pc_data);
 
+    // ===================== 第 4 步：创建 ShaderSet (shader 程序集合) =====================
+    // ShaderSet: VSG 中一组 shader 程序的集合, 封装顶点输入布局和 uniform 描述
     auto skyBoxShaderSet = ShaderSet::create(shaderStages, shaderCompileSettings);
+
+    // 绑定顶点属性: inPos (position, location 0, R32G32B32_SFLOAT)
     skyBoxShaderSet->addAttributeBinding("inPos", "", 0, VK_FORMAT_R32G32B32_SFLOAT, gSkyboxCube.vertices);
+
+    // 绑定 descriptor: envmap (环境贴图 cubemap, set 0, binding 0)
     skyBoxShaderSet->addDescriptorBinding("envmap", "", 0, 0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vec4Array2D::create(1, 1, vsg::Data::Properties{Constants::EnvmapCube::format}));
+
+    // 绑定 descriptor: tonemapParams (tone mapping 参数, set 0, binding 1, uniform buffer)
     skyBoxShaderSet->addDescriptorBinding("tonemapParams", "", 0, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, tonemapParams);
+
+    // 可选: 绑定 descriptor: cameraImage (相机图像, set 0, binding 2, CAMERA_IMAGE 语义)
     if(camera_data.size() > 0) skyBoxShaderSet->addDescriptorBinding("cameraImage", "CAMERA_IMAGE", 0, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ubvec4Array2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R8G8B8A8_UNORM}));
+
+    // 可选: 绑定 descriptor: depthImage (深度图, set 0, binding 3, CAMERA_DEPTH 语义)
     if(depth_data.size() > 0) skyBoxShaderSet->addDescriptorBinding("depthImage", "CAMERA_DEPTH", 0, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::ushortArray2D::create(1, 1, vsg::Data::Properties{VK_FORMAT_R16_UNORM}));
 
+    // ===================== 第 5 步：扩展绑定 (深度+阴影模式) =====================
     if(hasShadowInSkybox) {
-        // CAMERA_DEPTH + shadow: 扩展push constant范围, 添加VIEW_DESCRIPTOR_SET绑定
+        // 扩展 push constant 范围: 0~256 字节 (vertex + fragment 共享)
         skyBoxShaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 256);
 
+        // 定义 VIEW_DESCRIPTOR_SET = 1 (视图相关 descriptor set)
         #define VIEW_DESCRIPTOR_SET 1
+
+        // 绑定 descriptor: lightData (光源数据, set 1, binding 0, uniform buffer)
         skyBoxShaderSet->addDescriptorBinding("lightData", "", VIEW_DESCRIPTOR_SET, 0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Array::create(64));
+
+        // 绑定 descriptor: viewportData (视口数据, set 1, binding 1, uniform buffer)
         skyBoxShaderSet->addDescriptorBinding("viewportData", "", VIEW_DESCRIPTOR_SET, 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, vsg::vec4Value::create(0,0, 1280, 1024));
+
+        // 绑定 descriptor: shadowMaps (阴影贴图, set 1, binding 2, combined image sampler)
         skyBoxShaderSet->addDescriptorBinding("shadowMaps", "", VIEW_DESCRIPTOR_SET, 2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
+
+        // 绑定 descriptor: shadowMapsSampler (阴影贴图采样器, set 1, binding 3)
         skyBoxShaderSet->addDescriptorBinding("shadowMapsSampler", "", VIEW_DESCRIPTOR_SET, 3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, vsg::floatArray3D::create(1, 1, 1, vsg::Data::Properties{VK_FORMAT_R32_SFLOAT}));
+
+        // 添加 ViewDependentStateBinding: 视图相关的 descriptor set 绑定器
         skyBoxShaderSet->customDescriptorSetBindings.push_back(vsg::ViewDependentStateBinding::create(VIEW_DESCRIPTOR_SET));
 
-        // 支持4个attachment输出 (outColor + location 1,2,3)
+        // 扩展 color blend state: 支持 4 个 attachment 输出 (MRT: outColor + location 1,2,3)
         auto colorBlendState = vsg::ColorBlendState::create();
         colorBlendState->attachments.resize(4, colorBlendState->attachments[0]);
         skyBoxShaderSet->defaultGraphicsPipelineStates.push_back(colorBlendState);
     } else {
+        // 普通模式: push constant 范围 0~128 字节
         skyBoxShaderSet->addPushConstantRange("pc", "", VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 128);
     }
 
+    // ===================== 第 6 步：创建 GraphicsPipelineConfigurator =====================
+    // DataList: 顶点数据列表 (用于绑定顶点缓冲)
     vsg::DataList pipelineInputs;
 
+    // GraphicsPipelineConfigurator: VSG 图形管线配置器, 自动创建 Pipeline + DescriptorSet
     auto pplcfg = vsg::GraphicsPipelineConfigurator::create(skyBoxShaderSet);
+
+    // RasterizationState: 光栅化状态 (背面剔除设置)
     auto rasterState = RasterizationState::create();
-    rasterState->cullMode = VK_CULL_MODE_NONE;
+    rasterState->cullMode = VK_CULL_MODE_NONE;  // 关闭背面剔除 (渲染立方体内面)
     pplcfg->pipelineStates.push_back(rasterState);
+
+    // DepthStencilState: 深度/模板状态
     auto depthState = vsg::DepthStencilState::create();
     if(depth_data.size() > 0) {
         // 有深度数据时，启用深度写入（用于相机深度前置渲染）
-        depthState->depthTestEnable = VK_TRUE;
-        depthState->depthWriteEnable = VK_TRUE;
+        depthState->depthTestEnable = VK_TRUE;    // 启用深度测试
+        depthState->depthWriteEnable = VK_TRUE;   // 启用深度写入
         depthState->depthCompareOp = VK_COMPARE_OP_ALWAYS; // 始终通过深度测试（skybox始终写入）
     } else {
+        // 无深度数据时，禁用深度测试（天空盒背景）
         depthState->depthTestEnable = VK_FALSE;
         depthState->depthWriteEnable = VK_FALSE;
     }
     pplcfg->pipelineStates.push_back(depthState);
+
+    // ===================== 第 7 步：绑定顶点数据 =====================
+    // 绑定顶点属性 inPos: vertex input rate, 使用 gSkyboxCube.vertices
     pplcfg->assignArray(pipelineInputs, "inPos", VK_VERTEX_INPUT_RATE_VERTEX, gSkyboxCube.vertices);
+
+    // 绑定纹理: envmap (环境贴图 cubemap)
     pplcfg->assignTexture("envmap", ImageInfoList{textures.envmapCubeInfo});
+
+    // 绑定 uniform: tonemapParams (tone mapping 参数)
     pplcfg->assignDescriptor("tonemapParams", tonemapParams);
+
+    // 可选: 绑定纹理 cameraImage (相机图像)
     if(camera_data.size() > 0) pplcfg->assignTexture("cameraImage", camera_data);
+
+    // 可选: 绑定纹理 depthImage (深度图)
     if(depth_data.size() > 0) pplcfg->assignTexture("depthImage", depth_data);
+
+    // 初始化管线配置 (创建 Vulkan Pipeline + DescriptorSet)
     pplcfg->init();
 
+    // ===================== 第 8 步：创建绘制命令 =====================
+    // Commands: 封装绘制命令的容器
     auto drawCmds = Commands::create();
+
+    // BindVertexBuffers: 绑定顶点缓冲 (location 0 → pipelineInputs)
     drawCmds->addChild(BindVertexBuffers::create(pplcfg->baseAttributeBinding, pipelineInputs));
+
+    // BindIndexBuffer: 绑定索引缓冲 (使用天空盒立方体索引)
     drawCmds->addChild(BindIndexBuffer::create(gSkyboxCube.indices));
+
+    // DrawIndexed: 绘制 indexed 几何体 (36 顶点, 1 instance, 索引偏移 0)
     drawCmds->addChild(DrawIndexed::create(gSkyboxCube.indices->size(), 1, 0, 0, 0));
+
+    // ===================== 第 9 步：复制管线状态到根节点 =====================
+    // copyTo: 将 GraphicsPipelineConfigurator 的状态命令复制到 root StateGroup
+    // 包括: BindGraphicsPipeline, BindDescriptorSet, SetViewport, SetScissor 等
     pplcfg->copyTo(root);
 
-    // 在CAMERA_DEPTH+shadow模式下, 添加push constant绑定shadow参数
+    // ===================== 第 10 步：添加阴影 push constant (可选) =====================
+    // 在 CAMERA_DEPTH + shadow 模式下, 添加 push constant 绑定 shadow 参数
     if(hasShadowInSkybox) {
+        // PushConstants: 每帧传入 shader 的轻量级 uniform 数据
+        // 偏移 128 字节: vertex (0-127) 之后是 fragment 区域
         auto pc = vsg::PushConstants::create(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 128, shadow_pc_data);
         root->stateCommands.push_back(pc);
     }
 
+    // ===================== 第 11 步：添加绘制命令到根节点 =====================
+    // 将绘制命令添加到 root StateGroup
     root->addChild(drawCmds);
+
+    // 返回 root (已填充渲染状态和绘制命令)
     return root;
 }
 
@@ -2234,12 +2281,6 @@ void updateHDRTextures(vsg::ref_ptr<vsg::Commands>& command, int hdr)
         command->addChild(setCubeLayoutTransferDst);
         for (uint32_t f = 0; f< 6; f++)
         {
-            // VkImageSubresourceLayers fbSubresLayers = {};
-            // fbSubresLayers.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            // fbSubresLayers.baseArrayLayer = f;
-            // fbSubresLayers.layerCount = 1;
-            // fbSubresLayers.mipLevel = 0;
-            // VkOffset3D fbSubresourceBound = {Constants::EnvmapCube::dim, Constants::EnvmapCube::dim, 1};
             auto copyFBToCubeFace = vsg::CopyImage::create();
             VkImageCopy copyRegion = {};
             copyRegion.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
