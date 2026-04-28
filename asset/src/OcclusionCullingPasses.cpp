@@ -9,20 +9,23 @@ namespace OcclusionCullingPasses{
     vsg::ref_ptr<vsg::ImageInfo> depthPyramidImageInfo;
     vsg::ref_ptr<vsg::ImageInfo> framebuffer_depthImageInfo;  // 帧缓冲原始深度图的 image view
 
-    /**
-     * 创建深度金字塔所需的 Image / Sampler / ImageView / ImageInfo
-     *
-     * 深度金字塔是一张 R32_SFLOAT 格式的 2D 图像，拥有 10 级 mipmap，
-     * 每级 mipmap 的宽高是上一级的一半，存储该区域的最小深度值。
-     * Compute shader 通过 storage image 读写这张图。
-     *
-     * VSG 概念:
-     *   vsg::Image      —— 对应 VkImage，定义格式、尺寸、usage flags
-     *   vsg::Sampler    —— 对应 VkSampler，控制纹理采样方式（过滤、mipmap 模式）
-     *   vsg::ImageView  —— 对应 VkImageView，定义 Image 的哪些层/mip 可被访问
-     *   vsg::ImageInfo   —— VSG 的高层封装，组合 sampler + imageView + layout，方便绑定到 descriptor
-     */
-    void initOcclusionCullingPassesImageInfo(VkExtent2D extent, vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget){
+/**
+ * initOcclusionCullingPassesImageInfo — 创建深度金字塔所需的 Image / Sampler / ImageView / ImageInfo
+ *
+ * 深度金字塔是一张 R32_SFLOAT 格式的 2D 图像，拥有 10 级 mipmap，
+ * 每级 mipmap 的宽高是上一级的一半，存储该区域的最小深度值。
+ * Compute shader 通过 storage image 读写这张图。
+ *
+ * VSG 概念:
+ *   vsg::Image      —— 对应 VkImage，定义格式、尺寸、usage flags
+ *   vsg::Sampler    —— 对应 VkSampler，控制纹理采样方式（过滤、mipmap 模式）
+ *   vsg::ImageView  —— 对应 VkImageView，定义 Image 的哪些层/mip 可被访问
+ *   vsg::ImageInfo   —— VSG 的高层封装，组合 sampler + imageView + layout，方便绑定到 descriptor
+ *
+ * @param extent               渲染分辨率（用于创建深度金字塔的尺寸）
+ * @param offscreenTarget      离屏渲染目标（包含原始深度 attachment）
+ */
+void initOcclusionCullingPassesImageInfo(VkExtent2D extent, vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget){
         // ---- 创建 Image：R32_SFLOAT 格式的 2D 图像，10 级 mipmap ----
         // 使用 R32_SFLOAT 而非深度格式，这样 compute shader 可以用 storage image 读写
         depthPyramidImage = vsg::Image::create();
@@ -68,17 +71,27 @@ namespace OcclusionCullingPasses{
     vsg::ref_ptr<vsg::mat4Array> camera_matrix = vsg::mat4Array::create(2); // 存储 2 个 mat4: [0]=viewMatrix, [1]=viewProjectionMatrix
     vsg::ref_ptr<vsg::BufferInfo> camera_matrix_buffer_info;
 
-    /**
-     * 根据相机内参 (fx, fy, cx, cy) 和外参 (viewMatrix, projectionMatrix) 计算视锥体平面
-     *
-     * 视锥体 6 个平面的顺序: [0]near [1]far [2]left [3]right [4]bottom [5]top
-     * 每个平面用齐次方程 ax+by+cz+d=0 表示，即 vec4(a,b,c,d)
-     * shader 中判断可见性: dot(plane, vec4(worldPos, 1.0)) >= 0 表示在平面内侧
-     *
-     * 同时存储 viewMatrix 和 viewProjectionMatrix 到 GPU buffer，
-     * 供 compute shader 做 AABB 的世界空间到裁剪空间变换
-     */
-    void generateCameraData(double fx, double fy, double cx, double cy, double w, double h, double near, double far, vsg::ref_ptr<vsg::Camera> camera){
+/**
+ * generateCameraData — 根据相机内外参计算视锥体平面并上传到 GPU
+ *
+ * 视锥体 6 个平面的顺序: [0]near [1]far [2]left [3]right [4]bottom [5]top
+ * 每个平面用齐次方程 ax+by+cz+d=0 表示，即 vec4(a,b,c,d)
+ * shader 中判断可见性: dot(plane, vec4(worldPos, 1.0)) >= 0 表示在平面内侧
+ *
+ * 同时存储 viewMatrix 和 viewProjectionMatrix 到 GPU buffer，
+ * 供 compute shader 做 AABB 的世界空间到裁剪空间变换
+ *
+ * @param fx                    相机内参（X 方向焦距）
+ * @param fy                    相机内参（Y 方向焦距）
+ * @param cx                    相机内参（X 方向主点）
+ * @param cy                    相机内参（Y 方向主点）
+ * @param w                     图像宽度
+ * @param h                     图像高度
+ * @param near                  近裁剪面距离
+ * @param far                   远裁剪面距离
+ * @param camera                VSG 相机对象（用于获取 view/projection 矩阵）
+ */
+void generateCameraData(double fx, double fy, double cx, double cy, double w, double h, double near, double far, vsg::ref_ptr<vsg::Camera> camera){
         // ---- 计算 6 个视锥体平面方程 ----
         // 每个平面由内参 (fx, fy, cx, cy) 和图像分辨率推导
         // 这些平面位于 view space，shader 中将 AABB 的包围球中心变换到 view space 后做测试
@@ -107,32 +120,35 @@ namespace OcclusionCullingPasses{
         camera_matrix_buffer_info = vsg::BufferInfo::create(camera_matrix);
     }
 
-    /**
-     * Pass1: Frustum Culling（视锥体剔除）
-     *
-     * 构建流程：
-     *   1. 插入 barrier: DRAW_INDIRECT -> COMPUTE_SHADER
-     *      确保之前的间接绘制命令已写入，compute shader 可安全读写
-     *   2. 创建 compute pipeline 并绑定
-     *   3. 遍历每个 proto（原型对象），绑定 descriptor set，dispatch compute
-     *   4. 插入 barrier: COMPUTE_SHADER -> DRAW_INDIRECT
-     *      确保 compute shader 写入完成后，后续渲染可安全间接绘制
-     *
-     * Descriptor 布局 (binding 0~11):
-     *   0: draw_indirect          间接绘制命令缓冲（compute 读写）
-     *   1: indirect_full          完整间接绘制命令（备份）
-     *   2: input_instance         输入实例数据
-     *   3: input_highlight        高亮数据
-     *   4: output_instance        输出实例数据（剔除后的结果）
-     *   5: camera_plane_info      视锥体 6 个平面方程
-     *   6: bounds                 每个实例的 AABB 包围盒
-     *   7: camera_matrix          view / viewProjection 矩阵
-     *   8: (combined image sampler) 未在此 pass 使用
-     *   9: global_model_matrix    全局模型变换矩阵
-     *   10: last_global_model_matrix 上一帧的全局模型变换矩阵
-     *   11: last_instance         上一帧的实例数据
-     */
-    void buildFirstComputePass(vsg::ref_ptr<vsg::CommandGraph> depth_cull_command_graph1, vsg::ref_ptr<vsg::Options> options)
+/**
+ * buildFirstComputePass — Pass1: Frustum Culling（视锥体剔除）
+ *
+ * 构建流程：
+ *   1. 插入 barrier: DRAW_INDIRECT -> COMPUTE_SHADER
+ *      确保之前的间接绘制命令已写入，compute shader 可安全读写
+ *   2. 创建 compute pipeline 并绑定
+ *   3. 遍历每个 proto（原型对象），绑定 descriptor set，dispatch compute
+ *   4. 插入 barrier: COMPUTE_SHADER -> DRAW_INDIRECT
+ *      确保 compute shader 写入完成后，后续渲染可安全间接绘制
+ *
+ * Descriptor 布局 (binding 0~11):
+ *   0: draw_indirect          间接绘制命令缓冲（compute 读写）
+ *   1: indirect_full          完整间接绘制命令（备份）
+ *   2: input_instance         输入实例数据
+ *   3: input_highlight        高亮数据
+ *   4: output_instance        输出实例数据（剔除后的结果）
+ *   5: camera_plane_info      视锥体 6 个平面方程
+ *   6: bounds                 每个实例的 AABB 包围盒
+ *   7: camera_matrix          view / viewProjection 矩阵
+ *   8: (combined image sampler) 未在此 pass 使用
+ *   9: global_model_matrix    全局模型变换矩阵
+ *   10: last_global_model_matrix 上一帧的全局模型变换矩阵
+ *   11: last_instance         上一帧的实例数据
+ *
+ * @param depth_cull_command_graph1  命令图（视锥体剔除 compute 命令添加到此处）
+ * @param options                    VSG 选项（包含 shader 搜索路径）
+ */
+void buildFirstComputePass(vsg::ref_ptr<vsg::CommandGraph> depth_cull_command_graph1, vsg::ref_ptr<vsg::Options> options)
     {
         // ---- 定义 descriptor set layout：12 个 binding，大部分是 storage buffer ----
         vsg::DescriptorSetLayoutBindings descriptorBindings{
@@ -201,10 +217,16 @@ namespace OcclusionCullingPasses{
             ProtoData* proto_data = proto_data_itr.second;
             // DescriptorBuffer: 将 VSG BufferInfo 绑定到 descriptor set 的指定 binding
             // binding 0~7: storage buffers（间接绘制命令、实例数据、包围盒、矩阵等）
-            auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{proto_data->draw_indirect->bufferInfo, proto_data->indirect_full_buffer_info,
-                                                                                proto_data->input_instance_buffer_info, proto_data->input_highlight_buffer_info,
-                                                                                proto_data->output_instance_buffer_info, camera_plane_info_buffer_info,
-                                                                                proto_data->bounds_buffer_info, camera_matrix_buffer_info}, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+            auto storageBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{
+                    proto_data->draw_indirect->bufferInfo,         // [0] 输出：计算后的间接绘制命令
+                    proto_data->indirect_full_buffer_info,         // [1] 输入：完整间接绘制参数
+                    proto_data->input_instance_buffer_info,        // [2] 输入：所有实例的矩阵/数据
+                    proto_data->input_highlight_buffer_info,       // [3] 输入：高亮实例标记
+                    proto_data->output_instance_buffer_info,       // [4] 输出：可见实例数据
+                    camera_plane_info_buffer_info,                 // [5] 输入：视锥平面方程
+                    proto_data->bounds_buffer_info,                // [6] 输入：原型包围盒
+                    camera_matrix_buffer_info                      // [7] 输入：相机VP矩阵
+            }, 0, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             // binding 9: 全局模型矩阵（所有实例共享的变换）
             auto globalModelBuffer = vsg::DescriptorBuffer::create(vsg::BufferInfoList{CADMesh::global_model_matrix_buffer_info}, 9, 0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
             // binding 10: 上一帧的全局模型矩阵（用于运动检测等）
@@ -252,6 +274,11 @@ namespace OcclusionCullingPasses{
      *
      * Push Constants:
      *   width, height — 当前 mip level 的分辨率
+     * 
+     * @param depth_pyramid_CommandGraph 命令图（构建深度金字塔的 compute/render 命令添加到此处）
+     * @param options VSG 选项（包含 shader 搜索路径、设备配置等）
+     * @param extent 深度金字塔的基础尺寸（对应原始深度纹理的宽高）
+     * @param offscreenTarget 离屏渲染目标（包含原始深度纹理及深度金字塔存储资源）
      */
     void buildDepthPyramid(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, vsg::ref_ptr<vsg::Options> options, VkExtent2D extent, vsg::ref_ptr<OffscreenRenderTarget> offscreenTarget)
     {
@@ -443,24 +470,28 @@ namespace OcclusionCullingPasses{
         ));
     }
 
-    /**
-     * Pass2: Depth Occlusion Culling（深度遮挡剔除）
-     *
-     * 利用 depth pyramid 做 hierarchical-Z 测试:
-     *   - 将实例 AABB 投影到屏幕空间，找到覆盖的 mip level
-     *   - 采样该 mip level 的最小深度值
-     *   - 如果实例最近深度 > 采样值，说明被完全遮挡，剔除
-     *
-     * 包含两个 shader 变体:
-     *   computevertex1.comp      — 大实例 (instance_count > 32)，workgroup size = 700
-     *   computevertex1_seat.comp — 小实例 (instance_count <= 32)，workgroup size = 32
-     *
-     * 当 proto 之间实例大小交替时，需要切换 pipeline
-     *
-     * Descriptor 布局与 Pass1 类似，额外增加了:
-     *   binding 8: depth pyramid (combined image sampler) — 用于遮挡测试
-     */
-    void buildSecondComputePass(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, vsg::ref_ptr<vsg::Options> options, VkExtent2D extent)
+/**
+ * buildSecondComputePass — Pass2: Depth Occlusion Culling（深度遮挡剔除）
+ *
+ * 利用 depth pyramid 做 hierarchical-Z 测试:
+ *   - 将实例 AABB 投影到屏幕空间，找到覆盖的 mip level
+ *   - 采样该 mip level 的最小深度值
+ *   - 如果实例最近深度 > 采样值，说明被完全遮挡，剔除
+ *
+ * 包含两个 shader 变体:
+ *   computevertex1.comp      — 大实例 (instance_count > 32)，workgroup size = 700
+ *   computevertex1_seat.comp — 小实例 (instance_count <= 32)，workgroup size = 32
+ *
+ * 当 proto 之间实例大小交替时，需要切换 pipeline
+ *
+ * Descriptor 布局与 Pass1 类似，额外增加了:
+ *   binding 8: depth pyramid (combined image sampler) — 用于遮挡测试
+ *
+ * @param depth_pyramid_CommandGraph  命令图（深度遮挡剔除 compute 命令添加到此处）
+ * @param options                    VSG 选项（包含 shader 搜索路径）
+ * @param extent                     渲染分辨率（用于 push constants 传递）
+ */
+void buildSecondComputePass(vsg::ref_ptr<vsg::CommandGraph> depth_pyramid_CommandGraph, vsg::ref_ptr<vsg::Options> options, VkExtent2D extent)
         {
         // ---- Descriptor layout: 12 个 binding，与 Pass1 相同，额外 binding 8 = depth pyramid ----
         vsg::DescriptorSetLayoutBindings descriptorBindings{

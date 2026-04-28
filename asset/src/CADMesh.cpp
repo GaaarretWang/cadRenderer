@@ -408,16 +408,7 @@ void CADMesh::preprocessFBProtoData(const std::string model_path, const char* ma
                     proto_data->uvs = nullptr;
                     proto_data->indices = indices;
                     proto_data->proto_id = protoId;
-                    // if(i < mtr_ids.size() && textures.size() > mtr_ids[i]){
-                    //     proto_data->diffuse_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][0];
-                    //     proto_data->normal_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][1];
-                    //     proto_data->mr_path = "../asset/data/obj/helicopter-engine/tex/" + textures[mtr_ids[i]][2];
-                    //     proto_data->material = materials[mtr_ids[i]];
-                    // }else{
-                    //     proto_data->diffuse_path = "";
-                    //     proto_data->normal_path = "";
-                    //     proto_data->mr_path = "";
-                    // }
+                    
                     uint32_t material_idx = global_material_array.size();
                     global_material_array.push_back(default_material);
                     proto_data->material_index = material_idx;
@@ -752,8 +743,8 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         proto_data->input_highlight_buffer_info = vsg::BufferInfo::create(proto_data->highlight_buffer);
 
         // ---- 创建 compute shader 输出 buffer ----
-        // compute shader 剔除后将可见实例数据写入此 buffer
-        // 每实例 512 字节: 2个mat4(可见实例的 current/last 矩阵) + 1个int(实例ID) + padding
+        // compute shader 剔除后将 可见实例数据 写入此 buffer
+        // 每实例 512 字节: 2个mat4(可见实例的 current/last 矩阵) + 1个int(实例ID) + padding填充对齐
         auto instance_data_buffer = vsg::floatArray::create(proto_data->instance_matrix.size() * 512);
         proto_data->output_instance_buffer_info = vsg::BufferInfo::create(instance_data_buffer);
 
@@ -790,6 +781,7 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         // ---- 计算包围盒（AABB）----
         // 遍历所有顶点，计算轴对齐包围盒
         // 包围盒数据存储到 bounds_data，用于 compute shader 的遮挡剔除测试
+        // 取得 proto_data->vertices 中的所有顶点，计算出最小点和最大点，构成包围盒 bounds
         vsg::box bounds;
         for (uint32_t i = 0; i < proto_data->vertices->size(); ++i)
         {
@@ -827,7 +819,6 @@ void CADMesh::buildDrawData(vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::Pu
         drawCommands->addChild(vsg::BindIndexBuffer::create(proto_data->indices));
 
         // ---- 存储包围盒数据（供遮挡剔除 compute shader 使用）----
-        // bounds_data[0] = (min.x, min.y, min.z, 1), bounds_data[1] = (max.x, max.y, max.z, 1)
         proto_data->bounds_data = vsg::vec4Array::create(10);
         proto_data->bounds_data->set(0, vsg::vec4(bounds.min.x, bounds.min.y, bounds.min.z, 1));
         proto_data->bounds_data->set(1, vsg::vec4(bounds.max.x, bounds.max.y, bounds.max.z, 1));

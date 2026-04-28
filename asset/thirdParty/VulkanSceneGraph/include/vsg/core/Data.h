@@ -53,12 +53,31 @@ namespace vsg
         BOTTOM_LEFT = 2
     };
 
+// DataVariance: 数据变化提示, 告诉 VSG 数据在生命周期内如何变化
+// 用于优化内存管理和数据传输策略
+// VSG 根据此提示决定何时/如何将数据从 CPU 传输到 GPU
     enum DataVariance : uint8_t
     {
-        STATIC_DATA = 0,                       /** treat data as if it doesn't change .*/
-        STATIC_DATA_UNREF_AFTER_TRANSFER = 1,  /** unref this vsg::Data after the data has been transferred to the GPU memory .*/
-        DYNAMIC_DATA = 2,                      /** data is updated prior to the record traversal and will need transferring to GPU memory.*/
-        DYNAMIC_DATA_TRANSFER_AFTER_RECORD = 3 /** data is updated during the record traversal and will need transferring to GPU memory.*/
+    // 静态数据: 数据在创建后不会改变
+    // 特点: 只传输一次到 GPU, 之后一直驻留
+    // 典型用途: 几何体顶点数据、静态纹理、索引缓冲
+    STATIC_DATA = 0,                       
+
+    // 静态数据（传输后取消引用）: 数据在使用一次后可以释放 CPU 端内存
+    // 特点: 传输到 GPU 后, 释放 CPU 内存以节省资源
+    // 典型用途: 一次性上传的大纹理、初始化数据
+    STATIC_DATA_UNREF_AFTER_TRANSFER = 1,  
+
+    // 动态数据: 数据会频繁变化, 每一帧都可能不同
+    // 特点: 每次渲染前都需要同步到 GPU, 使用 CPU 可见内存
+    // 典型用途: 动态顶点（如变形动画）、每帧更新的 uniform
+    DYNAMIC_DATA = 2,                      
+
+    // 动态数据（记录后传输）: 数据在命令录制后、提交前传输
+    // 特点: 延迟传输到最后一刻, 减少 CPU-GPU 同步开销
+    // 典型用途: IBL 参数 buffer、每帧更新的纹理
+    // 优势: 避免阻塞渲染管线, 提高帧率
+    DYNAMIC_DATA_TRANSFER_AFTER_RECORD = 3 
     };
 
     template<typename T>

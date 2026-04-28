@@ -4,8 +4,15 @@
 // Subpass 1: SSAO 生成（generate）
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// 创建 SSAO 生成阶段的 ShaderSet
-// ShaderSet 封装了 vertex/fragment shader 以及它们需要的 attribute（顶点属性）和 descriptor（描述符）绑定
+/**
+ * customSSAOShaderSet — 创建 SSAO 生成阶段的 ShaderSet
+ *
+ * ShaderSet 封装了 vertex/fragment shader 以及它们需要的 attribute（顶点属性）和 descriptor（描述符）绑定。
+ * SSAO 生成阶段需要读取 G-Buffer 的三个附件（color、normal、worldPos）以及噪声纹理。
+ *
+ * @param options              VSG 选项（包含 shader 搜索路径等）
+ * @return                     配置好的 ShaderSet，用于后续 GraphicsPipelineConfigurator
+ */
 vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAOShaderSet(vsg::ref_ptr<const vsg::Options> options)
 {
     vsg::info("Local pbr_ShaderSet(", options, ")");
@@ -67,8 +74,19 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAOShaderSet(vsg::ref_ptr<const vs
     return shaderSet;
 }
 
-// 构建 SSAO 生成阶段的渲染数据
-// 主要工作：创建全屏四边形、生成随机噪声纹理、绑定 G-Buffer 附件，然后将整个渲染命令添加到 scene graph
+/**
+ * buildSSAOData — 构建 SSAO 生成阶段的渲染数据
+ *
+ * 主要工作：创建全屏四边形、生成随机噪声纹理、绑定 G-Buffer 附件，然后将整个渲染命令添加到 scene graph。
+ * 在 subpass 1 中执行，读取 G-Buffer 并输出 SSAO 结果到临时纹理。
+ *
+ * @param options              VSG 选项（包含 shader 搜索路径）
+ * @param scene                 场景图根节点（SSAO 渲染命令挂载到此处）
+ * @param GBufferView0         G-Buffer 颜色附件（color）
+ * @param GBufferView1         G-Buffer 法线附件（normal）
+ * @param GBufferView2         G-Buffer 世界坐标附件（worldPos）
+ * @param extent               渲染分辨率（用于创建噪声纹理）
+ */
 void SSAOPass::buildSSAOData(vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ImageView> GBufferView0, vsg::ref_ptr<vsg::ImageView> GBufferView1, vsg::ref_ptr<vsg::ImageView> GBufferView2, VkExtent2D extent){
     vsg::ref_ptr<vsg::ShaderSet> model_shaderset = SSAOPass::customSSAOShaderSet(options);
 
@@ -190,8 +208,15 @@ void SSAOPass::buildSSAOData(vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<vs
 // Subpass 2: SSAO 去噪（denoise）
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// 创建 SSAO 去噪阶段的 ShaderSet
-// 去噪阶段将原始 SSAO 结果与 shadow factor 合并，输出平滑的环境光遮蔽系数
+/**
+ * customSSAODenoiseShaderSet — 创建 SSAO 去噪阶段的 ShaderSet
+ *
+ * 去噪阶段将原始 SSAO 结果与 shadow factor 合并，输出平滑的环境光遮蔽系数。
+ * 需要读取 G-Buffer color、Shadow write（阴影因子）、SSAO result 三个附件。
+ *
+ * @param options              VSG 选项（包含 shader 搜索路径等）
+ * @return                     配置好的 ShaderSet，用于后续 GraphicsPipelineConfigurator
+ */
 vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAODenoiseShaderSet(vsg::ref_ptr<const vsg::Options> options)
 {
     vsg::info("Local pbr_ShaderSet(", options, ")");
@@ -265,10 +290,20 @@ vsg::ref_ptr<vsg::ShaderSet> SSAOPass::customSSAODenoiseShaderSet(vsg::ref_ptr<c
     return shaderSet;
 }
 
-// 构建 SSAO 去噪阶段的渲染数据
-// 与 subpass 1 类似，创建全屏四边形，但绑定的附件不同：
-//   - GBuffer0 (color) + ShadowWrite (shadow) 作为 input attachment（subpass 内直接读取）
-//   - SSAO result 作为 combined image sampler（需要采样器读取纹理）
+/**
+ * buildSSAODenoiseData — 构建 SSAO 去噪阶段的渲染数据
+ *
+ * 与 subpass 1 类似，创建全屏四边形，但绑定的附件不同：
+ *   - GBuffer0 (color) + ShadowWrite (shadow) 作为 input attachment（subpass 内直接读取）
+ *   - SSAO result 作为 combined image sampler（需要采样器读取纹理）
+ * 在 subpass 2 中执行，将去噪后的 SSAO 结果写入最终 color attachment。
+ *
+ * @param options              VSG 选项（包含 shader 搜索路径）
+ * @param scene                 场景图根节点（去噪渲染命令挂载到此处）
+ * @param GBufferView0         G-Buffer 颜色附件（作为 input attachment 读取）
+ * @param ShadowWriteView       阴影写入附件（shadow factor，作为 input attachment 读取）
+ * @param SSAOResultImageView   SSAO 生成阶段的结果纹理（作为 sampler 读取）
+ */
 void SSAOPass::buildSSAODenoiseData(vsg::ref_ptr<vsg::Options> options, vsg::ref_ptr<vsg::Group> scene, vsg::ref_ptr<vsg::ImageView> GBufferView0, vsg::ref_ptr<vsg::ImageView> ShadowWriteView, vsg::ref_ptr<vsg::ImageView> SSAOResultImageView){
     vsg::ref_ptr<vsg::ShaderSet> model_shaderset = SSAOPass::customSSAODenoiseShaderSet(options);
 

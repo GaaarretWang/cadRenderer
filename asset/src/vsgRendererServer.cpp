@@ -282,9 +282,7 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     // ===================== 场景图构建 =====================
     // 创建各个渲染组，通过 View Mask 控制可见性
     auto modelGroup = vsg::Group::create();          // PBR 虚拟 CAD 模型
-    auto modelShadowGroup = vsg::Group::create();
     auto shadowGroup = vsg::Group::create();          // 阴影接收面
-    auto envSceneGroup = vsg::Group::create();
     auto wireframeGroup = vsg::Group::create();       // 线框叠加
     auto textGroup = vsg::Group::create();            // 文字叠加
     auto SSAOGroup = vsg::Group::create();            // SSAO 全屏四边形
@@ -303,15 +301,15 @@ void vsgRendererServer::initRenderer(std::string engine_path, std::vector<vsg::d
     // rootSwitch1: Subpass 1→2 过渡 + SSAO 降噪
     // NextSubPass: VSG 节点，推进到下一个 subpass
     auto rootSwitch1 = vsg::Switch::create();
-    rootSwitch1->addChild(MASK_SSAO, vsg::NextSubPass::create());  // Subpass 0 → Subpass 1
-    rootSwitch1->addChild(MASK_SSAO, SSAOGroup);                   // Subpass 1: SSAO 生成
-    rootSwitch1->addChild(MASK_SSAO, vsg::NextSubPass::create());  // Subpass 1 → Subpass 2
+    rootSwitch1->addChild(MASK_SSAO, vsg::NextSubPass::create());   // Subpass 0 → Subpass 1
+    rootSwitch1->addChild(MASK_SSAO, SSAOGroup);                    // Subpass 1: SSAO 生成
+    rootSwitch1->addChild(MASK_SSAO, vsg::NextSubPass::create());   // Subpass 1 → Subpass 2
 
     // SSAO 结果的布局转换屏障：COLOR_ATTACHMENT → SHADER_READ_ONLY
-    // 在 Subpass 1（SSAO 生成）完成后，将 ssaoResult 转换为着色器可读布局
+    // 在 Subpass 1（SSAO 生成）完成后，将 ssaoResult 转换为着色器可读布局， Subpass 2（SSAO 降噪）使用
     auto SSAOPipelineBarrier = vsg::PipelineBarrier::create(
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,                                                            // dstStageMask
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,                       // dstStageMask
         0
     );
     auto ssaoImageBarrier = vsg::ImageMemoryBarrier::create(

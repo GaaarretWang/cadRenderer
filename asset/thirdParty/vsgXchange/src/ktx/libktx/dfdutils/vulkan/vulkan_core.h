@@ -817,205 +817,208 @@ typedef enum VkInternalAllocationType {
 } VkInternalAllocationType;
 
 typedef enum VkFormat {
-    VK_FORMAT_UNDEFINED = 0,
-    VK_FORMAT_R4G4_UNORM_PACK8 = 1,
-    VK_FORMAT_R4G4B4A4_UNORM_PACK16 = 2,
-    VK_FORMAT_B4G4R4A4_UNORM_PACK16 = 3,
-    VK_FORMAT_R5G6B5_UNORM_PACK16 = 4,
-    VK_FORMAT_B5G6R5_UNORM_PACK16 = 5,
-    VK_FORMAT_R5G5B5A1_UNORM_PACK16 = 6,
-    VK_FORMAT_B5G5R5A1_UNORM_PACK16 = 7,
-    VK_FORMAT_A1R5G5B5_UNORM_PACK16 = 8,
-    VK_FORMAT_R8_UNORM = 9,
-    VK_FORMAT_R8_SNORM = 10,
-    VK_FORMAT_R8_USCALED = 11,
-    VK_FORMAT_R8_SSCALED = 12,
-    VK_FORMAT_R8_UINT = 13,
-    VK_FORMAT_R8_SINT = 14,
-    VK_FORMAT_R8_SRGB = 15,
-    VK_FORMAT_R8G8_UNORM = 16,
-    VK_FORMAT_R8G8_SNORM = 17,
-    VK_FORMAT_R8G8_USCALED = 18,
-    VK_FORMAT_R8G8_SSCALED = 19,
-    VK_FORMAT_R8G8_UINT = 20,
-    VK_FORMAT_R8G8_SINT = 21,
-    VK_FORMAT_R8G8_SRGB = 22,
-    VK_FORMAT_R8G8B8_UNORM = 23,
-    VK_FORMAT_R8G8B8_SNORM = 24,
-    VK_FORMAT_R8G8B8_USCALED = 25,
-    VK_FORMAT_R8G8B8_SSCALED = 26,
-    VK_FORMAT_R8G8B8_UINT = 27,
-    VK_FORMAT_R8G8B8_SINT = 28,
-    VK_FORMAT_R8G8B8_SRGB = 29,
-    VK_FORMAT_B8G8R8_UNORM = 30,
-    VK_FORMAT_B8G8R8_SNORM = 31,
-    VK_FORMAT_B8G8R8_USCALED = 32,
-    VK_FORMAT_B8G8R8_SSCALED = 33,
-    VK_FORMAT_B8G8R8_UINT = 34,
-    VK_FORMAT_B8G8R8_SINT = 35,
-    VK_FORMAT_B8G8R8_SRGB = 36,
-    VK_FORMAT_R8G8B8A8_UNORM = 37,
-    VK_FORMAT_R8G8B8A8_SNORM = 38,
-    VK_FORMAT_R8G8B8A8_USCALED = 39,
-    VK_FORMAT_R8G8B8A8_SSCALED = 40,
-    VK_FORMAT_R8G8B8A8_UINT = 41,
-    VK_FORMAT_R8G8B8A8_SINT = 42,
-    VK_FORMAT_R8G8B8A8_SRGB = 43,
-    VK_FORMAT_B8G8R8A8_UNORM = 44,
-    VK_FORMAT_B8G8R8A8_SNORM = 45,
-    VK_FORMAT_B8G8R8A8_USCALED = 46,
-    VK_FORMAT_B8G8R8A8_SSCALED = 47,
-    VK_FORMAT_B8G8R8A8_UINT = 48,
-    VK_FORMAT_B8G8R8A8_SINT = 49,
-    VK_FORMAT_B8G8R8A8_SRGB = 50,
-    VK_FORMAT_A8B8G8R8_UNORM_PACK32 = 51,
-    VK_FORMAT_A8B8G8R8_SNORM_PACK32 = 52,
-    VK_FORMAT_A8B8G8R8_USCALED_PACK32 = 53,
-    VK_FORMAT_A8B8G8R8_SSCALED_PACK32 = 54,
-    VK_FORMAT_A8B8G8R8_UINT_PACK32 = 55,
-    VK_FORMAT_A8B8G8R8_SINT_PACK32 = 56,
-    VK_FORMAT_A8B8G8R8_SRGB_PACK32 = 57,
-    VK_FORMAT_A2R10G10B10_UNORM_PACK32 = 58,
-    VK_FORMAT_A2R10G10B10_SNORM_PACK32 = 59,
-    VK_FORMAT_A2R10G10B10_USCALED_PACK32 = 60,
-    VK_FORMAT_A2R10G10B10_SSCALED_PACK32 = 61,
-    VK_FORMAT_A2R10G10B10_UINT_PACK32 = 62,
-    VK_FORMAT_A2R10G10B10_SINT_PACK32 = 63,
-    VK_FORMAT_A2B10G10R10_UNORM_PACK32 = 64,
-    VK_FORMAT_A2B10G10R10_SNORM_PACK32 = 65,
-    VK_FORMAT_A2B10G10R10_USCALED_PACK32 = 66,
-    VK_FORMAT_A2B10G10R10_SSCALED_PACK32 = 67,
-    VK_FORMAT_A2B10G10R10_UINT_PACK32 = 68,
-    VK_FORMAT_A2B10G10R10_SINT_PACK32 = 69,
-    VK_FORMAT_R16_UNORM = 70,
-    VK_FORMAT_R16_SNORM = 71,
-    VK_FORMAT_R16_USCALED = 72,
-    VK_FORMAT_R16_SSCALED = 73,
-    VK_FORMAT_R16_UINT = 74,
-    VK_FORMAT_R16_SINT = 75,
-    VK_FORMAT_R16_SFLOAT = 76,
-    VK_FORMAT_R16G16_UNORM = 77,
-    VK_FORMAT_R16G16_SNORM = 78,
-    VK_FORMAT_R16G16_USCALED = 79,
-    VK_FORMAT_R16G16_SSCALED = 80,
-    VK_FORMAT_R16G16_UINT = 81,
-    VK_FORMAT_R16G16_SINT = 82,
-    VK_FORMAT_R16G16_SFLOAT = 83,
-    VK_FORMAT_R16G16B16_UNORM = 84,
-    VK_FORMAT_R16G16B16_SNORM = 85,
-    VK_FORMAT_R16G16B16_USCALED = 86,
-    VK_FORMAT_R16G16B16_SSCALED = 87,
-    VK_FORMAT_R16G16B16_UINT = 88,
-    VK_FORMAT_R16G16B16_SINT = 89,
-    VK_FORMAT_R16G16B16_SFLOAT = 90,
-    VK_FORMAT_R16G16B16A16_UNORM = 91,
-    VK_FORMAT_R16G16B16A16_SNORM = 92,
-    VK_FORMAT_R16G16B16A16_USCALED = 93,
-    VK_FORMAT_R16G16B16A16_SSCALED = 94,
-    VK_FORMAT_R16G16B16A16_UINT = 95,
-    VK_FORMAT_R16G16B16A16_SINT = 96,
-    VK_FORMAT_R16G16B16A16_SFLOAT = 97,
-    VK_FORMAT_R32_UINT = 98,
-    VK_FORMAT_R32_SINT = 99,
-    VK_FORMAT_R32_SFLOAT = 100,
-    VK_FORMAT_R32G32_UINT = 101,
-    VK_FORMAT_R32G32_SINT = 102,
-    VK_FORMAT_R32G32_SFLOAT = 103,
-    VK_FORMAT_R32G32B32_UINT = 104,
-    VK_FORMAT_R32G32B32_SINT = 105,
-    VK_FORMAT_R32G32B32_SFLOAT = 106,
-    VK_FORMAT_R32G32B32A32_UINT = 107,
-    VK_FORMAT_R32G32B32A32_SINT = 108,
-    VK_FORMAT_R32G32B32A32_SFLOAT = 109,
-    VK_FORMAT_R64_UINT = 110,
-    VK_FORMAT_R64_SINT = 111,
-    VK_FORMAT_R64_SFLOAT = 112,
-    VK_FORMAT_R64G64_UINT = 113,
-    VK_FORMAT_R64G64_SINT = 114,
-    VK_FORMAT_R64G64_SFLOAT = 115,
-    VK_FORMAT_R64G64B64_UINT = 116,
-    VK_FORMAT_R64G64B64_SINT = 117,
-    VK_FORMAT_R64G64B64_SFLOAT = 118,
-    VK_FORMAT_R64G64B64A64_UINT = 119,
-    VK_FORMAT_R64G64B64A64_SINT = 120,
-    VK_FORMAT_R64G64B64A64_SFLOAT = 121,
-    VK_FORMAT_B10G11R11_UFLOAT_PACK32 = 122,
-    VK_FORMAT_E5B9G9R9_UFLOAT_PACK32 = 123,
-    VK_FORMAT_D16_UNORM = 124,
-    VK_FORMAT_X8_D24_UNORM_PACK32 = 125,
-    VK_FORMAT_D32_SFLOAT = 126,
-    VK_FORMAT_S8_UINT = 127,
-    VK_FORMAT_D16_UNORM_S8_UINT = 128,
-    VK_FORMAT_D24_UNORM_S8_UINT = 129,
-    VK_FORMAT_D32_SFLOAT_S8_UINT = 130,
-    VK_FORMAT_BC1_RGB_UNORM_BLOCK = 131,
-    VK_FORMAT_BC1_RGB_SRGB_BLOCK = 132,
-    VK_FORMAT_BC1_RGBA_UNORM_BLOCK = 133,
-    VK_FORMAT_BC1_RGBA_SRGB_BLOCK = 134,
-    VK_FORMAT_BC2_UNORM_BLOCK = 135,
-    VK_FORMAT_BC2_SRGB_BLOCK = 136,
-    VK_FORMAT_BC3_UNORM_BLOCK = 137,
-    VK_FORMAT_BC3_SRGB_BLOCK = 138,
-    VK_FORMAT_BC4_UNORM_BLOCK = 139,
-    VK_FORMAT_BC4_SNORM_BLOCK = 140,
-    VK_FORMAT_BC5_UNORM_BLOCK = 141,
-    VK_FORMAT_BC5_SNORM_BLOCK = 142,
-    VK_FORMAT_BC6H_UFLOAT_BLOCK = 143,
-    VK_FORMAT_BC6H_SFLOAT_BLOCK = 144,
-    VK_FORMAT_BC7_UNORM_BLOCK = 145,
-    VK_FORMAT_BC7_SRGB_BLOCK = 146,
-    VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK = 147,
-    VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK = 148,
-    VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK = 149,
-    VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK = 150,
-    VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK = 151,
-    VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK = 152,
-    VK_FORMAT_EAC_R11_UNORM_BLOCK = 153,
-    VK_FORMAT_EAC_R11_SNORM_BLOCK = 154,
-    VK_FORMAT_EAC_R11G11_UNORM_BLOCK = 155,
-    VK_FORMAT_EAC_R11G11_SNORM_BLOCK = 156,
-    VK_FORMAT_ASTC_4x4_UNORM_BLOCK = 157,
-    VK_FORMAT_ASTC_4x4_SRGB_BLOCK = 158,
-    VK_FORMAT_ASTC_5x4_UNORM_BLOCK = 159,
-    VK_FORMAT_ASTC_5x4_SRGB_BLOCK = 160,
-    VK_FORMAT_ASTC_5x5_UNORM_BLOCK = 161,
-    VK_FORMAT_ASTC_5x5_SRGB_BLOCK = 162,
-    VK_FORMAT_ASTC_6x5_UNORM_BLOCK = 163,
-    VK_FORMAT_ASTC_6x5_SRGB_BLOCK = 164,
-    VK_FORMAT_ASTC_6x6_UNORM_BLOCK = 165,
-    VK_FORMAT_ASTC_6x6_SRGB_BLOCK = 166,
-    VK_FORMAT_ASTC_8x5_UNORM_BLOCK = 167,
-    VK_FORMAT_ASTC_8x5_SRGB_BLOCK = 168,
-    VK_FORMAT_ASTC_8x6_UNORM_BLOCK = 169,
-    VK_FORMAT_ASTC_8x6_SRGB_BLOCK = 170,
-    VK_FORMAT_ASTC_8x8_UNORM_BLOCK = 171,
-    VK_FORMAT_ASTC_8x8_SRGB_BLOCK = 172,
-    VK_FORMAT_ASTC_10x5_UNORM_BLOCK = 173,
-    VK_FORMAT_ASTC_10x5_SRGB_BLOCK = 174,
-    VK_FORMAT_ASTC_10x6_UNORM_BLOCK = 175,
-    VK_FORMAT_ASTC_10x6_SRGB_BLOCK = 176,
-    VK_FORMAT_ASTC_10x8_UNORM_BLOCK = 177,
-    VK_FORMAT_ASTC_10x8_SRGB_BLOCK = 178,
-    VK_FORMAT_ASTC_10x10_UNORM_BLOCK = 179,
-    VK_FORMAT_ASTC_10x10_SRGB_BLOCK = 180,
-    VK_FORMAT_ASTC_12x10_UNORM_BLOCK = 181,
-    VK_FORMAT_ASTC_12x10_SRGB_BLOCK = 182,
-    VK_FORMAT_ASTC_12x12_UNORM_BLOCK = 183,
-    VK_FORMAT_ASTC_12x12_SRGB_BLOCK = 184,
-    VK_FORMAT_G8B8G8R8_422_UNORM = 1000156000,
-    VK_FORMAT_B8G8R8G8_422_UNORM = 1000156001,
-    VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM = 1000156002,
-    VK_FORMAT_G8_B8R8_2PLANE_420_UNORM = 1000156003,
-    VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM = 1000156004,
-    VK_FORMAT_G8_B8R8_2PLANE_422_UNORM = 1000156005,
-    VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM = 1000156006,
-    VK_FORMAT_R10X6_UNORM_PACK16 = 1000156007,
-    VK_FORMAT_R10X6G10X6_UNORM_2PACK16 = 1000156008,
-    VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16 = 1000156009,
-    VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16 = 1000156010,
-    VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16 = 1000156011,
-    VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16 = 1000156012,
-    VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16 = 1000156013,
+    VK_FORMAT_UNDEFINED = 0,                                    // 未定义格式
+    VK_FORMAT_R4G4_UNORM_PACK8 = 1,                             // 4+4位 无符号归一化 紧凑格式
+    VK_FORMAT_R4G4B4A4_UNORM_PACK16 = 2,                        // 4+4+4+4位 无符号归一化 紧凑格式
+    VK_FORMAT_B4G4R4A4_UNORM_PACK16 = 3,                        // BGR顺序 4+4+4+4位 无符号归一化
+    VK_FORMAT_R5G6B5_UNORM_PACK16 = 4,                          // 5+6+5位 无符号归一化 紧凑格式
+    VK_FORMAT_B5G6R5_UNORM_PACK16 = 5,                          // BGR顺序 5+6+5位 无符号归一化
+    VK_FORMAT_R5G5B5A1_UNORM_PACK16 = 6,                        // 5+5+5+1位 无符号归一化 紧凑格式
+    VK_FORMAT_B5G5R5A1_UNORM_PACK16 = 7,                        // BGR顺序 5+5+5+1位 无符号归一化
+    VK_FORMAT_A1R5G5B5_UNORM_PACK16 = 8,                        // 1+5+5+5位 无符号归一化 紧凑格式
+    VK_FORMAT_R8_UNORM = 9,                                     // 单通道 8位 无符号归一化 (0-255 → 0-1)
+    VK_FORMAT_R8_SNORM = 10,                                    // 单通道 8位 有符号归一化 (-128-127 → -1-1)
+    VK_FORMAT_R8_USCALED = 11,                                  // 单通道 8位 无符号缩放整数
+    VK_FORMAT_R8_SSCALED = 12,                                  // 单通道 8位 有符号缩放整数
+    VK_FORMAT_R8_UINT = 13,                                     // 单通道 8位 无符号整数
+    VK_FORMAT_R8_SINT = 14,                                     // 单通道 8位 有符号整数
+    VK_FORMAT_R8_SRGB = 15,                                     // 单通道 8位 sRGB 颜色空间
+    VK_FORMAT_R8G8_UNORM = 16,                                  // 双通道 8位 无符号归一化
+    VK_FORMAT_R8G8_SNORM = 17,                                  // 双通道 8位 有符号归一化
+    VK_FORMAT_R8G8_USCALED = 18,                                // 双通道 8位 无符号缩放整数
+    VK_FORMAT_R8G8_SSCALED = 19,                                // 双通道 8位 有符号缩放整数
+    VK_FORMAT_R8G8_UINT = 20,                                   // 双通道 8位 无符号整数
+    VK_FORMAT_R8G8_SINT = 21,                                   // 双通道 8位 有符号整数
+    VK_FORMAT_R8G8_SRGB = 22,                                   // 双通道 8位 sRGB 颜色空间
+    VK_FORMAT_R8G8B8_UNORM = 23,                                // 三通道 8位 无符号归一化
+    VK_FORMAT_R8G8B8_SNORM = 24,                                // 三通道 8位 有符号归一化
+    VK_FORMAT_R8G8B8_USCALED = 25,                              // 三通道 8位 无符号缩放整数
+    VK_FORMAT_R8G8B8_SSCALED = 26,                              // 三通道 8位 有符号缩放整数
+    VK_FORMAT_R8G8B8_UINT = 27,                                 // 三通道 8位 无符号整数
+    VK_FORMAT_R8G8B8_SINT = 28,                                 // 三通道 8位 有符号整数
+    VK_FORMAT_R8G8B8_SRGB = 29,                                 // 三通道 8位 sRGB 颜色空间
+    VK_FORMAT_B8G8R8_UNORM = 30,                                // BGR顺序 三通道 8位 无符号归一化
+    VK_FORMAT_B8G8R8_SNORM = 31,                                // BGR顺序 三通道 8位 有符号归一化
+    VK_FORMAT_B8G8R8_USCALED = 32,                              // BGR顺序 三通道 8位 无符号缩放整数
+    VK_FORMAT_B8G8R8_SSCALED = 33,                              // BGR顺序 三通道 8位 有符号缩放整数
+    VK_FORMAT_B8G8R8_UINT = 34,                                 // BGR顺序 三通道 8位 无符号整数
+    VK_FORMAT_B8G8R8_SINT = 35,                                 // BGR顺序 三通道 8位 有符号整数
+    VK_FORMAT_B8G8R8_SRGB = 36,                                 // BGR顺序 三通道 8位 sRGB 颜色空间
+    VK_FORMAT_R8G8B8A8_UNORM = 37,                              // 四通道 8位 无符号归一化 (RGBA8)
+    VK_FORMAT_R8G8B8A8_SNORM = 38,                              // 四通道 8位 有符号归一化
+    VK_FORMAT_R8G8B8A8_USCALED = 39,                            // 四通道 8位 无符号缩放整数
+    VK_FORMAT_R8G8B8A8_SSCALED = 40,                            // 四通道 8位 有符号缩放整数
+    VK_FORMAT_R8G8B8A8_UINT = 41,                               // 四通道 8位 无符号整数
+    VK_FORMAT_R8G8B8A8_SINT = 42,                               // 四通道 8位 有符号整数
+    VK_FORMAT_R8G8B8A8_SRGB = 43,                               // 四通道 8位 sRGB 颜色空间 (常用!)
+    VK_FORMAT_B8G8R8A8_UNORM = 44,                              // BGR顺序 四通道 8位 无符号归一化 (BGRA8)
+    VK_FORMAT_B8G8R8A8_SNORM = 45,                              // BGR顺序 四通道 8位 有符号归一化
+    VK_FORMAT_B8G8R8A8_USCALED = 46,                            // BGR顺序 四通道 8位 无符号缩放整数
+    VK_FORMAT_B8G8R8A8_SSCALED = 47,                            // BGR顺序 四通道 8位 有符号缩放整数
+    VK_FORMAT_B8G8R8A8_UINT = 48,                               // BGR顺序 四通道 8位 无符号整数
+    VK_FORMAT_B8G8R8A8_SINT = 49,                               // BGR顺序 四通道 8位 有符号整数
+    VK_FORMAT_B8G8R8A8_SRGB = 50,                               // BGR顺序 四通道 8位 sRGB 颜色空间
+    VK_FORMAT_A8B8G8R8_UNORM_PACK32 = 51,                      // ABGR顺序 8+8+8+8位 紧凑格式
+    VK_FORMAT_A8B8G8R8_SNORM_PACK32 = 52,                      // ABGR顺序 8+8+8+8位 有符号归一化
+    VK_FORMAT_A8B8G8R8_USCALED_PACK32 = 53,                    // ABGR顺序 8+8+8+8位 无符号缩放
+    VK_FORMAT_A8B8G8R8_SSCALED_PACK32 = 54,                     // ABGR顺序 8+8+8+8位 有符号缩放
+    VK_FORMAT_A8B8G8R8_UINT_PACK32 = 55,                       // ABGR顺序 8+8+8+8位 无符号整数
+    VK_FORMAT_A8B8G8R8_SINT_PACK32 = 56,                       // ABGR顺序 8+8+8+8位 有符号整数
+    VK_FORMAT_A8B8G8R8_SRGB_PACK32 = 57,                        // ABGR顺序 8+8+8+8位 sRGB
+    VK_FORMAT_A2R10G10B10_UNORM_PACK32 = 58,                   // 2+10+10+10位 无符号归一化 紧凑
+    VK_FORMAT_A2R10G10B10_SNORM_PACK32 = 59,                   // 2+10+10+10位 有符号归一化 紧凑
+    VK_FORMAT_A2R10G10B10_USCALED_PACK32 = 60,                 // 2+10+10+10位 无符号缩放 紧凑
+    VK_FORMAT_A2R10G10B10_SSCALED_PACK32 = 61,                 // 2+10+10+10位 有符号缩放 紧凑
+    VK_FORMAT_A2R10G10B10_UINT_PACK32 = 62,                     // 2+10+10+10位 无符号整数 紧凑
+    VK_FORMAT_A2R10G10B10_SINT_PACK32 = 63,                     // 2+10+10+10位 有符号整数 紧凑
+    VK_FORMAT_A2B10G10R10_UNORM_PACK32 = 64,                    // ARGB2顺序 2+10+10+10位 无符号归一化
+    VK_FORMAT_A2B10G10R10_SNORM_PACK32 = 65,                    // ARGB2顺序 2+10+10+10位 有符号归一化
+    VK_FORMAT_A2B10G10R10_USCALED_PACK32 = 66,                  // ARGB2顺序 2+10+10+10位 无符号缩放
+    VK_FORMAT_A2B10G10R10_SSCALED_PACK32 = 67,                  // ARGB2顺序 2+10+10+10位 有符号缩放
+    VK_FORMAT_A2B10G10R10_UINT_PACK32 = 68,                     // ARGB2顺序 2+10+10+10位 无符号整数
+    VK_FORMAT_A2B10G10R10_SINT_PACK32 = 69,                     // ARGB2顺序 2+10+10+10位 有符号整数
+    VK_FORMAT_R16_UNORM = 70,                                   // 单通道 16位 无符号归一化
+    VK_FORMAT_R16_SNORM = 71,                                   // 单通道 16位 有符号归一化
+    VK_FORMAT_R16_USCALED = 72,                                 // 单通道 16位 无符号缩放整数
+    VK_FORMAT_R16_SSCALED = 73,                                 // 单通道 16位 有符号缩放整数
+    VK_FORMAT_R16_UINT = 74,                                    // 单通道 16位 无符号整数
+    VK_FORMAT_R16_SINT = 75,                                    // 单通道 16位 有符号整数
+    VK_FORMAT_R16_SFLOAT = 76,                                  // 单通道 16位 浮点数 (半精度)
+    VK_FORMAT_R16G16_UNORM = 77,                                // 双通道 16位 无符号归一化
+    VK_FORMAT_R16G16_SNORM = 78,                                // 双通道 16位 有符号归一化
+    VK_FORMAT_R16G16_USCALED = 79,                              // 双通道 16位 无符号缩放整数
+    VK_FORMAT_R16G16_SSCALED = 80,                              // 双通道 16位 有符号缩放整数
+    VK_FORMAT_R16G16_UINT = 81,                                 // 双通道 16位 无符号整数
+    VK_FORMAT_R16G16_SINT = 82,                                 // 双通道 16位 有符号整数
+    VK_FORMAT_R16G16_SFLOAT = 83,                               // 双通道 16位 浮点数
+    VK_FORMAT_R16G16B16_UNORM = 84,                            // 三通道 16位 无符号归一化
+    VK_FORMAT_R16G16B16_SNORM = 85,                            // 三通道 16位 有符号归一化
+    VK_FORMAT_R16G16B16_USCALED = 86,                          // 三通道 16位 无符号缩放整数
+    VK_FORMAT_R16G16B16_SSCALED = 87,                          // 三通道 16位 有符号缩放整数
+    VK_FORMAT_R16G16B16_UINT = 88,                             // 三通道 16位 无符号整数
+    VK_FORMAT_R16G16B16_SINT = 89,                             // 三通道 16位 有符号整数
+    VK_FORMAT_R16G16B16_SFLOAT = 90,                           // 三通道 16位 浮点数
+    VK_FORMAT_R16G16B16A16_UNORM = 91,                         // 四通道 16位 无符号归一化
+    VK_FORMAT_R16G16B16A16_SNORM = 92,                         // 四通道 16位 有符号归一化
+    VK_FORMAT_R16G16B16A16_USCALED = 93,                       // 四通道 16位 无符号缩放整数
+    VK_FORMAT_R16G16B16A16_SSCALED = 94,                       // 四通道 16位 有符号缩放整数
+    VK_FORMAT_R16G16B16A16_UINT = 95,                          // 四通道 16位 无符号整数
+    VK_FORMAT_R16G16B16A16_SINT = 96,                          // 四通道 16位 有符号整数
+    VK_FORMAT_R16G16B16A16_SFLOAT = 97,                        // 四通道 16位 浮点数 (RGBA16f)
+    VK_FORMAT_R32_UINT = 98,                                    // 单通道 32位 无符号整数
+    VK_FORMAT_R32_SINT = 99,                                    // 单通道 32位 有符号整数
+    VK_FORMAT_R32_SFLOAT = 100,                                 // 单通道 32位 浮点数 (R32f)
+    VK_FORMAT_R32G32_UINT = 101,                                // 双通道 32位 无符号整数
+    VK_FORMAT_R32G32_SINT = 102,                                // 双通道 32位 有符号整数
+    VK_FORMAT_R32G32_SFLOAT = 103,                              // 双通道 32位 浮点数 (RG32f)
+    VK_FORMAT_R32G32B32_UINT = 104,                             // 三通道 32位 无符号整数
+    VK_FORMAT_R32G32B32_SINT = 105,                             // 三通道 32位 有符号整数
+    VK_FORMAT_R32G32B32_SFLOAT = 106,                           // 三通道 32位 浮点数 (RGB32f)
+    VK_FORMAT_R32G32B32A32_UINT = 107,                         // 四通道 32位 无符号整数
+    VK_FORMAT_R32G32B32A32_SINT = 108,                         // 四通道 32位 有符号整数
+    VK_FORMAT_R32G32B32A32_SFLOAT = 109,                       // 四通道 32位 浮点数 (RGBA32f, 常用!)
+    VK_FORMAT_R64_UINT = 110,                                   // 单通道 64位 无符号整数
+    VK_FORMAT_R64_SINT = 111,                                   // 单通道 64位 有符号整数
+    VK_FORMAT_R64_SFLOAT = 112,                                 // 单通道 64位 浮点数 (双精度)
+    VK_FORMAT_R64G64_UINT = 113,                                // 双通道 64位 无符号整数
+    VK_FORMAT_R64G64_SINT = 114,                                // 双通道 64位 有符号整数
+    VK_FORMAT_R64G64_SFLOAT = 115,                              // 双通道 64位 浮点数
+    VK_FORMAT_R64G64B64_UINT = 116,                            // 三通道 64位 无符号整数
+    VK_FORMAT_R64G64B64_SINT = 117,                            // 三通道 64位 有符号整数
+    VK_FORMAT_R64G64B64_SFLOAT = 118,                          // 三通道 64位 浮点数
+    VK_FORMAT_R64G64B64A64_UINT = 119,                         // 四通道 64位 无符号整数
+    VK_FORMAT_R64G64B64A64_SINT = 120,                         // 四通道 64位 有符号整数
+    VK_FORMAT_R64G64B64A64_SFLOAT = 121,                       // 四通道 64位 浮点数
+    VK_FORMAT_B10G11R11_UFLOAT_PACK32 = 122,                   // 11位浮点 + 11位浮点 + 10位浮点 紧凑
+    VK_FORMAT_E5B9G9R9_UFLOAT_PACK32 = 123,                     // 5位指数 + 9+9+9位尾数 紧凑 (HDR)
+    VK_FORMAT_D16_UNORM = 124,                                  // 16位 深度 (D16)
+    VK_FORMAT_X8_D24_UNORM_PACK32 = 125,                        // 8位未使用 + 24位深度 紧凑
+    VK_FORMAT_D32_SFLOAT = 126,                                 // 32位 深度浮点数 (D32f)
+    VK_FORMAT_S8_UINT = 127,                                   // 8位 模板
+    VK_FORMAT_D16_UNORM_S8_UINT = 128,                          // 16位深度 + 8位模板 紧凑
+    VK_FORMAT_D24_UNORM_S8_UINT = 129,                          // 24位深度 + 8位模板 紧凑 (常用!)
+    VK_FORMAT_D32_SFLOAT_S8_UINT = 130,                         // 32位深度浮点 + 8位模板
+    // ==================== 压缩纹理格式 (BC/ETC/ASTC) ====================
+    VK_FORMAT_BC1_RGB_UNORM_BLOCK = 131,                         // BC1 RGB 压缩 (64bit/块, 4x4像素)
+    VK_FORMAT_BC1_RGB_SRGB_BLOCK = 132,                           // BC1 RGB sRGB 压缩
+    VK_FORMAT_BC1_RGBA_UNORM_BLOCK = 133,                        // BC1 RGBA 压缩 (64bit/块, 带透明)
+    VK_FORMAT_BC1_RGBA_SRGB_BLOCK = 134,                         // BC1 RGBA sRGB 压缩
+    VK_FORMAT_BC2_UNORM_BLOCK = 135,                             // BC2 RGBA 压缩 (128bit/块, 4x4)
+    VK_FORMAT_BC2_SRGB_BLOCK = 136,                              // BC2 RGBA sRGB 压缩
+    VK_FORMAT_BC3_UNORM_BLOCK = 137,                             // BC3 RGBA 压缩 (128bit/块, 4x4)
+    VK_FORMAT_BC3_SRGB_BLOCK = 138,                              // BC3 RGBA sRGB 压缩 (DXT5)
+    VK_FORMAT_BC4_UNORM_BLOCK = 139,                            // BC4 单通道压缩 (64bit/块)
+    VK_FORMAT_BC4_SNORM_BLOCK = 140,                            // BC4 单通道有符号压缩
+    VK_FORMAT_BC5_UNORM_BLOCK = 141,                             // BC5 双通道压缩 (128bit/块)
+    VK_FORMAT_BC5_SNORM_BLOCK = 142,                            // BC5 双通道有符号压缩
+    VK_FORMAT_BC6H_UFLOAT_BLOCK = 143,                          // BC6H HDR 压缩 (128bit/块)
+    VK_FORMAT_BC6H_SFLOAT_BLOCK = 144,                          // BC6H 有符号浮点压缩
+    VK_FORMAT_BC7_UNORM_BLOCK = 145,                            // BC7 高质量 RGBA 压缩 (128bit/块)
+    VK_FORMAT_BC7_SRGB_BLOCK = 146,                             // BC7 RGBA sRGB 压缩
+    VK_FORMAT_ETC2_R8G8B8_UNORM_BLOCK = 147,                    // ETC2 RGB 压缩 (64bit/块, 4x4)
+    VK_FORMAT_ETC2_R8G8B8_SRGB_BLOCK = 148,                      // ETC2 RGB sRGB 压缩
+    VK_FORMAT_ETC2_R8G8B8A1_UNORM_BLOCK = 149,                 // ETC2 RGBA1 压缩 (64bit/块)
+    VK_FORMAT_ETC2_R8G8B8A1_SRGB_BLOCK = 150,                   // ETC2 RGBA1 sRGB 压缩
+    VK_FORMAT_ETC2_R8G8B8A8_UNORM_BLOCK = 151,                  // ETC2 RGBA 压缩 (64bit/块)
+    VK_FORMAT_ETC2_R8G8B8A8_SRGB_BLOCK = 152,                    // ETC2 RGBA sRGB 压缩
+    VK_FORMAT_EAC_R11_UNORM_BLOCK = 153,                        // EAC 单通道无符号压缩 (64bit/块)
+    VK_FORMAT_EAC_R11_SNORM_BLOCK = 154,                         // EAC 单通道有符号压缩
+    VK_FORMAT_EAC_R11G11_UNORM_BLOCK = 155,                     // EAC 双通道无符号压缩 (64bit/块)
+    VK_FORMAT_EAC_R11G11_SNORM_BLOCK = 156,                      // EAC 双通道有符号压缩
+    // ==================== ASTC 压缩格式 ====================
+    VK_FORMAT_ASTC_4x4_UNORM_BLOCK = 157,                        // ASTC 4x4 块压缩 (128bit/块)
+    VK_FORMAT_ASTC_4x4_SRGB_BLOCK = 158,                         // ASTC 4x4 sRGB 压缩
+    VK_FORMAT_ASTC_5x4_UNORM_BLOCK = 159,                        // ASTC 5x4 块压缩
+    VK_FORMAT_ASTC_5x4_SRGB_BLOCK = 160,                         // ASTC 5x4 sRGB 压缩
+    VK_FORMAT_ASTC_5x5_UNORM_BLOCK = 161,                        // ASTC 5x5 块压缩
+    VK_FORMAT_ASTC_5x5_SRGB_BLOCK = 162,                         // ASTC 5x5 sRGB 压缩
+    VK_FORMAT_ASTC_6x5_UNORM_BLOCK = 163,                        // ASTC 6x5 块压缩
+    VK_FORMAT_ASTC_6x5_SRGB_BLOCK = 164,                         // ASTC 6x5 sRGB 压缩
+    VK_FORMAT_ASTC_6x6_UNORM_BLOCK = 165,                        // ASTC 6x6 块压缩
+    VK_FORMAT_ASTC_6x6_SRGB_BLOCK = 166,                         // ASTC 6x6 sRGB 压缩
+    VK_FORMAT_ASTC_8x5_UNORM_BLOCK = 167,                        // ASTC 8x5 块压缩
+    VK_FORMAT_ASTC_8x5_SRGB_BLOCK = 168,                         // ASTC 8x5 sRGB 压缩
+    VK_FORMAT_ASTC_8x6_UNORM_BLOCK = 169,                        // ASTC 8x6 块压缩
+    VK_FORMAT_ASTC_8x6_SRGB_BLOCK = 170,                         // ASTC 8x6 sRGB 压缩
+    VK_FORMAT_ASTC_8x8_UNORM_BLOCK = 171,                        // ASTC 8x8 块压缩
+    VK_FORMAT_ASTC_8x8_SRGB_BLOCK = 172,                         // ASTC 8x8 sRGB 压缩
+    VK_FORMAT_ASTC_10x5_UNORM_BLOCK = 173,                       // ASTC 10x5 块压缩
+    VK_FORMAT_ASTC_10x5_SRGB_BLOCK = 174,                        // ASTC 10x5 sRGB 压缩
+    VK_FORMAT_ASTC_10x6_UNORM_BLOCK = 175,                       // ASTC 10x6 块压缩
+    VK_FORMAT_ASTC_10x6_SRGB_BLOCK = 176,                        // ASTC 10x6 sRGB 压缩
+    VK_FORMAT_ASTC_10x8_UNORM_BLOCK = 177,                       // ASTC 10x8 块压缩
+    VK_FORMAT_ASTC_10x8_SRGB_BLOCK = 178,                        // ASTC 10x8 sRGB 压缩
+    VK_FORMAT_ASTC_10x10_UNORM_BLOCK = 179,                      // ASTC 10x10 块压缩
+    VK_FORMAT_ASTC_10x10_SRGB_BLOCK = 180,                       // ASTC 10x10 sRGB 压缩
+    VK_FORMAT_ASTC_12x10_UNORM_BLOCK = 181,                      // ASTC 12x10 块压缩
+    VK_FORMAT_ASTC_12x10_SRGB_BLOCK = 182,                       // ASTC 12x10 sRGB 压缩
+    VK_FORMAT_ASTC_12x12_UNORM_BLOCK = 183,                      // ASTC 12x12 块压缩
+    VK_FORMAT_ASTC_12x12_SRGB_BLOCK = 184,                       // ASTC 12x12 sRGB 压缩
+    // ==================== YCbCr 格式 ====================
+    VK_FORMAT_G8B8G8R8_422_UNORM = 1000156000,                   // YCbCr 4:2:2 紧凑格式
+    VK_FORMAT_B8G8R8G8_422_UNORM = 1000156001,                   // YCbCr 4:2:2 BGR 顺序
+    VK_FORMAT_G8_B8_R8_3PLANE_420_UNORM = 1000156002,            // YCbCr 3平面 4:2:0
+    VK_FORMAT_G8_B8R8_2PLANE_420_UNORM = 1000156003,             // YCbCr 2平面 4:2:0
+    VK_FORMAT_G8_B8_R8_3PLANE_422_UNORM = 1000156004,            // YCbCr 3平面 4:2:2
+    VK_FORMAT_G8_B8R8_2PLANE_422_UNORM = 1000156005,             // YCbCr 2平面 4:2:2
+    VK_FORMAT_G8_B8_R8_3PLANE_444_UNORM = 1000156006,            // YCbCr 3平面 4:4:4
+    VK_FORMAT_R10X6_UNORM_PACK16 = 1000156007,                   // 10+6位 紧凑格式
+    VK_FORMAT_R10X6G10X6_UNORM_2PACK16 = 1000156008,             // 双通道 10+6位 紧凑
+    VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16 = 1000156009,   // 四通道 10+6位 紧凑
+    VK_FORMAT_G10X6B10X6G10X6R10X6_422_UNORM_4PACK16 = 1000156010, // YCbCr 4:2:2 10+6位
+    VK_FORMAT_B10X6G10X6R10X6G10X6_422_UNORM_4PACK16 = 1000156011, // YCbCr 4:2:2 BGR
+    VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_420_UNORM_3PACK16 = 1000156012, // YCbCr 3平面 10+6位
+    VK_FORMAT_G10X6_B10X6R10X6_2PLANE_420_UNORM_3PACK16 = 1000156013, // YCbCr 2平面 10+6位
     VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_422_UNORM_3PACK16 = 1000156014,
     VK_FORMAT_G10X6_B10X6R10X6_2PLANE_422_UNORM_3PACK16 = 1000156015,
     VK_FORMAT_G10X6_B10X6_R10X6_3PLANE_444_UNORM_3PACK16 = 1000156016,
@@ -1417,21 +1420,21 @@ typedef enum VkSamplerMipmapMode {
 } VkSamplerMipmapMode;
 
 typedef enum VkDescriptorType {
-    VK_DESCRIPTOR_TYPE_SAMPLER = 0,
-    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER = 1,
-    VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE = 2,
-    VK_DESCRIPTOR_TYPE_STORAGE_IMAGE = 3,
-    VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER = 4,
-    VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER = 5,
-    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER = 6,
-    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER = 7,
-    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC = 8,
-    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC = 9,
-    VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT = 10,
-    VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT = 1000138000,
-    VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR = 1000165000,
-    VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR,
-    VK_DESCRIPTOR_TYPE_MAX_ENUM = 0x7FFFFFFF
+    VK_DESCRIPTOR_TYPE_SAMPLER = 0,                    // 纯采样器：仅控制纹理采样方式（过滤、寻址模式），不绑定图像
+    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER = 1,     // 图像+采样器组合：最常用，如PBR材质纹理、IBL环境贴图采样
+    VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE = 2,              // 仅采样图像：图像与采样器分开绑定，用于灵活组合场景
+    VK_DESCRIPTOR_TYPE_STORAGE_IMAGE = 3,              // 可读写图像：计算着色器写入SSAO结果、深度金字塔等
+    VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER = 4,       // 均匀纹理缓冲：像纹理一样访问的小型只读数据缓冲
+    VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER = 5,       // 存储纹理缓冲：可读写的纹理化数据缓冲
+    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER = 6,             // 均匀缓冲(UBO)：存MVP矩阵、光源参数等只读常量数据
+    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER = 7,             // 存储缓冲(SSBO)：可读写，存实例数据、剔除结果等大规模数据
+    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC = 8,     // 动态均匀缓冲：偏移量动态设置，多实例/多物体复用同一缓冲
+    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC = 9,     // 动态存储缓冲：支持动态偏移的可读写存储缓冲
+    VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT = 10,          // 输入附件：子Pass间读取上一Subpass的颜色/深度，如延迟渲染、多Pass降噪
+    VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT = 1000138000, // 扩展内联均匀块：直接在描述符中存储小量Uniform数据
+    VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR = 1000165000, // KHR加速结构：光线追踪用，存储BVH等场景加速数据
+    VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, // NVIDIA加速结构：KHR扩展的兼容性别名
+    VK_DESCRIPTOR_TYPE_MAX_ENUM = 0x7FFFFFFF           // 枚举边界值：内部用于范围校验，不实际使用
 } VkDescriptorType;
 
 typedef enum VkAttachmentLoadOp {
@@ -1477,51 +1480,136 @@ typedef enum VkSubpassContents {
     VK_SUBPASS_CONTENTS_MAX_ENUM = 0x7FFFFFFF
 } VkSubpassContents;
 
+// VkAccessFlagBits: 访问标志, 定义对内存的访问类型
+// 用于 Pipeline Barrier 的 srcAccessMask / dstAccessMask 字段
+// 确保在管线阶段之间正确同步内存访问
 typedef enum VkAccessFlagBits {
+    // 间接命令读取 (vkCmdDrawIndirect / vkCmdDispatchIndirect 读取参数)
     VK_ACCESS_INDIRECT_COMMAND_READ_BIT = 0x00000001,
+
+    // 索引读取 (vkCmdDrawIndexed 读取索引缓冲)
     VK_ACCESS_INDEX_READ_BIT = 0x00000002,
+
+    // 顶点属性读取 (从顶点缓冲读取顶点属性)
     VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT = 0x00000004,
+
+    // Uniform 读取 (shader 读取 uniform buffer / push constant)
     VK_ACCESS_UNIFORM_READ_BIT = 0x00000008,
+
+    // 输入附件读取 (fragment shader 读取 input attachment)
     VK_ACCESS_INPUT_ATTACHMENT_READ_BIT = 0x00000010,
+
+    // Shader 读取 (shader 读取纹理/存储图像/uniform)
     VK_ACCESS_SHADER_READ_BIT = 0x00000020,
+
+    // Shader 写入 (compute shader 写入存储图像/缓冲)
     VK_ACCESS_SHADER_WRITE_BIT = 0x00000040,
+
+    // 颜色附件读取 (fragment shader 读取颜色附件, 如混合)
     VK_ACCESS_COLOR_ATTACHMENT_READ_BIT = 0x00000080,
+
+    // 颜色附件写入 (fragment shader 写入颜色附件)
     VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT = 0x00000100,
+
+    // 深度/模板附件读取 (深度测试/模板测试读取)
     VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT = 0x00000200,
+
+    // 深度/模板附件写入 (深度/模板写入)
     VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT = 0x00000400,
+
+    // 传输读取 (vkCmdCopyImage/Buffer 读取源)
     VK_ACCESS_TRANSFER_READ_BIT = 0x00000800,
+
+    // 传输写入 (vkCmdCopyImage/Buffer 写入目标)
     VK_ACCESS_TRANSFER_WRITE_BIT = 0x00001000,
+
+    // 主机读取 (CPU 读取 GPU 内存, vkMapMemory 后读取)
     VK_ACCESS_HOST_READ_BIT = 0x00002000,
+
+    // 主机写入 (CPU 写入 GPU 内存, vkMapMemory 后写入)
     VK_ACCESS_HOST_WRITE_BIT = 0x00004000,
+
+    // 内存读取 (通用内存读取)
     VK_ACCESS_MEMORY_READ_BIT = 0x00008000,
+
+    // 内存写入 (通用内存写入)
     VK_ACCESS_MEMORY_WRITE_BIT = 0x00010000,
+
+    // 变换反馈写入 (Transform Feedback 输出到缓冲)
     VK_ACCESS_TRANSFORM_FEEDBACK_WRITE_BIT_EXT = 0x02000000,
+
+    // 变换反馈计数器读取 (vkCmdBeginTransformFeedbackEXT 读取计数器)
     VK_ACCESS_TRANSFORM_FEEDBACK_COUNTER_READ_BIT_EXT = 0x04000000,
+
+    // 变换反馈计数器写入 (更新计数器缓冲)
     VK_ACCESS_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT = 0x08000000,
+
+    // 条件渲染读取 (vkCmdBeginConditionalRenderingEXT 读取条件)
     VK_ACCESS_CONDITIONAL_RENDERING_READ_BIT_EXT = 0x00100000,
+
+    // 颜色附件非相干读取 (EXT color attachment 扩展)
     VK_ACCESS_COLOR_ATTACHMENT_READ_NONCOHERENT_BIT_EXT = 0x00080000,
+
+    // 光线追踪加速结构读取 (ray tracing 读取 AS)
     VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR = 0x00200000,
+
+    // 光线追踪加速结构写入 (构建/更新 AS)
     VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR = 0x00400000,
+
+    // 可变速率着色图像读取 (shading rate image 读取)
     VK_ACCESS_SHADING_RATE_IMAGE_READ_BIT_NV = 0x00800000,
+
+    // 片段密度图读取 (fragment density map 读取)
     VK_ACCESS_FRAGMENT_DENSITY_MAP_READ_BIT_EXT = 0x01000000,
+
+    // 命令预处理读取 (command preprocess 读取)
     VK_ACCESS_COMMAND_PREPROCESS_READ_BIT_NV = 0x00020000,
+
+    // 命令预处理写入 (command preprocess 写入)
     VK_ACCESS_COMMAND_PREPROCESS_WRITE_BIT_NV = 0x00040000,
+
+    // NVIDIA 加速结构读取 (KHR 别名)
     VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR,
+
+    // NVIDIA 加速结构写入 (KHR 别名)
     VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR,
+
+    // 枚举最大值
     VK_ACCESS_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VkAccessFlagBits;
 typedef VkFlags VkAccessFlags;
 
+// VkImageAspectFlagBits: 图像方面标志, 定义图像数据的类型
+// 用于 ImageSubresourceRange / ImageSubresourceLayers 的 aspectMask
 typedef enum VkImageAspectFlagBits {
+    // 颜色方面 (RGBA 颜色数据)
     VK_IMAGE_ASPECT_COLOR_BIT = 0x00000001,
+
+    // 深度方面 (深度缓冲数据, D32_SFLOAT 或 D24_UNORM)
     VK_IMAGE_ASPECT_DEPTH_BIT = 0x00000002,
+
+    // 模板方面 (模板缓冲数据, S8_UINT 或 D24_UNORM_S8_UINT)
     VK_IMAGE_ASPECT_STENCIL_BIT = 0x00000004,
+
+    // 元数据方面 (图像元数据, 用于 vkGetImageSubresourceLayout)
     VK_IMAGE_ASPECT_METADATA_BIT = 0x00000008,
+
+    // 平面 0 (多平面图像的 Y 平面或 R 平面)
     VK_IMAGE_ASPECT_PLANE_0_BIT = 0x00000010,
+
+    // 平面 1 (多平面图像的 U 平面或 G 平面)
     VK_IMAGE_ASPECT_PLANE_1_BIT = 0x00000020,
+
+    // 平面 2 (多平面图像的 V 平面或 B 平面)
     VK_IMAGE_ASPECT_PLANE_2_BIT = 0x00000040,
+
+    // 内存平面 0 (EXT 扩展)
     VK_IMAGE_ASPECT_MEMORY_PLANE_0_BIT_EXT = 0x00000080,
+
+    // 内存平面 1 (EXT 扩展)
     VK_IMAGE_ASPECT_MEMORY_PLANE_1_BIT_EXT = 0x00000100,
+
+    // 内存平面 2 (EXT 扩展)
     VK_IMAGE_ASPECT_MEMORY_PLANE_2_BIT_EXT = 0x00000200,
     VK_IMAGE_ASPECT_MEMORY_PLANE_3_BIT_EXT = 0x00000400,
     VK_IMAGE_ASPECT_PLANE_0_BIT_KHR = VK_IMAGE_ASPECT_PLANE_0_BIT,
@@ -1711,37 +1799,126 @@ typedef enum VkDeviceQueueCreateFlagBits {
 } VkDeviceQueueCreateFlagBits;
 typedef VkFlags VkDeviceQueueCreateFlags;
 
+// VkPipelineStageFlagBits: 管线阶段标志, 定义渲染管线中的各个处理阶段
+// 用于同步操作 (Pipeline Barrier、Event、WaitEvents) 的 srcStageMask / dstStageMask
+// 多个标志可以通过位或 (|) 组合使用
 typedef enum VkPipelineStageFlagBits {
+    // 命令缓冲开始处, 管线最前端
+    // 通常用于等待所有先前操作完成
     VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT = 0x00000001,
+
+    // 间接绘制阶段 (vkCmdDrawIndirect 读取参数前)
+    // 用于同步间接绘制命令的参数读取
     VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT = 0x00000002,
+
+    // 顶点输入阶段 (从顶点缓冲读取属性数据前)
+    // 用于同步顶点属性绑定和数据输入
     VK_PIPELINE_STAGE_VERTEX_INPUT_BIT = 0x00000004,
+
+    // 顶点着色器阶段 (执行顶点着色器前)
+    // 用于同步顶点处理开始
     VK_PIPELINE_STAGE_VERTEX_SHADER_BIT = 0x00000008,
+
+    // 曲面细分控制着色器阶段 (TCS 执行前)
+    // 用于同步细分控制点生成
     VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT = 0x00000010,
+
+    // 曲面细分评估着色器阶段 (TES 执行前)
+    // 用于同步细分曲面计算
     VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT = 0x00000020,
+
+    // 几何着色器阶段 (执行几何着色器前)
+    // 用于同步几何体处理
     VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT = 0x00000040,
+
+    // 片段着色器阶段 (执行片段着色器前)
+    // 用于同步片段处理开始 (最常用的阶段之一)
     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT = 0x00000080,
+
+    // 早期片段测试阶段 (深度测试、模板测试开始时)
+    // 在 fragment shader 之前执行, 用于 early-z
     VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT = 0x00000100,
+
+    // 晚期片段测试阶段 (深度测试、模板测试结束时)
+    // 在 fragment shader 之后执行, 用于 late-z
     VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT = 0x00000200,
+
+    // 颜色附件输出阶段 (片段着色器写入颜色附件前)
+    // 用于同步颜色缓冲写入
     VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT = 0x00000400,
+
+    // 计算着色器阶段 (执行计算着色器前)
+    // 用于同步 GPU 计算开始
     VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT = 0x00000800,
+
+    // 传输阶段 (vkCmdCopyImage、vkCmdBlitImage 等传输命令执行时)
+    // 用于同步内存传输操作
     VK_PIPELINE_STAGE_TRANSFER_BIT = 0x00001000,
+
+    // 命令缓冲结束处, 管线最末端
+    // 通常用于等待所有操作完成
     VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT = 0x00002000,
+
+    // 主机阶段 (CPU 端访问数据前)
+    // 用于同步 CPU 读取 GPU 数据
     VK_PIPELINE_STAGE_HOST_BIT = 0x00004000,
+
+    // 所有图形管线阶段 (所有 graphics 阶段的组合)
+    // 便捷标志, 用于同步整个图形渲染管线
     VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT = 0x00008000,
+
+    // 所有阶段 (graphics + compute + transfer)
+    // 最宽松的同步标志, 确保所有操作完成
     VK_PIPELINE_STAGE_ALL_COMMANDS_BIT = 0x00010000,
+
+    // 变换反馈阶段 (Transform Feedback 输出前)
+    // 用于同步 GPU 顶点输出到缓冲
     VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT = 0x01000000,
+
+    // 条件渲染阶段 (vkCmdBeginConditionalRenderingEXT 前)
+    // 用于同步条件渲染判断
     VK_PIPELINE_STAGE_CONDITIONAL_RENDERING_BIT_EXT = 0x00040000,
+
+    // 光线追踪着色器阶段 (Ray Tracing Shader 执行前)
+    // 用于同步光线追踪计算开始
     VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR = 0x00200000,
+
+    // 光线追踪加速结构构建阶段 (Acceleration Structure 构建前)
+    // 用于同步加速结构生成
     VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR = 0x02000000,
+
+    // 可变速率着色图像阶段 (Shading Rate Image 使用前)
+    // 用于同步可变着色率设置
     VK_PIPELINE_STAGE_SHADING_RATE_IMAGE_BIT_NV = 0x00400000,
+
+    // Task Shader 阶段 (NVIDIA Mesh Shader 扩展)
+    // 用于同步任务着色器执行
     VK_PIPELINE_STAGE_TASK_SHADER_BIT_NV = 0x00080000,
+
+    // Mesh Shader 阶段 (NVIDIA Mesh Shader 扩展)
+    // 用于同步网格着色器执行
     VK_PIPELINE_STAGE_MESH_SHADER_BIT_NV = 0x00100000,
+
+    // 片段密度处理阶段 (Fragment Density Map 处理前)
+    // 用于同步密度图应用
     VK_PIPELINE_STAGE_FRAGMENT_DENSITY_PROCESS_BIT_EXT = 0x00800000,
+
+    // 命令预处理阶段 (Command Preprocess 前)
+    // 用于同步命令预处理
     VK_PIPELINE_STAGE_COMMAND_PREPROCESS_BIT_NV = 0x00020000,
+
+    // NVIDIA 光线追踪着色器 (KHR 的别名)
     VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR,
+
+    // NVIDIA 光线追踪加速结构构建 (KHR 的别名)
     VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV = VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR,
+
+    // 枚举最大值 (用于验证)
     VK_PIPELINE_STAGE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
 } VkPipelineStageFlagBits;
+
+// VkPipelineStageFlags: VkPipelineStageFlagBits 的位掩码类型
+// 用于 PipelineBarrier 的 srcStageMask / dstStageMask 字段
 typedef VkFlags VkPipelineStageFlags;
 typedef VkFlags VkMemoryMapFlags;
 
@@ -1889,29 +2066,29 @@ typedef enum VkPipelineShaderStageCreateFlagBits {
 typedef VkFlags VkPipelineShaderStageCreateFlags;
 
 typedef enum VkShaderStageFlagBits {
-    VK_SHADER_STAGE_VERTEX_BIT = 0x00000001,
-    VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT = 0x00000002,
-    VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT = 0x00000004,
-    VK_SHADER_STAGE_GEOMETRY_BIT = 0x00000008,
-    VK_SHADER_STAGE_FRAGMENT_BIT = 0x00000010,
-    VK_SHADER_STAGE_COMPUTE_BIT = 0x00000020,
-    VK_SHADER_STAGE_ALL_GRAPHICS = 0x0000001F,
-    VK_SHADER_STAGE_ALL = 0x7FFFFFFF,
-    VK_SHADER_STAGE_RAYGEN_BIT_KHR = 0x00000100,
-    VK_SHADER_STAGE_ANY_HIT_BIT_KHR = 0x00000200,
-    VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR = 0x00000400,
-    VK_SHADER_STAGE_MISS_BIT_KHR = 0x00000800,
-    VK_SHADER_STAGE_INTERSECTION_BIT_KHR = 0x00001000,
-    VK_SHADER_STAGE_CALLABLE_BIT_KHR = 0x00002000,
-    VK_SHADER_STAGE_TASK_BIT_NV = 0x00000040,
-    VK_SHADER_STAGE_MESH_BIT_NV = 0x00000080,
-    VK_SHADER_STAGE_RAYGEN_BIT_NV = VK_SHADER_STAGE_RAYGEN_BIT_KHR,
-    VK_SHADER_STAGE_ANY_HIT_BIT_NV = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-    VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,
-    VK_SHADER_STAGE_MISS_BIT_NV = VK_SHADER_STAGE_MISS_BIT_KHR,
-    VK_SHADER_STAGE_INTERSECTION_BIT_NV = VK_SHADER_STAGE_INTERSECTION_BIT_KHR,
-    VK_SHADER_STAGE_CALLABLE_BIT_NV = VK_SHADER_STAGE_CALLABLE_BIT_KHR,
-    VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+    VK_SHADER_STAGE_VERTEX_BIT = 0x00000001,                    // 顶点着色器阶段：处理顶点变换、属性计算等
+    VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT = 0x00000002,      // 细分控制着色器阶段：控制曲面细分程度
+    VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT = 0x00000004,   // 细分评估着色器阶段：生成细分后的顶点与图元
+    VK_SHADER_STAGE_GEOMETRY_BIT = 0x00000008,                  // 几何着色器阶段：增删改图元、生成新几何
+    VK_SHADER_STAGE_FRAGMENT_BIT = 0x00000010,                  // 片段着色器阶段：计算像素颜色、深度、遮挡等
+    VK_SHADER_STAGE_COMPUTE_BIT = 0x00000020,                   // 计算着色器阶段：通用GPU计算，如剔除、降采样
+    VK_SHADER_STAGE_ALL_GRAPHICS = 0x0000001F,                  // 所有图形管线阶段的组合（顶点→片段）
+    VK_SHADER_STAGE_ALL = 0x7FFFFFFF,                           // 所有着色器阶段的组合（图形+计算+扩展）
+    VK_SHADER_STAGE_RAYGEN_BIT_KHR = 0x00000100,                // KHR光线追踪：光线生成着色器，发起光线
+    VK_SHADER_STAGE_ANY_HIT_BIT_KHR = 0x00000200,               // KHR光线追踪：任意命中着色器，处理光线任意命中
+    VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR = 0x00000400,           // KHR光线追踪：最近命中着色器，处理光线最近命中
+    VK_SHADER_STAGE_MISS_BIT_KHR = 0x00000800,                  // KHR光线追踪：未命中着色器，处理光线未命中场景
+    VK_SHADER_STAGE_INTERSECTION_BIT_KHR = 0x00001000,          // KHR光线追踪：相交测试着色器，自定义图元相交逻辑
+    VK_SHADER_STAGE_CALLABLE_BIT_KHR = 0x00002000,              // KHR光线追踪：可调用着色器，光线追踪中可复用的函数
+    VK_SHADER_STAGE_TASK_BIT_NV = 0x00000040,                   // NVIDIA任务着色器：生成网格着色器任务
+    VK_SHADER_STAGE_MESH_BIT_NV = 0x00000080,                   // NVIDIA网格着色器：替代传统顶点/几何着色器处理图元
+    VK_SHADER_STAGE_RAYGEN_BIT_NV = VK_SHADER_STAGE_RAYGEN_BIT_KHR,             // NVIDIA光线生成着色器：KHR扩展的兼容性别名
+    VK_SHADER_STAGE_ANY_HIT_BIT_NV = VK_SHADER_STAGE_ANY_HIT_BIT_KHR,           // NVIDIA任意命中着色器：KHR扩展的兼容性别名
+    VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR,   // NVIDIA最近命中着色器：KHR扩展的兼容性别名
+    VK_SHADER_STAGE_MISS_BIT_NV = VK_SHADER_STAGE_MISS_BIT_KHR,                 // NVIDIA未命中着色器：KHR扩展的兼容性别名
+    VK_SHADER_STAGE_INTERSECTION_BIT_NV = VK_SHADER_STAGE_INTERSECTION_BIT_KHR, // NVIDIA相交测试着色器：KHR扩展的兼容性别名
+    VK_SHADER_STAGE_CALLABLE_BIT_NV = VK_SHADER_STAGE_CALLABLE_BIT_KHR,         // NVIDIA可调用着色器：KHR扩展的兼容性别名
+    VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF             // 枚举边界值：内部用于范围校验，不实际使用
 } VkShaderStageFlagBits;
 
 typedef enum VkCullModeFlagBits {
@@ -4195,25 +4372,25 @@ typedef VkFlags VkCommandPoolTrimFlags;
 typedef VkFlags VkDescriptorUpdateTemplateCreateFlags;
 
 typedef enum VkExternalMemoryHandleTypeFlagBits {
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT = 0x00000001,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT = 0x00000002,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT = 0x00000004,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT = 0x00000008,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT = 0x00000010,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_HEAP_BIT = 0x00000020,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT = 0x00000040,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT = 0x00000200,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID = 0x00000400,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT = 0x00000080,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_MAPPED_FOREIGN_MEMORY_BIT_EXT = 0x00000100,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_HEAP_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_HEAP_BIT,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT,
-    VK_EXTERNAL_MEMORY_HANDLE_TYPE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT = 0x00000001,                              // Linux 不透明文件描述符，跨进程共享内存
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT = 0x00000002,                           // Windows 不透明 NT 句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT = 0x00000004,                       // Windows 内核模式不透明句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT = 0x00000008,                          // Windows Direct3D 11 纹理句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT = 0x00000010,                      // Windows 内核模式 D3D11 纹理句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_HEAP_BIT = 0x00000020,                             // Windows Direct3D 12 堆句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT = 0x00000040,                         // Windows Direct3D 12 资源句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_DMA_BUF_BIT_EXT = 0x00000200,                            // Linux DMA-BUF 共享内存句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_ANDROID_HARDWARE_BUFFER_BIT_ANDROID = 0x00000400,        // Android 硬件缓冲区句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_ALLOCATION_BIT_EXT = 0x00000080,                    // 主机分配内存句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_HOST_MAPPED_FOREIGN_MEMORY_BIT_EXT = 0x00000100,         // 主机映射外部内存句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT, // KHR 兼容别名：Linux 不透明文件描述符
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_BIT, // KHR 兼容别名：Windows 不透明句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_WIN32_KMT_BIT, // KHR 兼容别名：Windows 内核模式不透明句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_BIT, // KHR 兼容别名：D3D11 纹理句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D11_TEXTURE_KMT_BIT, // KHR 兼容别名：内核模式 D3D11 纹理句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_HEAP_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_HEAP_BIT, // KHR 兼容别名：D3D12 堆句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE_BIT, // KHR 兼容别名：D3D12 资源句柄
+    VK_EXTERNAL_MEMORY_HANDLE_TYPE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF // 枚举边界值，内部使用
 } VkExternalMemoryHandleTypeFlagBits;
 typedef VkFlags VkExternalMemoryHandleTypeFlags;
 
